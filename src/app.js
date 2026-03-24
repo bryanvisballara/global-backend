@@ -1,9 +1,11 @@
 const cors = require("cors");
 const express = require("express");
+const path = require("path");
 const authRoutes = require("./routes/authRoutes");
 const { isDatabaseReady } = require("./config/db");
 
 const app = express();
+const publicDirectory = path.join(__dirname, "..", "public");
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 const corsOptions = {
@@ -24,6 +26,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use("/app", express.static(publicDirectory));
 
 app.get("/", (req, res) => {
   res.status(200).json({

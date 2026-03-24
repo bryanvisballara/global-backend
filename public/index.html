@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Login</title>
+    <meta
+      name="description"
+      content="Acceso mobile-first para Global Imports, con seguimiento de vehiculos de alta gama y portal administrativo optimizado para WebView."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="device-stage">
+        <div class="device-sheen"></div>
+
+        <div class="brand-zone">
+          <img
+            id="logo-symbol"
+            class="brand-symbol"
+            src="/app/logoblancoleon.png"
+            alt="Logo blanco de leon"
+          />
+          <img
+            id="logo-wordmark"
+            class="brand-wordmark"
+            src="/app/textoblancoglobal.png"
+            alt="Texto blanco Global"
+          />
+          <p class="brand-fallback" id="brand-fallback">GLOBAL IMPORTS</p>
+        </div>
+
+        <section class="story-panel">
+          
+        </section>
+
+        <section class="auth-panel">
+          <div class="segmented-control" aria-label="Seleccion de acceso">
+            <button class="segment active" data-role="client" type="button">Cliente</button>
+            <button class="segment" data-role="admin" type="button">Administrador</button>
+          </div>
+
+          <div class="auth-copy">
+            <h2 id="form-title">Accede a tu seguimiento</h2>
+            <p id="form-subtitle">
+              Entra para consultar el estado de tu vehiculo por tracking y revisar novedades del pedido.
+            </p>
+          </div>
+
+          <form id="login-form" class="login-form">
+            <label>
+              <span>Correo</span>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autocomplete="email"
+                placeholder="cliente@globalimports.com"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Contraseña</span>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Tu clave de acceso"
+                required
+              />
+            </label>
+
+            <div class="utility-row">
+              <label class="checkbox-line">
+                <input type="checkbox" id="remember" />
+                <span>Mantener acceso</span>
+              </label>
+              <button class="link-button" type="button">¿Olvidaste tu contraseña?</button>
+            </div>
+
+            <button id="submit-button" class="primary-button" type="submit">
+              Ingresar a mi cuenta
+            </button>
+
+            <p class="signup-prompt">
+              Aun no tienes cuenta?
+              <button class="signup-link" type="button">Registrate ahora</button>
+            </p>
+
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app/app-client.js"></script>
+  </body>
+</html>
