@@ -1,6 +1,7 @@
 const cors = require("cors");
 const express = require("express");
 const authRoutes = require("./routes/authRoutes");
+const { isDatabaseReady } = require("./config/db");
 
 const app = express();
 
@@ -27,12 +28,26 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.status(200).json({
     name: "global app api",
-    status: "ok",
+    status: isDatabaseReady() ? "ok" : "degraded",
+    database: isDatabaseReady() ? "connected" : "disconnected",
   });
 });
 
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.status(200).json({
+    status: isDatabaseReady() ? "ok" : "degraded",
+    database: isDatabaseReady() ? "connected" : "disconnected",
+  });
+});
+
+app.use("/api/auth", (req, res, next) => {
+  if (!isDatabaseReady()) {
+    return res.status(503).json({
+      message: "Database unavailable. Please try again in a moment.",
+    });
+  }
+
+  next();
 });
 
 app.use("/api/auth", authRoutes);
