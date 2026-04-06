@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Clientes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <p class="section-tag">Módulo 2</p>
+          <h1>Creación de cliente</h1>
+          <p class="dashboard-lead">Crea y administra la base de clientes de la plataforma.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout">
+              <form id="client-form" class="dashboard-form">
+                <label><span>Nombre</span><input name="name" type="text" placeholder="Nombre completo" required /></label>
+                <label><span>Correo</span><input name="email" type="email" placeholder="cliente@correo.com" required /></label>
+                <label><span>Teléfono</span><input name="phone" type="text" placeholder="+58..." /></label>
+                <label><span>Contraseña inicial</span><input name="password" type="text" placeholder="Temporal para el cliente" required /></label>
+                <button class="primary-button" type="submit">Crear cliente</button>
+                <p id="client-feedback" class="feedback" aria-live="polite"></p>
+              </form>
+              <div>
+                <div class="module-metric-inline"><span>Total</span><strong id="clients-count">0</strong></div>
+                <div id="clients-list" class="dashboard-list"></div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script src="/app/admin-common.js"></script>
+    <script src="/app/admin-clients.js"></script>
+  </body>
+</html>

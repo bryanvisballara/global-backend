@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Dashboard</title>
+    <meta
+      name="description"
+      content="Dashboard administrativo de Global Imports con acceso a publicaciones, clientes, pedidos, seguimiento y mantenimientos."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+
+        <header class="dashboard-header">
+          <div>
+            <p class="section-tag">Dashboard</p>
+            <h1>Centro de control administrativo</h1>
+            <p class="dashboard-lead">
+              Entra a cada módulo por separado para operar publicaciones, clientes, pedidos, seguimiento y mantenimientos.
+            </p>
+            <p id="dashboard-feedback" class="feedback" aria-live="polite"></p>
+          </div>
+
+          <div class="dashboard-header-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="status-grid">
+          <article class="metric-card">
+            <span>Clientes</span>
+            <strong id="clients-count">0</strong>
+            <p>Usuarios cliente creados en la base de datos.</p>
+          </article>
+
+          <article class="metric-card">
+            <span>Solicitudes</span>
+            <strong id="requests-count">0</strong>
+            <p>Pedidos o separaciones hechas por clientes desde su portal.</p>
+          </article>
+
+          <article class="metric-card">
+            <span>Pedidos</span>
+            <strong id="orders-count">0</strong>
+            <p>Órdenes disponibles para seguimiento y gestión.</p>
+          </article>
+
+          <article class="metric-card">
+            <span>Mantenimientos</span>
+            <strong id="maintenance-count">0</strong>
+            <p>Controles preventivos programados o vencidos.</p>
+          </article>
+
+          <article class="metric-card">
+            <span>Publicaciones</span>
+            <strong id="posts-count">0</strong>
+            <p>Contenido preparado para el feed del cliente.</p>
+          </article>
+        </section>
+
+        <section class="nav-grid">
+          <a class="nav-card" href="/app/admin-posts.html">
+            <p class="section-tag">Módulo 1</p>
+            <h2>Publicaciones</h2>
+            <p>Crea el feed tipo red social del cliente con carruseles o video.</p>
+            <span>Abrir módulo</span>
+          </a>
+
+          <a class="nav-card" href="/app/admin-clients.html">
+            <p class="section-tag">Módulo 2</p>
+            <h2>Creación de cliente</h2>
+            <p>Da de alta clientes y deja sus accesos iniciales listos.</p>
+            <span>Abrir módulo</span>
+          </a>
+
+          <a class="nav-card" href="/app/admin-orders.html">
+            <p class="section-tag">Módulo 3</p>
+            <h2>Creación de pedido</h2>
+            <p>Registra vehículos, tracking, fechas, media y notas internas.</p>
+            <span>Abrir módulo</span>
+          </a>
+
+          <a class="nav-card" href="/app/admin-client-requests.html">
+            <p class="section-tag">Módulo 4</p>
+            <h2>Solicitudes</h2>
+            <p>Consulta los pedidos hechos por clientes y sus datos de contacto.</p>
+            <span>Abrir módulo</span>
+          </a>
+
+          <a class="nav-card" href="/app/admin-tracking.html">
+            <p class="section-tag">Módulo 5</p>
+            <h2>Seguimiento de pedidos</h2>
+            <p>Actualiza los 7 pasos del proceso y agrega evidencia por etapa.</p>
+            <span>Abrir módulo</span>
+          </a>
+
+          <a class="nav-card" href="/app/admin-maintenance.html">
+            <p class="section-tag">Módulo 6</p>
+            <h2>Mantenimientos preventivos</h2>
+            <p>Gestiona el seguimiento semestral de vehículos y contacto al cliente.</p>
+            <span>Abrir módulo</span>
+          </a>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app/admin-common.js"></script>
+    <script src="/app/admin-dashboard.js"></script>
+  </body>
+</html>

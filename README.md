@@ -10,6 +10,9 @@ Dominio temporal del frontend:
 
 - `npm run dev`: inicia el servidor con nodemon.
 - `npm start`: inicia el servidor en modo normal.
+- `npm run seed:admin`: crea o actualiza el usuario administrativo inicial.
+- `npm run seed:client`: crea o actualiza un cliente inicial para entrar al portal.
+- `npm run seed:posts`: crea o actualiza 3 publicaciones demo para el feed del cliente.
 
 ## Endpoints iniciales
 
@@ -17,15 +20,68 @@ Dominio temporal del frontend:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `POST /api/client-requests`
+- `GET /api/admin/users`
+- `POST /api/admin/users/clients`
+- `GET /api/admin/client-requests`
+- `GET /api/admin/orders`
+- `POST /api/admin/orders`
+- `GET /api/admin/orders/:orderId`
+- `PATCH /api/admin/orders/:orderId`
+- `PATCH /api/admin/orders/:orderId/tracking-steps/:stepKey`
+- `GET /api/admin/maintenance`
+- `PATCH /api/admin/maintenance/:maintenanceId`
+- `POST /api/admin/posts`
+- `GET /api/admin/posts`
 
 ## Roles
 
-- `client`: se crea automaticamente al registrarse.
-- `admin`: se crea automaticamente al iniciar el servidor si `ADMIN_NAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` existen en el entorno.
+- El cliente no selecciona rol en el frontend.
+- El registro publico crea usuarios con rol `client` desde backend.
+- El acceso administrativo se controla con rol `admin` y rutas protegidas.
+
+## Seed administrativo
+
+Ejecuta `npm run seed:admin` con la base conectada.
+
+Valores por defecto del seed:
+
+- `GLOBAL_ADMIN_NAME=Global Admin`
+- `GLOBAL_ADMIN_EMAIL=admin@globalimports.com`
+- `GLOBAL_ADMIN_PASSWORD=GlobalAdmin123!`
+
+Puedes sobreescribirlos por entorno antes de ejecutar el comando.
+
+## Seed cliente
+
+Ejecuta `npm run seed:client` con la base conectada.
+
+Valores por defecto del seed:
+
+- `GLOBAL_CLIENT_NAME=Cliente Demo`
+- `GLOBAL_CLIENT_EMAIL=cliente@globalimports.com`
+- `GLOBAL_CLIENT_PASSWORD=ClienteGlobal123!`
+- `GLOBAL_CLIENT_PHONE=+58 412-000-0000`
+
+Puedes sobreescribirlos por entorno antes de ejecutar el comando.
 
 ## Variables de entorno
 
 Usa el archivo `.env.example` como referencia.
+
+Variables necesarias para Cloudinary si quieres subir archivos desde el portal admin:
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `CLOUDINARY_FOLDER` opcional, por defecto `global-app/posts`
+
+## Publicaciones admin -> feed cliente
+
+- El admin publica en `POST /api/admin/posts`.
+- Si sube imágenes o video, el backend los envía a Cloudinary.
+- Mongo guarda las URLs seguras (`secure_url`) devueltas por Cloudinary.
+- El portal del cliente consume esas publicaciones desde Mongo a través de `GET /api/client/posts`.
 
 ## Render
 

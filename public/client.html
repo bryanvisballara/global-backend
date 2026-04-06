@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Portal del cliente</title>
+    <meta
+      name="description"
+      content="Portal del cliente de Global Imports con feed, seguimiento de pedidos, nueva orden y mantenimiento preventivo."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="client-shell">
+      <section class="client-stage">
+        <div class="client-sheen"></div>
+
+        <header class="client-header">
+          <div class="client-header-side left">
+            <button id="client-menu-button" class="icon-button" type="button" aria-label="Abrir menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 6.5h16v2H4Zm0 4.5h16v2H4Zm0 4.5h16v2H4Z"></path>
+              </svg>
+            </button>
+
+            <div id="session-menu" class="client-popover" hidden>
+              <button id="client-logout-button" class="popover-action" type="button">Cerrar sesion</button>
+            </div>
+          </div>
+
+          <div class="client-brand-center">
+            <img class="client-brand-logo" src="/app/logoblancoleon.png" alt="Logo blanco de leon" />
+          </div>
+
+          <div class="client-header-side right">
+            <button id="notifications-button" class="icon-button notification-button" type="button" aria-label="Abrir notificaciones">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a4 4 0 0 0-4 4v1.2A6.8 6.8 0 0 1 6 13v2.6L4.7 17a1 1 0 0 0 .8 1.6h13a1 1 0 0 0 .8-1.6L18 15.6V13a6.8 6.8 0 0 1-2-4.8V7a4 4 0 0 0-4-4Zm0 18a2.7 2.7 0 0 0 2.5-1.7h-5A2.7 2.7 0 0 0 12 21Z"></path>
+              </svg>
+              <span id="notification-count" class="notification-pill">0</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="client-hero">
+          <div>
+            <h1 id="client-greeting">Tu experiencia Global Imports</h1>
+          </div>
+        </section>
+
+        <section class="client-views">
+          <section class="client-view is-active" data-view="home">
+            <div id="feed-refresh-indicator" class="feed-refresh-indicator" aria-live="polite">
+              <span id="feed-refresh-label">Desliza hacia abajo para actualizar</span>
+            </div>
+            <div id="client-feed" class="client-feed-list"></div>
+            <div id="feed-load-more-sentinel" class="feed-load-more-sentinel" aria-hidden="true"></div>
+            <p id="feed-loading-state" class="feed-loading-state"></p>
+          </section>
+
+          <section class="client-view" data-view="tracking">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Seguimiento</p>
+                <h2>Consulta tu guia</h2>
+                <p class="dashboard-lead">Escribe tu numero de guia y te mostramos las actualizaciones del pedido.</p>
+              </div>
+            </div>
+
+            <div class="tracking-search-card">
+              <label class="tracking-search-label" for="tracking-search-input">Numero de guia</label>
+              <input id="tracking-search-input" class="tracking-search-input" list="tracking-search-options" type="text" placeholder="Ej. GI-2026-001" autocomplete="off" />
+              <datalist id="tracking-search-options"></datalist>
+            </div>
+
+            <div id="tracking-results" class="tracking-results"></div>
+          </section>
+
+          <section class="client-view" data-view="order">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Nueva orden</p>
+                <h2>Arma tu carro</h2>
+                <p class="dashboard-lead">Deja lista la configuracion que deseas y Global Imports la recibe en el portal administrativo.</p>
+              </div>
+            </div>
+
+            <form id="client-request-form" class="client-form-card">
+              <div class="form-row two-up">
+                <label><span>Nombre</span><input id="request-name" type="text" readonly /></label>
+                <label><span>Correo</span><input id="request-email" type="email" readonly /></label>
+              </div>
+
+              <div class="form-row two-up">
+                <label><span>Telefono</span><input name="customerPhone" type="tel" placeholder="Tu numero de contacto" required /></label>
+                <label><span>Monto de reserva</span><input name="reservationAmount" type="number" min="0" placeholder="Monto referencial" required /></label>
+              </div>
+
+              <div class="form-row three-up">
+                <label><span>Marca</span><input name="brand" type="text" placeholder="Mercedes-Benz" required /></label>
+                <label><span>Modelo</span><input name="model" type="text" placeholder="G63" required /></label>
+                <label><span>Ano</span><input name="year" type="number" min="1900" placeholder="2026" /></label>
+              </div>
+
+              <div class="form-row three-up">
+                <label><span>Version</span><input name="version" type="text" placeholder="AMG" /></label>
+                <label><span>Color</span><input name="color" type="text" placeholder="Negro obsidiana" /></label>
+                <label><span>Tapiceria</span><input name="upholstery" type="text" placeholder="Cuero negro" /></label>
+              </div>
+
+              <div class="form-row two-up">
+                <label>
+                  <span>Moneda</span>
+                  <select name="currency">
+                    <option value="USD">USD</option>
+                    <option value="VES">VES</option>
+                  </select>
+                </label>
+                <label><span>Notas</span><textarea name="notes" rows="4" placeholder="Especificaciones, extras, paquete AMG, blindaje, etc."></textarea></label>
+              </div>
+
+              <button class="primary-button" type="submit">Enviar nueva orden</button>
+              <p id="client-request-feedback" class="feedback" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section class="client-view" data-view="maintenance">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Mantenimiento preventivo</p>
+                <h2>Reporta kilometraje o ultimo servicio</h2>
+                <p class="dashboard-lead">Este reporte se refleja en el portal administrativo de Global Imports.</p>
+              </div>
+            </div>
+
+            <form id="client-maintenance-form" class="client-form-card">
+              <label>
+                <span>Vehiculo / guia</span>
+                <select id="client-maintenance-id" name="maintenanceId" required></select>
+              </label>
+
+              <div class="form-row two-up">
+                <label><span>Kilometraje actual</span><input name="reportedMileage" type="number" min="0" placeholder="Ej. 24500" /></label>
+                <label><span>Ultima fecha de mantenimiento</span><input name="lastServiceDate" type="date" /></label>
+              </div>
+
+              <label><span>Notas para Global</span><textarea name="clientNotes" rows="4" placeholder="Observaciones, ruidos, aceite, frenos, proximo servicio..."></textarea></label>
+
+              <button class="primary-button" type="submit">Guardar reporte</button>
+              <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
+            </form>
+
+            <div id="client-maintenance-list" class="client-maintenance-list"></div>
+          </section>
+        </section>
+
+        <nav class="client-bottom-nav" aria-label="Navegacion principal del cliente">
+          <button class="client-nav-button is-active" type="button" data-view-target="home">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4 3 11.2V20h6.2v-5.3h5.6V20H21v-8.8Z"></path></svg>
+            <span>Inicio</span>
+          </button>
+          <button class="client-nav-button" type="button" data-view-target="tracking">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h13v2H3Zm0 6h10v2H3Zm0 6h7v2H3Zm14.5-2.8 3.8 3.8-1.4 1.4-2.4-2.4-2.4 2.4-1.4-1.4 3.8-3.8Zm0-9a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6Zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z"></path></svg>
+            <span>Seguimiento</span>
+          </button>
+          <button class="client-nav-button" type="button" data-view-target="order">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7Z"></path></svg>
+            <span>Nueva orden</span>
+          </button>
+          <button class="client-nav-button" type="button" data-view-target="maintenance">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m21.2 7.8-5-5-2.1 2.1 1.7 1.7-3 3-1.8-1.8-7.9 7.9 4.9 4.9 7.9-7.9-1.8-1.8 3-3 1.7 1.7ZM8 18.6l-2.1-2.1 5.1-5.1 2.1 2.1Z"></path></svg>
+            <span>Mantenimiento</span>
+          </button>
+        </nav>
+      </section>
+    </main>
+
+    <div id="notifications-modal" class="client-modal" hidden>
+      <div id="notifications-overlay" class="client-modal-overlay"></div>
+      <section class="client-modal-card" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Notificaciones</p>
+            <h2 id="notifications-title">Ultimas novedades</h2>
+          </div>
+          <button id="notifications-close" class="icon-button" type="button" aria-label="Cerrar notificaciones">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
+          </button>
+        </header>
+        <div id="notifications-list" class="client-notifications-list"></div>
+      </section>
+    </div>
+
+    <script src="/app/client-portal.js"></script>
+  </body>
+</html>

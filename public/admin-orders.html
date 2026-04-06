@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Pedidos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <p class="section-tag">Módulo 3</p>
+          <h1>Creación de pedido</h1>
+          <p class="dashboard-lead">Registra carros importados y asígnalos a clientes con su tracking.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout">
+              <form id="order-form" class="dashboard-form">
+                <label><span>Cliente</span><select id="order-client-id" name="clientId" required></select></label>
+                <div class="form-row three-up">
+                  <label><span>Marca</span><input name="brand" type="text" placeholder="Toyota" required /></label>
+                  <label><span>Modelo</span><input name="model" type="text" placeholder="4Runner" required /></label>
+                  <label><span>Año</span><input name="year" type="number" min="1900" placeholder="2024" required /></label>
+                </div>
+                <div class="form-row two-up">
+                  <label><span>Tracking</span><input name="trackingNumber" type="text" placeholder="GI-000123" required /></label>
+                  <label><span>VIN</span><input name="vin" type="text" placeholder="Opcional" /></label>
+                </div>
+                <div class="form-row two-up">
+                  <label><span>Fecha de compra</span><input name="purchaseDate" type="date" required /></label>
+                  <label><span>Fecha estimada de llegada</span><input name="expectedArrivalDate" type="date" /></label>
+                </div>
+                <label><span>Color</span><input name="color" type="text" placeholder="Negro, blanco, gris..." /></label>
+                <label><span>Descripción</span><textarea name="description" rows="3" placeholder="Detalles del vehículo"></textarea></label>
+                <label><span>Fotos o videos</span><textarea name="mediaUrls" rows="3" placeholder="Una URL por línea"></textarea></label>
+                <label><span>Notas internas</span><textarea name="notes" rows="3" placeholder="Observaciones para el pedido"></textarea></label>
+                <button class="primary-button" type="submit">Crear pedido</button>
+                <p id="order-feedback" class="feedback" aria-live="polite"></p>
+              </form>
+              <div>
+                <div class="module-metric-inline"><span>Total</span><strong id="orders-count">0</strong></div>
+                <div id="orders-list" class="dashboard-list"></div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script src="/app/admin-common.js"></script>
+    <script src="/app/admin-orders.js"></script>
+  </body>
+</html>

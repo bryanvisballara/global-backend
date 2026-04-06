@@ -6,7 +6,7 @@
     <title>Global Imports | Login</title>
     <meta
       name="description"
-      content="Acceso mobile-first para Global Imports, con seguimiento de vehiculos de alta gama y portal administrativo optimizado para WebView."
+      content="Acceso mobile-first para Global Imports, con seguimiento de vehiculos de alta gama y autenticacion optimizada para WebView."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,15 +42,10 @@
         </section>
 
         <section class="auth-panel">
-          <div class="segmented-control" aria-label="Seleccion de acceso">
-            <button class="segment active" data-role="client" type="button">Cliente</button>
-            <button class="segment" data-role="admin" type="button">Administrador</button>
-          </div>
-
           <div class="auth-copy">
-            <h2 id="form-title">Accede a tu seguimiento</h2>
+            <h2 id="form-title">Ingresa a tu cuenta</h2>
             <p id="form-subtitle">
-              Entra para consultar el estado de tu vehiculo por tracking y revisar novedades del pedido.
+              Accede con tu correo y contrasena para continuar con tu proceso dentro de Global Imports.
             </p>
           </div>
 
@@ -62,21 +57,35 @@
                 name="email"
                 type="email"
                 autocomplete="email"
-                placeholder="cliente@globalimports.com"
+                placeholder="correo@globalimports.com"
                 required
               />
             </label>
 
             <label>
               <span>Contraseña</span>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                placeholder="Tu clave de acceso"
-                required
-              />
+              <div class="password-field">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="Tu clave de acceso"
+                  required
+                />
+                <button
+                  id="toggle-password"
+                  class="password-toggle"
+                  type="button"
+                  aria-label="Mostrar contraseña"
+                  aria-pressed="false"
+                  title="Mostrar contraseña"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5C6.8 5 2.4 8.1 1 12c1.4 3.9 5.8 7 11 7s9.6-3.1 11-7c-1.4-3.9-5.8-7-11-7Zm0 11.2A4.2 4.2 0 1 1 12 7.8a4.2 4.2 0 0 1 0 8.4Zm0-6.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Z"/>
+                  </svg>
+                </button>
+              </div>
             </label>
 
             <div class="utility-row">
@@ -88,8 +97,10 @@
             </div>
 
             <button id="submit-button" class="primary-button" type="submit">
-              Ingresar a mi cuenta
+              Ingresar
             </button>
+
+            <p id="feedback-message" class="feedback" aria-live="polite"></p>
 
             <p class="signup-prompt">
               Aun no tienes cuenta?

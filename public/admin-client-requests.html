@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Solicitudes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <p class="section-tag">Módulo 4</p>
+          <h1>Solicitudes</h1>
+          <p class="dashboard-lead">Aquí verás los pedidos hechos por clientes en el portal del cliente, con vehículo y datos para contactarlos.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-metric-inline"><span>Total</span><strong id="requests-count">0</strong></div>
+            <div id="client-requests-list" class="request-grid"></div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script src="/app/admin-common.js"></script>
+    <script src="/app/admin-client-requests.js"></script>
+  </body>
+</html>
