@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260409-15" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -20,15 +20,31 @@
               <span id="admin-name">Administrador</span>
               <strong id="admin-email">admin@globalimports.com</strong>
             </div>
-            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
         <section class="page-hero">
-          <p class="section-tag">Módulo 5</p>
           <h1>Mantenimientos preventivos</h1>
           <p class="dashboard-lead">Da seguimiento al contacto, vencimiento y cierre de mantenimientos.</p>
         </section>
         <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout">
+              <div>
+                <div class="module-metric-inline"><span>Por fecha (+6 meses, +/-15 días)</span><strong id="maintenance-by-date-count">0</strong></div>
+                <div id="maintenance-by-date-list" class="dashboard-list"></div>
+              </div>
+              <div>
+                <div class="module-metric-inline"><span>Próximo mes (+6 meses, +/-15 días)</span><strong id="maintenance-by-next-month-count">0</strong></div>
+                <div id="maintenance-by-next-month-list" class="dashboard-list"></div>
+              </div>
+              <div>
+                <div class="module-metric-inline"><span>Por km recorrido (>= 5.000)</span><strong id="maintenance-by-km-count">0</strong></div>
+                <div id="maintenance-by-km-list" class="dashboard-list"></div>
+              </div>
+            </div>
+          </article>
+
           <article class="dashboard-card module-card module-card-wide">
             <div class="module-layout">
               <form id="maintenance-form" class="dashboard-form">
@@ -48,7 +64,7 @@
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js"></script>
-    <script src="/app/admin-maintenance.js"></script>
+    <script src="/app/admin-common.js?v=20260412-01"></script>
+    <script src="/app/admin-maintenance.js?v=20260412-04"></script>
   </body>
 </html>
