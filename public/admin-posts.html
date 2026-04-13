@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
   </head>
-  <body>
+  <body class="admin-posts-page">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -20,39 +20,523 @@
               <span id="admin-name">Administrador</span>
               <strong id="admin-email">admin@globalimports.com</strong>
             </div>
-            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
         <section class="page-hero">
-          <p class="section-tag">Módulo 1</p>
           <h1>Publicaciones</h1>
           <p class="dashboard-lead">Gestiona el feed tipo red social que verá el cliente.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
-            <div class="module-layout">
-              <form id="post-form" class="dashboard-form">
+            <div class="module-layout admin-posts-layout">
+              <form id="post-form" class="dashboard-form posts-composer-form">
                 <label><span>Título</span><input name="title" type="text" placeholder="Nuevo embarque disponible" required /></label>
                 <label><span>Texto</span><textarea name="body" rows="4" placeholder="Describe la publicación para el cliente" required></textarea></label>
-                <div class="form-row two-up">
-                  <label><span>Formato</span><select name="format"><option value="carousel">Carrusel</option><option value="video">Video</option></select></label>
-                  <label><span>Estado</span><select name="status"><option value="published">Publicada</option><option value="draft">Borrador</option></select></label>
-                </div>
-                <label><span>Archivos multimedia</span><input name="mediaFiles" type="file" accept="image/*,video/*" multiple /></label>
-                <label><span>URLs de respaldo</span><textarea name="mediaUrls" rows="4" placeholder="Opcional. Una URL por línea si no subes archivos."></textarea></label>
-                <button class="primary-button" type="submit">Crear publicación</button>
+                <label><span>Formato</span><select name="format"><option value="carousel">Carrusel</option><option value="image">Imagen única</option><option value="video">Video</option></select></label>
+                <label id="post-video-url-group" hidden>
+                  <span>Link de video</span>
+                  <input id="post-video-url" name="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+                </label>
+                <label id="post-media-files-group"><span>Archivos multimedia</span><input id="media-files" name="mediaFiles" type="file" accept="image/*,video/*" multiple /></label>
+                <p class="field-help">Máximo 10 MB por archivo. Los videos deben durar 60 segundos o menos.</p>
+                <button id="publish-now-button" class="primary-button" type="submit">Publicar ahora</button>
+                <section id="schedule-panel" class="schedule-panel">
+                  <div class="form-row two-up">
+                    <label><span>Fecha</span><input id="schedule-date" name="scheduleDate" type="date" /></label>
+                    <label><span>Hora Colombia</span><input id="schedule-time" name="scheduleTime" type="time" /></label>
+                  </div>
+                  <button id="schedule-submit-button" class="primary-button" type="submit">Programar publicación</button>
+                </section>
+                <button id="view-published-button" class="secondary-button dashboard-secondary-action" type="button">Ver publicaciones montadas</button>
                 <p id="post-feedback" class="feedback" aria-live="polite"></p>
               </form>
-              <div>
-                <div class="module-metric-inline"><span>Total</span><strong id="posts-count">0</strong></div>
-                <div id="posts-list" class="dashboard-list"></div>
+              <div class="posts-right-panel">
+                <div class="posts-section-block">
+                  <h2 class="posts-section-heading">Publicaciones programadas</h2>
+                  <div id="scheduled-posts-list" class="dashboard-list"></div>
+                </div>
               </div>
             </div>
           </article>
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js"></script>
-    <script src="/app/admin-posts.js"></script>
+    <div id="posts-manager-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="posts-manager-modal"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="posts-manager-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="posts-manager-title">Publicaciones montadas</h2>
+            <p class="modal-copy">Selecciona una publicación para abrirla y editarla.</p>
+          </div>
+          <button id="close-posts-manager-button" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div id="published-posts-modal-list" class="dashboard-list modal-scroll-list"></div>
+      </section>
+    </div>
+    <div id="confirm-action-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="confirm-action-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">
+        <div class="admin-brand-mark">
+          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header">
+          <div>
+            <h2 id="confirm-action-title">Confirmar acción</h2>
+            <p id="confirm-action-description" class="modal-copy">Revisa la acción antes de continuar.</p>
+          </div>
+        </header>
+        <div class="modal-actions-row">
+          <button id="confirm-action-cancel" class="secondary-button" type="button">Cancelar</button>
+          <button id="confirm-action-submit" class="primary-button" type="button">Confirmar</button>
+        </div>
+      </section>
+    </div>
+    <div id="success-action-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="success-action-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="success-action-title">
+        <div class="admin-brand-mark success">
+          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header admin-success-header">
+          <div>
+            <h2 id="success-action-title">Publicación lista</h2>
+            <p id="success-action-description" class="modal-copy">La acción se completó correctamente.</p>
+          </div>
+        </header>
+        <div class="modal-actions-row single-action">
+          <button id="success-action-close" class="primary-button" type="button">Entendido</button>
+        </div>
+      </section>
+    </div>
+    <script src="/app/admin-common.js?v=20260409-05"></script>
+    <script src="/app/admin-posts.js?v=20260407-37"></script>
+    <script>
+      window.addEventListener("load", () => {
+        if (window.__adminPostsInitialized) {
+          return;
+        }
+
+        const form = document.getElementById("post-form");
+        const feedback = document.getElementById("post-feedback");
+        const formatSelect = form?.elements?.format;
+        const mediaFilesInput = document.getElementById("media-files");
+        const mediaFilesGroup = document.getElementById("post-media-files-group");
+        const videoUrlGroup = document.getElementById("post-video-url-group");
+        const videoUrlInput = document.getElementById("post-video-url");
+        const publishButton = document.getElementById("publish-now-button");
+        const scheduleButton = document.getElementById("schedule-submit-button");
+        const viewPublishedButton = document.getElementById("view-published-button");
+        const scheduleDateInput = document.getElementById("schedule-date");
+        const scheduleTimeInput = document.getElementById("schedule-time");
+        const confirmModal = document.getElementById("confirm-action-modal");
+        const confirmTitle = document.getElementById("confirm-action-title");
+        const confirmDescription = document.getElementById("confirm-action-description");
+        const confirmCancel = document.getElementById("confirm-action-cancel");
+        const confirmSubmit = document.getElementById("confirm-action-submit");
+        const successModal = document.getElementById("success-action-modal");
+        const successDescription = document.getElementById("success-action-description");
+        const successClose = document.getElementById("success-action-close");
+        const postsManagerModal = document.getElementById("posts-manager-modal");
+        const postsManagerClose = document.getElementById("close-posts-manager-button");
+        const publishedPostsModalList = document.getElementById("published-posts-modal-list");
+        let submitAction = "publish";
+        let inlineConfirmResolver = null;
+        let shouldReloadAfterSuccess = false;
+
+        function setInlineFeedback(message, type = "") {
+          if (!feedback) {
+            return;
+          }
+
+          feedback.textContent = message;
+          feedback.className = `feedback${type ? ` ${type}` : ""}`;
+        }
+
+        function isInlineSupportedVideoUrl(value) {
+          if (!value) {
+            return false;
+          }
+
+          try {
+            const parsedUrl = new URL(String(value).trim());
+            const host = parsedUrl.hostname.toLowerCase();
+            const isYoutubeHost = host.includes("youtube.com") || host.includes("youtu.be");
+            const isVimeoHost = host.includes("vimeo.com");
+            const isCloudinaryHost = host.includes("res.cloudinary.com");
+            const isDirectVideoFile = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(parsedUrl.pathname || "");
+            return isYoutubeHost || isVimeoHost || isCloudinaryHost || isDirectVideoFile;
+          } catch {
+            return false;
+          }
+        }
+
+        function syncInlineVideoInputMode() {
+          const format = formatSelect?.value || "carousel";
+          const isVideo = format === "video";
+
+          if (videoUrlGroup) {
+            videoUrlGroup.hidden = !isVideo;
+            videoUrlGroup.style.display = isVideo ? "" : "none";
+          }
+
+          if (mediaFilesGroup) {
+            mediaFilesGroup.hidden = false;
+            mediaFilesGroup.style.display = "";
+          }
+
+          if (videoUrlInput) {
+            videoUrlInput.required = false;
+          }
+
+          if (mediaFilesInput) {
+            mediaFilesInput.required = !isVideo;
+            mediaFilesInput.accept = isVideo ? "video/*" : "image/*,video/*";
+          }
+        }
+
+        function resolveApiBaseUrl() {
+          const { protocol, hostname, port } = window.location;
+
+          if (hostname === "localhost" || hostname === "127.0.0.1") {
+            return `${protocol}//${hostname}:${port || "10000"}`;
+          }
+
+          return "https://global-backend-bdbx.onrender.com";
+        }
+
+        function toggleInlineModal(modal, shouldOpen) {
+          if (!modal) {
+            return;
+          }
+
+          modal.hidden = !shouldOpen;
+          const hasOpenModal = [confirmModal, successModal, postsManagerModal].some(
+            (currentModal) => currentModal && !currentModal.hidden
+          );
+          document.body.classList.toggle("modal-open", hasOpenModal);
+        }
+
+        function askInlineConfirmation(title, description, buttonLabel) {
+          confirmTitle.textContent = title;
+          confirmDescription.textContent = description;
+          confirmSubmit.textContent = buttonLabel;
+          toggleInlineModal(confirmModal, true);
+
+          return new Promise((resolve) => {
+            inlineConfirmResolver = resolve;
+          });
+        }
+
+        function resolveInlineConfirmation(value) {
+          if (inlineConfirmResolver) {
+            const resolver = inlineConfirmResolver;
+            inlineConfirmResolver = null;
+            resolver(value);
+          }
+
+          toggleInlineModal(confirmModal, false);
+        }
+
+        function showInlineSuccess(message, title = "Publicación lista") {
+          document.getElementById("success-action-title").textContent = title;
+          successDescription.textContent = message;
+          shouldReloadAfterSuccess = true;
+          toggleInlineModal(successModal, true);
+        }
+
+        function renderPublishedPosts(posts) {
+          if (!publishedPostsModalList) {
+            return;
+          }
+
+          if (!posts.length) {
+            publishedPostsModalList.innerHTML = '<div class="empty-state">Todavía no hay publicaciones publicadas.</div>';
+            return;
+          }
+
+          publishedPostsModalList.innerHTML = posts.map((post) => `
+            <article class="published-post-item">
+              <div class="published-post-copy">
+                <strong>${post.title}</strong>
+                <span>${new Date(post.publishedAt || post.createdAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" })}</span>
+              </div>
+              <div class="published-post-actions">
+                <button class="published-post-action" type="button" data-inline-action="edit" data-post-id="${post._id}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 17.2V20h2.8l8.2-8.2-2.8-2.8L4 17.2Zm13.7-8.5a1 1 0 0 0 0-1.4l-1-1a1 1 0 0 0-1.4 0l-1.2 1.2 2.8 2.8 1.8-1.8Z"></path></svg>
+                  <span>Modificar</span>
+                </button>
+                <button class="published-post-action danger" type="button" data-inline-action="delete" data-post-id="${post._id}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v8h-2V9Zm4 0h2v8h-2V9ZM7 9h2v8H7V9Z"></path></svg>
+                  <span>Eliminar</span>
+                </button>
+              </div>
+            </article>
+          `).join("");
+        }
+
+        async function loadPublishedPostsModal() {
+          const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
+            },
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "No se pudieron cargar las publicaciones.");
+          }
+
+          const publishedPosts = (data.posts || []).filter((post) => post.status === "published");
+          renderPublishedPosts(publishedPosts);
+          toggleInlineModal(postsManagerModal, true);
+        }
+
+        function getEditPostUrl(postId) {
+          const editUrl = new URL("/app/admin-post-edit.html", window.location.origin);
+          editUrl.searchParams.set("postId", postId);
+          return editUrl.toString();
+        }
+
+        async function deletePublishedPost(postId) {
+          const confirmed = await askInlineConfirmation(
+            "Eliminar publicación",
+            "Esta acción quitará la publicación del feed del cliente. Úsala solo si hubo un error al subirla.",
+            "Eliminar publicación"
+          );
+
+          if (!confirmed) {
+            return;
+          }
+
+          const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts/${postId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
+            },
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "No se pudo eliminar la publicación.");
+          }
+
+          showInlineSuccess("La publicación fue eliminada correctamente.", "Publicación eliminada");
+          await loadPublishedPostsModal();
+        }
+
+        confirmCancel?.addEventListener("click", () => resolveInlineConfirmation(false));
+        confirmSubmit?.addEventListener("click", () => resolveInlineConfirmation(true));
+        successClose?.addEventListener("click", () => {
+          toggleInlineModal(successModal, false);
+
+          if (shouldReloadAfterSuccess) {
+            shouldReloadAfterSuccess = false;
+            window.location.reload();
+          }
+        });
+        postsManagerClose?.addEventListener("click", () => toggleInlineModal(postsManagerModal, false));
+
+        viewPublishedButton?.addEventListener("click", async () => {
+          try {
+            setInlineFeedback("Cargando publicaciones montadas...");
+            await loadPublishedPostsModal();
+          } catch (error) {
+            setInlineFeedback(error.message, "error");
+          }
+        });
+
+        publishedPostsModalList?.addEventListener("click", async (event) => {
+          const actionButton = event.target.closest("[data-inline-action]");
+
+          if (!actionButton) {
+            return;
+          }
+
+          try {
+            if (actionButton.dataset.inlineAction === "delete") {
+              await deletePublishedPost(actionButton.dataset.postId);
+              return;
+            }
+
+            window.location.href = getEditPostUrl(actionButton.dataset.postId);
+          } catch (error) {
+            setInlineFeedback(error.message, "error");
+          }
+        });
+
+        document.querySelectorAll('[data-close-modal="confirm-action-modal"], [data-close-modal="success-action-modal"]').forEach((overlay) => {
+          overlay.addEventListener("click", () => {
+            if (overlay.dataset.closeModal === "confirm-action-modal") {
+              resolveInlineConfirmation(false);
+              return;
+            }
+
+            toggleInlineModal(successModal, false);
+          });
+        });
+
+        document.querySelector('[data-close-modal="posts-manager-modal"]')?.addEventListener("click", () => {
+          toggleInlineModal(postsManagerModal, false);
+        });
+
+        mediaFilesInput?.addEventListener("change", () => {
+          const count = mediaFilesInput.files?.length || 0;
+
+          if (!count) {
+            setInlineFeedback("");
+            return;
+          }
+
+          setInlineFeedback(`${count} archivo${count > 1 ? "s" : ""} cargado${count > 1 ? "s" : ""} correctamente.`, "success");
+        });
+
+        publishButton?.addEventListener("click", () => {
+          submitAction = "publish";
+        });
+
+        scheduleButton?.addEventListener("click", () => {
+          submitAction = "schedule";
+        });
+
+        formatSelect?.addEventListener("change", syncInlineVideoInputMode);
+        form?.addEventListener("change", (event) => {
+          if (event.target?.name === "format") {
+            syncInlineVideoInputMode();
+          }
+        });
+        window.addEventListener("pageshow", syncInlineVideoInputMode);
+        window.addEventListener("load", syncInlineVideoInputMode);
+        syncInlineVideoInputMode();
+
+        form?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          if (!form.reportValidity()) {
+            return;
+          }
+
+          const clickedId = event.submitter?.id;
+          if (clickedId === "schedule-submit-button") {
+            submitAction = "schedule";
+          } else if (clickedId === "publish-now-button") {
+            submitAction = "publish";
+          }
+
+          const confirmed = await askInlineConfirmation(
+            submitAction === "schedule" ? "Programar publicación" : "Publicar ahora",
+            submitAction === "schedule"
+              ? "Revisa fecha, hora y archivos antes de programar esta publicación para el feed del cliente."
+              : "Revisa título, texto y archivos antes de publicar ahora en el feed del cliente.",
+            submitAction === "schedule" ? "Programar publicación" : "Publicar ahora"
+          );
+
+          if (!confirmed) {
+            return;
+          }
+
+          const formData = new FormData(form);
+          const selectedFormat = String(formData.get("format") || "carousel");
+
+          if (selectedFormat === "video") {
+            const inlineVideoUrl = String(videoUrlInput?.value || "").trim();
+            const selectedVideoFiles = Array.from(mediaFilesInput?.files || []);
+            const hasVideoFile = selectedVideoFiles.length > 0;
+            const hasValidLink = isInlineSupportedVideoUrl(inlineVideoUrl);
+
+            if (!hasVideoFile && !hasValidLink) {
+              setInlineFeedback("Para video debes subir un archivo o pegar un link válido.", "error");
+              return;
+            }
+
+            if (hasVideoFile) {
+              const onlyVideos = selectedVideoFiles.every((file) => String(file.type || "").startsWith("video/"));
+
+              if (selectedVideoFiles.length !== 1 || !onlyVideos) {
+                setInlineFeedback("Video requiere exactamente un archivo de video cuando se sube desde dispositivo.", "error");
+                return;
+              }
+            }
+
+            if (inlineVideoUrl && !hasValidLink && !hasVideoFile) {
+              setInlineFeedback("Ingresa un link válido de YouTube, Vimeo o URL de video.", "error");
+              return;
+            }
+
+            if (hasValidLink) {
+              formData.append("mediaUrls", inlineVideoUrl);
+            }
+          }
+
+          formData.append("status", submitAction === "schedule" ? "scheduled" : "published");
+
+          if (submitAction === "schedule") {
+            if (!scheduleDateInput.value || !scheduleTimeInput.value) {
+              setInlineFeedback("Selecciona fecha y hora para programar la publicación.", "error");
+              return;
+            }
+
+            formData.append("scheduledFor", new Date(`${scheduleDateInput.value}T${scheduleTimeInput.value}:00-05:00`).toISOString());
+          }
+
+          setInlineFeedback(
+            submitAction === "schedule" ? "Programando publicación..." : "Publicando ahora..."
+          );
+
+          if (window.AdminApp?.showLoadingOverlay) {
+            window.AdminApp.showLoadingOverlay(
+              submitAction === "schedule" ? "Programando publicación..." : "Publicando ahora..."
+            );
+          } else {
+            window.alert(
+              submitAction === "schedule" ? "Programando publicación..." : "Publicando ahora..."
+            );
+          }
+
+          try {
+            const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
+              },
+              body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.message || "No se pudo publicar.");
+            }
+
+            form.reset();
+            syncInlineVideoInputMode();
+            setInlineFeedback(
+              submitAction === "schedule"
+                ? "Publicación programada correctamente."
+                : "Publicación creada correctamente.",
+              "success"
+            );
+            if (window.AdminApp?.hideLoadingOverlay) {
+              window.AdminApp.hideLoadingOverlay();
+            }
+            showInlineSuccess(
+              submitAction === "schedule"
+                ? "La publicación quedó programada correctamente."
+                : "La publicación fue creada correctamente y ya quedó disponible para el feed."
+            );
+          } catch (error) {
+            if (window.AdminApp?.hideLoadingOverlay) {
+              window.AdminApp.hideLoadingOverlay();
+            }
+            setInlineFeedback(error.message, "error");
+          }
+        });
+      });
+    </script>
   </body>
 </html>

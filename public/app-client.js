@@ -93,6 +93,7 @@ const formSubtitle = document.getElementById("form-subtitle");
 const nameField = document.getElementById("name-field");
 const phoneField = document.getElementById("phone-field");
 const nameInput = document.getElementById("name");
+const phoneCountryCodeSelect = document.getElementById("phone-country-code");
 const phoneInput = document.getElementById("phone");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
@@ -101,12 +102,66 @@ const submitButton = document.getElementById("submit-button");
 const feedbackMessage = document.getElementById("feedback-message");
 const loginForm = document.getElementById("login-form");
 const signupLink = document.querySelector(".signup-link");
+const signupPromptPrefix = document.getElementById("signup-prompt-prefix");
+const verificationModal = document.getElementById("verification-modal");
+const verificationForm = document.getElementById("verification-form");
+const verificationCodeInput = document.getElementById("verification-code");
+const verificationFeedback = document.getElementById("verification-feedback");
+const verificationSubmitButton = document.getElementById("verification-submit-button");
+const verificationResendButton = document.getElementById("verification-resend-button");
+const verificationCopy = document.getElementById("verification-copy");
 const logoSymbol = document.getElementById("logo-symbol");
 const logoWordmark = document.getElementById("logo-wordmark");
 const brandFallback = document.getElementById("brand-fallback");
 const utilityRow = document.querySelector(".utility-row");
 
 let authMode = "login";
+let pendingVerificationPayload = null;
+
+const COUNTRY_CODES = [
+  ["Colombia", "+57"], ["Argentina", "+54"], ["Bolivia", "+591"], ["Brasil", "+55"], ["Chile", "+56"], ["Ecuador", "+593"],
+  ["Paraguay", "+595"], ["Peru", "+51"], ["Uruguay", "+598"], ["Venezuela", "+58"], ["Mexico", "+52"], ["Estados Unidos", "+1"],
+  ["Canada", "+1"], ["Costa Rica", "+506"], ["Cuba", "+53"], ["El Salvador", "+503"], ["Guatemala", "+502"], ["Honduras", "+504"],
+  ["Nicaragua", "+505"], ["Panama", "+507"], ["Republica Dominicana", "+1"], ["Puerto Rico", "+1"], ["España", "+34"], ["Portugal", "+351"],
+  ["Francia", "+33"], ["Alemania", "+49"], ["Italia", "+39"], ["Reino Unido", "+44"], ["Irlanda", "+353"], ["Paises Bajos", "+31"],
+  ["Belgica", "+32"], ["Suiza", "+41"], ["Austria", "+43"], ["Suecia", "+46"], ["Noruega", "+47"], ["Dinamarca", "+45"],
+  ["Finlandia", "+358"], ["Polonia", "+48"], ["Grecia", "+30"], ["Turquia", "+90"], ["Rusia", "+7"], ["Ucrania", "+380"],
+  ["Marruecos", "+212"], ["Egipto", "+20"], ["Sudafrica", "+27"], ["Nigeria", "+234"], ["Kenia", "+254"], ["India", "+91"],
+  ["Pakistan", "+92"], ["China", "+86"], ["Japon", "+81"], ["Corea del Sur", "+82"], ["Indonesia", "+62"], ["Filipinas", "+63"],
+  ["Vietnam", "+84"], ["Tailandia", "+66"], ["Malasia", "+60"], ["Singapur", "+65"], ["Australia", "+61"], ["Nueva Zelanda", "+64"],
+  ["Emiratos Arabes Unidos", "+971"], ["Arabia Saudita", "+966"], ["Qatar", "+974"], ["Israel", "+972"]
+];
+
+function populateCountryCodes() {
+  if (!phoneCountryCodeSelect) {
+    return;
+  }
+
+  const defaultCode = "+57";
+  phoneCountryCodeSelect.innerHTML = [
+    `<option value="${defaultCode}" data-current="true" selected>${defaultCode}</option>`,
+    ...COUNTRY_CODES.map(([country, code]) => `<option value="${code}">${code} ${country}</option>`),
+  ].join("");
+}
+
+function bindCountryCodeSelector() {
+  if (!phoneCountryCodeSelect) {
+    return;
+  }
+
+  phoneCountryCodeSelect.addEventListener("change", () => {
+    const currentOption = phoneCountryCodeSelect.querySelector("option[data-current='true']");
+    const selectedCode = String(phoneCountryCodeSelect.value || "+57").trim();
+
+    if (currentOption) {
+      currentOption.value = selectedCode;
+      currentOption.textContent = selectedCode;
+    }
+
+    // Keep the control compact after choosing: closed state shows only code.
+    phoneCountryCodeSelect.selectedIndex = 0;
+  });
+}
 
 function clearAuthState() {
   localStorage.removeItem("globalAppToken");
@@ -178,6 +233,40 @@ function setFeedback(message, type = "") {
   feedbackMessage.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
+function setVerificationFeedback(message, type = "") {
+  if (!verificationFeedback) {
+    return;
+  }
+
+  verificationFeedback.textContent = message;
+  verificationFeedback.className = `feedback${type ? ` ${type}` : ""}`;
+}
+
+function openVerificationModal(email) {
+  if (!verificationModal) {
+    return;
+  }
+
+  if (verificationCopy) {
+    verificationCopy.textContent = `Te enviamos un código de 6 dígitos a ${email}. Escríbelo para activar tu cuenta.`;
+  }
+
+  verificationCodeInput.value = "";
+  setVerificationFeedback("Revisa tu bandeja de entrada y escribe el código.");
+  verificationModal.hidden = false;
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => verificationCodeInput?.focus(), 50);
+}
+
+function closeVerificationModal() {
+  if (!verificationModal) {
+    return;
+  }
+
+  verificationModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
 function applyAuthContent() {
   const content = authContent[authMode];
   const isRegisterMode = authMode === "register";
@@ -189,18 +278,26 @@ function applyAuthContent() {
 
   if (nameField) {
     nameField.hidden = !isRegisterMode;
+    nameField.style.display = isRegisterMode ? "" : "none";
   }
 
   if (phoneField) {
     phoneField.hidden = !isRegisterMode;
+    phoneField.style.display = isRegisterMode ? "" : "none";
   }
 
   if (nameInput) {
     nameInput.required = isRegisterMode;
+    nameInput.disabled = !isRegisterMode;
   }
 
   if (phoneInput) {
     phoneInput.required = isRegisterMode;
+    phoneInput.disabled = !isRegisterMode;
+  }
+
+  if (phoneCountryCodeSelect) {
+    phoneCountryCodeSelect.disabled = !isRegisterMode;
   }
 
   if (utilityRow) {
@@ -211,11 +308,16 @@ function applyAuthContent() {
     signupLink.textContent = isRegisterMode ? "Ya tengo cuenta" : "Regístrate ahora";
   }
 
+  if (signupPromptPrefix) {
+    signupPromptPrefix.hidden = isRegisterMode;
+  }
+
   setFeedback(isRegisterMode ? "Completa todos los campos para crear tu cuenta." : "Ingresa tus credenciales para continuar.");
 }
 
 function toggleAuthMode() {
   authMode = authMode === "login" ? "register" : "login";
+  closeVerificationModal();
   applyAuthContent();
 }
 
@@ -288,10 +390,15 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(loginForm);
+  const rawPhone = String(formData.get("phone") || "").trim();
+  const selectedCode = String(formData.get("phoneCountryCode") || "+57").trim();
+  const composedPhone = rawPhone.startsWith("+")
+    ? rawPhone
+    : `${selectedCode} ${rawPhone}`.trim();
   const payload = authMode === "register"
     ? {
         name: String(formData.get("name") || "").trim(),
-        phone: String(formData.get("phone") || "").trim(),
+        phone: composedPhone,
         email: String(formData.get("email") || "").trim(),
         password: String(formData.get("password") || ""),
       }
@@ -301,7 +408,7 @@ loginForm.addEventListener("submit", async (event) => {
       };
 
   submitButton.disabled = true;
-  setFeedback(authMode === "register" ? "Creando cuenta..." : "Validando acceso...", "");
+  setFeedback(authMode === "register" ? "Preparando verificación..." : "Validando acceso...", "");
 
   try {
     const authPath = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
@@ -311,6 +418,13 @@ loginForm.addEventListener("submit", async (event) => {
 
     if (!response.ok) {
       throw new Error(data.message || "No se pudo iniciar sesión.");
+    }
+
+    if (authMode === "register") {
+      pendingVerificationPayload = payload;
+      setFeedback("Te enviamos un código de verificación a tu correo.", "success");
+      openVerificationModal(payload.email);
+      return;
     }
 
     localStorage.setItem("globalAppToken", data.token);
@@ -350,7 +464,89 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
+if (verificationForm) {
+  verificationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!pendingVerificationPayload?.email) {
+      setVerificationFeedback("No hay una verificación pendiente. Vuelve a registrarte.", "error");
+      return;
+    }
+
+    const code = String(verificationCodeInput?.value || "").replace(/\D/g, "").slice(0, 6);
+
+    if (code.length !== 6) {
+      setVerificationFeedback("Ingresa un código válido de 6 dígitos.", "error");
+      return;
+    }
+
+    verificationSubmitButton.disabled = true;
+    setVerificationFeedback("Verificando código...");
+
+    try {
+      const response = await postJsonWithFallback("/api/auth/register/verify", {
+        email: pendingVerificationPayload.email,
+        code,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "No se pudo verificar el código.");
+      }
+
+      localStorage.setItem("globalAppToken", data.token);
+      localStorage.setItem("globalAppRole", data.user.role);
+      sessionStorage.setItem("globalAppToken", data.token);
+      sessionStorage.setItem("globalAppRole", data.user.role);
+
+      setVerificationFeedback("Cuenta verificada correctamente. Redirigiendo...", "success");
+      pendingVerificationPayload = null;
+
+      window.setTimeout(() => {
+        window.location.href = "/app/client.html";
+      }, 300);
+    } catch (error) {
+      setVerificationFeedback(error.message, "error");
+    } finally {
+      verificationSubmitButton.disabled = false;
+    }
+  });
+}
+
+if (verificationResendButton) {
+  verificationResendButton.addEventListener("click", async () => {
+    if (!pendingVerificationPayload) {
+      setVerificationFeedback("No hay una verificación pendiente.", "error");
+      return;
+    }
+
+    verificationResendButton.disabled = true;
+    setVerificationFeedback("Reenviando código...");
+
+    try {
+      const response = await postJsonWithFallback("/api/auth/register", pendingVerificationPayload);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "No se pudo reenviar el código.");
+      }
+
+      setVerificationFeedback("Código reenviado correctamente.", "success");
+    } catch (error) {
+      setVerificationFeedback(error.message, "error");
+    } finally {
+      verificationResendButton.disabled = false;
+    }
+  });
+}
+
+document.querySelectorAll("[data-close-verification-modal]").forEach((element) => {
+  element.addEventListener("click", closeVerificationModal);
+});
+
 applyAuthContent();
+populateCountryCodes();
+bindCountryCodeSelector();
 updateApiStatus();
 
 if (signupLink) {

@@ -185,7 +185,13 @@
   }
 
   function buildAppointmentTimeInput(currentValue, vehicleId) {
-    return `<input class="maint-appointment-time-input" type="time" id="appointment-time-${vehicleId}" value="${normalizeTimeValue(currentValue)}" />`;
+    const hours = [];
+    for (let h = 8; h <= 17; h++) {
+      const timeStr = String(h).padStart(2, '0') + ':00';
+      const label = h === 17 ? '5:00 PM' : (h < 12 ? h + ':00 AM' : (h === 12 ? '12:00 PM' : (h - 12) + ':00 PM'));
+      hours.push(`<option value="${timeStr}"${currentValue === timeStr ? ' selected' : ''}>${label}</option>`);
+    }
+    return `<select class="maint-appointment-time-input" id="appointment-time-${vehicleId}" style="width:100%;" required><option value="">Selecciona hora</option>${hours.join('')}</select>`;
   }
 
   function getPendingTableVehicles(filteredQuery) {

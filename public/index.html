@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260413-login02" />
   </head>
   <body>
     <main class="app-shell">
@@ -63,13 +63,18 @@
 
             <label id="phone-field" class="auth-optional-field" hidden>
               <span>Teléfono</span>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                autocomplete="tel"
-                placeholder="Ej: +57 300 123 4567"
-              />
+              <div class="phone-input-group">
+                <select id="phone-country-code" name="phoneCountryCode" aria-label="Código de país">
+                  <option value="+57" selected>+57</option>
+                </select>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autocomplete="tel"
+                  placeholder="Ej: 300 123 4567"
+                />
+              </div>
             </label>
 
             <label>
@@ -125,15 +130,43 @@
             <p id="feedback-message" class="feedback" aria-live="polite"></p>
 
             <p class="signup-prompt">
-              ¿Aún no tienes cuenta?
+              <span id="signup-prompt-prefix">¿Aún no tienes cuenta?</span>
               <button class="signup-link" type="button">Regístrate ahora</button>
             </p>
 
           </form>
         </section>
+
+        <div class="tracking-modal auth-verification-modal" id="verification-modal" hidden>
+          <div class="tracking-modal-backdrop" data-close-verification-modal></div>
+          <div class="tracking-modal-card auth-verification-card" role="dialog" aria-modal="true" aria-labelledby="verification-title">
+            <strong id="verification-title">Verifica tu correo</strong>
+            <p id="verification-copy">Te enviamos un código de 6 dígitos a tu correo registrado. Escríbelo para activar tu cuenta.</p>
+            <form id="verification-form" class="login-form compact-verification-form">
+              <label>
+                <span>Código de verificación</span>
+                <input
+                  id="verification-code"
+                  name="verificationCode"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="6"
+                  autocomplete="one-time-code"
+                  placeholder="000000"
+                  required
+                />
+              </label>
+              <p id="verification-feedback" class="feedback" aria-live="polite"></p>
+              <div class="modal-actions-row single-action">
+                <button id="verification-submit-button" class="primary-button" type="submit">Verificar cuenta</button>
+              </div>
+              <button id="verification-resend-button" class="signup-link verification-resend-link" type="button">Reenviar código</button>
+            </form>
+          </div>
+        </div>
       </section>
     </main>
 
-    <script src="/app/app-client.js?v=20260412-01"></script>
+    <script src="/app/app-client.js?v=20260413-01"></script>
   </body>
 </html>

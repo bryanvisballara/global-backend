@@ -294,7 +294,7 @@ function buildAdminSidebar(pathname) {
     { href: "/app/admin-orders.html", label: "Creacion de pedidos" },
     { href: "/app/admin-tracking.html", label: "Seguimiento de pedidos" },
     { href: "/app/admin-clients.html", label: "Clientes" },
-    { href: "/app/admin-client-requests.html", label: "Solicitudes" },
+    { href: "/app/admin-client-requests.html", label: "Solicitudes de compra" },
     { href: "/app/admin-maintenance.html", label: "Mantenimientos" },
     { href: "/app/admin-posts.html", label: "Publicaciones" },
     { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual" },

@@ -7,7 +7,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <style>
+      .global-loading-overlay {
+        display: none !important;
+      }
+    </style>
   </head>
   <body>
     <main class="dashboard-shell">
@@ -20,49 +25,133 @@
               <span id="admin-name">Administrador</span>
               <strong id="admin-email">admin@globalimports.com</strong>
             </div>
-            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
         <section class="page-hero">
-          <p class="section-tag">Módulo 3</p>
           <h1>Creación de pedido</h1>
-          <p class="dashboard-lead">Registra carros importados y asígnalos a clientes con su tracking.</p>
+          <p class="dashboard-lead">Registra carros importados con tracking único y material visual del pedido.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
             <div class="module-layout">
-              <form id="order-form" class="dashboard-form">
-                <label><span>Cliente</span><select id="order-client-id" name="clientId" required></select></label>
-                <div class="form-row three-up">
+              <form id="order-form" class="dashboard-form" enctype="multipart/form-data" onsubmit="event.preventDefault(); return window.__submitAdminOrder?.(event) ?? false;">
+                <div class="form-row two-up">
                   <label><span>Marca</span><input name="brand" type="text" placeholder="Toyota" required /></label>
                   <label><span>Modelo</span><input name="model" type="text" placeholder="4Runner" required /></label>
+                </div>
+                <div class="form-row two-up">
+                  <label><span>Versión</span><input name="version" type="text" placeholder="SR5, Limited, AMG, GT Line..." required /></label>
                   <label><span>Año</span><input name="year" type="number" min="1900" placeholder="2024" required /></label>
                 </div>
                 <div class="form-row two-up">
-                  <label><span>Tracking</span><input name="trackingNumber" type="text" placeholder="GI-000123" required /></label>
-                  <label><span>VIN</span><input name="vin" type="text" placeholder="Opcional" /></label>
+                  <label>
+                    <span>Tracking</span>
+                    <div class="tracking-field-stack">
+                      <input id="order-tracking-number" name="trackingNumber" type="text" placeholder="GI-000123" required />
+                      <button id="generate-tracking-button" class="link-button tracking-generate-button" type="button" onclick="window.__fillRandomTracking?.(); return false;">Generar aleatoriamente</button>
+                    </div>
+                  </label>
+                  <label><span>VIN</span><input name="vin" type="text" placeholder="Ingresa el VIN (opcional)" /></label>
                 </div>
                 <div class="form-row two-up">
                   <label><span>Fecha de compra</span><input name="purchaseDate" type="date" required /></label>
                   <label><span>Fecha estimada de llegada</span><input name="expectedArrivalDate" type="date" /></label>
                 </div>
-                <label><span>Color</span><input name="color" type="text" placeholder="Negro, blanco, gris..." /></label>
-                <label><span>Descripción</span><textarea name="description" rows="3" placeholder="Detalles del vehículo"></textarea></label>
-                <label><span>Fotos o videos</span><textarea name="mediaUrls" rows="3" placeholder="Una URL por línea"></textarea></label>
-                <label><span>Notas internas</span><textarea name="notes" rows="3" placeholder="Observaciones para el pedido"></textarea></label>
+                <div class="form-row two-up">
+                  <label>
+                    <span>Destino</span>
+                    <select name="destination" required>
+                      <option value="">Selecciona destino</option>
+                      <option value="Puerto Santa Marta">Puerto Santa Marta</option>
+                      <option value="Puerto Cartagena">Puerto Cartagena</option>
+                    </select>
+                  </label>
+                  <label><span>Color</span><input name="color" type="text" placeholder="Negro, blanco, gris..." required /></label>
+                </div>
+                <label>
+                  <span>Cliente</span>
+                  <select id="order-client-select" name="clientId" required>
+                    <option value="">Cargando clientes...</option>
+                  </select>
+                  <small id="order-client-summary" class="field-helper">Selecciona uno de los clientes ya creados.</small>
+                </label>
+                <label>
+                  <span>Fotos o videos</span>
+                  <input id="order-media-files" name="mediaFiles" type="file" accept="image/*,video/*" multiple />
+                  <small id="order-media-summary" class="field-helper"></small>
+                </label>
                 <button class="primary-button" type="submit">Crear pedido</button>
                 <p id="order-feedback" class="feedback" aria-live="polite"></p>
               </form>
-              <div>
-                <div class="module-metric-inline"><span>Total</span><strong id="orders-count">0</strong></div>
-                <div id="orders-list" class="dashboard-list"></div>
-              </div>
             </div>
           </article>
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js"></script>
-    <script src="/app/admin-orders.js"></script>
+    <div id="order-success-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="order-success-modal" onclick="window.__closeOrderSuccessModal?.()"></div>
+      <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="order-success-title">
+        <div class="admin-brand-mark success">
+          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header admin-success-header">
+          <div>
+            <h2 id="order-success-title">Pedido creado</h2>
+            <p id="order-success-description" class="modal-copy">El pedido se guardó correctamente.</p>
+          </div>
+        </header>
+        <div id="order-success-meta" class="modal-meta"></div>
+        <div class="modal-actions-row single-action">
+          <button id="order-success-close" class="primary-button" type="button" onclick="window.__closeOrderSuccessModal?.()">Entendido</button>
+        </div>
+      </section>
+    </div>
+    <script src="/app/admin-common.js?v=20260409-05"></script>
+    <script>
+      (() => {
+        const currentUrl = new URL(window.location.href);
+
+        if (currentUrl.search) {
+          window.history.replaceState({}, document.title, currentUrl.pathname);
+        }
+
+        const clearPageLoadingState = () => {
+          document.querySelectorAll('.global-loading-overlay').forEach((overlay) => {
+            overlay.hidden = true;
+          });
+          document.body.classList.remove('loading-active');
+        };
+
+        document.addEventListener("DOMContentLoaded", clearPageLoadingState);
+        window.addEventListener("pageshow", clearPageLoadingState);
+        window.addEventListener("load", clearPageLoadingState);
+      })();
+
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".global-loading-overlay").forEach((overlay) => {
+          overlay.hidden = true;
+        });
+        document.body.classList.remove("loading-active");
+      });
+
+      window.__fillRandomTracking = function () {
+        const input = document.getElementById("order-tracking-number");
+
+        if (!input) {
+          return false;
+        }
+
+        const candidate = `GI-${Math.floor(100000 + Math.random() * 99999999)}`;
+        input.value = candidate;
+        input.placeholder = candidate;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.focus();
+        return false;
+      };
+    </script>
+    <script src="/app/admin-orders.js?v=20260409-35"></script>
   </body>
 </html>

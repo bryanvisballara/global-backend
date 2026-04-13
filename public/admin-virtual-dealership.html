@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Concesionario Virtual</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+  </head>
+  <body class="admin-posts-page">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="page-hero">
+          <h1>Concesionario Virtual</h1>
+          <p class="dashboard-lead">Publica vehículos en vitrina para compra inmediata y gestiónalos en tiempo real.</p>
+        </section>
+
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout admin-posts-layout">
+              <form id="virtual-dealership-form" class="dashboard-form posts-composer-form">
+                <div class="form-row three-up">
+                  <label><span>Marca</span><input name="brand" type="text" placeholder="Toyota" required /></label>
+                  <label><span>Modelo</span><input name="model" type="text" placeholder="Sequoia" required /></label>
+                  <label><span>Versión</span><input name="version" type="text" placeholder="1794" required /></label>
+                </div>
+
+                <div class="form-row two-up">
+                  <label><span>Año</span><input name="year" type="number" min="2000" max="2100" placeholder="2026" /></label>
+                  <label><span>Precio (COP)</span><input name="price" type="number" min="0" step="1" placeholder="520000000" required /></label>
+                </div>
+
+                <div class="form-row two-up">
+                  <label><span>Color exterior</span><input name="exteriorColor" type="text" placeholder="Blueprint" /></label>
+                  <label><span>Coginería</span><input name="interiorColor" type="text" placeholder="Piel Saddle Tan" /></label>
+                </div>
+
+                <div class="form-row three-up">
+                  <label><span>Kilometraje</span><input name="mileage" type="number" min="0" step="1" placeholder="8500" /></label>
+                  <label><span>Motor</span><input name="engine" type="text" placeholder="V6 3.4L Twin Turbo" /></label>
+                  <label><span>Potencia (caballaje)</span><input name="horsepower" type="number" min="0" step="1" placeholder="437" /></label>
+                </div>
+
+                <label><span>Descripción</span><textarea name="description" rows="4" placeholder="Detalles del vehículo para la vitrina inmediata"></textarea></label>
+                <label><span>Imágenes (subir archivos)</span><input name="mediaFiles" type="file" accept="image/*" multiple required /></label>
+                <button class="primary-button" type="submit">Publicar en Concesionario Virtual</button>
+                <p id="virtual-dealership-feedback" class="feedback" aria-live="polite"></p>
+              </form>
+
+              <div class="posts-right-panel">
+                <div class="posts-section-block">
+                  <h2 class="posts-section-heading">Vehículos en vitrina</h2>
+                  <div id="virtual-dealership-list" class="dashboard-list"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <div id="virtual-dealership-success-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="virtual-dealership-success-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="virtual-dealership-success-title">
+        <div class="admin-brand-mark success">
+          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header admin-success-header">
+          <div>
+            <h2 id="virtual-dealership-success-title">Vehículo publicado</h2>
+            <p id="virtual-dealership-success-description" class="modal-copy">El vehículo se publicó correctamente en el concesionario virtual.</p>
+          </div>
+        </header>
+        <div id="virtual-dealership-success-meta" class="modal-meta"></div>
+        <div class="modal-actions-row single-action">
+          <button id="virtual-dealership-success-close" class="primary-button" type="button">Entendido</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="/app/admin-common.js?v=20260409-05"></script>
+    <script src="/app/admin-virtual-dealership.js?v=20260412-02"></script>
+  </body>
+</html>

@@ -1,7 +1,13 @@
 import SwiftUI
 
+private let webShellVersion = "20260407-43"
+private let productionWebAppURL = "https://global-backend-bdbx.onrender.com/app/index.html?v=\(webShellVersion)"
+private let simulatorWebAppURL = "http://localhost:10000/app/index.html?v=\(webShellVersion)"
+private let deviceLocalWebAppURL = "http://192.168.1.95:10000/app/index.html?v=\(webShellVersion)"
+
 struct ContentView: View {
-    @AppStorage("webAppURL") private var webAppURL = "http://172.20.10.2:10000/app/"
+    @AppStorage("webAppURL_v4") private var webAppURL = deviceLocalWebAppURL
+    @AppStorage("webShellVersion") private var storedWebShellVersion = ""
     @State private var draftURL = ""
     @State private var showSettings = false
     @StateObject private var webViewStore = WebViewStore()
@@ -20,6 +26,20 @@ struct ContentView: View {
             if webViewStore.isLoading {
                 SplashOverlay()
                     .transition(.opacity)
+            }
+
+            if let loadError = webViewStore.loadError, !webViewStore.isLoading {
+                ConnectionErrorOverlay(
+                    message: loadError,
+                    onRetry: {
+                        loadCurrentURL(forceReload: true)
+                    },
+                    onOpenSettings: {
+                        draftURL = webAppURL
+                        showSettings = true
+                    }
+                )
+                .transition(.opacity)
             }
 
             VStack {
@@ -41,9 +61,9 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            loadCurrentURL()
+            prepareWebShell()
         }
-        .onChange(of: webAppURL) { _ in
+        .onChange(of: webAppURL) {
             loadCurrentURL()
         }
         .animation(.easeOut(duration: 0.24), value: webViewStore.isLoading)
@@ -56,13 +76,18 @@ struct ContentView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
 
-                        Button("Usar localhost del simulador") {
-                            draftURL = "http://localhost:10000/app/"
+                        Button("Usar dominio produccion (recomendado)") {
+                            draftURL = productionWebAppURL
                         }
 
-                        Button("Usar IP local del Mac") {
-                            draftURL = "http://172.20.10.2:10000/app/"
+                        Button("Usar localhost del simulador") {
+                            draftURL = simulatorWebAppURL
                         }
+
+                        Button("Usar IP local del Mac / iPhone") {
+                            draftURL = deviceLocalWebAppURL
+                        }
+
                     }
 
                     Section("Acceso oculto") {
@@ -92,8 +117,102 @@ struct ContentView: View {
     }
 
     private func loadCurrentURL() {
+        loadCurrentURL(forceReload: false)
+    }
+
+    private func prepareWebShell() {
+        let hasNewShellVersion = storedWebShellVersion == webShellVersion
+
+        if !hasNewShellVersion {
+            storedWebShellVersion = webShellVersion
+            webAppURL = defaultWebAppURL()
+
+            webViewStore.resetWebsiteData {
+                loadCurrentURL(forceReload: true)
+            }
+            return
+        }
+
+        let normalizedURL = normalizedWebAppURL(webAppURL)
+        if normalizedURL != webAppURL {
+            webAppURL = normalizedURL
+            return
+        }
+
+        loadCurrentURL(forceReload: true)
+    }
+
+    private func defaultWebAppURL() -> String {
+        #if targetEnvironment(simulator)
+        simulatorWebAppURL
+        #else
+        deviceLocalWebAppURL
+        #endif
+    }
+
+    private func normalizedWebAppURL(_ candidate: String) -> String {
+        guard var components = URLComponents(string: candidate) else {
+            return defaultWebAppURL()
+        }
+
+        #if targetEnvironment(simulator)
+        if components.host == "192.168.1.95" {
+            components.host = "localhost"
+            return components.string ?? simulatorWebAppURL
+        }
+        return candidate
+        #else
+        if components.host == "localhost" || components.host == "127.0.0.1" || components.host == "::1" {
+            components.host = "192.168.1.95"
+            return components.string ?? deviceLocalWebAppURL
+        }
+        return candidate
+        #endif
+    }
+
+    private func loadCurrentURL(forceReload: Bool) {
         guard let resolvedURL else { return }
-        webViewStore.load(resolvedURL)
+        webViewStore.load(resolvedURL, forceReload: forceReload)
+    }
+}
+
+private struct ConnectionErrorOverlay: View {
+    let message: String
+    let onRetry: () -> Void
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        VStack {
+            Spacer()
+
+            VStack(spacing: 14) {
+                Text("No pudimos abrir la app web")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                Text(message)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.74))
+
+                HStack(spacing: 10) {
+                    Button("Reintentar", action: onRetry)
+                        .buttonStyle(.borderedProminent)
+
+                    Button("Conexion", action: onOpenSettings)
+                        .buttonStyle(.bordered)
+                }
+            }
+            .padding(18)
+            .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(.white.opacity(0.12), lineWidth: 1)
+            )
+            .padding(.horizontal, 18)
+            .padding(.bottom, 38)
+        }
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 

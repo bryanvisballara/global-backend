@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -20,35 +20,121 @@
               <span id="admin-name">Administrador</span>
               <strong id="admin-email">admin@globalimports.com</strong>
             </div>
-            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
         <section class="page-hero">
-          <p class="section-tag">Módulo 2</p>
-          <h1>Creación de cliente</h1>
+          <h1>Clientes</h1>
           <p class="dashboard-lead">Crea y administra la base de clientes de la plataforma.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
-            <div class="module-layout">
-              <form id="client-form" class="dashboard-form">
-                <label><span>Nombre</span><input name="name" type="text" placeholder="Nombre completo" required /></label>
-                <label><span>Correo</span><input name="email" type="email" placeholder="cliente@correo.com" required /></label>
-                <label><span>Teléfono</span><input name="phone" type="text" placeholder="+58..." /></label>
-                <label><span>Contraseña inicial</span><input name="password" type="text" placeholder="Temporal para el cliente" required /></label>
-                <button class="primary-button" type="submit">Crear cliente</button>
+            <div class="clients-dashboard-stack">
+              <section class="clients-stats-grid" aria-label="Resumen clientes">
+                <article class="metric-card client-stat-card">
+                  <span>Total clientes</span>
+                  <strong id="clients-total-count">0</strong>
+                </article>
+                <article class="metric-card client-stat-card">
+                  <span>Con pedidos</span>
+                  <strong id="clients-with-orders-count">0</strong>
+                </article>
+                <article class="metric-card client-stat-card">
+                  <span>Sin pedidos</span>
+                  <strong id="clients-without-orders-count">0</strong>
+                </article>
+              </section>
+
+              <section class="dashboard-card clients-filter-card" aria-label="Filtros de clientes">
+                <div class="clients-filter-grid">
+                  <label>
+                    <span>Búsqueda</span>
+                    <input id="clients-search-input" type="text" placeholder="Nombre, email, teléfono, identificación, ciudad..." />
+                  </label>
+                  <label>
+                    <span>País</span>
+                    <select id="clients-country-filter">
+                      <option value="">Todos</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Con pedidos</span>
+                    <select id="clients-orders-filter">
+                      <option value="all">Todos</option>
+                      <option value="with">Con pedidos</option>
+                      <option value="without">Sin pedidos</option>
+                    </select>
+                  </label>
+                  <div class="clients-filter-actions">
+                    <button id="clients-clear-button" class="secondary-button" type="button">Limpiar</button>
+                    <button id="clients-filter-button" class="secondary-button" type="button">Filtrar</button>
+                      <button id="clients-new-button" class="primary-button" type="button" onclick="return window.__openClientCreateModal?.() ?? false;">Crear cliente</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="dashboard-card tracking-table-card clients-results-card" aria-label="Resultados clientes">
+                <div class="card-heading">
+                  <h2>Resultados</h2>
+                  <span id="clients-results-count" class="section-tag">0 cliente(s)</span>
+                </div>
+                <div class="tracking-table-wrap">
+                  <table class="tracking-data-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Contacto</th>
+                        <th>Ubicación</th>
+                        <th>Pedidos</th>
+                      </tr>
+                    </thead>
+                    <tbody id="clients-results-body">
+                      <tr>
+                        <td colspan="4"><div class="empty-state">Cargando clientes...</div></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <p id="client-feedback" class="feedback" aria-live="polite"></p>
-              </form>
-              <div>
-                <div class="module-metric-inline"><span>Total</span><strong id="clients-count">0</strong></div>
-                <div id="clients-list" class="dashboard-list"></div>
-              </div>
+              </section>
             </div>
           </article>
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js"></script>
-    <script src="/app/admin-clients.js"></script>
+
+    <div id="client-create-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="client-create-modal"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="client-create-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="client-create-title">Crear cliente</h2>
+            <p class="modal-copy">Completa la información para registrar un nuevo cliente.</p>
+          </div>
+        </header>
+        <form id="client-form" class="dashboard-form compact-modal-form">
+          <div class="form-row two-up">
+            <label><span>Nombre *</span><input name="name" type="text" placeholder="Nombre completo" required /></label>
+            <label><span>Email</span><input name="email" type="email" placeholder="cliente@correo.com" required /></label>
+          </div>
+          <div class="form-row three-up">
+            <label><span>Teléfono</span><input name="phone" type="text" placeholder="+57..." /></label>
+            <label><span>Identificación</span><input name="identification" type="text" placeholder="NIT/CC/RUC" /></label>
+            <label><span>Dirección</span><input name="address" type="text" placeholder="Dirección" /></label>
+          </div>
+          <div class="form-row two-up">
+            <label><span>Ciudad</span><input name="city" type="text" placeholder="Ciudad" /></label>
+            <label><span>País</span><input name="country" type="text" placeholder="Colombia, USA, ..." /></label>
+          </div>
+          <label><span>Notas</span><textarea name="notes" rows="4" placeholder="Observaciones relevantes..."></textarea></label>
+          <div class="modal-actions-row">
+            <button id="client-create-cancel" class="secondary-button" type="button">Cancelar</button>
+            <button class="primary-button" type="submit">Crear cliente</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="/app/admin-common.js?v=20260410-07"></script>
+      <script src="/app/admin-clients.js?v=20260410-04"></script>
   </body>
 </html>

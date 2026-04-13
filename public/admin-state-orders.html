@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Vehiculos por estado</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="page-hero">
+          <p class="section-tag" id="state-key-chip">Estado</p>
+          <h1 id="state-page-title">Vehículos por estado</h1>
+          <p class="dashboard-lead" id="state-page-lead">Listado de vehículos filtrados por su estado actual.</p>
+          <p id="state-feedback" class="feedback" aria-live="polite"></p>
+        </section>
+
+        <section class="state-summary-grid">
+          <article class="metric-card">
+            <span>Total en estado</span>
+            <strong id="state-total-count">0</strong>
+            <p>Vehículos actualmente ubicados en este estado.</p>
+          </article>
+          <article class="metric-card">
+            <span>Estado consultado</span>
+            <strong id="state-label-summary">-</strong>
+            <p>Valor tomado desde la distribución del dashboard.</p>
+          </article>
+        </section>
+
+        <section class="dashboard-card state-orders-card">
+          <div class="card-heading">
+            <div>
+              <h2>Vehículos en este estado</h2>
+              <p class="module-copy">Se muestra información completa de cada pedido filtrado por estado.</p>
+            </div>
+          </div>
+          <div id="state-orders-list" class="state-orders-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app/admin-common.js?v=20260409-05"></script>
+    <script src="/app/admin-state-orders.js?v=20260409-05"></script>
+  </body>
+</html>

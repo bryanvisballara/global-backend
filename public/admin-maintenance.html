@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint4" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -100,11 +100,19 @@
               <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
             </div>
             <div class="maint-calendar-grid" id="maintenance-calendar-grid"></div>
-            <div class="maint-calendar-day-detail">
-              <h3 id="maintenance-day-title">Citas del día</h3>
-              <div class="maint-vehicle-list maint-vehicle-list-compact" id="maintenance-day-list"></div>
-            </div>
           </article>
+
+          <!-- ─── Modal para citas del día ─── -->
+          <div class="maint-appointments-modal" id="maint-appointments-modal">
+            <div class="maint-modal-overlay" id="maint-modal-overlay"></div>
+            <div class="maint-modal-content">
+              <header class="maint-modal-header">
+                <h3 id="maintenance-day-title">Citas del día</h3>
+                <button class="maint-modal-close" id="maint-modal-close" type="button" title="Cerrar">✕</button>
+              </header>
+              <div class="maint-vehicle-list" id="maintenance-day-list"></div>
+            </div>
+          </div>
 
           <!-- ── Fila 2: listado total + formulario ── -->
           <article class="dashboard-card maint-panel maint-panel-total">
@@ -125,6 +133,6 @@
       </section>
     </main>
     <script src="/app/admin-common.js?v=20260412-01"></script>
-    <script src="/app/admin-maintenance.js?v=20260412-07"></script>
+    <script src="/app/admin-maintenance.js?v=20260412-11"></script>
   </body>
 </html>

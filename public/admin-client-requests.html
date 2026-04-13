@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Global Imports | Solicitudes</title>
+    <title>Global Imports | Solicitudes de compra</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -20,12 +20,11 @@
               <span id="admin-name">Administrador</span>
               <strong id="admin-email">admin@globalimports.com</strong>
             </div>
-            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
         <section class="page-hero">
-          <p class="section-tag">Módulo 4</p>
-          <h1>Solicitudes</h1>
+          <h1>Solicitudes de compra</h1>
           <p class="dashboard-lead">Aquí verás los pedidos hechos por clientes en el portal del cliente, con vehículo y datos para contactarlos.</p>
         </section>
         <section class="module-grid single-module-grid">
@@ -36,7 +35,7 @@
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js"></script>
+    <script src="/app/admin-common.js?v=20260409-05"></script>
     <script src="/app/admin-client-requests.js"></script>
   </body>
 </html>
