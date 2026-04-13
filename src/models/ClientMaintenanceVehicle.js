@@ -47,6 +47,12 @@ const clientMaintenanceVehicleSchema = new mongoose.Schema(
       max: 200,
       required: true,
     },
+    drivingCity: {
+      type: String,
+      trim: true,
+      enum: ["", "Barranquilla", "Bogota", "Bucaramanga", "Medellin", "Cali"],
+      default: "",
+    },
     plate: {
       type: String,
       required: true,

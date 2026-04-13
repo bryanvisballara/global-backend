@@ -5631,6 +5631,23 @@ body.modal-open {
   box-shadow: 0 0 0 4px rgba(216, 170, 82, 0.1);
 }
 
+.maint-detail-city-filter {
+  min-width: 190px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 11px 14px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.maint-detail-city-filter:focus {
+  border-color: rgba(216, 170, 82, 0.5);
+  box-shadow: 0 0 0 4px rgba(216, 170, 82, 0.1);
+}
+
 .maint-detail-count-label {
   color: rgba(255, 255, 255, 0.45);
   font-size: 0.82rem;

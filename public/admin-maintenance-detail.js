@@ -84,6 +84,7 @@
   const tableBody = document.getElementById("maint-table-body");
   const totalCountEl = document.getElementById("maint-total-count");
   const searchInput = document.getElementById("maint-search");
+  const cityFilterEl = document.getElementById("maint-city-filter");
   const pageFeedback = document.getElementById("maint-detail-page-feedback");
 
   if (titleEl) {
@@ -148,6 +149,7 @@
     const cols = [
       "Cliente",
       "Telefono",
+      "Ubicacion",
       "Vehiculo",
       "Placa",
       "Ano",
@@ -188,20 +190,29 @@
 
   function getPendingTableVehicles(filteredQuery) {
     const query = String(filteredQuery || "").toLowerCase().trim();
+    const selectedCity = String(cityFilterEl?.value || "").trim();
     const pendingVehicles = allVehicles.filter((v) => String(v.adminContactStatus || "pending") === "pending");
 
-    if (!query) {
-      return pendingVehicles;
-    }
-
     return pendingVehicles.filter((v) => {
+      const location = String(v.drivingCity || "").trim();
+      const byCity = !selectedCity || location === selectedCity;
+
+      if (!byCity) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
       const name = String(v.user?.name || v.client?.name || "").toLowerCase();
       const plate = String(v.plate || "").toLowerCase();
       const brand = String(v.brand || "").toLowerCase();
       const model = String(v.model || "").toLowerCase();
       const phone = String(v.user?.phone || v.client?.phone || "").toLowerCase();
+      const city = String(v.drivingCity || "").toLowerCase();
 
-      return name.includes(query) || plate.includes(query) || brand.includes(query) || model.includes(query) || phone.includes(query);
+      return name.includes(query) || plate.includes(query) || brand.includes(query) || model.includes(query) || phone.includes(query) || city.includes(query);
     });
   }
 
@@ -218,6 +229,7 @@
       const id = String(vehicle._id || vehicle.id || "");
       const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
       const ownerPhoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
+      const drivingCity = escapeHtml(vehicle.drivingCity || "Sin ubicacion");
       const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Sin nombre");
       const lastContact = vehicle.adminLastContactAt ? formatDate(vehicle.adminLastContactAt) : "-";
       const appointmentDateValue = vehicle.adminAppointmentDate || vehicle.appointmentDate || "";
@@ -239,6 +251,7 @@
         <tr class="maint-row" data-vehicle-id="${id}">
           <td class="maint-td maint-td-name">${ownerName}</td>
           <td class="maint-td maint-td-phone">${buildWhatsappLink(ownerPhoneRaw)}</td>
+          <td class="maint-td maint-td-city">${drivingCity}</td>
           <td class="maint-td maint-td-vehicle">${vehicleTitle}</td>
           <td class="maint-td"><span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "-")}</span></td>
           <td class="maint-td">${escapeHtml(vehicle.year || "-")}</td>
@@ -289,6 +302,7 @@
         const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
         const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Vehiculo");
         const phoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
+        const drivingCity = escapeHtml(vehicle.drivingCity || "Sin ubicacion");
         const apptDate = vehicle.adminAppointmentDate || vehicle.appointmentDate;
         const apptDateLabel = apptDate ? formatDate(apptDate) : "Sin fecha";
 
@@ -298,6 +312,7 @@
               <span class="maint-vehicle-card-title">${ownerName}</span>
               <span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "Sin placa")}</span>
               <span class="maint-vehicle-card-row">${vehicleTitle}</span>
+              <span class="maint-vehicle-card-row">Ubicacion: ${drivingCity}</span>
               <span class="maint-vehicle-card-row">${buildWhatsappLink(phoneRaw)}</span>
               <span class="maint-vehicle-card-row">Notas: ${escapeHtml(vehicle.adminContactNotes || "Sin notas")}</span>
               ${statusValue === "appointment_scheduled"
@@ -408,6 +423,10 @@
 
   if (searchInput) {
     searchInput.addEventListener("input", filterAndRender);
+  }
+
+  if (cityFilterEl) {
+    cityFilterEl.addEventListener("change", filterAndRender);
   }
 
   loadPage().catch((error) => {

@@ -34,9 +34,17 @@
               type="search"
               id="maint-search"
               class="maint-detail-search"
-              placeholder="Buscar por cliente, teléfono, placa o vehículo..."
+              placeholder="Buscar por cliente, teléfono, placa, vehículo o ubicación..."
               autocomplete="off"
             />
+            <select id="maint-city-filter" class="maint-detail-city-filter" aria-label="Filtrar por ciudad">
+              <option value="">Todas las ciudades</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bogota">Bogota</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Medellin">Medellin</option>
+              <option value="Cali">Cali</option>
+            </select>
             <span class="maint-detail-count-label">Mostrando <strong id="maint-total-count">0</strong> vehículos</span>
           </div>
           <div class="maint-detail-table-wrap">

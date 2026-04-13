@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/app/styles.css" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260410-22" />
   </head>
   <body>
     <main class="client-shell">
@@ -23,14 +23,20 @@
 
         <header class="client-header">
           <div class="client-header-side left">
-            <button id="client-menu-button" class="icon-button" type="button" aria-label="Abrir menu">
+            <button id="client-menu-button" class="icon-button" type="button" aria-label="Abrir menú">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M4 6.5h16v2H4Zm0 4.5h16v2H4Zm0 4.5h16v2H4Z"></path>
+                <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.1 0-7.5 2.2-7.5 5v1h15v-1c0-2.8-3.4-5-7.5-5Z"></path>
               </svg>
             </button>
 
             <div id="session-menu" class="client-popover" hidden>
-              <button id="client-logout-button" class="popover-action" type="button">Cerrar sesion</button>
+              <p class="client-popover-title">Sesión</p>
+              <button id="client-logout-button" class="popover-action logout-action" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M10 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7v-2h7V6h-7V4Zm1.7 4.3 1.4 1.4-1.3 1.3H4v2h7.8l1.3 1.3-1.4 1.4L8 12l3.7-3.7Z"></path>
+                </svg>
+                <span>Cerrar sesión</span>
+              </button>
             </div>
           </div>
 
@@ -51,6 +57,7 @@
         <section class="client-hero">
           <div>
             <h1 id="client-greeting">Tu experiencia Global Imports</h1>
+            <p class="client-hero-subtitle">Bienvenido a la juguetería de los adultos.</p>
           </div>
         </section>
 
@@ -67,100 +74,196 @@
           <section class="client-view" data-view="tracking">
             <div class="client-section-head">
               <div>
-                <p class="section-tag">Seguimiento</p>
-                <h2>Consulta tu guia</h2>
-                <p class="dashboard-lead">Escribe tu numero de guia y te mostramos las actualizaciones del pedido.</p>
+                <h2>Rastrea tu juguete</h2>
+                  <p class="dashboard-lead">Escribe tu número de guía y te mostramos las actualizaciones de tu nuevo juguete.</p>
+                  <p class="tracking-help-copy">¿Aún no tienes número de guía? <a class="tracking-help-link" href="https://wa.me/573147360210?text=Hola%2C%20quisiera%20saber%20el%20n%C3%BAmero%20de%20gu%C3%ADa%20de%20mi%20nuevo%20juguete." target="_blank" rel="noreferrer">escríbenos</a></p>
               </div>
             </div>
 
-            <div class="tracking-search-card">
-              <label class="tracking-search-label" for="tracking-search-input">Numero de guia</label>
+            <form id="tracking-search-form" class="tracking-search-card tracking-search-form">
+                <label class="tracking-search-label" for="tracking-search-input">Número de guía</label>
               <input id="tracking-search-input" class="tracking-search-input" list="tracking-search-options" type="text" placeholder="Ej. GI-2026-001" autocomplete="off" />
               <datalist id="tracking-search-options"></datalist>
-            </div>
-
-            <div id="tracking-results" class="tracking-results"></div>
+              <button id="tracking-search-button" class="primary-button" type="submit">Rastrear</button>
+              <p id="tracking-search-feedback" class="feedback" aria-live="polite"></p>
+            </form>
           </section>
 
           <section class="client-view" data-view="order">
             <div class="client-section-head">
               <div>
-                <p class="section-tag">Nueva orden</p>
-                <h2>Arma tu carro</h2>
-                <p class="dashboard-lead">Deja lista la configuracion que deseas y Global Imports la recibe en el portal administrativo.</p>
+                <h2>Global Experience</h2>
+                <p class="dashboard-lead">Selecciona tu favorito</p>
               </div>
             </div>
 
-            <form id="client-request-form" class="client-form-card">
-              <div class="form-row two-up">
-                <label><span>Nombre</span><input id="request-name" type="text" readonly /></label>
-                <label><span>Correo</span><input id="request-email" type="email" readonly /></label>
+            <section class="order-experience-shell" aria-label="Experiencia Global">
+              <div class="order-vehicle-carousel" id="order-vehicle-carousel" role="tablist" aria-label="Selecciona un vehículo">
+                <button
+                  class="order-vehicle-card"
+                  type="button"
+                  data-vehicle-key="sequoia"
+                  data-vehicle-brand="Toyota"
+                  data-vehicle-model="Sequoia"
+                  style="--vehicle-image:url('/app/sequ.jpg')"
+                >
+                  <span class="order-vehicle-title">Toyota Sequoia</span>
+                </button>
+                <button
+                  class="order-vehicle-card"
+                  type="button"
+                  data-vehicle-key="runner"
+                  data-vehicle-brand="Toyota"
+                  data-vehicle-model="4Runner"
+                  style="--vehicle-image:url('/app/runer.jpeg')"
+                >
+                  <span class="order-vehicle-title">Toyota 4Runner</span>
+                </button>
               </div>
+            </section>
+          </section>
 
-              <div class="form-row two-up">
-                <label><span>Telefono</span><input name="customerPhone" type="tel" placeholder="Tu numero de contacto" required /></label>
-                <label><span>Monto de reserva</span><input name="reservationAmount" type="number" min="0" placeholder="Monto referencial" required /></label>
+          <section class="client-view" data-view="order-options">
+            <div class="client-section-head client-section-head-options">
+              <div>
+                <h2>Global Experience</h2>
+                <p class="dashboard-lead">Elige tu siguiente paso</p>
               </div>
+              <button id="order-options-back" class="icon-button" type="button" aria-label="Volver a vehículos">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m14.4 5-7 7 7 7 1.4-1.4L10.2 12l5.6-5.6Z"></path>
+                </svg>
+              </button>
+            </div>
 
-              <div class="form-row three-up">
-                <label><span>Marca</span><input name="brand" type="text" placeholder="Mercedes-Benz" required /></label>
-                <label><span>Modelo</span><input name="model" type="text" placeholder="G63" required /></label>
-                <label><span>Ano</span><input name="year" type="number" min="1900" placeholder="2026" /></label>
+            <section class="order-experience-shell" aria-label="Opciones Global Experience">
+              <div id="order-experience-actions" class="order-actions-grid" hidden></div>
+            </section>
+          </section>
+
+          <section class="client-view" data-view="order-configurator">
+            <div class="client-section-head client-section-head-options">
+              <div>
+                <h2>Diseña tu Toyota Sequoia</h2>
+                <p class="dashboard-lead">Configura tu versión ideal y selecciona tu color favorito.</p>
               </div>
+              <button id="order-config-back" class="icon-button" type="button" aria-label="Volver a opciones">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m14.4 5-7 7 7 7 1.4-1.4L10.2 12l5.6-5.6Z"></path>
+                </svg>
+              </button>
+            </div>
 
-              <div class="form-row three-up">
-                <label><span>Version</span><input name="version" type="text" placeholder="AMG" /></label>
-                <label><span>Color</span><input name="color" type="text" placeholder="Negro obsidiana" /></label>
-                <label><span>Tapiceria</span><input name="upholstery" type="text" placeholder="Cuero negro" /></label>
-              </div>
+            <section class="sequoia-config-shell" aria-label="Configurador Toyota Sequoia">
+              <section class="sequoia-config-versions-section" aria-label="Versiones disponibles">
+                <p class="sequoia-config-subtitle">Versiones disponibles</p>
+                <div id="sequoia-config-versions" class="sequoia-config-versions"></div>
+              </section>
 
-              <div class="form-row two-up">
-                <label>
-                  <span>Moneda</span>
-                  <select name="currency">
-                    <option value="USD">USD</option>
-                    <option value="VES">VES</option>
-                  </select>
-                </label>
-                <label><span>Notas</span><textarea name="notes" rows="4" placeholder="Especificaciones, extras, paquete AMG, blindaje, etc."></textarea></label>
-              </div>
+              <article class="sequoia-config-carousel-card">
+                <div class="sequoia-config-image-frame" id="sequoia-config-image-frame">
+                  <img id="sequoia-config-main-image" src="/app/sequ.jpg" alt="Toyota Sequoia" loading="lazy" />
+                  <div id="sequoia-vision-hint" class="sequoia-vision-hint" aria-live="polite">
+                    <span class="sequoia-vision-hint-icon" aria-hidden="true">360</span>
+                    <span>Visión 360</span>
+                  </div>
+                </div>
+              </article>
 
-              <button class="primary-button" type="submit">Enviar nueva orden</button>
-              <p id="client-request-feedback" class="feedback" aria-live="polite"></p>
-            </form>
+              <section id="sequoia-config-specs" class="sequoia-config-specs" aria-label="Características de la versión"></section>
+
+              <section class="sequoia-config-colors-section" aria-label="Paleta de colores">
+                <p class="sequoia-config-subtitle">Escoge tu color favorito</p>
+                <p id="sequoia-config-color-name" class="sequoia-config-color-name">LUNAR ROCK</p>
+                <div id="sequoia-config-colors" class="sequoia-config-colors"></div>
+              </section>
+
+              <section class="sequoia-interior-section" aria-label="Configurador de interior">
+                <article class="sequoia-config-carousel-card">
+                  <div class="sequoia-config-image-frame" id="sequoia-interior-image-frame">
+                    <img id="sequoia-interior-main-image" src="/app/sr5%20tela/sr5tela01.webp" alt="Interior Toyota Sequoia" loading="lazy" />
+                  </div>
+                </article>
+
+                <section class="sequoia-config-colors-section" aria-label="Paleta de interior">
+                  <p class="sequoia-config-subtitle">Escoge tu interior favorito</p>
+                  <p id="sequoia-interior-color-name" class="sequoia-config-color-name">TELA BLACK</p>
+                  <div id="sequoia-interior-colors" class="sequoia-config-colors"></div>
+                </section>
+              </section>
+
+              <section class="sequoia-order-summary" aria-label="Resumen de configuración">
+                <header class="sequoia-order-summary-head">
+                  <h3 id="sequoia-summary-title">Toyota Sequoia SR5</h3>
+                  <p>Entrega Estimada: <span id="sequoia-summary-delivery-range">--</span></p>
+                </header>
+
+                <div class="sequoia-summary-city-wrap">
+                  <button id="sequoia-delivery-city-button" class="sequoia-summary-link-button" type="button" aria-expanded="false" aria-controls="sequoia-city-selector">
+                    Entrega en: Barranquilla
+                  </button>
+                  <div id="sequoia-city-selector" class="sequoia-city-selector" hidden></div>
+                  <p id="sequoia-city-fee-note" class="sequoia-summary-fee-note">Barranquilla gratis</p>
+                </div>
+
+                <button id="sequoia-order-details-toggle" class="sequoia-summary-toggle" type="button" aria-expanded="false" aria-controls="sequoia-order-details">
+                  Mostrar los detalles del pedido
+                </button>
+
+                <section id="sequoia-order-details" class="sequoia-order-details" hidden></section>
+
+                <section class="sequoia-summary-total-block">
+                  <div class="sequoia-summary-line">
+                    <strong>Precio de compra total</strong>
+                    <strong id="sequoia-summary-total-price">$ 0</strong>
+                  </div>
+                  <a id="sequoia-summary-financing-link" class="sequoia-summary-link" href="#" target="_blank" rel="noopener noreferrer">Explora financiamiento</a>
+                </section>
+
+                <section class="sequoia-summary-paytoday">
+                  <div class="sequoia-summary-line">
+                    <strong>Paga hoy</strong>
+                    <strong>$ 1.000.000</strong>
+                  </div>
+                  <p>Tarifa de orden no reembolsable</p>
+                </section>
+
+                <button id="sequoia-order-card-button" class="sequoia-summary-order-button" type="button">Ordenar con Tarjeta</button>
+              </section>
+
+            </section>
           </section>
 
           <section class="client-view" data-view="maintenance">
             <div class="client-section-head">
               <div>
                 <p class="section-tag">Mantenimiento preventivo</p>
-                <h2>Reporta kilometraje o ultimo servicio</h2>
-                <p class="dashboard-lead">Este reporte se refleja en el portal administrativo de Global Imports.</p>
+                <h2>Agrega tu vehículo</h2>
+                <p class="dashboard-lead">Recibe ofertas y cupones especiales para los mantenimientos de tu vehículo con Global Imports y sus aliados.</p>
               </div>
             </div>
 
-            <form id="client-maintenance-form" class="client-form-card">
-              <label>
-                <span>Vehiculo / guia</span>
-                <select id="client-maintenance-id" name="maintenanceId" required></select>
-              </label>
-
-              <div class="form-row two-up">
-                <label><span>Kilometraje actual</span><input name="reportedMileage" type="number" min="0" placeholder="Ej. 24500" /></label>
-                <label><span>Ultima fecha de mantenimiento</span><input name="lastServiceDate" type="date" /></label>
-              </div>
-
-              <label><span>Notas para Global</span><textarea name="clientNotes" rows="4" placeholder="Observaciones, ruidos, aceite, frenos, proximo servicio..."></textarea></label>
-
-              <button class="primary-button" type="submit">Guardar reporte</button>
-              <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
-            </form>
+            <button id="client-add-maintenance-vehicle-button" class="primary-button" type="button">Agrega tu vehículo</button>
+            <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
 
             <div id="client-maintenance-list" class="client-maintenance-list"></div>
           </section>
+
+          <section class="client-view" data-view="virtual-dealership">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Concesionario virtual</p>
+                <h2>Compra inmediata en vitrina</h2>
+                <p class="dashboard-lead">Explora los vehículos disponibles y conecta con Global Imports para cerrar tu orden hoy.</p>
+              </div>
+            </div>
+
+            <section id="virtual-dealership-client-list" class="virtual-dealership-client-list" aria-label="Vehículos de compra inmediata"></section>
+            <div id="virtual-dealership-load-more-sentinel" class="feed-load-more-sentinel" aria-hidden="true"></div>
+          </section>
         </section>
 
-        <nav class="client-bottom-nav" aria-label="Navegacion principal del cliente">
+        <nav class="client-bottom-nav" aria-label="Navegación principal del cliente">
           <button class="client-nav-button is-active" type="button" data-view-target="home">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4 3 11.2V20h6.2v-5.3h5.6V20H21v-8.8Z"></path></svg>
             <span>Inicio</span>
@@ -177,6 +280,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m21.2 7.8-5-5-2.1 2.1 1.7 1.7-3 3-1.8-1.8-7.9 7.9 4.9 4.9 7.9-7.9-1.8-1.8 3-3 1.7 1.7ZM8 18.6l-2.1-2.1 5.1-5.1 2.1 2.1Z"></path></svg>
             <span>Mantenimiento</span>
           </button>
+          <button class="client-nav-button" type="button" data-view-target="virtual-dealership">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5v8.5h-6.5v-5H9.5v5H3v-8.5Zm2 1v5.5h2.5v-5H16.5v5H19v-5.5L12 6.6 5 12.5Z"></path></svg>
+            <span>Concesionario</span>
+          </button>
         </nav>
       </section>
     </main>
@@ -187,7 +294,7 @@
         <header class="client-modal-header">
           <div>
             <p class="section-tag">Notificaciones</p>
-            <h2 id="notifications-title">Ultimas novedades</h2>
+            <h2 id="notifications-title">Últimas novedades</h2>
           </div>
           <button id="notifications-close" class="icon-button" type="button" aria-label="Cerrar notificaciones">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
@@ -197,6 +304,105 @@
       </section>
     </div>
 
-    <script src="/app/client-portal.js"></script>
+    <div id="maintenance-vehicle-modal" class="client-modal" hidden>
+      <div id="maintenance-vehicle-overlay" class="client-modal-overlay"></div>
+      <section class="client-modal-card" role="dialog" aria-modal="true" aria-labelledby="maintenance-vehicle-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Mantenimiento</p>
+            <h2 id="maintenance-vehicle-title">Agrega tu vehículo</h2>
+          </div>
+          <button id="maintenance-vehicle-close" class="icon-button" type="button" aria-label="Cerrar formulario de vehículo">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
+          </button>
+        </header>
+
+        <form id="client-maintenance-vehicle-form" class="dashboard-form">
+          <div class="form-row two-up">
+            <label><span>Marca</span><input name="brand" type="text" required /></label>
+            <label><span>Modelo</span><input name="model" type="text" required /></label>
+          </div>
+
+          <div class="form-row two-up">
+            <label><span>Versión</span><input name="version" type="text" /></label>
+            <label><span>Año</span><input name="year" type="number" min="1900" max="2100" required /></label>
+          </div>
+
+          <div class="form-row two-up">
+            <label><span>Kilometraje actual</span><input name="currentMileage" type="number" min="0" required /></label>
+            <label><span>Placa</span><input name="plate" type="text" required /></label>
+          </div>
+
+          <label><span>Usualmente, ¿cuántos km recorres al día?</span><input name="usualDailyKm" type="number" min="10" max="200" required /></label>
+
+          <label>
+            <span>¿En dónde lo manejas?</span>
+            <select name="drivingCity" required>
+              <option value="">Selecciona una ciudad</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bogota">Bogota</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Medellin">Medellin</option>
+              <option value="Cali">Cali</option>
+            </select>
+          </label>
+
+          <label><span>Último mantenimiento preventivo que le hiciste</span><input name="lastPreventiveMaintenanceDate" type="date" required /></label>
+
+          <button class="primary-button" type="submit">Guardar</button>
+        </form>
+      </section>
+    </div>
+
+    <div id="virtual-dealership-image-modal" class="client-modal" hidden>
+      <div id="virtual-dealership-image-overlay" class="client-modal-overlay"></div>
+      <section class="client-modal-card virtual-dealership-image-modal-card" role="dialog" aria-modal="true" aria-labelledby="virtual-dealership-image-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Concesionario virtual</p>
+            <h2 id="virtual-dealership-image-title">Vista de imagen</h2>
+          </div>
+          <button id="virtual-dealership-image-close" class="icon-button" type="button" aria-label="Cerrar imagen">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
+          </button>
+        </header>
+        <div class="virtual-dealership-image-wrap">
+          <button id="virtual-dealership-image-prev" class="virtual-dealership-image-nav prev" type="button" aria-label="Imagen anterior">&#10094;</button>
+          <div id="virtual-dealership-image-track" class="virtual-dealership-image-track"></div>
+          <button id="virtual-dealership-image-next" class="virtual-dealership-image-nav next" type="button" aria-label="Imagen siguiente">&#10095;</button>
+        </div>
+        <div id="virtual-dealership-image-dots" class="virtual-dealership-image-dots" aria-hidden="true"></div>
+      </section>
+    </div>
+
+    <div id="virtual-dealership-video-modal" class="client-modal" hidden>
+      <div id="virtual-dealership-video-overlay" class="client-modal-overlay"></div>
+      <section class="client-modal-card virtual-dealership-video-modal-card" role="dialog" aria-modal="true" aria-labelledby="virtual-dealership-video-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Concesionario virtual</p>
+            <h2 id="virtual-dealership-video-title">Agenda una videollamada</h2>
+          </div>
+          <button id="virtual-dealership-video-close" class="icon-button" type="button" aria-label="Cerrar modal de videollamada">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
+          </button>
+        </header>
+        <div class="virtual-dealership-video-modal-copy">
+          <p id="virtual-dealership-video-modal-description">Mira el carro en vivo y en directo con la ayuda de nuestro equipo a través de una videollamada. Horario disponible: lunes a viernes, de 9:00 a. m. a 4:00 p. m.</p>
+          <label class="virtual-dealership-video-field">
+            <span>Selecciona una fecha</span>
+            <input id="virtual-dealership-video-date" type="date" />
+          </label>
+          <label class="virtual-dealership-video-field">
+            <span>Selecciona un horario</span>
+            <select id="virtual-dealership-video-slots" class="virtual-dealership-video-select"></select>
+          </label>
+          <button id="virtual-dealership-video-confirm" class="primary-button" type="button">Agenda una videollamada ahora</button>
+          <p id="virtual-dealership-video-feedback" class="feedback" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+
+    <script src="/app/client-portal.js?v=20260412-60"></script>
   </body>
 </html>
