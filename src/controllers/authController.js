@@ -2,12 +2,17 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const User = require("../models/User");
 const EmailVerification = require("../models/EmailVerification");
-const { sendRegistrationVerificationEmail } = require("../services/brevoEmailService");
+const PasswordResetToken = require("../models/PasswordResetToken");
+const {
+  sendPasswordResetEmail,
+  sendRegistrationVerificationEmail,
+} = require("../services/brevoEmailService");
 const { generateToken } = require("../utils/token");
 
 const VERIFICATION_TTL_MINUTES = 10;
 const VERIFICATION_RESEND_COOLDOWN_MS = 45 * 1000;
 const VERIFICATION_MAX_ATTEMPTS = 8;
+const PASSWORD_RESET_TTL_MINUTES = 30;
 
 function hashVerificationCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
@@ -19,6 +24,36 @@ function generateVerificationCode() {
 
 function buildVerificationExpiryDate() {
   return new Date(Date.now() + VERIFICATION_TTL_MINUTES * 60 * 1000);
+}
+
+function buildPasswordResetExpiryDate() {
+  return new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
+}
+
+function hashResetToken(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+function generatePasswordResetToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function resolvePublicAppBaseUrl(req) {
+  const configuredBaseUrl = String(process.env.PUBLIC_APP_URL || process.env.APP_BASE_URL || "").trim();
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, "");
+  }
+
+  const forwardedProto = req.headers["x-forwarded-proto"] || (req.secure ? "https" : "http");
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+
+  return `${forwardedProto}://${host}`.replace(/\/$/, "");
+}
+
+function buildPasswordResetUrl(req, token) {
+  const appBaseUrl = resolvePublicAppBaseUrl(req);
+  return `${appBaseUrl}/app/reset-password.html?token=${encodeURIComponent(token)}`;
 }
 
 function getAuthCookieOptions(req) {
@@ -182,6 +217,94 @@ async function verifyRegistrationCode(req, res) {
   }
 }
 
+async function requestPasswordReset(req, res) {
+  try {
+    const normalizedEmail = String(req.body?.email || "").toLowerCase().trim();
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: "El correo es obligatorio." });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user || user.isActive === false) {
+      return res.status(200).json({
+        message: "Si el correo existe, enviaremos un enlace de recuperación en unos instantes.",
+      });
+    }
+
+    const rawToken = generatePasswordResetToken();
+    const tokenHash = hashResetToken(rawToken);
+
+    await PasswordResetToken.deleteMany({ user: user._id });
+
+    await PasswordResetToken.create({
+      user: user._id,
+      email: normalizedEmail,
+      tokenHash,
+      expiresAt: buildPasswordResetExpiryDate(),
+      requestedAt: new Date(),
+    });
+
+    await sendPasswordResetEmail({
+      toEmail: user.email,
+      toName: user.name,
+      resetUrl: buildPasswordResetUrl(req, rawToken),
+    });
+
+    return res.status(200).json({
+      message: "Si el correo existe, enviaremos un enlace de recuperación en unos instantes.",
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error sending password reset email" });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const token = String(req.body?.token || "").trim();
+    const password = String(req.body?.password || "");
+    const confirmPassword = String(req.body?.confirmPassword || "");
+
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({ message: "Token, contraseña y confirmación son obligatorios." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres." });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Las contraseñas no coinciden." });
+    }
+
+    const resetRecord = await PasswordResetToken.findOne({
+      tokenHash: hashResetToken(token),
+      consumedAt: null,
+    }).populate("user");
+
+    if (!resetRecord || !resetRecord.user) {
+      return res.status(400).json({ message: "El enlace de recuperación ya no es válido." });
+    }
+
+    if (resetRecord.expiresAt.getTime() < Date.now()) {
+      await PasswordResetToken.deleteOne({ _id: resetRecord._id });
+      return res.status(410).json({ message: "El enlace expiró. Solicita uno nuevo." });
+    }
+
+    resetRecord.user.password = await bcrypt.hash(password, 10);
+    await resetRecord.user.save();
+
+    resetRecord.consumedAt = new Date();
+    await resetRecord.save();
+    await PasswordResetToken.deleteMany({ user: resetRecord.user._id });
+
+    return res.status(200).json({ message: "Contraseña actualizada correctamente." });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error resetting password" });
+  }
+}
+
 async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -238,6 +361,8 @@ async function logout(req, res) {
 module.exports = {
   startRegistrationVerification,
   verifyRegistrationCode,
+  requestPasswordReset,
+  resetPassword,
   login,
   logout,
   me,
