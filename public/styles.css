@@ -467,6 +467,56 @@ button {
   margin-top: 4px;
 }
 
+.secondary-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7f7f4;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.secondary-button:hover {
+  border-color: rgba(216, 170, 82, 0.28);
+  background: rgba(216, 170, 82, 0.08);
+}
+
+.secondary-button:active {
+  transform: translateY(1px);
+}
+
+.reset-page-shell {
+  width: min(100%, 680px);
+}
+
+.reset-page-shell .device-stage {
+  display: grid;
+  align-content: center;
+  gap: 24px;
+}
+
+.reset-password-panel {
+  margin-top: 0;
+}
+
+.reset-password-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.reset-password-panel .login-form {
+  margin-top: 18px;
+}
+
 .signup-link {
   border: 0;
   background: transparent;

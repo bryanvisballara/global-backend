@@ -120,7 +120,7 @@
                 <input type="checkbox" id="remember" />
                 <span>Mantener acceso</span>
               </label>
-              <button class="link-button" type="button">¿Olvidaste tu contraseña?</button>
+              <button id="forgot-password-button" class="link-button" type="button">¿Olvidaste tu contraseña?</button>
             </div>
 
             <button id="submit-button" class="primary-button" type="submit">
@@ -164,9 +164,35 @@
             </form>
           </div>
         </div>
+
+        <div class="tracking-modal auth-verification-modal" id="forgot-password-modal" hidden>
+          <div class="tracking-modal-backdrop" data-close-password-reset-modal></div>
+          <div class="tracking-modal-card auth-verification-card" role="dialog" aria-modal="true" aria-labelledby="forgot-password-title">
+            <strong id="forgot-password-title">Recupera tu contraseña</strong>
+            <p>Escribe el correo con el que te registraste. Te enviaremos un enlace seguro para crear una nueva contraseña.</p>
+            <form id="forgot-password-form" class="login-form compact-verification-form">
+              <label>
+                <span>Correo registrado</span>
+                <input
+                  id="forgot-password-email"
+                  name="forgotPasswordEmail"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="correo@globalimports.com"
+                  required
+                />
+              </label>
+              <p id="forgot-password-feedback" class="feedback" aria-live="polite"></p>
+              <div class="modal-actions-row">
+                <button id="forgot-password-cancel" class="secondary-button" type="button" data-close-password-reset-modal>Cancelar</button>
+                <button id="forgot-password-submit" class="primary-button" type="submit">Recuperar contraseña</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </section>
     </main>
 
-    <script src="/app/app-client.js?v=20260413-01"></script>
+    <script src="/app/app-client.js?v=20260413-02"></script>
   </body>
 </html>

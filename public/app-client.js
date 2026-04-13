@@ -102,6 +102,7 @@ const submitButton = document.getElementById("submit-button");
 const feedbackMessage = document.getElementById("feedback-message");
 const loginForm = document.getElementById("login-form");
 const signupLink = document.querySelector(".signup-link");
+const forgotPasswordButton = document.getElementById("forgot-password-button");
 const signupPromptPrefix = document.getElementById("signup-prompt-prefix");
 const verificationModal = document.getElementById("verification-modal");
 const verificationForm = document.getElementById("verification-form");
@@ -110,6 +111,11 @@ const verificationFeedback = document.getElementById("verification-feedback");
 const verificationSubmitButton = document.getElementById("verification-submit-button");
 const verificationResendButton = document.getElementById("verification-resend-button");
 const verificationCopy = document.getElementById("verification-copy");
+const forgotPasswordModal = document.getElementById("forgot-password-modal");
+const forgotPasswordForm = document.getElementById("forgot-password-form");
+const forgotPasswordEmailInput = document.getElementById("forgot-password-email");
+const forgotPasswordFeedback = document.getElementById("forgot-password-feedback");
+const forgotPasswordSubmitButton = document.getElementById("forgot-password-submit");
 const logoSymbol = document.getElementById("logo-symbol");
 const logoWordmark = document.getElementById("logo-wordmark");
 const brandFallback = document.getElementById("brand-fallback");
@@ -242,6 +248,15 @@ function setVerificationFeedback(message, type = "") {
   verificationFeedback.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
+function setForgotPasswordFeedback(message, type = "") {
+  if (!forgotPasswordFeedback) {
+    return;
+  }
+
+  forgotPasswordFeedback.textContent = message;
+  forgotPasswordFeedback.className = `feedback${type ? ` ${type}` : ""}`;
+}
+
 function openVerificationModal(email) {
   if (!verificationModal) {
     return;
@@ -265,6 +280,38 @@ function closeVerificationModal() {
 
   verificationModal.hidden = true;
   document.body.classList.remove("modal-open");
+}
+
+function openPasswordResetModal() {
+  if (!forgotPasswordModal) {
+    return;
+  }
+
+  forgotPasswordEmailInput.value = String(emailInput?.value || "").trim();
+  setForgotPasswordFeedback("Te enviaremos un enlace seguro a tu correo.");
+  forgotPasswordModal.hidden = false;
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => forgotPasswordEmailInput?.focus(), 50);
+}
+
+function closePasswordResetModal() {
+  if (!forgotPasswordModal) {
+    return;
+  }
+
+  forgotPasswordModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+function handleQueryStateMessages() {
+  const currentUrl = new URL(window.location.href);
+  const resetStatus = currentUrl.searchParams.get("reset");
+
+  if (resetStatus === "success") {
+    setFeedback("Tu contraseña fue actualizada. Ya puedes ingresar con la nueva clave.", "success");
+    currentUrl.searchParams.delete("reset");
+    window.history.replaceState({}, document.title, currentUrl.pathname);
+  }
 }
 
 function applyAuthContent() {
@@ -318,6 +365,7 @@ function applyAuthContent() {
 function toggleAuthMode() {
   authMode = authMode === "login" ? "register" : "login";
   closeVerificationModal();
+  closePasswordResetModal();
   applyAuthContent();
 }
 
@@ -544,10 +592,53 @@ document.querySelectorAll("[data-close-verification-modal]").forEach((element) =
   element.addEventListener("click", closeVerificationModal);
 });
 
+document.querySelectorAll("[data-close-password-reset-modal]").forEach((element) => {
+  element.addEventListener("click", closePasswordResetModal);
+});
+
+if (forgotPasswordButton) {
+  forgotPasswordButton.addEventListener("click", openPasswordResetModal);
+}
+
+if (forgotPasswordForm) {
+  forgotPasswordForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const email = String(forgotPasswordEmailInput?.value || "").trim();
+
+    if (!email) {
+      setForgotPasswordFeedback("Debes escribir tu correo registrado.", "error");
+      return;
+    }
+
+    forgotPasswordSubmitButton.disabled = true;
+    setForgotPasswordFeedback("Enviando enlace de recuperación...");
+
+    try {
+      const response = await postJsonWithFallback("/api/auth/forgot-password", { email });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "No se pudo iniciar la recuperación.");
+      }
+
+      setForgotPasswordFeedback(data.message || "Revisa tu correo para continuar.", "success");
+      window.setTimeout(() => {
+        closePasswordResetModal();
+      }, 1200);
+    } catch (error) {
+      setForgotPasswordFeedback(error.message, "error");
+    } finally {
+      forgotPasswordSubmitButton.disabled = false;
+    }
+  });
+}
+
 applyAuthContent();
 populateCountryCodes();
 bindCountryCodeSelector();
 updateApiStatus();
+handleQueryStateMessages();
 
 if (signupLink) {
   signupLink.addEventListener("click", toggleAuthMode);
