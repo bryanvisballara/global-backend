@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260409-15" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -27,44 +27,90 @@
           <h1>Mantenimientos preventivos</h1>
           <p class="dashboard-lead">Da seguimiento al contacto, vencimiento y cierre de mantenimientos.</p>
         </section>
-        <section class="module-grid single-module-grid">
-          <article class="dashboard-card module-card module-card-wide">
-            <div class="module-layout">
-              <div>
-                <div class="module-metric-inline"><span>Por fecha (+6 meses, +/-15 días)</span><strong id="maintenance-by-date-count">0</strong></div>
-                <div id="maintenance-by-date-list" class="dashboard-list"></div>
+        <section class="maint-grid">
+
+          <!-- ── Fila 1: 3 cards de alertas ── -->
+          <article class="dashboard-card maint-panel">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">🔔</span>
+                <div>
+                  <h2 class="maint-panel-heading">Este mes</h2>
+                  <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
+                </div>
               </div>
-              <div>
-                <div class="module-metric-inline"><span>Próximo mes (+6 meses, +/-15 días)</span><strong id="maintenance-by-next-month-count">0</strong></div>
-                <div id="maintenance-by-next-month-list" class="dashboard-list"></div>
-              </div>
-              <div>
-                <div class="module-metric-inline"><span>Por km recorrido (>= 5.000)</span><strong id="maintenance-by-km-count">0</strong></div>
-                <div id="maintenance-by-km-list" class="dashboard-list"></div>
-              </div>
-            </div>
+              <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
+            </header>
+            <div class="maint-vehicle-list" id="maintenance-by-date-list"></div>
           </article>
 
-          <article class="dashboard-card module-card module-card-wide">
-            <div class="module-layout">
-              <form id="maintenance-form" class="dashboard-form">
-                <label><span>Registro de mantenimiento</span><select id="maintenance-id" name="maintenanceId" required></select></label>
-                <label><span>Estado</span><select name="status"><option value="scheduled">Programado</option><option value="due">Vencido</option><option value="contacted">Contactado</option><option value="completed">Completado</option></select></label>
-                <label><span>Notas de contacto</span><textarea name="contactNotes" rows="4" placeholder="Llamada, push, respuesta del cliente..."></textarea></label>
-                <label class="checkbox-line dashboard-checkbox"><input name="markNotified" type="checkbox" /><span>Registrar notificación enviada ahora</span></label>
-                <button class="primary-button" type="submit">Actualizar mantenimiento</button>
-                <p id="maintenance-feedback" class="feedback" aria-live="polite"></p>
-              </form>
-              <div>
-                <div class="module-metric-inline"><span>Total</span><strong id="maintenance-count">0</strong></div>
-                <div id="maintenance-list" class="dashboard-list"></div>
+          <article class="dashboard-card maint-panel">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">📅</span>
+                <div>
+                  <h2 class="maint-panel-heading">Próximo mes</h2>
+                  <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
+                </div>
               </div>
-            </div>
+              <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
+            </header>
+            <div class="maint-vehicle-list" id="maintenance-by-next-month-list"></div>
           </article>
+
+          <article class="dashboard-card maint-panel">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">📍</span>
+                <div>
+                  <h2 class="maint-panel-heading">Por km recorrido</h2>
+                  <p class="maint-panel-sub">Estimado ≥ 5.000 km desde último mantenimiento</p>
+                </div>
+              </div>
+              <strong class="maint-panel-count" id="maintenance-by-km-count">0</strong>
+            </header>
+            <div class="maint-vehicle-list" id="maintenance-by-km-list"></div>
+          </article>
+
+          <!-- ── Fila 2: listado total + formulario ── -->
+          <article class="dashboard-card maint-panel maint-panel-total">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">🚗</span>
+                <div>
+                  <h2 class="maint-panel-heading">Total registrados</h2>
+                  <p class="maint-panel-sub">Todos los vehículos y mantenimientos activos</p>
+                </div>
+              </div>
+              <strong class="maint-panel-count" id="maintenance-count">0</strong>
+            </header>
+            <div class="maint-vehicle-list" id="maintenance-list"></div>
+          </article>
+
+          <article class="dashboard-card maint-panel maint-panel-form">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">✏️</span>
+                <div>
+                  <h2 class="maint-panel-heading">Actualizar mantenimiento</h2>
+                  <p class="maint-panel-sub">Registrar contacto, estado y notificaciones</p>
+                </div>
+              </div>
+            </header>
+            <form id="maintenance-form" class="dashboard-form">
+              <label><span>Registro de mantenimiento</span><select id="maintenance-id" name="maintenanceId" required></select></label>
+              <label><span>Estado</span><select name="status"><option value="scheduled">Programado</option><option value="due">Vencido</option><option value="contacted">Contactado</option><option value="completed">Completado</option></select></label>
+              <label><span>Notas de contacto</span><textarea name="contactNotes" rows="4" placeholder="Llamada, push, respuesta del cliente..."></textarea></label>
+              <label class="checkbox-line dashboard-checkbox"><input name="markNotified" type="checkbox" /><span>Registrar notificación enviada ahora</span></label>
+              <button class="primary-button" type="submit">Actualizar mantenimiento</button>
+              <p id="maintenance-feedback" class="feedback" aria-live="polite"></p>
+            </form>
+          </article>
+
         </section>
       </section>
     </main>
     <script src="/app/admin-common.js?v=20260412-01"></script>
-    <script src="/app/admin-maintenance.js?v=20260412-04"></script>
+    <script src="/app/admin-maintenance.js?v=20260412-05"></script>
   </body>
 </html>

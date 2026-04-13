@@ -36,6 +36,24 @@ if (requireAdminAccess()) {
   let dueByDateNextMonthItems = [];
   let dueByKmItems = [];
 
+  function renderVehicleCard(vehicle, badgeLabel, badgeClass) {
+    const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+    const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+    return `
+      <article class="maint-vehicle-card">
+        <div class="maint-vehicle-card-info">
+          <span class="maint-vehicle-card-title">${ownerName}</span>
+          <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
+          <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
+          <span class="maint-vehicle-card-row">Último mant.: ${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "Sin fecha"}</span>
+          <span class="maint-vehicle-card-row">Vence (6m): ${vehicle.dueDateBySchedule ? formatDate(vehicle.dueDateBySchedule) : "Sin fecha"}</span>
+          <span class="maint-vehicle-card-row">${vehicle.usualDailyKm || "N/A"} km/día · ${vehicle.year || ""} · ${vehicle.currentMileage ? vehicle.currentMileage + " km" : ""}</span>
+        </div>
+        <span class="maint-vehicle-card-badge ${badgeClass || ""}">${badgeLabel || ""}</span>
+      </article>
+    `;
+  }
+
   function renderDueByDate(items) {
     if (maintenanceByDateCount) {
       maintenanceByDateCount.textContent = String(items.length);
@@ -46,21 +64,11 @@ if (requireAdminAccess()) {
     }
 
     if (!items.length) {
-      renderEmptyState(maintenanceByDateList, "No hay vehículos en ventana de +/-15 días para la fecha objetivo (+6 meses).");
+      renderEmptyState(maintenanceByDateList, "No hay vehículos en ventana de +/-15 días para este mes.");
       return;
     }
 
-    maintenanceByDateList.innerHTML = items.map((vehicle) => `
-      <article class="list-item">
-        <div>
-          <strong>${vehicle.user?.name || vehicle.client?.name || "Cliente"}</strong>
-          <p>${vehicle.brand || "Vehiculo"} ${vehicle.model || ""} ${vehicle.version || ""} · Placa ${vehicle.plate || "N/A"}</p>
-          <p>Ultimo mantenimiento: ${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "Sin fecha"}</p>
-          <p>Fecha objetivo (6 meses): ${vehicle.dueDateBySchedule ? formatDate(vehicle.dueDateBySchedule) : "Sin fecha"}</p>
-        </div>
-        <span>${vehicle.usualDailyKm || "N/A"} km/dia</span>
-      </article>
-    `).join("");
+    maintenanceByDateList.innerHTML = items.map((v) => renderVehicleCard(v, "Este mes", "is-soon")).join("");
   }
 
   function renderDueByKm(items) {
@@ -73,21 +81,27 @@ if (requireAdminAccess()) {
     }
 
     if (!items.length) {
-      renderEmptyState(maintenanceByKmList, "No hay vehículos que hayan alcanzado 5.000 km estimados desde su último mantenimiento.");
+      renderEmptyState(maintenanceByKmList, "No hay vehículos que hayan alcanzado 5.000 km estimados.");
       return;
     }
 
-    maintenanceByKmList.innerHTML = items.map((vehicle) => `
-      <article class="list-item">
-        <div>
-          <strong>${vehicle.user?.name || vehicle.client?.name || "Cliente"}</strong>
-          <p>${vehicle.brand || "Vehiculo"} ${vehicle.model || ""} ${vehicle.version || ""} · Placa ${vehicle.plate || "N/A"}</p>
-          <p>Km estimados desde último mantenimiento: ${Math.floor(vehicle.estimatedKmSinceLastMaintenance || 0)}</p>
-          <p>Fecha estimada de 5.000 km: ${vehicle.estimatedDateByMileage ? formatDate(vehicle.estimatedDateByMileage) : "Sin fecha"}</p>
-        </div>
-        <span>${vehicle.usualDailyKm || "N/A"} km/dia</span>
-      </article>
-    `).join("");
+    maintenanceByKmList.innerHTML = items.map((vehicle) => {
+      const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      const kmSince = Math.floor(vehicle.estimatedKmSinceLastMaintenance || 0);
+      return `
+        <article class="maint-vehicle-card">
+          <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-title">${ownerName}</span>
+            <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
+            <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
+            <span class="maint-vehicle-card-row">Km desde último mant.: <strong style="color:#ffcba0">${kmSince.toLocaleString()}</strong></span>
+            <span class="maint-vehicle-card-row">Fecha est. 5.000 km: ${vehicle.estimatedDateByMileage ? formatDate(vehicle.estimatedDateByMileage) : "Sin fecha"}</span>
+          </div>
+          <span class="maint-vehicle-card-badge is-km">${vehicle.usualDailyKm || "N/A"} km/día</span>
+        </article>
+      `;
+    }).join("");
   }
 
   function renderDueByNextMonth(items) {
@@ -100,21 +114,11 @@ if (requireAdminAccess()) {
     }
 
     if (!items.length) {
-      renderEmptyState(maintenanceByNextMonthList, "No hay vehículos del próximo mes en ventana de +/-15 días para la fecha objetivo (+6 meses).");
+      renderEmptyState(maintenanceByNextMonthList, "No hay vehículos en ventana de +/-15 días para el próximo mes.");
       return;
     }
 
-    maintenanceByNextMonthList.innerHTML = items.map((vehicle) => `
-      <article class="list-item">
-        <div>
-          <strong>${vehicle.user?.name || vehicle.client?.name || "Cliente"}</strong>
-          <p>${vehicle.brand || "Vehiculo"} ${vehicle.model || ""} ${vehicle.version || ""} · Placa ${vehicle.plate || "N/A"}</p>
-          <p>Ultimo mantenimiento: ${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "Sin fecha"}</p>
-          <p>Fecha objetivo (6 meses): ${vehicle.dueDateBySchedule ? formatDate(vehicle.dueDateBySchedule) : "Sin fecha"}</p>
-        </div>
-        <span>${vehicle.usualDailyKm || "N/A"} km/dia</span>
-      </article>
-    `).join("");
+    maintenanceByNextMonthList.innerHTML = items.map((v) => renderVehicleCard(v, "Próx. mes", "")).join("");
   }
 
   function renderMaintenance(items, clientVehicles) {
@@ -122,38 +126,47 @@ if (requireAdminAccess()) {
     maintenanceCount.textContent = String(combinedCount);
 
     if (!combinedCount) {
-      renderEmptyState(maintenanceList, "No hay mantenimientos programados todavía.");
+      renderEmptyState(maintenanceList, "No hay mantenimientos registrados todavía.");
       return;
     }
 
-    const regularMaintenanceMarkup = items.map((item) => `
-      <article class="list-item">
-        <div>
-          <strong>${item.client?.name || "Cliente"}</strong>
-          <p>${item.order?.vehicle?.brand || "Vehiculo"} ${item.order?.vehicle?.model || ""} · ${item.status}</p>
-          <p>Tracking ${item.order?.trackingNumber || "sin guia"} · Km cliente: ${item.reportedMileage || "Sin reporte"}</p>
-          <p>Ultimo servicio cliente: ${item.lastServiceDate ? formatDate(item.lastServiceDate) : "Sin fecha"}</p>
-          <p>${item.clientNotes || "Sin notas del cliente"}</p>
-        </div>
-        <span>${formatDate(item.dueDate)}</span>
-      </article>
-    `).join("");
+    const orderMarkup = items.map((item) => {
+      const vehicleTitle = [item.order?.vehicle?.brand, item.order?.vehicle?.model].filter(Boolean).join(" ");
+      const STATUS_LABELS = { scheduled: "Programado", due: "Vencido", contacted: "Contactado", completed: "Completado" };
+      return `
+        <article class="maint-vehicle-card">
+          <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-title">${item.client?.name || "Cliente"}</span>
+            <span class="maint-vehicle-card-plate">Guía ${item.order?.trackingNumber || "Sin guía"}</span>
+            <span class="maint-vehicle-card-row">${vehicleTitle || "Vehículo"}</span>
+            <span class="maint-vehicle-card-row">Vence: ${formatDate(item.dueDate)}</span>
+            <span class="maint-vehicle-card-row">Km cliente: ${item.reportedMileage || "Sin reporte"}</span>
+            <span class="maint-vehicle-card-row">${item.clientNotes || "Sin notas"}</span>
+          </div>
+          <span class="maint-vehicle-card-badge ${item.status === 'due' ? 'is-soon' : item.status === 'completed' ? '' : ''}">${STATUS_LABELS[item.status] || item.status}</span>
+        </article>
+      `;
+    }).join("");
 
-    const clientVehiclesMarkup = clientVehicles.map((vehicle) => `
-      <article class="list-item">
-        <div>
-          <strong>${vehicle.user?.name || vehicle.client?.name || "Cliente"}</strong>
-          <p>${vehicle.brand || "Vehiculo"} ${vehicle.model || ""} ${vehicle.version || ""} · Placa ${vehicle.plate || "N/A"}</p>
-          <p>Km actual: ${vehicle.currentMileage || "0"} · Año: ${vehicle.year || "N/A"}</p>
-          <p>Km diarios usuales: ${vehicle.usualDailyKm || "N/A"}</p>
-          <p>Ultimo mantenimiento preventivo: ${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "Sin fecha"}</p>
-          <p>Origen: Registro directo del cliente en app</p>
-        </div>
-        <span>${formatDate(vehicle.createdAt)}</span>
-      </article>
-    `).join("");
+    const clientVehiclesMarkup = clientVehicles.map((vehicle) => {
+      const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      return `
+        <article class="maint-vehicle-card">
+          <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-title">${ownerName}</span>
+            <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
+            <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
+            <span class="maint-vehicle-card-row">Año ${vehicle.year || "N/A"} · ${vehicle.currentMileage || 0} km actuales</span>
+            <span class="maint-vehicle-card-row">${vehicle.usualDailyKm || "N/A"} km/día</span>
+            <span class="maint-vehicle-card-row">Último mant.: ${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "Sin fecha"}</span>
+          </div>
+          <span class="maint-vehicle-card-badge">Registro cliente</span>
+        </article>
+      `;
+    }).join("");
 
-    maintenanceList.innerHTML = regularMaintenanceMarkup + clientVehiclesMarkup;
+    maintenanceList.innerHTML = orderMarkup + clientVehiclesMarkup;
   }
 
   async function loadMaintenancePage() {
