@@ -1,16 +1,24 @@
 const express = require("express");
 const { requireAuth, requireRole } = require("../middleware/authMiddleware");
-const { createClient, listUsers } = require("../controllers/adminUsersController");
+const { listUsers } = require("../controllers/adminUsersController");
+const { createClient, listClients } = require("../controllers/adminClientsController");
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
   createOrder,
   getOrder,
   listOrders,
+  suggestTrackingNumber,
   updateOrder,
-  updateTrackingStep,
+  updateTrackingState,
 } = require("../controllers/adminOrdersController");
-const { listMaintenance, updateMaintenance } = require("../controllers/adminMaintenanceController");
-const { createPost, listPosts } = require("../controllers/adminPostsController");
+const { listMaintenance, updateMaintenance, updateClientMaintenanceVehicle } = require("../controllers/adminMaintenanceController");
+const { createPost, deletePost, getPost, listPosts, updatePost } = require("../controllers/adminPostsController");
+const {
+  createVirtualDealershipVehicle,
+  deleteVirtualDealershipVehicle,
+  listVirtualDealershipVehicles,
+  updateVirtualDealershipVehicle,
+} = require("../controllers/adminVirtualDealershipController");
 const { upload } = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
@@ -18,19 +26,32 @@ const router = express.Router();
 router.use(requireAuth, requireRole("admin"));
 
 router.get("/users", listUsers);
+router.get("/clients", listClients);
+router.post("/clients", createClient);
 router.post("/users/clients", createClient);
 router.get("/client-requests", listClientRequests);
+router.get("/tracking-suggestion", suggestTrackingNumber);
 
 router.get("/orders", listOrders);
-router.post("/orders", createOrder);
+router.post("/orders", upload.array("mediaFiles", 10), createOrder);
 router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
-router.patch("/orders/:orderId/tracking-steps/:stepKey", updateTrackingStep);
+router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
+router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 
 router.get("/maintenance", listMaintenance);
 router.patch("/maintenance/:maintenanceId", updateMaintenance);
+router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle);
 
 router.get("/posts", listPosts);
+router.get("/posts/:postId", getPost);
 router.post("/posts", upload.array("mediaFiles", 10), createPost);
+router.patch("/posts/:postId", updatePost);
+router.delete("/posts/:postId", deletePost);
+
+router.get("/virtual-dealership", listVirtualDealershipVehicles);
+router.post("/virtual-dealership", upload.array("mediaFiles", 10), createVirtualDealershipVehicle);
+router.patch("/virtual-dealership/:vehicleId", updateVirtualDealershipVehicle);
+router.delete("/virtual-dealership/:vehicleId", deleteVirtualDealershipVehicle);
 
 module.exports = router;

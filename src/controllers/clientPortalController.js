@@ -270,6 +270,30 @@ async function getPublicTrackingOrder(req, res) {
       }
     }
 
+    if (authenticatedClient?.email) {
+      const normalizedSubscriberEmail = String(authenticatedClient.email).toLowerCase().trim();
+      const existingSubscriberIndex = (order.trackingSubscribers || []).findIndex((subscriber) => {
+        const subscriberEmail = String(subscriber?.email || "").toLowerCase().trim();
+        const subscriberUserId = String(subscriber?.user || "");
+        return subscriberEmail === normalizedSubscriberEmail || subscriberUserId === String(authenticatedClient._id);
+      });
+
+      if (existingSubscriberIndex >= 0) {
+        order.trackingSubscribers[existingSubscriberIndex].email = normalizedSubscriberEmail;
+        order.trackingSubscribers[existingSubscriberIndex].user = authenticatedClient._id;
+        order.trackingSubscribers[existingSubscriberIndex].lastViewedAt = new Date();
+      } else {
+        order.trackingSubscribers.push({
+          user: authenticatedClient._id,
+          email: normalizedSubscriberEmail,
+          subscribedAt: new Date(),
+          lastViewedAt: new Date(),
+        });
+      }
+
+      await order.save();
+    }
+
     return res.status(200).json({
       order: sanitizeOrderForClient(order),
       linkedToClient,

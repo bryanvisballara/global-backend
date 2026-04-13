@@ -3,8 +3,22 @@ require("dotenv").config({ quiet: true });
 const app = require("./app");
 const { connectToDatabase, markDatabaseDisconnected } = require("./config/db");
 const { validateEnv } = require("./config/env");
+const { publishDueScheduledPosts } = require("./controllers/adminPostsController");
 
 let isConnectingToDatabase = false;
+let scheduledPostsInterval = null;
+
+function startScheduledPostsWorker() {
+  if (scheduledPostsInterval) {
+    return;
+  }
+
+  scheduledPostsInterval = setInterval(() => {
+    publishDueScheduledPosts().catch((error) => {
+      console.error("Scheduled posts worker failed", error.message);
+    });
+  }, 30000);
+}
 
 async function connectDatabaseWithRetry() {
   if (isConnectingToDatabase) {
@@ -15,6 +29,8 @@ async function connectDatabaseWithRetry() {
 
   try {
     await connectToDatabase();
+    await publishDueScheduledPosts();
+    startScheduledPostsWorker();
   } catch (error) {
     markDatabaseDisconnected();
     console.error("MongoDB connection failed, retrying in 10 seconds", error.message);

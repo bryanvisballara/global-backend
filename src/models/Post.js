@@ -37,7 +37,7 @@ const postSchema = new mongoose.Schema(
     },
     format: {
       type: String,
-      enum: ["carousel", "video"],
+      enum: ["carousel", "image", "video"],
       required: true,
     },
     media: {
@@ -51,12 +51,20 @@ const postSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["draft", "published"],
+      enum: ["draft", "published", "scheduled"],
       default: "published",
+    },
+    scheduledFor: {
+      type: Date,
+      default: null,
     },
     publishedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
+    },
+    pushNotificationSentAt: {
+      type: Date,
+      default: null,
     },
   },
   {

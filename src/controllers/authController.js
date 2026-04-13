@@ -1,6 +1,25 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const User = require("../models/User");
+const EmailVerification = require("../models/EmailVerification");
+const { sendRegistrationVerificationEmail } = require("../services/brevoEmailService");
 const { generateToken } = require("../utils/token");
+
+const VERIFICATION_TTL_MINUTES = 10;
+const VERIFICATION_RESEND_COOLDOWN_MS = 45 * 1000;
+const VERIFICATION_MAX_ATTEMPTS = 8;
+
+function hashVerificationCode(code) {
+  return crypto.createHash("sha256").update(String(code)).digest("hex");
+}
+
+function generateVerificationCode() {
+  return crypto.randomInt(0, 1000000).toString().padStart(6, "0");
+}
+
+function buildVerificationExpiryDate() {
+  return new Date(Date.now() + VERIFICATION_TTL_MINUTES * 60 * 1000);
+}
 
 function getAuthCookieOptions(req) {
   const forwardedProto = req.headers["x-forwarded-proto"];
@@ -26,7 +45,7 @@ function clearAuthCookie(req, res) {
   });
 }
 
-async function register(req, res) {
+async function startRegistrationVerification(req, res) {
   try {
     const { name, email, password, phone } = req.body;
 
@@ -34,20 +53,114 @@ async function register(req, res) {
       return res.status(400).json({ message: "Name, email, password and phone are required" });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const trimmedName = name.trim();
+    const trimmedPhone = String(phone).trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const existingVerification = await EmailVerification.findOne({ email: normalizedEmail });
+
+    if (existingVerification?.lastSentAt && Date.now() - existingVerification.lastSentAt.getTime() < VERIFICATION_RESEND_COOLDOWN_MS) {
+      return res.status(429).json({
+        message: "Espera unos segundos antes de solicitar otro código.",
+      });
+    }
+
+    const verificationCode = generateVerificationCode();
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await EmailVerification.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        email: normalizedEmail,
+        name: trimmedName,
+        phone: trimmedPhone,
+        passwordHash,
+        codeHash: hashVerificationCode(verificationCode),
+        expiresAt: buildVerificationExpiryDate(),
+        lastSentAt: new Date(),
+        attempts: 0,
+        $inc: { sentCount: 1 },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await sendRegistrationVerificationEmail({
+      toEmail: normalizedEmail,
+      toName: trimmedName,
+      verificationCode,
+    });
+
+    return res.status(200).json({
+      message: "Código de verificación enviado correctamente.",
+      email: normalizedEmail,
+      expiresInMinutes: VERIFICATION_TTL_MINUTES,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error sending verification code" });
+  }
+}
+
+async function verifyRegistrationCode(req, res) {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ message: "Email and verification code are required" });
+    }
+
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const normalizedCode = String(code).trim();
+
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      return res.status(400).json({ message: "El código debe tener 6 dígitos." });
+    }
+
+    const pendingVerification = await EmailVerification.findOne({ email: normalizedEmail });
+
+    if (!pendingVerification) {
+      return res.status(404).json({ message: "No hay verificación pendiente para este correo." });
+    }
+
+    if (pendingVerification.expiresAt.getTime() < Date.now()) {
+      await EmailVerification.deleteOne({ _id: pendingVerification._id });
+      return res.status(410).json({ message: "El código expiró. Solicita uno nuevo." });
+    }
+
+    if (pendingVerification.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      await EmailVerification.deleteOne({ _id: pendingVerification._id });
+      return res.status(429).json({ message: "Demasiados intentos. Solicita un nuevo código." });
+    }
+
+    const matches = pendingVerification.codeHash === hashVerificationCode(normalizedCode);
+
+    if (!matches) {
+      pendingVerification.attempts += 1;
+      await pendingVerification.save();
+      return res.status(401).json({ message: "Código inválido." });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      await EmailVerification.deleteOne({ _id: pendingVerification._id });
+      return res.status(409).json({ message: "User already exists" });
+    }
+
     const user = await User.create({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: hashedPassword,
-      phone: String(phone).trim(),
+      name: pendingVerification.name,
+      email: pendingVerification.email,
+      password: pendingVerification.passwordHash,
+      phone: pendingVerification.phone,
       role: "client",
     });
+
+    await EmailVerification.deleteOne({ _id: pendingVerification._id });
 
     const token = generateToken(user);
 
@@ -65,7 +178,7 @@ async function register(req, res) {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Error creating user" });
+    return res.status(500).json({ message: error.message || "Error verifying signup code" });
   }
 }
 
@@ -123,7 +236,8 @@ async function logout(req, res) {
 }
 
 module.exports = {
-  register,
+  startRegistrationVerification,
+  verifyRegistrationCode,
   login,
   logout,
   me,

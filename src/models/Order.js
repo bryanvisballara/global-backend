@@ -1,17 +1,31 @@
 const mongoose = require("mongoose");
-const { TRACKING_STEP_TEMPLATES, buildTrackingSteps } = require("../constants/trackingSteps");
+const {
+  TRACKING_STATE_TEMPLATES,
+  buildTrackingStates,
+  normalizeTrackingStates,
+} = require("../constants/trackingSteps");
 
 const mediaItemSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["image", "video"],
+      enum: ["image", "video", "document"],
       required: true,
+    },
+    category: {
+      type: String,
+      enum: ["document", "photo-single", "photo-carousel", "video"],
+      default: undefined,
     },
     url: {
       type: String,
       required: true,
       trim: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 280,
     },
     caption: {
       type: String,
@@ -27,17 +41,20 @@ const trackingStepSchema = new mongoose.Schema(
     key: {
       type: String,
       required: true,
-      enum: TRACKING_STEP_TEMPLATES.map((step) => step.key),
+      enum: TRACKING_STATE_TEMPLATES.map((step) => step.key),
     },
     label: {
       type: String,
       required: true,
       trim: true,
     },
-    status: {
-      type: String,
-      enum: ["pending", "active", "completed"],
-      default: "pending",
+    confirmed: {
+      type: Boolean,
+      default: false,
+    },
+    clientVisible: {
+      type: Boolean,
+      default: true,
     },
     notes: {
       type: String,
@@ -52,6 +69,35 @@ const trackingStepSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    confirmedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const trackingSubscriberSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+    subscribedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    lastViewedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { _id: false }
 );
@@ -60,8 +106,8 @@ const orderSchema = new mongoose.Schema(
   {
     client: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+      ref: "Client",
+      default: null,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -85,6 +131,10 @@ const orderSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+      version: {
+        type: String,
+        trim: true,
+      },
       year: {
         type: Number,
         required: true,
@@ -97,6 +147,16 @@ const orderSchema = new mongoose.Schema(
       color: {
         type: String,
         trim: true,
+      },
+      destination: {
+        type: String,
+        enum: ["Puerto Santa Marta", "Puerto Cartagena"],
+        trim: true,
+      },
+      internalIdentifier: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
       },
       description: {
         type: String,
@@ -122,13 +182,17 @@ const orderSchema = new mongoose.Schema(
     },
     trackingSteps: {
       type: [trackingStepSchema],
-      default: buildTrackingSteps,
+      default: buildTrackingStates,
       validate: {
         validator(steps) {
-          return Array.isArray(steps) && steps.length === TRACKING_STEP_TEMPLATES.length;
+          return Array.isArray(steps) && steps.length === TRACKING_STATE_TEMPLATES.length;
         },
-        message: "Orders must include the 7 tracking steps",
+        message: "Orders must include the 9 tracking states",
       },
+    },
+    trackingSubscribers: {
+      type: [trackingSubscriberSchema],
+      default: [],
     },
     notes: {
       type: String,
@@ -140,5 +204,10 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+orderSchema.pre("validate", function normalizeOrderTrackingStates(next) {
+  this.trackingSteps = normalizeTrackingStates(this.trackingSteps || []);
+  next();
+});
 
 module.exports = mongoose.model("Order", orderSchema);
