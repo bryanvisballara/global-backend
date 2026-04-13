@@ -5462,3 +5462,222 @@ body.modal-open {
     grid-column: 1;
   }
 }
+
+/* ── Maint panel header right (count + detail link) ── */
+.maint-panel-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.maint-panel-detail-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(216, 170, 82, 0.75);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.maint-panel-detail-link:hover {
+  color: #f4ead3;
+}
+
+/* ══════════════════════════════════════════════════════
+   MAINTENANCE DETAIL PAGE — table, toolbar, inline edit
+══════════════════════════════════════════════════════ */
+.maint-detail-section {
+  margin-top: 18px;
+  padding-bottom: 40px;
+}
+
+.maint-detail-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.maint-detail-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 11px 16px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.maint-detail-search::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.maint-detail-search:focus {
+  border-color: rgba(216, 170, 82, 0.5);
+  box-shadow: 0 0 0 4px rgba(216, 170, 82, 0.1);
+}
+
+.maint-detail-count-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.maint-detail-count-label strong {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.maint-detail-table-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.maint-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 960px;
+}
+
+.maint-th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.38);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  white-space: nowrap;
+}
+
+.maint-td {
+  padding: 11px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.maint-row:last-child .maint-td {
+  border-bottom: none;
+}
+
+.maint-row:hover .maint-td {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.maint-td-name {
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.maint-td-vehicle {
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.maint-td-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 40px 16px;
+  font-size: 0.9rem;
+}
+
+.maint-td-action {
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+/* Status select */
+.maint-status-select {
+  width: 100%;
+  min-width: 175px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 7px 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.maint-status-select:focus {
+  border-color: rgba(216, 170, 82, 0.5);
+}
+
+/* Status color coding */
+.maint-status-pending     { border-left: 3px solid rgba(255, 255, 255, 0.25); }
+.maint-status-contacted   { border-left: 3px solid #6fa3ff; }
+.maint-status-yes         { border-left: 3px solid #7dde9a; }
+.maint-status-elsewhere   { border-left: 3px solid #ffb84d; }
+.maint-status-no          { border-left: 3px solid #ff7070; }
+.maint-status-scheduled   { border-left: 3px solid #c77dff; }
+
+/* Notes input */
+.maint-notes-input {
+  width: 100%;
+  min-width: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 7px 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.maint-notes-input::placeholder {
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.maint-notes-input:focus {
+  border-color: rgba(216, 170, 82, 0.45);
+  box-shadow: 0 0 0 3px rgba(216, 170, 82, 0.08);
+}
+
+/* Save button in table */
+.maint-save-btn {
+  font-size: 0.78rem !important;
+  padding: 7px 14px !important;
+  white-space: nowrap;
+}
+
+.maint-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Per-row feedback */
+.maint-row-feedback {
+  font-size: 0.72rem;
+  margin: 4px 0 0;
+  min-height: 16px;
+  color: transparent;
+}
+
+.maint-row-success {
+  color: #7dde9a;
+}
+
+.maint-row-error {
+  color: #ff8080;
+}

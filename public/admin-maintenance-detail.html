@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Detalle mantenimiento</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint2" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin-maintenance.html">← Volver a mantenimientos</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1 id="detail-title">Detalle de mantenimiento</h1>
+          <p class="dashboard-lead" id="detail-subtitle">Gestiona el contacto y estado de cada cliente.</p>
+        </section>
+        <div class="maint-detail-section">
+          <div class="maint-detail-toolbar">
+            <input
+              type="search"
+              id="maint-search"
+              class="maint-detail-search"
+              placeholder="Buscar por cliente, placa o vehículo..."
+              autocomplete="off"
+            />
+            <span class="maint-detail-count-label">Mostrando <strong id="maint-total-count">0</strong> vehículos</span>
+          </div>
+          <div class="maint-detail-table-wrap">
+            <table class="maint-table" id="maint-table">
+              <thead id="maint-table-head">
+                <tr></tr>
+              </thead>
+              <tbody id="maint-table-body"></tbody>
+            </table>
+          </div>
+          <p id="maint-detail-page-feedback" class="feedback" aria-live="polite" style="margin-top: 16px;"></p>
+        </div>
+      </section>
+    </main>
+    <script src="/app/admin-common.js?v=20260412-01"></script>
+    <script src="/app/admin-maintenance-detail.js?v=20260412-01"></script>
+  </body>
+</html>

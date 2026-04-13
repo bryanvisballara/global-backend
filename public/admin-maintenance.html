@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint2" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -39,7 +39,10 @@
                   <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
                 </div>
               </div>
-              <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
+              <div class="maint-panel-header-right">
+                <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
+                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=this-month">Ver detalle →</a>
+              </div>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-date-list"></div>
           </article>
@@ -53,7 +56,10 @@
                   <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
                 </div>
               </div>
-              <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
+              <div class="maint-panel-header-right">
+                <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
+                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=next-month">Ver detalle →</a>
+              </div>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-next-month-list"></div>
           </article>
@@ -67,7 +73,10 @@
                   <p class="maint-panel-sub">Estimado ≥ 5.000 km desde último mantenimiento</p>
                 </div>
               </div>
-              <strong class="maint-panel-count" id="maintenance-by-km-count">0</strong>
+              <div class="maint-panel-header-right">
+                <strong class="maint-panel-count" id="maintenance-by-km-count">0</strong>
+                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=km">Ver detalle →</a>
+              </div>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-km-list"></div>
           </article>
