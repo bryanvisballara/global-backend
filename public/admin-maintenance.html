@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint2" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint3" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -30,7 +30,7 @@
         <section class="maint-grid">
 
           <!-- ── Fila 1: 3 cards de alertas ── -->
-          <article class="dashboard-card maint-panel">
+          <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="this-month" role="button" tabindex="0" aria-label="Abrir detalle de este mes">
             <header class="maint-panel-header">
               <div class="maint-panel-title">
                 <span class="maint-panel-icon">🔔</span>
@@ -39,15 +39,12 @@
                   <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
                 </div>
               </div>
-              <div class="maint-panel-header-right">
-                <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
-                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=this-month">Ver detalle →</a>
-              </div>
+              <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-date-list"></div>
           </article>
 
-          <article class="dashboard-card maint-panel">
+          <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="next-month" role="button" tabindex="0" aria-label="Abrir detalle de próximo mes">
             <header class="maint-panel-header">
               <div class="maint-panel-title">
                 <span class="maint-panel-icon">📅</span>
@@ -56,15 +53,12 @@
                   <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
                 </div>
               </div>
-              <div class="maint-panel-header-right">
-                <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
-                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=next-month">Ver detalle →</a>
-              </div>
+              <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-next-month-list"></div>
           </article>
 
-          <article class="dashboard-card maint-panel">
+          <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="km" role="button" tabindex="0" aria-label="Abrir detalle por kilometraje">
             <header class="maint-panel-header">
               <div class="maint-panel-title">
                 <span class="maint-panel-icon">📍</span>
@@ -73,12 +67,43 @@
                   <p class="maint-panel-sub">Estimado ≥ 5.000 km desde último mantenimiento</p>
                 </div>
               </div>
-              <div class="maint-panel-header-right">
-                <strong class="maint-panel-count" id="maintenance-by-km-count">0</strong>
-                <a class="maint-panel-detail-link" href="/app/admin-maintenance-detail.html?bucket=km">Ver detalle →</a>
-              </div>
+              <strong class="maint-panel-count" id="maintenance-by-km-count">0</strong>
             </header>
             <div class="maint-vehicle-list" id="maintenance-by-km-list"></div>
+          </article>
+
+          <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="appointments-month" role="button" tabindex="0" aria-label="Abrir detalle de citas agendadas este mes">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">🗓️</span>
+                <div>
+                  <h2 class="maint-panel-heading">Citas este mes</h2>
+                  <p class="maint-panel-sub">Vehículos con estado "cita agendada" durante el mes actual</p>
+                </div>
+              </div>
+              <strong class="maint-panel-count" id="maintenance-appointments-count">0</strong>
+            </header>
+            <div class="maint-vehicle-list" id="maintenance-appointments-list"></div>
+          </article>
+
+          <article class="dashboard-card maint-panel maint-calendar-panel">
+            <header class="maint-panel-header">
+              <div class="maint-panel-title">
+                <span class="maint-panel-icon">📆</span>
+                <div>
+                  <h2 class="maint-panel-heading">Calendario de citas</h2>
+                  <p class="maint-panel-sub" id="maintenance-calendar-month-label">Mes actual</p>
+                </div>
+              </div>
+            </header>
+            <div class="maint-calendar-weekdays" aria-hidden="true">
+              <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+            </div>
+            <div class="maint-calendar-grid" id="maintenance-calendar-grid"></div>
+            <div class="maint-calendar-day-detail">
+              <h3 id="maintenance-day-title">Citas del día</h3>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="maintenance-day-list"></div>
+            </div>
           </article>
 
           <!-- ── Fila 2: listado total + formulario ── -->
@@ -120,6 +145,6 @@
       </section>
     </main>
     <script src="/app/admin-common.js?v=20260412-01"></script>
-    <script src="/app/admin-maintenance.js?v=20260412-05"></script>
+    <script src="/app/admin-maintenance.js?v=20260412-06"></script>
   </body>
 </html>

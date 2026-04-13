@@ -5308,6 +5308,22 @@ body.modal-open {
   padding: 20px;
 }
 
+.maint-panel-clickable {
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.maint-panel-clickable:hover {
+  transform: translateY(-2px);
+  border-color: rgba(216, 170, 82, 0.36);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.25);
+}
+
+.maint-panel-clickable:focus-visible {
+  outline: 2px solid rgba(216, 170, 82, 0.55);
+  outline-offset: 2px;
+}
+
 .maint-panel-header {
   display: flex;
   align-items: flex-start;
@@ -5438,9 +5454,102 @@ body.modal-open {
   color: #ffcba0;
 }
 
+.maint-vehicle-card-badge.is-scheduled {
+  background: rgba(153, 111, 255, 0.2);
+  color: #d9c5ff;
+}
+
+.maint-calendar-panel {
+  grid-column: 2 / span 2;
+}
+
+.maint-calendar-weekdays {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.maint-calendar-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.maint-calendar-day {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 74px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.86);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+
+.maint-calendar-day:hover {
+  border-color: rgba(216, 170, 82, 0.4);
+}
+
+.maint-calendar-day.is-empty {
+  visibility: hidden;
+  min-height: 0;
+  padding: 0;
+}
+
+.maint-calendar-day.has-events {
+  background: rgba(216, 170, 82, 0.08);
+}
+
+.maint-calendar-day.is-active {
+  border-color: rgba(216, 170, 82, 0.66);
+  background: rgba(216, 170, 82, 0.18);
+}
+
+.maint-calendar-day-number {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.maint-calendar-day-count {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.2;
+}
+
+.maint-calendar-day-detail {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.maint-calendar-day-detail h3 {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 0.92rem;
+}
+
+.maint-vehicle-list-compact {
+  max-height: 200px;
+}
+
 @media (max-width: 1100px) {
   .maint-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .maint-calendar-panel {
+    grid-column: 1 / span 2;
   }
 
   .maint-panel-total {
@@ -5458,8 +5567,14 @@ body.modal-open {
   }
 
   .maint-panel-total,
-  .maint-panel-form {
+  .maint-panel-form,
+  .maint-calendar-panel {
     grid-column: 1;
+  }
+
+  .maint-calendar-weekdays,
+  .maint-calendar-grid {
+    gap: 6px;
   }
 }
 
@@ -5660,6 +5775,24 @@ body.modal-open {
   font-size: 0.8rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.maint-appointment-date-input {
+  width: 100%;
+  min-width: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 7px 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.maint-appointment-date-input:focus {
+  border-color: rgba(216, 170, 82, 0.45);
+  box-shadow: 0 0 0 3px rgba(216, 170, 82, 0.08);
 }
 
 .maint-notes-input::placeholder {

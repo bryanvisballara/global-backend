@@ -30,11 +30,74 @@ if (requireAdminAccess()) {
   const maintenanceByNextMonthList = document.getElementById("maintenance-by-next-month-list");
   const maintenanceByKmCount = document.getElementById("maintenance-by-km-count");
   const maintenanceByKmList = document.getElementById("maintenance-by-km-list");
+  const appointmentsCount = document.getElementById("maintenance-appointments-count");
+  const appointmentsList = document.getElementById("maintenance-appointments-list");
+  const appointmentsMonthLabel = document.getElementById("maintenance-calendar-month-label");
+  const appointmentsCalendarGrid = document.getElementById("maintenance-calendar-grid");
+  const appointmentsDayTitle = document.getElementById("maintenance-day-title");
+  const appointmentsDayList = document.getElementById("maintenance-day-list");
+  const detailCards = Array.from(document.querySelectorAll(".maint-panel-clickable[data-detail-bucket]"));
   let maintenanceItems = [];
   let clientVehicleItems = [];
   let dueByDateItems = [];
   let dueByDateNextMonthItems = [];
   let dueByKmItems = [];
+  let appointmentsThisMonthItems = [];
+  const appointmentDayMap = new Map();
+  let selectedAppointmentDayKey = "";
+
+  function parseDate(value) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function toDateKey(date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  function toMonthLabel(date) {
+    return new Intl.DateTimeFormat("es-CO", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  }
+
+  function toDayLabel(date) {
+    return new Intl.DateTimeFormat("es-CO", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  }
+
+  function toAppointmentDate(vehicle) {
+    return parseDate(vehicle.adminAppointmentDate || vehicle.appointmentDate || vehicle.adminLastContactAt);
+  }
+
+  function bindCardNavigation() {
+    detailCards.forEach((card) => {
+      const bucket = card.dataset.detailBucket;
+
+      if (!bucket) {
+        return;
+      }
+
+      const navigate = () => {
+        window.location.href = `/app/admin-maintenance-detail.html?bucket=${encodeURIComponent(bucket)}`;
+      };
+
+      card.addEventListener("click", navigate);
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate();
+        }
+      });
+    });
+  }
 
   function renderVehicleCard(vehicle, badgeLabel, badgeClass) {
     const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
@@ -102,6 +165,149 @@ if (requireAdminAccess()) {
         </article>
       `;
     }).join("");
+  }
+
+  function renderAppointmentsCard(items) {
+    if (appointmentsCount) {
+      appointmentsCount.textContent = String(items.length);
+    }
+
+    if (!appointmentsList) {
+      return;
+    }
+
+    if (!items.length) {
+      renderEmptyState(appointmentsList, "No hay citas agendadas para este mes.");
+      return;
+    }
+
+    appointmentsList.innerHTML = items.map((vehicle) => {
+      const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      const appointmentDate = toAppointmentDate(vehicle);
+      return `
+        <article class="maint-vehicle-card">
+          <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-title">${ownerName}</span>
+            <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
+            <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
+            <span class="maint-vehicle-card-row">Cita: ${appointmentDate ? formatDate(appointmentDate) : "Sin fecha"}</span>
+          </div>
+          <span class="maint-vehicle-card-badge is-scheduled">Agendada</span>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderAppointmentsDayList(dayKey) {
+    if (!appointmentsDayList || !appointmentsDayTitle) {
+      return;
+    }
+
+    const dayItems = appointmentDayMap.get(dayKey) || [];
+    const [year, month, day] = dayKey.split("-").map(Number);
+    const dayDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+
+    appointmentsDayTitle.textContent = `Citas del ${toDayLabel(dayDate)}`;
+
+    if (!dayItems.length) {
+      renderEmptyState(appointmentsDayList, "No hay citas para este día.");
+      return;
+    }
+
+    appointmentsDayList.innerHTML = dayItems.map((vehicle) => {
+      const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      return `
+        <article class="maint-vehicle-card">
+          <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-title">${ownerName}</span>
+            <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
+            <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
+            <span class="maint-vehicle-card-row">Estado: ${vehicle.adminContactStatus === "appointment_scheduled" ? "Cita agendada" : "Sin estado"}</span>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderAppointmentsCalendar(items) {
+    if (!appointmentsCalendarGrid) {
+      return;
+    }
+
+    appointmentDayMap.clear();
+
+    items.forEach((vehicle) => {
+      const appointmentDate = toAppointmentDate(vehicle);
+
+      if (!appointmentDate) {
+        return;
+      }
+
+      const dayKey = toDateKey(appointmentDate);
+      const list = appointmentDayMap.get(dayKey) || [];
+      list.push(vehicle);
+      appointmentDayMap.set(dayKey, list);
+    });
+
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const monthStart = new Date(Date.UTC(year, month, 1, 12, 0, 0, 0));
+    const monthLabel = toMonthLabel(monthStart);
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 12, 0, 0, 0)).getUTCDate();
+    const firstWeekdaySundayFirst = monthStart.getUTCDay();
+    const firstWeekdayMondayFirst = firstWeekdaySundayFirst === 0 ? 6 : firstWeekdaySundayFirst - 1;
+
+    if (appointmentsMonthLabel) {
+      appointmentsMonthLabel.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+    }
+
+    const todayKey = toDateKey(new Date(Date.UTC(year, month, now.getUTCDate(), 12, 0, 0, 0)));
+    const firstAvailableKey = appointmentDayMap.keys().next().value;
+    selectedAppointmentDayKey = appointmentDayMap.has(todayKey)
+      ? todayKey
+      : (firstAvailableKey || todayKey);
+
+    const dayCells = [];
+
+    for (let i = 0; i < firstWeekdayMondayFirst; i += 1) {
+      dayCells.push('<div class="maint-calendar-day is-empty" aria-hidden="true"></div>');
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dayDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+      const dayKey = toDateKey(dayDate);
+      const count = (appointmentDayMap.get(dayKey) || []).length;
+      const classes = ["maint-calendar-day"];
+
+      if (count > 0) {
+        classes.push("has-events");
+      }
+
+      if (dayKey === selectedAppointmentDayKey) {
+        classes.push("is-active");
+      }
+
+      dayCells.push(`
+        <button class="${classes.join(" ")}" type="button" data-day-key="${dayKey}">
+          <span class="maint-calendar-day-number">${day}</span>
+          <span class="maint-calendar-day-count">${count > 0 ? `${count} cita${count > 1 ? "s" : ""}` : ""}</span>
+        </button>
+      `);
+    }
+
+    appointmentsCalendarGrid.innerHTML = dayCells.join("");
+
+    appointmentsCalendarGrid.querySelectorAll("button[data-day-key]").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedAppointmentDayKey = button.dataset.dayKey || selectedAppointmentDayKey;
+        renderAppointmentsCalendar(items);
+      });
+    });
+
+    renderAppointmentsDayList(selectedAppointmentDayKey);
   }
 
   function renderDueByNextMonth(items) {
@@ -177,11 +383,15 @@ if (requireAdminAccess()) {
     dueByDateItems = maintenanceData.dueByDateThisMonth || [];
     dueByDateNextMonthItems = maintenanceData.dueByDateNextMonth || [];
     dueByKmItems = maintenanceData.dueByMileageReached || [];
+    appointmentsThisMonthItems = maintenanceData.appointmentScheduledThisMonth
+      || clientVehicleItems.filter((vehicle) => vehicle.adminContactStatus === "appointment_scheduled");
     populateSelect(maintenanceSelect, maintenanceItems, "Selecciona un mantenimiento", "_id", (item) => `${item.client?.name || "Cliente"} · ${item.order?.trackingNumber || "Sin tracking"}`);
     renderMaintenance(maintenanceItems, clientVehicleItems);
     renderDueByDate(dueByDateItems);
     renderDueByNextMonth(dueByDateNextMonthItems);
     renderDueByKm(dueByKmItems);
+    renderAppointmentsCard(appointmentsThisMonthItems);
+    renderAppointmentsCalendar(appointmentsThisMonthItems);
   }
 
   maintenanceForm.addEventListener("submit", async (event) => {
@@ -215,6 +425,10 @@ if (requireAdminAccess()) {
     renderEmptyState(maintenanceByDateList, error.message);
     renderEmptyState(maintenanceByNextMonthList, error.message);
     renderEmptyState(maintenanceByKmList, error.message);
+    renderEmptyState(appointmentsList, error.message);
+    renderEmptyState(appointmentsDayList, error.message);
   });
+
+  bindCardNavigation();
 }
 })();

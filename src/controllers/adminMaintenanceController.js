@@ -105,6 +105,7 @@ async function listMaintenance(req, res) {
     ]);
 
     const now = new Date();
+    const nowUtcNoon = toUtcNoon(now) || now;
 
     const vehiclesWithScheduleDate = clientMaintenanceVehicles
       .map((vehicle) => {
@@ -149,12 +150,38 @@ async function listMaintenance(req, res) {
       })
       .filter((vehicle) => Number(vehicle.estimatedKmSinceLastMaintenance || 0) >= 5000);
 
+    const appointmentScheduledThisMonth = clientMaintenanceVehicles
+      .map((vehicle) => {
+        if (vehicle.adminContactStatus !== "appointment_scheduled") {
+          return null;
+        }
+
+        const appointmentDateSource = vehicle.adminAppointmentDate || vehicle.adminLastContactAt;
+        const appointmentDate = toUtcNoon(appointmentDateSource);
+
+        if (!appointmentDate) {
+          return null;
+        }
+
+        if (!isSameMonthAndYear(appointmentDate, nowUtcNoon)) {
+          return null;
+        }
+
+        return {
+          ...vehicle.toObject(),
+          appointmentDate,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => new Date(left.appointmentDate).getTime() - new Date(right.appointmentDate).getTime());
+
     return res.status(200).json({
       maintenance,
       clientMaintenanceVehicles,
       dueByDateThisMonth,
       dueByDateNextMonth,
       dueByMileageReached,
+      appointmentScheduledThisMonth,
     });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching maintenance schedules" });
@@ -212,7 +239,7 @@ const ALLOWED_ADMIN_CONTACT_STATUSES = ["pending", "contacted", "will_service", 
 async function updateClientMaintenanceVehicle(req, res) {
   try {
     const { vehicleId } = req.params;
-    const { adminContactStatus, adminContactNotes } = req.body;
+    const { adminContactStatus, adminContactNotes, adminAppointmentDate } = req.body;
 
     const vehicle = await ClientMaintenanceVehicle.findById(vehicleId)
       .populate("user", "name email phone")
@@ -232,6 +259,24 @@ async function updateClientMaintenanceVehicle(req, res) {
 
     if (typeof adminContactNotes === "string") {
       vehicle.adminContactNotes = adminContactNotes.trim();
+    }
+
+    if (adminAppointmentDate !== undefined) {
+      if (adminAppointmentDate === null || adminAppointmentDate === "") {
+        vehicle.adminAppointmentDate = null;
+      } else {
+        const parsedAppointmentDate = toUtcNoon(adminAppointmentDate);
+
+        if (!parsedAppointmentDate) {
+          return res.status(400).json({ message: "Invalid appointment date" });
+        }
+
+        vehicle.adminAppointmentDate = parsedAppointmentDate;
+      }
+    }
+
+    if (vehicle.adminContactStatus === "appointment_scheduled" && !vehicle.adminAppointmentDate) {
+      vehicle.adminAppointmentDate = toUtcNoon(new Date());
     }
 
     vehicle.adminLastContactAt = new Date();
