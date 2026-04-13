@@ -5287,18 +5287,13 @@ body.modal-open {
   margin-top: 18px;
 }
 
-.maint-panel-total,
-.maint-panel-form {
+.maint-panel-total {
   grid-column: span 1;
 }
 
-/* On the second row force total + form side by side (2 cols each on 3-col grid) */
+/* On the second row force total panel to span full width */
 .maint-panel-total {
-  grid-column: 1 / span 2;
-}
-
-.maint-panel-form {
-  grid-column: 3 / span 1;
+  grid-column: 1 / span 3;
 }
 
 .maint-panel {
@@ -5555,10 +5550,6 @@ body.modal-open {
   .maint-panel-total {
     grid-column: 1 / span 2;
   }
-
-  .maint-panel-form {
-    grid-column: 1 / span 2;
-  }
 }
 
 @media (max-width: 680px) {
@@ -5567,7 +5558,6 @@ body.modal-open {
   }
 
   .maint-panel-total,
-  .maint-panel-form,
   .maint-calendar-panel {
     grid-column: 1;
   }
@@ -5788,6 +5778,60 @@ body.modal-open {
   font-family: inherit;
   font-size: 0.8rem;
   outline: none;
+}
+
+.maint-appointment-time-input {
+  width: 100%;
+  min-width: 125px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 7px 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.maint-appointment-time-input:focus {
+  border-color: rgba(216, 170, 82, 0.45);
+  box-shadow: 0 0 0 3px rgba(216, 170, 82, 0.08);
+}
+
+.maint-status-board {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.maint-status-card {
+  padding: 14px;
+}
+
+.maint-status-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.maint-status-card h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  font-family: "Syne", sans-serif;
+}
+
+.maint-status-card strong {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 900px) {
+  .maint-status-board {
+    grid-template-columns: 1fr;
+  }
 }
 
 .maint-appointment-date-input:focus {

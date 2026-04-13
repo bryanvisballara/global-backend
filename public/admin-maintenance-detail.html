@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint3" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint4" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -47,11 +47,33 @@
               <tbody id="maint-table-body"></tbody>
             </table>
           </div>
+          <section class="maint-status-board" id="maint-status-board" aria-label="Resumen por estado">
+            <article class="dashboard-card maint-status-card">
+              <header><h3>Contactado</h3><strong id="status-count-contacted">0</strong></header>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="status-list-contacted"></div>
+            </article>
+            <article class="dashboard-card maint-status-card">
+              <header><h3>Volver a contactarlo</h3><strong id="status-count-will_service">0</strong></header>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="status-list-will_service"></div>
+            </article>
+            <article class="dashboard-card maint-status-card">
+              <header><h3>Serviciado en otro lado</h3><strong id="status-count-serviced_elsewhere">0</strong></header>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="status-list-serviced_elsewhere"></div>
+            </article>
+            <article class="dashboard-card maint-status-card">
+              <header><h3>No interesado</h3><strong id="status-count-not_interested">0</strong></header>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="status-list-not_interested"></div>
+            </article>
+            <article class="dashboard-card maint-status-card">
+              <header><h3>Cita agendada</h3><strong id="status-count-appointment_scheduled">0</strong></header>
+              <div class="maint-vehicle-list maint-vehicle-list-compact" id="status-list-appointment_scheduled"></div>
+            </article>
+          </section>
           <p id="maint-detail-page-feedback" class="feedback" aria-live="polite" style="margin-top: 16px;"></p>
         </div>
       </section>
     </main>
     <script src="/app/admin-common.js?v=20260412-01"></script>
-    <script src="/app/admin-maintenance-detail.js?v=20260412-03"></script>
+    <script src="/app/admin-maintenance-detail.js?v=20260412-04"></script>
   </body>
 </html>

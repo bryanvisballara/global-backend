@@ -10,7 +10,6 @@ const {
   fetchJson,
   formatDate,
   loadAdminSession,
-  populateSelect,
   renderEmptyState,
   requireAdminAccess,
   setFeedback,
@@ -22,7 +21,6 @@ if (requireAdminAccess()) {
   const maintenanceForm = document.getElementById("maintenance-form");
   const maintenanceFeedback = document.getElementById("maintenance-feedback");
   const maintenanceList = document.getElementById("maintenance-list");
-  const maintenanceSelect = document.getElementById("maintenance-id");
   const maintenanceCount = document.getElementById("maintenance-count");
   const maintenanceByDateCount = document.getElementById("maintenance-by-date-count");
   const maintenanceByDateList = document.getElementById("maintenance-by-date-list");
@@ -75,6 +73,16 @@ if (requireAdminAccess()) {
 
   function toAppointmentDate(vehicle) {
     return parseDate(vehicle.adminAppointmentDate || vehicle.appointmentDate || vehicle.adminLastContactAt);
+  }
+
+  function formatAppointmentTime(vehicle) {
+    const timeValue = String(vehicle.adminAppointmentTime || "").trim();
+
+    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(timeValue)) {
+      return "Sin hora";
+    }
+
+    return `${timeValue} h`;
   }
 
   function bindCardNavigation() {
@@ -191,7 +199,7 @@ if (requireAdminAccess()) {
             <span class="maint-vehicle-card-title">${ownerName}</span>
             <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
             <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
-            <span class="maint-vehicle-card-row">Cita: ${appointmentDate ? formatDate(appointmentDate) : "Sin fecha"}</span>
+            <span class="maint-vehicle-card-row">Cita: ${appointmentDate ? formatDate(appointmentDate) : "Sin fecha"} · ${formatAppointmentTime(vehicle)}</span>
           </div>
           <span class="maint-vehicle-card-badge is-scheduled">Agendada</span>
         </article>
@@ -224,7 +232,7 @@ if (requireAdminAccess()) {
             <span class="maint-vehicle-card-title">${ownerName}</span>
             <span class="maint-vehicle-card-plate">${vehicle.plate || "Sin placa"}</span>
             <span class="maint-vehicle-card-row">${title || "Vehículo sin nombre"}</span>
-            <span class="maint-vehicle-card-row">Estado: ${vehicle.adminContactStatus === "appointment_scheduled" ? "Cita agendada" : "Sin estado"}</span>
+            <span class="maint-vehicle-card-row">Hora: ${formatAppointmentTime(vehicle)}</span>
           </div>
         </article>
       `;
@@ -385,7 +393,6 @@ if (requireAdminAccess()) {
     dueByKmItems = maintenanceData.dueByMileageReached || [];
     appointmentsThisMonthItems = maintenanceData.appointmentScheduledThisMonth
       || clientVehicleItems.filter((vehicle) => vehicle.adminContactStatus === "appointment_scheduled");
-    populateSelect(maintenanceSelect, maintenanceItems, "Selecciona un mantenimiento", "_id", (item) => `${item.client?.name || "Cliente"} · ${item.order?.trackingNumber || "Sin tracking"}`);
     renderMaintenance(maintenanceItems, clientVehicleItems);
     renderDueByDate(dueByDateItems);
     renderDueByNextMonth(dueByDateNextMonthItems);
@@ -394,30 +401,32 @@ if (requireAdminAccess()) {
     renderAppointmentsCalendar(appointmentsThisMonthItems);
   }
 
-  maintenanceForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const formData = new FormData(maintenanceForm);
+  if (maintenanceForm) {
+    maintenanceForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(maintenanceForm);
 
-    setFeedback(maintenanceFeedback, "Actualizando mantenimiento...");
+      setFeedback(maintenanceFeedback, "Actualizando mantenimiento...");
 
-    try {
-      await fetchJson(`/api/admin/maintenance/${formData.get("maintenanceId")}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: formData.get("status"),
-          contactNotes: formData.get("contactNotes"),
-          lastNotificationAt: formData.get("markNotified") === "on" ? new Date().toISOString() : undefined,
-          completedAt: formData.get("status") === "completed" ? new Date().toISOString() : undefined,
-        }),
-      });
+      try {
+        await fetchJson(`/api/admin/maintenance/${formData.get("maintenanceId")}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: formData.get("status"),
+            contactNotes: formData.get("contactNotes"),
+            lastNotificationAt: formData.get("markNotified") === "on" ? new Date().toISOString() : undefined,
+            completedAt: formData.get("status") === "completed" ? new Date().toISOString() : undefined,
+          }),
+        });
 
-      maintenanceForm.reset();
-      setFeedback(maintenanceFeedback, "Mantenimiento actualizado correctamente.", "success");
-      await loadMaintenancePage();
-    } catch (error) {
-      setFeedback(maintenanceFeedback, error.message, "error");
-    }
-  });
+        maintenanceForm.reset();
+        setFeedback(maintenanceFeedback, "Mantenimiento actualizado correctamente.", "success");
+        await loadMaintenancePage();
+      } catch (error) {
+        setFeedback(maintenanceFeedback, error.message, "error");
+      }
+    });
+  }
 
   loadMaintenancePage().catch((error) => {
     setFeedback(maintenanceFeedback, error.message || "No se pudo cargar mantenimiento.", "error");

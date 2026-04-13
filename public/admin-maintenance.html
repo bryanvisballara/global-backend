@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint3" />
+    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint4" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -121,30 +121,10 @@
             <div class="maint-vehicle-list" id="maintenance-list"></div>
           </article>
 
-          <article class="dashboard-card maint-panel maint-panel-form">
-            <header class="maint-panel-header">
-              <div class="maint-panel-title">
-                <span class="maint-panel-icon">✏️</span>
-                <div>
-                  <h2 class="maint-panel-heading">Actualizar mantenimiento</h2>
-                  <p class="maint-panel-sub">Registrar contacto, estado y notificaciones</p>
-                </div>
-              </div>
-            </header>
-            <form id="maintenance-form" class="dashboard-form">
-              <label><span>Registro de mantenimiento</span><select id="maintenance-id" name="maintenanceId" required></select></label>
-              <label><span>Estado</span><select name="status"><option value="scheduled">Programado</option><option value="due">Vencido</option><option value="contacted">Contactado</option><option value="completed">Completado</option></select></label>
-              <label><span>Notas de contacto</span><textarea name="contactNotes" rows="4" placeholder="Llamada, push, respuesta del cliente..."></textarea></label>
-              <label class="checkbox-line dashboard-checkbox"><input name="markNotified" type="checkbox" /><span>Registrar notificación enviada ahora</span></label>
-              <button class="primary-button" type="submit">Actualizar mantenimiento</button>
-              <p id="maintenance-feedback" class="feedback" aria-live="polite"></p>
-            </form>
-          </article>
-
         </section>
       </section>
     </main>
     <script src="/app/admin-common.js?v=20260412-01"></script>
-    <script src="/app/admin-maintenance.js?v=20260412-06"></script>
+    <script src="/app/admin-maintenance.js?v=20260412-07"></script>
   </body>
 </html>

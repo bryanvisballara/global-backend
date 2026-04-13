@@ -77,6 +77,12 @@ const clientMaintenanceVehicleSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    adminAppointmentTime: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5,
+    },
   },
   {
     timestamps: true,

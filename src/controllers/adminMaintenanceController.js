@@ -173,7 +173,11 @@ async function listMaintenance(req, res) {
         };
       })
       .filter(Boolean)
-      .sort((left, right) => new Date(left.appointmentDate).getTime() - new Date(right.appointmentDate).getTime());
+      .sort((left, right) => {
+        const leftDateTime = `${new Date(left.appointmentDate).toISOString().slice(0, 10)}T${left.adminAppointmentTime || "23:59"}:00.000Z`;
+        const rightDateTime = `${new Date(right.appointmentDate).toISOString().slice(0, 10)}T${right.adminAppointmentTime || "23:59"}:00.000Z`;
+        return new Date(leftDateTime).getTime() - new Date(rightDateTime).getTime();
+      });
 
     return res.status(200).json({
       maintenance,
@@ -239,7 +243,12 @@ const ALLOWED_ADMIN_CONTACT_STATUSES = ["pending", "contacted", "will_service", 
 async function updateClientMaintenanceVehicle(req, res) {
   try {
     const { vehicleId } = req.params;
-    const { adminContactStatus, adminContactNotes, adminAppointmentDate } = req.body;
+    const {
+      adminContactStatus,
+      adminContactNotes,
+      adminAppointmentDate,
+      adminAppointmentTime,
+    } = req.body;
 
     const vehicle = await ClientMaintenanceVehicle.findById(vehicleId)
       .populate("user", "name email phone")
@@ -272,6 +281,16 @@ async function updateClientMaintenanceVehicle(req, res) {
         }
 
         vehicle.adminAppointmentDate = parsedAppointmentDate;
+      }
+    }
+
+    if (adminAppointmentTime !== undefined) {
+      if (adminAppointmentTime === null || adminAppointmentTime === "") {
+        vehicle.adminAppointmentTime = "";
+      } else if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(String(adminAppointmentTime))) {
+        return res.status(400).json({ message: "Invalid appointment time" });
+      } else {
+        vehicle.adminAppointmentTime = String(adminAppointmentTime);
       }
     }
 
