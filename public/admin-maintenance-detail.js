@@ -89,6 +89,7 @@
 
     const cols = [
       "Cliente",
+      "Teléfono",
       "Vehículo",
       "Placa",
       "Año",
@@ -111,6 +112,22 @@
       .replace(/"/g, "&quot;");
   }
 
+  function normalizePhone(phoneValue) {
+    const digits = String(phoneValue || "").replace(/\D+/g, "");
+    return digits;
+  }
+
+  function buildWhatsappLink(phoneValue) {
+    const normalizedPhone = normalizePhone(phoneValue);
+
+    if (!normalizedPhone) {
+      return "<span class=\"maint-phone-missing\">Sin teléfono</span>";
+    }
+
+    const href = `https://wa.me/${encodeURIComponent(normalizedPhone)}`;
+    return `<a class="maint-whatsapp-link" href="${href}" target="_blank" rel="noopener noreferrer">${escapeHtml(phoneValue)}</a>`;
+  }
+
   function buildStatusSelect(currentStatus, vehicleId) {
     const safe = currentStatus || "pending";
     const statusCls = STATUS_CSS[safe] || "";
@@ -129,13 +146,14 @@
     const isKm = config.type === "km";
 
     if (!vehicles.length) {
-      tableBody.innerHTML = `<tr><td colspan="10" class="maint-td maint-td-empty">No hay vehículos en este grupo.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="11" class="maint-td maint-td-empty">No hay vehículos en este grupo.</td></tr>`;
       return;
     }
 
     tableBody.innerHTML = vehicles.map((vehicle) => {
       const id = String(vehicle._id || vehicle.id || "");
       const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
+      const ownerPhoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
       const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Sin nombre");
       const lastContact = vehicle.adminLastContactAt ? formatDate(vehicle.adminLastContactAt) : "—";
 
@@ -150,6 +168,7 @@
       return `
         <tr class="maint-row" data-vehicle-id="${id}">
           <td class="maint-td maint-td-name">${ownerName}</td>
+          <td class="maint-td maint-td-phone">${buildWhatsappLink(ownerPhoneRaw)}</td>
           <td class="maint-td maint-td-vehicle">${vehicleTitle}</td>
           <td class="maint-td"><span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "—")}</span></td>
           <td class="maint-td">${escapeHtml(vehicle.year || "—")}</td>
@@ -187,8 +206,9 @@
           const plate = String(v.plate || "").toLowerCase();
           const brand = String(v.brand || "").toLowerCase();
           const model = String(v.model || "").toLowerCase();
+          const phone = String(v.user?.phone || v.client?.phone || "").toLowerCase();
 
-          return name.includes(query) || plate.includes(query) || brand.includes(query) || model.includes(query);
+          return name.includes(query) || plate.includes(query) || brand.includes(query) || model.includes(query) || phone.includes(query);
         })
       : allVehicles;
 

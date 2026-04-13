@@ -2,12 +2,36 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { generateToken } = require("../utils/token");
 
+function getAuthCookieOptions(req) {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const isSecure = req.secure || forwardedProto === "https";
+
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecure,
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+}
+
+function setAuthCookie(req, res, token) {
+  res.cookie("globalAppToken", token, getAuthCookieOptions(req));
+}
+
+function clearAuthCookie(req, res) {
+  res.clearCookie("globalAppToken", {
+    ...getAuthCookieOptions(req),
+    maxAge: undefined,
+  });
+}
+
 async function register(req, res) {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required" });
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({ message: "Name, email, password and phone are required" });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -21,10 +45,13 @@ async function register(req, res) {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
+      phone: String(phone).trim(),
       role: "client",
     });
 
     const token = generateToken(user);
+
+    setAuthCookie(req, res, token);
 
     return res.status(201).json({
       message: "User created successfully",
@@ -33,6 +60,7 @@ async function register(req, res) {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
       },
     });
@@ -63,6 +91,8 @@ async function login(req, res) {
 
     const token = generateToken(user);
 
+    setAuthCookie(req, res, token);
+
     return res.status(200).json({
       message: "Login successful",
       token,
@@ -84,8 +114,17 @@ async function me(req, res) {
   });
 }
 
+async function logout(req, res) {
+  clearAuthCookie(req, res);
+
+  return res.status(200).json({
+    message: "Logout successful",
+  });
+}
+
 module.exports = {
   register,
   login,
+  logout,
   me,
 };

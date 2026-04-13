@@ -99,7 +99,7 @@ async function listMaintenance(req, res) {
         })
         .sort({ dueDate: 1 }),
       ClientMaintenanceVehicle.find({})
-        .populate("user", "name email")
+        .populate("user", "name email phone")
         .populate("client", "name email phone")
         .sort({ createdAt: -1 }),
     ]);
@@ -207,7 +207,48 @@ async function updateMaintenance(req, res) {
   }
 }
 
+const ALLOWED_ADMIN_CONTACT_STATUSES = ["pending", "contacted", "will_service", "serviced_elsewhere", "not_interested", "appointment_scheduled"];
+
+async function updateClientMaintenanceVehicle(req, res) {
+  try {
+    const { vehicleId } = req.params;
+    const { adminContactStatus, adminContactNotes } = req.body;
+
+    const vehicle = await ClientMaintenanceVehicle.findById(vehicleId)
+      .populate("user", "name email phone")
+      .populate("client", "name email phone");
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    }
+
+    if (adminContactStatus !== undefined) {
+      if (!ALLOWED_ADMIN_CONTACT_STATUSES.includes(adminContactStatus)) {
+        return res.status(400).json({ message: "Invalid contact status" });
+      }
+
+      vehicle.adminContactStatus = adminContactStatus;
+    }
+
+    if (typeof adminContactNotes === "string") {
+      vehicle.adminContactNotes = adminContactNotes.trim();
+    }
+
+    vehicle.adminLastContactAt = new Date();
+
+    await vehicle.save();
+
+    return res.status(200).json({
+      message: "Vehicle contact info updated",
+      vehicle,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error updating vehicle contact info" });
+  }
+}
+
 module.exports = {
   listMaintenance,
   updateMaintenance,
+  updateClientMaintenanceVehicle,
 };
