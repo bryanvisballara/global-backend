@@ -1,3 +1,16 @@
+const cors = require("cors");
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const path = require("path");
+const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const clientRoutes = require("./routes/clientRoutes");
+const clientRequestRoutes = require("./routes/clientRequestRoutes");
+const publicRoutes = require("./routes/publicRoutes");
+const { isDatabaseReady } = require("./config/db");
+
+const app = express();
+
 // Endpoint temporal para depuración: listar usuarios desde backend
 app.get("/api/debug/list-users", async (req, res) => {
   const secret = req.query.secret;
@@ -12,18 +25,6 @@ app.get("/api/debug/list-users", async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
-const cors = require("cors");
-const express = require("express");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const authRoutes = require("./routes/authRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const clientRoutes = require("./routes/clientRoutes");
-const clientRequestRoutes = require("./routes/clientRequestRoutes");
-const publicRoutes = require("./routes/publicRoutes");
-const { isDatabaseReady } = require("./config/db");
-
-const app = express();
 const publicDirectory = path.join(__dirname, "..", "public");
 const adminPagePattern = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
