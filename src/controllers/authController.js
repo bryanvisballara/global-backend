@@ -10,7 +10,7 @@ const {
 const { generateToken } = require("../utils/token");
 
 const VERIFICATION_TTL_MINUTES = 10;
-const VERIFICATION_RESEND_COOLDOWN_MS = 45 * 1000;
+const VERIFICATION_RESEND_COOLDOWN_MS = 30 * 1000;
 const VERIFICATION_MAX_ATTEMPTS = 8;
 const PASSWORD_RESET_TTL_MINUTES = 30;
 
@@ -308,27 +308,34 @@ async function resetPassword(req, res) {
 async function login(req, res) {
   try {
     const { email, password } = req.body;
+    console.log("[LOGIN] Email recibido:", email);
+    console.log("[LOGIN] Password recibido:", password);
 
     if (!email || !password) {
+      console.log("[LOGIN] Faltan email o password");
       return res.status(400).json({ message: "Email and password are required" });
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
+    console.log("[LOGIN] Usuario encontrado:", user ? user.email : null);
 
     if (!user) {
+      console.log("[LOGIN] Usuario no existe");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const passwordMatches = await bcrypt.compare(password, user.password);
+    console.log("[LOGIN] Password coincide:", passwordMatches);
 
     if (!passwordMatches) {
+      console.log("[LOGIN] Password incorrecto");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const token = generateToken(user);
-
     setAuthCookie(req, res, token);
 
+    console.log("[LOGIN] Login exitoso para:", user.email);
     return res.status(200).json({
       message: "Login successful",
       token,
@@ -340,6 +347,7 @@ async function login(req, res) {
       },
     });
   } catch (error) {
+    console.log("[LOGIN] Error en login:", error);
     return res.status(500).json({ message: "Error logging in" });
   }
 }
@@ -358,6 +366,38 @@ async function logout(req, res) {
   });
 }
 
+async function deleteAccount(req, res) {
+  try {
+    const password = String(req.body?.password || "");
+
+    if (!password) {
+      return res.status(400).json({ message: "La contraseña es obligatoria." });
+    }
+
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+      return res.status(403).json({ message: "La contraseña no es correcta." });
+    }
+
+    await PasswordResetToken.deleteMany({ user: user._id });
+    await EmailVerification.deleteMany({ email: user.email });
+    await User.deleteOne({ _id: user._id });
+
+    clearAuthCookie(req, res);
+
+    return res.status(200).json({ message: "Tu cuenta fue eliminada correctamente." });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error eliminando la cuenta" });
+  }
+}
+
 module.exports = {
   startRegistrationVerification,
   verifyRegistrationCode,
@@ -365,5 +405,6 @@ module.exports = {
   resetPassword,
   login,
   logout,
+  deleteAccount,
   me,
 };
