@@ -23,14 +23,14 @@ const {
   listVirtualDealershipVehicles,
   updateVirtualDealershipVehicle,
 } = require("../controllers/adminVirtualDealershipController");
+
 const upload = require("../middleware/upload");
 const signedDocumentController = require("../controllers/signedDocumentController");
+const router = express.Router();
 // Documentos firmados (DocuSign)
 router.post("/signed-documents", upload.single("pdf"), signedDocumentController.uploadSignedDocument);
 router.get("/signed-documents", signedDocumentController.listSignedDocuments);
 router.get("/signed-documents/:id/download", signedDocumentController.downloadSignedDocument);
-
-const router = express.Router();
 
 function requireLatamAdministrativeRole(req, res, next) {
   if (["admin", "manager"].includes(String(req.user?.role || ""))) {
