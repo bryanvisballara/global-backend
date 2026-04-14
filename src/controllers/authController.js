@@ -58,11 +58,13 @@ function buildPasswordResetUrl(req, token) {
 
 function getAuthCookieOptions(req) {
   const forwardedProto = req.headers["x-forwarded-proto"];
-  const isSecure = req.secure || forwardedProto === "https";
+  // Siempre secure y SameSite=None en producción (HTTPS)
+  const isProduction = process.env.NODE_ENV === "production";
+  const isSecure = isProduction || req.secure || forwardedProto === "https";
 
   return {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: isProduction ? "none" : "lax",
     secure: isSecure,
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
