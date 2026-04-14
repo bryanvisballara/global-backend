@@ -71,16 +71,6 @@ function getAuthCookieOptions(req) {
   };
 }
 
-function setAuthCookie(req, res, token) {
-  res.cookie("globalAppToken", token, getAuthCookieOptions(req));
-}
-
-function clearAuthCookie(req, res) {
-  res.clearCookie("globalAppToken", {
-    ...getAuthCookieOptions(req),
-    maxAge: undefined,
-  });
-}
 
 async function startRegistrationVerification(req, res) {
   try {
@@ -201,7 +191,7 @@ async function verifyRegistrationCode(req, res) {
 
     const token = generateToken(user);
 
-    setAuthCookie(req, res, token);
+    // No setear cookie, solo devolver token en body
 
     return res.status(201).json({
       message: "User created successfully",
@@ -336,7 +326,7 @@ async function login(req, res) {
     }
 
     const token = generateToken(user);
-    setAuthCookie(req, res, token);
+    // No setear cookie, solo devolver token en body
 
     console.log("[LOGIN] Login exitoso para:", user.email);
     return res.status(200).json({
@@ -362,7 +352,7 @@ async function me(req, res) {
 }
 
 async function logout(req, res) {
-  clearAuthCookie(req, res);
+  // No limpiar cookies, frontend borra local/sessionStorage
 
   return res.status(200).json({
     message: "Logout successful",
