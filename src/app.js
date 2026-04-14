@@ -12,17 +12,35 @@ const { isDatabaseReady } = require("./config/db");
 const app = express();
 const publicDirectory = path.join(__dirname, "..", "public");
 const adminPagePattern = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i;
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://teal-flamingo-532353.hostingersite.com",
+  "https://global-backend-bdbx.onrender.com",
+];
 
 app.set("trust proxy", 1);
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
+
+function resolveAllowedOrigins() {
+  if (corsOrigin === "*") {
+    return DEFAULT_ALLOWED_ORIGINS;
+  }
+
+  const configuredOrigins = corsOrigin
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set([...configuredOrigins, ...DEFAULT_ALLOWED_ORIGINS]));
+}
+
 const corsOptions = {
   origin(origin, callback) {
     if (corsOrigin === "*") {
       return callback(null, true);
     }
 
-    const allowedOrigins = corsOrigin.split(",").map((item) => item.trim());
+    const allowedOrigins = resolveAllowedOrigins();
 
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
@@ -30,9 +48,12 @@ const corsOptions = {
 
     return callback(new Error("Not allowed by CORS"));
   },
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -55,7 +76,7 @@ app.use((req, res, next) => {
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decodedToken.role !== "admin") {
+    if (!["admin", "manager", "adminUSA", "gerenteUSA"].includes(decodedToken.role)) {
       return res.redirect("/app/index.html");
     }
 

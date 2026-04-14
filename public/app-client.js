@@ -35,9 +35,40 @@ function resolveApiBaseUrl() {
   return "https://global-backend-bdbx.onrender.com";
 }
 
+function isDirectApiHostCandidate(hostname = "") {
+  const normalizedHostname = String(hostname || "").trim().toLowerCase();
+
+  if (!normalizedHostname) {
+    return false;
+  }
+
+  const isPrivateIpv4Address = /^(10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(
+    normalizedHostname
+  );
+
+  return (
+    normalizedHostname === "localhost" ||
+    normalizedHostname === "127.0.0.1" ||
+    normalizedHostname === "::1" ||
+    normalizedHostname === "global-backend-bdbx.onrender.com" ||
+    isPrivateIpv4Address
+  );
+}
+
+function isJsonResponse(response) {
+  const contentType = String(response?.headers?.get("content-type") || "").toLowerCase();
+  return contentType.includes("application/json");
+}
+
+function isProductionApiRequest() {
+  const hostname = String(window.location.hostname || "").trim().toLowerCase();
+  return !isDirectApiHostCandidate(hostname);
+}
+
 function resolveApiBaseUrlCandidates() {
   const { protocol, hostname, port, origin } = window.location;
   const candidates = [];
+  const isDirectHost = isDirectApiHostCandidate(hostname);
 
   function pushCandidate(value) {
     if (!value || candidates.includes(value)) {
@@ -47,17 +78,20 @@ function resolveApiBaseUrlCandidates() {
     candidates.push(value);
   }
 
-  if (protocol === "http:" || protocol === "https:") {
+  if ((protocol === "http:" || protocol === "https:") && isDirectHost) {
     pushCandidate(origin);
   }
 
-  if (hostname && protocol) {
+  if (hostname && protocol && isDirectHost) {
     pushCandidate(`${protocol}//${hostname}:${port || "10000"}`);
   }
 
-  pushCandidate("http://localhost:10000");
-  pushCandidate("http://127.0.0.1:10000");
-  pushCandidate("http://192.168.1.95:10000");
+  if (isDirectHost) {
+    pushCandidate("http://localhost:10000");
+    pushCandidate("http://127.0.0.1:10000");
+    pushCandidate("http://192.168.1.95:10000");
+  }
+
   pushCandidate(resolveApiBaseUrl());
 
   return candidates;
@@ -76,6 +110,11 @@ async function postJsonWithFallback(path, payload) {
         },
         body: JSON.stringify(payload),
       });
+
+      if (!isJsonResponse(response)) {
+        lastError = new Error("La API respondió con un formato inválido.");
+        continue;
+      }
 
       return response;
     } catch (error) {
@@ -120,9 +159,14 @@ const logoSymbol = document.getElementById("logo-symbol");
 const logoWordmark = document.getElementById("logo-wordmark");
 const brandFallback = document.getElementById("brand-fallback");
 const utilityRow = document.querySelector(".utility-row");
+const VERIFICATION_RESEND_COOLDOWN_SECONDS = 30;
+const verificationResendDefaultText =
+  String(verificationResendButton?.textContent || "").trim() || "Reenviar código";
 
 let authMode = "login";
 let pendingVerificationPayload = null;
+let verificationResendSecondsLeft = 0;
+let verificationResendIntervalId = null;
 
 const COUNTRY_CODES = [
   ["Colombia", "+57"], ["Argentina", "+54"], ["Bolivia", "+591"], ["Brasil", "+55"], ["Chile", "+56"], ["Ecuador", "+593"],
@@ -217,7 +261,7 @@ async function redirectAuthenticatedUser() {
     sessionStorage.setItem("globalAppToken", token);
     sessionStorage.setItem("globalAppRole", resolvedRole);
 
-    if (resolvedRole === "admin") {
+    if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
       window.location.replace("/app/admin.html");
       return;
     }
@@ -257,6 +301,55 @@ function setForgotPasswordFeedback(message, type = "") {
   forgotPasswordFeedback.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
+function clearVerificationResendCooldown() {
+  if (!verificationResendIntervalId) {
+    return;
+  }
+
+  window.clearInterval(verificationResendIntervalId);
+  verificationResendIntervalId = null;
+}
+
+function renderVerificationResendButton() {
+  if (!verificationResendButton) {
+    return;
+  }
+
+  if (!pendingVerificationPayload?.email) {
+    verificationResendButton.disabled = true;
+    verificationResendButton.textContent = verificationResendDefaultText;
+    return;
+  }
+
+  if (verificationResendSecondsLeft > 0) {
+    verificationResendButton.disabled = true;
+    verificationResendButton.textContent = `Reenviar en ${verificationResendSecondsLeft}s`;
+    return;
+  }
+
+  verificationResendButton.disabled = false;
+  verificationResendButton.textContent = verificationResendDefaultText;
+}
+
+function startVerificationResendCooldown(seconds = VERIFICATION_RESEND_COOLDOWN_SECONDS) {
+  verificationResendSecondsLeft = Math.max(0, Number.parseInt(seconds, 10) || 0);
+  clearVerificationResendCooldown();
+  renderVerificationResendButton();
+
+  if (verificationResendSecondsLeft <= 0) {
+    return;
+  }
+
+  verificationResendIntervalId = window.setInterval(() => {
+    verificationResendSecondsLeft = Math.max(0, verificationResendSecondsLeft - 1);
+    renderVerificationResendButton();
+
+    if (verificationResendSecondsLeft <= 0) {
+      clearVerificationResendCooldown();
+    }
+  }, 1000);
+}
+
 function openVerificationModal(email) {
   if (!verificationModal) {
     return;
@@ -268,6 +361,7 @@ function openVerificationModal(email) {
 
   verificationCodeInput.value = "";
   setVerificationFeedback("Revisa tu bandeja de entrada y escribe el código.");
+  startVerificationResendCooldown();
   verificationModal.hidden = false;
   document.body.classList.add("modal-open");
   window.setTimeout(() => verificationCodeInput?.focus(), 50);
@@ -492,7 +586,7 @@ loginForm.addEventListener("submit", async (event) => {
       "success"
     );
 
-    if (data.user.role === "admin") {
+    if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(data.user.role)) {
       window.setTimeout(() => {
         window.location.href = "/app/admin.html";
       }, 250);
@@ -504,7 +598,9 @@ loginForm.addEventListener("submit", async (event) => {
     }, 250);
   } catch (error) {
     const errorMessage = error?.message === "Failed to fetch"
-      ? "No pudimos conectar con la API local. Verifica que el servidor siga corriendo en el puerto 10000."
+      ? isProductionApiRequest()
+        ? "No pudimos conectar con la API de producción. Revisa CORS o disponibilidad del backend en Render."
+        : "No pudimos conectar con la API local. Verifica que el servidor siga corriendo en el puerto 10000."
       : error.message;
     setFeedback(errorMessage, "error");
   } finally {
@@ -549,6 +645,9 @@ if (verificationForm) {
 
       setVerificationFeedback("Cuenta verificada correctamente. Redirigiendo...", "success");
       pendingVerificationPayload = null;
+      verificationResendSecondsLeft = 0;
+      clearVerificationResendCooldown();
+      renderVerificationResendButton();
 
       window.setTimeout(() => {
         window.location.href = "/app/client.html";
@@ -562,6 +661,8 @@ if (verificationForm) {
 }
 
 if (verificationResendButton) {
+  renderVerificationResendButton();
+
   verificationResendButton.addEventListener("click", async () => {
     if (!pendingVerificationPayload) {
       setVerificationFeedback("No hay una verificación pendiente.", "error");
@@ -580,10 +681,10 @@ if (verificationResendButton) {
       }
 
       setVerificationFeedback("Código reenviado correctamente.", "success");
+      startVerificationResendCooldown();
     } catch (error) {
       setVerificationFeedback(error.message, "error");
-    } finally {
-      verificationResendButton.disabled = false;
+      renderVerificationResendButton();
     }
   });
 }
