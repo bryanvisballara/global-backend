@@ -1,3 +1,17 @@
+// Endpoint temporal para depuración: listar usuarios desde backend
+app.get("/api/debug/list-users", async (req, res) => {
+  const secret = req.query.secret;
+  if (secret !== process.env.DEBUG_SECRET) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  try {
+    const User = require("./models/User");
+    const users = await User.find({});
+    return res.json({ users: users.map(u => ({ email: u.email, name: u.name, role: u.role })) });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 const cors = require("cors");
 const express = require("express");
 const jwt = require("jsonwebtoken");
