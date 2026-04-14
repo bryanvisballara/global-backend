@@ -114,6 +114,22 @@ function getCurrentRole() {
   return localStorage.getItem("globalAppRole") || sessionStorage.getItem("globalAppRole") || "";
 }
 
+function isAdminPanelRole(role) {
+  return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(String(role || ""));
+}
+
+function isManagerRole(role) {
+  return String(role || "") === "manager";
+}
+
+function isUsaAdministrativeRole(role) {
+  return ["adminUSA", "gerenteUSA"].includes(String(role || ""));
+}
+
+function canCreateAdministrativeUsers(role) {
+  return ["manager", "gerenteUSA"].includes(String(role || ""));
+}
+
 function clearAuth() {
   localStorage.removeItem("globalAppToken");
   localStorage.removeItem("globalAppRole");
@@ -145,11 +161,16 @@ async function performLogout(button) {
 
 function requireAdminAccess() {
   const currentPath = window.location.pathname || "";
-  const isAdminPage = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
   const currentRole = getCurrentRole();
   const hasAuthToken = Boolean(getAuthToken());
+  const latamOnlyPages = new Set([
+    "/app/admin-client-requests.html",
+    "/app/admin-maintenance.html",
+    "/app/admin-posts.html",
+    "/app/admin-virtual-dealership.html",
+  ]);
 
-  if (currentRole && currentRole !== "admin") {
+  if (currentRole && !isAdminPanelRole(currentRole)) {
     redirectToLogin();
     return false;
   }
@@ -159,7 +180,36 @@ function requireAdminAccess() {
     return false;
   }
 
+  if (isUsaAdministrativeRole(currentRole) && latamOnlyPages.has(currentPath)) {
+    window.location.replace("/app/admin.html");
+    return false;
+  }
+
   return true;
+}
+
+function applyManagerNavigationVisibility(role = getCurrentRole()) {
+  const normalizedRole = String(role || "");
+  const showAdminCreatorItems = canCreateAdministrativeUsers(normalizedRole);
+  const hideLatamOnlyItems = isUsaAdministrativeRole(normalizedRole);
+
+  document.querySelectorAll(".admin-manager-only, .admin-admin-creator-only").forEach((element) => {
+    const shouldShow = showAdminCreatorItems;
+
+    if (element.tagName.toLowerCase() === "a") {
+      element.style.display = shouldShow ? "" : "none";
+    } else {
+      element.hidden = !shouldShow;
+    }
+  });
+
+  document.querySelectorAll(".admin-latam-only").forEach((element) => {
+    if (element.tagName.toLowerCase() === "a") {
+      element.style.display = hideLatamOnlyItems ? "none" : "";
+    } else {
+      element.hidden = hideLatamOnlyItems;
+    }
+  });
 }
 
 function attachLogout(buttonId = "logout-button") {
@@ -287,23 +337,42 @@ function setFeedback(element, message, type = "") {
   element.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
-function buildAdminSidebar(pathname) {
+function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
+  const isUsaRole = isUsaAdministrativeRole(currentRole);
+  const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navItems = [
-    { href: "/app/admin.html", label: "Dashboard" },
-    { href: "/app/admin-orders.html", label: "Creacion de pedidos" },
-    { href: "/app/admin-tracking.html", label: "Seguimiento de pedidos" },
-    { href: "/app/admin-clients.html", label: "Clientes" },
-    { href: "/app/admin-client-requests.html", label: "Solicitudes de compra" },
-    { href: "/app/admin-maintenance.html", label: "Mantenimientos" },
-    { href: "/app/admin-posts.html", label: "Publicaciones" },
-    { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual" },
+    { href: "/app/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false },
+    { href: "/app/admin-orders.html", label: "Creacion de pedidos", adminCreatorOnly: false, latamOnly: false },
+    { href: "/app/admin-tracking.html", label: "Seguimiento de pedidos", adminCreatorOnly: false, latamOnly: false },
+    { href: "/app/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false },
+    { href: "/app/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true },
+    { href: "/app/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true },
+    { href: "/app/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true },
+    { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true },
+    { href: "/app/admin-admins.html", label: "Creacion de administradores", adminCreatorOnly: true, latamOnly: false },
   ];
 
   const navMarkup = navItems
+    .filter((item) => !item.adminCreatorOnly || canCreateAdministrativeUsers(currentRole))
+    .filter((item) => !item.latamOnly || !isUsaRole)
     .map((item) => {
       const isActive = currentPath === item.href;
-      return `<a class="admin-nav-link${isActive ? " active" : ""}" href="${item.href}">${item.label}</a>`;
+      const classes = ["admin-nav-link"];
+
+      if (isActive) {
+        classes.push("active");
+      }
+
+      if (item.adminCreatorOnly) {
+        classes.push("admin-admin-creator-only");
+      }
+
+      if (item.latamOnly) {
+        classes.push("admin-latam-only");
+      }
+
+      return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
     })
     .join("");
 
@@ -314,7 +383,7 @@ function buildAdminSidebar(pathname) {
     <div class="admin-sidebar-brand">
       <img class="admin-sidebar-logo" src="/app/logoblancoleon.png" alt="Global Imports" />
       <div>
-        <p class="section-tag">Global Imports</p>
+        <p class="section-tag">${brandLabel}</p>
         <strong>Panel administrativo</strong>
       </div>
     </div>
@@ -370,7 +439,7 @@ function injectAdminSidebarLayout() {
     main.appendChild(node);
   });
 
-  layout.appendChild(buildAdminSidebar(currentPath));
+  layout.appendChild(buildAdminSidebar(currentPath, getCurrentRole()));
   layout.appendChild(main);
   stage.appendChild(layout);
 
@@ -439,6 +508,9 @@ function initializeAdminSidebarDrawer() {
   document.body.classList.add("admin-drawer-ready");
   ensureSidebarToggleButton();
 
+  const desktopMediaQuery = window.matchMedia("(min-width: 1101px)");
+  const desktopSidebarStateKey = "globalAdminSidebarDesktopCollapsed";
+
   let backdrop = document.querySelector(".admin-sidebar-backdrop");
 
   if (!backdrop) {
@@ -450,18 +522,53 @@ function initializeAdminSidebarDrawer() {
 
   const updateToggleButtons = () => {
     const isOpen = document.body.classList.contains("admin-sidebar-open");
+    const isDesktop = desktopMediaQuery.matches;
+    const isExpanded = isDesktop ? !document.body.classList.contains("admin-sidebar-collapsed") : isOpen;
     document.querySelectorAll(".admin-sidebar-toggle").forEach((button) => {
-      button.setAttribute("aria-expanded", isOpen ? "true" : "false");
-      button.setAttribute("aria-label", isOpen ? "Cerrar menu lateral" : "Abrir menu lateral");
+      button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      button.setAttribute("aria-label", isExpanded ? "Cerrar menu lateral" : "Abrir menu lateral");
+
+      const label = button.querySelector("span:last-child");
+
+      if (label) {
+        label.textContent = isDesktop ? (isExpanded ? "Ocultar menu" : "Mostrar menu") : (isExpanded ? "Cerrar menu" : "Menu");
+      }
     });
   };
 
+  const syncSidebarMode = () => {
+    if (desktopMediaQuery.matches) {
+      const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
+      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
+      document.body.classList.remove("admin-sidebar-open");
+    } else {
+      document.body.classList.remove("admin-sidebar-collapsed");
+    }
+
+    updateToggleButtons();
+  };
+
   const closeSidebar = () => {
+    if (desktopMediaQuery.matches) {
+      document.body.classList.add("admin-sidebar-collapsed");
+      window.localStorage.setItem(desktopSidebarStateKey, "true");
+      updateToggleButtons();
+      return;
+    }
+
     document.body.classList.remove("admin-sidebar-open");
     updateToggleButtons();
   };
 
   const toggleSidebar = () => {
+    if (desktopMediaQuery.matches) {
+      const shouldCollapseDesktop = !document.body.classList.contains("admin-sidebar-collapsed");
+      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
+      window.localStorage.setItem(desktopSidebarStateKey, shouldCollapseDesktop ? "true" : "false");
+      updateToggleButtons();
+      return;
+    }
+
     document.body.classList.toggle("admin-sidebar-open");
     updateToggleButtons();
   };
@@ -487,11 +594,14 @@ function initializeAdminSidebarDrawer() {
     }
 
     if (event.target.closest(".admin-sidebar .admin-nav-link")) {
-      closeSidebar();
+      if (!desktopMediaQuery.matches) {
+        closeSidebar();
+      }
       return;
     }
 
     if (
+      !desktopMediaQuery.matches &&
       document.body.classList.contains("admin-sidebar-open") &&
       !event.target.closest(".admin-sidebar")
     ) {
@@ -500,12 +610,18 @@ function initializeAdminSidebarDrawer() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
+    if (event.key === "Escape" && !desktopMediaQuery.matches) {
       closeSidebar();
     }
   });
 
-  updateToggleButtons();
+  if (typeof desktopMediaQuery.addEventListener === "function") {
+    desktopMediaQuery.addEventListener("change", syncSidebarMode);
+  } else if (typeof desktopMediaQuery.addListener === "function") {
+    desktopMediaQuery.addListener(syncSidebarMode);
+  }
+
+  syncSidebarMode();
 }
 
 function inferMediaType(url, preferredFormat = "") {
@@ -585,6 +701,8 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
     sidebarEmailElement.textContent = user.email || "admin@globalimports.com";
   }
 
+  applyManagerNavigationVisibility(user.role);
+
   return user;
 }
 
@@ -602,12 +720,14 @@ window.setTimeout(forceHideAnyLoadingOverlay, 0);
 
 window.AdminApp = {
   attachLogout,
+  canCreateAdministrativeUsers,
   clearAuth,
   fetchJson,
   formatCurrency,
   formatDate,
   formatDateTimeInBogota,
   hideLoadingOverlay,
+  isUsaAdministrativeRole,
   loadAdminSession,
   parseMediaUrls,
   populateSelect,
