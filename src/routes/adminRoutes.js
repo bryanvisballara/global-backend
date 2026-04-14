@@ -1,6 +1,10 @@
 const express = require("express");
 const { requireAuth, requireRole } = require("../middleware/authMiddleware");
-const { listUsers } = require("../controllers/adminUsersController");
+const {
+  listUsers,
+  listAdministrativeUsers,
+  createAdministrativeUser,
+} = require("../controllers/adminUsersController");
 const { createClient, listClients } = require("../controllers/adminClientsController");
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
@@ -19,17 +23,32 @@ const {
   listVirtualDealershipVehicles,
   updateVirtualDealershipVehicle,
 } = require("../controllers/adminVirtualDealershipController");
-const { upload } = require("../middleware/uploadMiddleware");
+const upload = require("../middleware/upload");
+const signedDocumentController = require("../controllers/signedDocumentController");
+// Documentos firmados (DocuSign)
+router.post("/signed-documents", upload.single("pdf"), signedDocumentController.uploadSignedDocument);
+router.get("/signed-documents", signedDocumentController.listSignedDocuments);
+router.get("/signed-documents/:id/download", signedDocumentController.downloadSignedDocument);
 
 const router = express.Router();
 
-router.use(requireAuth, requireRole("admin"));
+function requireLatamAdministrativeRole(req, res, next) {
+  if (["admin", "manager"].includes(String(req.user?.role || ""))) {
+    return next();
+  }
+
+  return res.status(403).json({ message: "Modulo disponible solo para Global Imports LATAM" });
+}
+
+router.use(requireAuth, requireRole("admin", "manager", "adminUSA", "gerenteUSA"));
 
 router.get("/users", listUsers);
+router.get("/users/admins", listAdministrativeUsers);
+router.post("/users/admins", requireRole("manager", "gerenteUSA"), createAdministrativeUser);
 router.get("/clients", listClients);
 router.post("/clients", createClient);
 router.post("/users/clients", createClient);
-router.get("/client-requests", listClientRequests);
+router.get("/client-requests", requireLatamAdministrativeRole, listClientRequests);
 router.get("/tracking-suggestion", suggestTrackingNumber);
 
 router.get("/orders", listOrders);
@@ -50,7 +69,11 @@ router.patch("/posts/:postId", updatePost);
 router.delete("/posts/:postId", deletePost);
 
 router.get("/virtual-dealership", listVirtualDealershipVehicles);
-router.post("/virtual-dealership", upload.array("mediaFiles", 10), createVirtualDealershipVehicle);
+router.post(
+  "/virtual-dealership",
+  upload.array("mediaFiles", 10),
+  createVirtualDealershipVehicle
+);
 router.patch("/virtual-dealership/:vehicleId", updateVirtualDealershipVehicle);
 router.delete("/virtual-dealership/:vehicleId", deleteVirtualDealershipVehicle);
 
