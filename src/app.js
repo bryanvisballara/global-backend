@@ -12,6 +12,7 @@ const { isDatabaseReady } = require("./config/db");
 const app = express();
 
 // Endpoint temporal para depuración: listar usuarios desde backend
+
 app.get("/api/debug/list-users", async (req, res) => {
   const secret = req.query.secret;
   if (secret !== process.env.DEBUG_SECRET) {
