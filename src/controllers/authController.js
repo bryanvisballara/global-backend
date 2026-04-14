@@ -308,6 +308,7 @@ async function resetPassword(req, res) {
 async function login(req, res) {
   try {
     const { email, password } = req.body;
+    console.log("[LOGIN] MONGODB_URI:", process.env.MONGODB_URI);
     console.log("[LOGIN] Email recibido:", email);
     console.log("[LOGIN] Password recibido:", password);
 
