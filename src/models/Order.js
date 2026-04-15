@@ -34,7 +34,42 @@ const mediaItemSchema = new mongoose.Schema(
     },
     clientVisible: {
       type: Boolean,
-      default: true,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
+const trackingUpdateSchema = new mongoose.Schema(
+  {
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    media: {
+      type: [mediaItemSchema],
+      default: [],
+    },
+    clientVisible: {
+      type: Boolean,
+      default: false,
+    },
+    inProgress: {
+      type: Boolean,
+      default: false,
+    },
+    completed: {
+      type: Boolean,
+      default: false,
+    },
+    createdAt: {
+      type: Date,
+      default: null,
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
     },
   },
   { _id: false }
@@ -52,13 +87,17 @@ const trackingStepSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    inProgress: {
+      type: Boolean,
+      default: false,
+    },
     confirmed: {
       type: Boolean,
       default: false,
     },
     clientVisible: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     notes: {
       type: String,
@@ -67,6 +106,10 @@ const trackingStepSchema = new mongoose.Schema(
     },
     media: {
       type: [mediaItemSchema],
+      default: [],
+    },
+    updates: {
+      type: [trackingUpdateSchema],
       default: [],
     },
     updatedAt: {
@@ -152,9 +195,17 @@ const orderSchema = new mongoose.Schema(
         type: String,
         trim: true,
       },
+      exteriorColor: {
+        type: String,
+        trim: true,
+      },
+      interiorColor: {
+        type: String,
+        trim: true,
+      },
       destination: {
         type: String,
-        enum: ["Puerto Santa Marta", "Puerto Cartagena"],
+        enum: ["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla"],
         trim: true,
       },
       internalIdentifier: {
@@ -171,6 +222,7 @@ const orderSchema = new mongoose.Schema(
     purchaseDate: {
       type: Date,
       required: true,
+      default: Date.now,
     },
     expectedArrivalDate: {
       type: Date,

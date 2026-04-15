@@ -34,15 +34,18 @@ async function createClient(req, res) {
       notes,
     } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ message: "Name and email are required" });
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
     }
 
-    const normalizedEmail = String(email).toLowerCase().trim();
-    const existingClient = await ClientModel.findOne({ email: normalizedEmail });
+    const normalizedEmail = String(email || "").toLowerCase().trim() || undefined;
 
-    if (existingClient) {
-      return res.status(409).json({ message: "Client already exists" });
+    if (normalizedEmail) {
+      const existingClient = await ClientModel.findOne({ email: normalizedEmail });
+
+      if (existingClient) {
+        return res.status(409).json({ message: "Client already exists" });
+      }
     }
 
     const client = await ClientModel.create({

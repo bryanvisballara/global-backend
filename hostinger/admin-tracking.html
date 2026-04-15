@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Tracking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-scale75" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <style>
+      .global-loading-overlay {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body class="admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1>Seguimiento de pedidos</h1>
+          <p class="dashboard-lead">Busca un pedido activo y administra sus nueve estados internos, sus adjuntos y su visibilidad hacia el cliente.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout">
+              <section id="tracking-form" class="dashboard-form">
+                <section id="tracking-selector-panel" class="tracking-selector-panel tracking-filters-card">
+                  <div class="tracking-selector-copy">
+                    <strong>Selecciona el pedido que vas a gestionar</strong>
+                    <p>Solo se muestran pedidos activos. Puedes filtrarlos por tracking, VIN, identificador interno, estado y rango de fecha.</p>
+                  </div>
+                  <div class="tracking-search-grid">
+                    <div class="tracking-search-stack">
+                      <span>Buscar por tracking</span>
+                      <input id="tracking-search-tracking" class="tracking-native-select" type="text" placeholder="Escribe o selecciona tracking" list="tracking-search-tracking-list" autocomplete="off" />
+                      <datalist id="tracking-search-tracking-list"></datalist>
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Buscar por VIN</span>
+                      <input id="tracking-search-vin" class="tracking-native-select" type="text" placeholder="Escribe o selecciona VIN" list="tracking-search-vin-list" autocomplete="off" />
+                      <datalist id="tracking-search-vin-list"></datalist>
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Buscar por identificador interno</span>
+                      <input id="tracking-search-internal" class="tracking-native-select" type="text" placeholder="Escribe o selecciona identificador interno" list="tracking-search-internal-list" autocomplete="off" />
+                      <datalist id="tracking-search-internal-list"></datalist>
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Filtrar por estado</span>
+                      <select id="tracking-search-state" class="tracking-native-select">
+                        <option value="">Todos los estados</option>
+                      </select>
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Fecha desde</span>
+                      <input id="tracking-search-date-from" class="tracking-native-select" type="date" />
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Fecha hasta</span>
+                      <input id="tracking-search-date-to" class="tracking-native-select" type="date" />
+                    </div>
+                  </div>
+                  <div class="tracking-filter-actions">
+                    <button id="tracking-clear-button" class="secondary-button tracking-clear-button" type="button">Limpiar</button>
+                    <button id="tracking-search-button" class="primary-button tracking-filter-button" type="button" onclick="(window.__adminTrackingHandleSearch || window.__adminTrackingFallbackSearch)?.(); return false;">Filtrar</button>
+                  </div>
+                  <p id="tracking-feedback" class="feedback" aria-live="polite"></p>
+                  <div id="tracking-search-results" class="tracking-search-results"></div>
+                </section>
+
+                <input id="tracking-order-id" name="orderId" type="hidden" required />
+
+                <section id="tracking-editor-fields" class="tracking-editor-fields" hidden>
+                  <div class="tracking-selector-copy compact">
+                    <strong>Estados del pedido seleccionado</strong>
+                    <p>Cada estado puede confirmarse, ocultarse al cliente y almacenar documentos, fotos o videos.</p>
+                  </div>
+                  <div id="tracking-order-summary" class="tracking-order-summary"></div>
+                  <div id="tracking-states-list" class="tracking-states-list"></div>
+                </section>
+              </section>
+              <div id="tracking-preview" class="tracking-preview"></div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <div id="tracking-success-modal" class="tracking-modal" hidden>
+      <div class="tracking-modal-backdrop" data-close-tracking-modal onclick="window.__closeTrackingSuccessModal?.(); return false;"></div>
+      <div class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="tracking-success-title">
+        <strong id="tracking-success-title">Estado guardado</strong>
+        <p>La información del estado fue actualizada correctamente.</p>
+        <button id="tracking-success-close" class="primary-button" type="button" onclick="window.__closeTrackingSuccessModal?.(); return false;">Aceptar</button>
+      </div>
+    </div>
+    <script src="/admin-common.js?v=20260409-05"></script>
+    <script>
+      (() => {
+        const clearPageLoadingState = () => {
+          document.querySelectorAll('.global-loading-overlay').forEach((overlay) => {
+            overlay.hidden = true;
+          });
+          document.body.classList.remove('loading-active');
+        };
+
+        document.addEventListener("DOMContentLoaded", clearPageLoadingState);
+        window.addEventListener("pageshow", clearPageLoadingState);
+        window.addEventListener("load", clearPageLoadingState);
+      })();
+
+      (() => {
+        const enableLegacyTrackingBootstrap = false;
+
+        if (!enableLegacyTrackingBootstrap) {
+          return;
+        }
+
+        const trackingUrl = new URL(window.location.href);
+        const hasDirectOrderParams = Boolean(
+          trackingUrl.searchParams.get("orderId") ||
+          trackingUrl.searchParams.get("tracking") ||
+          trackingUrl.searchParams.get("vin") ||
+          trackingUrl.searchParams.get("internal")
+        );
+
+        if (hasDirectOrderParams) {
+          return;
+        }
+
+        function resolveTrackingBootstrapBaseUrl() {
+          const { protocol, hostname, port } = window.location;
+
+          if (hostname === "localhost" || hostname === "127.0.0.1") {
+            return `${protocol}//${hostname}:${port || "10000"}`;
+          }
+
+          return "https://global-backend-bdbx.onrender.com";
+        }
+
+        async function fetchTrackingBootstrapJson(path, options = {}) {
+          const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
+          const isFormDataBody = options.body instanceof FormData;
+          const response = await fetch(`${resolveTrackingBootstrapBaseUrl()}${path}`, {
+            ...options,
+            credentials: "include",
+            headers: {
+              ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+              ...(options.headers || {}),
+            },
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Request failed");
+          }
+
+          return data;
+        }
+
+        const fallbackStateTemplates = [
+          { key: "order-received", label: "Orden recibida" },
+          { key: "vehicle-search", label: "Busqueda del carro" },
+          { key: "booking-and-shipping", label: "Booking y tracking naviera" },
+          { key: "in-transit", label: "En transito" },
+          { key: "nationalization", label: "Proceso de nacionalizacion" },
+          { key: "port-exit", label: "Salida del puerto" },
+          { key: "vehicle-preparation", label: "Alistamiento" },
+          { key: "delivery", label: "Entrega" },
+          { key: "registration", label: "Matricula" },
+        ];
+
+        let bootstrapOrders = [];
+        let bootstrapSelectedOrderId = "";
+        let bootstrapExpandedStateKey = "";
+
+        function escapeTrackingHtml(value) {
+          return String(value || "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function getInternalIdentifier(order) {
+          return String(order?.vehicle?.internalIdentifier || order?.vehicle?.description || "");
+        }
+
+        function getActiveOrders() {
+          return bootstrapOrders.filter((order) => order.status === "active");
+        }
+
+        function getFilteredBootstrapOrders() {
+          const trackingValue = String(document.getElementById("tracking-search-tracking")?.value || "").trim().toUpperCase();
+          const vinValue = String(document.getElementById("tracking-search-vin")?.value || "").trim().toUpperCase();
+          const internalValue = String(document.getElementById("tracking-search-internal")?.value || "").trim().toUpperCase();
+
+          return getActiveOrders().filter((order) => {
+            const trackingMatch = !trackingValue || String(order.trackingNumber || "").trim().toUpperCase().includes(trackingValue);
+            const vinMatch = !vinValue || String(order.vehicle?.vin || "").trim().toUpperCase().includes(vinValue);
+            const internalMatch = !internalValue || getInternalIdentifier(order).trim().toUpperCase().includes(internalValue);
+            return trackingMatch && vinMatch && internalMatch;
+          });
+        }
+
+        function getBootstrapSelectedOrder() {
+          return bootstrapOrders.find((order) => order._id === bootstrapSelectedOrderId) || null;
+        }
+
+        function formatBootstrapOrderLabel(order) {
+          return `${order.vehicle?.brand || "Vehiculo"} ${order.vehicle?.model || ""}${order.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order.vehicle?.year || ""}`.trim();
+        }
+
+        function renderBootstrapResults(matches) {
+          const container = document.getElementById("tracking-search-results");
+
+          if (!container) {
+            return;
+          }
+
+          if (!matches.length) {
+            container.innerHTML = '<div class="empty-state">No encontramos pedidos activos con esos filtros.</div>';
+            return;
+          }
+
+          container.innerHTML = matches.map((order) => `
+            <button class="tracking-order-result ${order._id === bootstrapSelectedOrderId ? "selected" : ""}" type="button" data-bootstrap-order-id="${escapeTrackingHtml(order._id)}">
+              <div>
+                <strong>${escapeTrackingHtml(formatBootstrapOrderLabel(order))}</strong>
+                <p>Tracking ${escapeTrackingHtml(order.trackingNumber)} · VIN ${escapeTrackingHtml(order.vehicle?.vin || "Sin VIN")}</p>
+                <p>${escapeTrackingHtml(getInternalIdentifier(order) || "Sin identificador interno")}</p>
+              </div>
+            </button>
+          `).join("");
+        }
+
+        function renderBootstrapStates(order) {
+          const editor = document.getElementById("tracking-editor-fields");
+          const summary = document.getElementById("tracking-order-summary");
+          const statesList = document.getElementById("tracking-states-list");
+          const preview = document.getElementById("tracking-preview");
+
+          if (!editor || !summary || !statesList || !preview) {
+            return;
+          }
+
+          if (!order) {
+            editor.hidden = true;
+            summary.innerHTML = "";
+            statesList.innerHTML = "";
+            preview.innerHTML = '<div class="empty-state">Busca un pedido y selecciónalo para trabajar sus estados.</div>';
+            return;
+          }
+
+          editor.hidden = false;
+          summary.innerHTML = `
+            <div class="tracking-card-header">
+              <strong>${escapeTrackingHtml(formatBootstrapOrderLabel(order))}</strong>
+              <p>${escapeTrackingHtml(order.client?.name || "Cliente sin asignar")} · Tracking ${escapeTrackingHtml(order.trackingNumber)}</p>
+              <p>VIN ${escapeTrackingHtml(order.vehicle?.vin || "Sin VIN")}</p>
+              <p>${escapeTrackingHtml(getInternalIdentifier(order) || "Sin identificador interno")}</p>
+            </div>
+          `;
+
+          const states = Array.isArray(order.trackingSteps) && order.trackingSteps.length ? order.trackingSteps : fallbackStateTemplates;
+
+          const buildBootstrapMediaBuckets = (media = []) => {
+            const indexedMedia = media.map((item, index) => ({ ...item, __index: index }));
+
+            return {
+              document: indexedMedia.filter((item) => item.category === "document" || item.type === "document"),
+              photoSingle: indexedMedia.filter((item) => item.category === "photo-single"),
+              photoCarousel: indexedMedia.filter((item) => item.category === "photo-carousel" || (item.type === "image" && !item.category)),
+              video: indexedMedia.filter((item) => item.category === "video" || item.type === "video"),
+            };
+          };
+
+          const renderBootstrapSavedFileList = (mediaItems = [], stateKey) => {
+            if (!mediaItems.length) {
+              return "";
+            }
+
+            return `
+              <small class="tracking-file-group-label">Archivos subidos</small>
+              <div class="tracking-saved-files-list">
+                ${mediaItems
+                  .map((item) => `
+                    <div class="tracking-saved-file-row">
+                      <span>${escapeTrackingHtml(item.name || item.caption || "Archivo")}</span>
+                      <button type="button" data-bootstrap-remove-media-state="${escapeTrackingHtml(stateKey)}" data-bootstrap-remove-media-index="${item.__index}">x</button>
+                    </div>
+                  `)
+                  .join("")}
+              </div>
+            `;
+          };
+          statesList.innerHTML = states.map((state, index) => {
+            const mediaBuckets = buildBootstrapMediaBuckets(state.media || []);
+
+            return `
+            <article class="tracking-state-card ${state.confirmed ? "is-confirmed" : ""}" data-bootstrap-state-key="${escapeTrackingHtml(state.key)}">
+              <div class="tracking-state-header">
+                <div class="tracking-state-copy">
+                  <small>Estado ${index + 1}</small>
+                  <strong>${escapeTrackingHtml(state.label)}</strong>
+                  <p>${escapeTrackingHtml(state.notes || "Sin informacion todavia.")}</p>
+                </div>
+                <button class="tracking-state-edit-button ${state.confirmed ? "is-confirmed" : ""}" type="button" data-bootstrap-state-toggle="${escapeTrackingHtml(state.key)}">${state.confirmed ? "Confirmado" : "Editar"}</button>
+              </div>
+              <div class="tracking-state-body" ${bootstrapExpandedStateKey === state.key ? "" : "hidden"}>
+                <div class="tracking-state-switches">
+                  <label class="dashboard-checkbox"><input type="checkbox" data-bootstrap-field="confirmed" ${state.confirmed ? "checked" : ""} /> Activar estado</label>
+                  <label class="dashboard-checkbox"><input type="checkbox" data-bootstrap-field="hiddenFromClient" ${state.clientVisible ? "" : "checked"} /> Ocultar al cliente</label>
+                </div>
+                <div class="tracking-state-upload-grid two-up">
+                  <label>
+                    <span>Subir documento (PDF)</span>
+                    <input type="file" data-bootstrap-field="documentFile" accept=".pdf,application/pdf" />
+                    ${renderBootstrapSavedFileList(mediaBuckets.document, state.key)}
+                  </label>
+                  <label>
+                    <span>Subir foto unica</span>
+                    <input type="file" data-bootstrap-field="singlePhotoFile" accept="image/*" />
+                    ${renderBootstrapSavedFileList(mediaBuckets.photoSingle, state.key)}
+                  </label>
+                </div>
+                <div class="tracking-state-upload-grid two-up">
+                  <label>
+                    <span>Subir carrusel</span>
+                    <input type="file" data-bootstrap-field="carouselPhotoFiles" multiple accept="image/*" />
+                    ${renderBootstrapSavedFileList(mediaBuckets.photoCarousel, state.key)}
+                  </label>
+                  <label>
+                    <span>Subir video</span>
+                    <input type="file" data-bootstrap-field="videoFile" accept="video/*" />
+                    ${renderBootstrapSavedFileList(mediaBuckets.video, state.key)}
+                  </label>
+                </div>
+                <label><span>Notas</span><textarea rows="4" data-bootstrap-field="notes">${escapeTrackingHtml(state.notes || "")}</textarea></label>
+                <div class="tracking-state-actions">
+                  <button class="primary-button" type="button" data-bootstrap-save-state="${escapeTrackingHtml(state.key)}">Guardar estado</button>
+                  <p class="feedback" data-bootstrap-state-feedback="${escapeTrackingHtml(state.key)}"></p>
+                </div>
+              </div>
+            </article>
+          `;
+          }).join("");
+
+          preview.innerHTML = `
+            <div class="tracking-card-header">
+              <strong>Vista cliente del pedido</strong>
+              <p>Solo se reflejan los estados confirmados y visibles para cliente.</p>
+            </div>
+          `;
+        }
+
+        function fillTrackingDatalist(inputId, listId, placeholder, orders, getValue) {
+          const input = document.getElementById(inputId);
+          const list = document.getElementById(listId);
+
+          if (!input || !list) {
+            return;
+          }
+
+          input.placeholder = placeholder;
+          const values = [];
+
+          orders.forEach((order) => {
+            const value = String(getValue(order) || "").trim();
+
+            if (!value) {
+              return;
+            }
+
+            values.push(`<option value="${value}"></option>`);
+          });
+
+          list.innerHTML = values.join("");
+        }
+
+        async function refreshTrackingSelectors() {
+          try {
+            const data = await fetchTrackingBootstrapJson("/api/admin/orders");
+            const orders = (data.orders || []).filter((order) => order.status === "active");
+            bootstrapOrders = data.orders || [];
+
+            fillTrackingDatalist("tracking-search-tracking", "tracking-search-tracking-list", "Escribe o selecciona tracking", orders, (order) => order.trackingNumber);
+            fillTrackingDatalist("tracking-search-vin", "tracking-search-vin-list", "Escribe o selecciona VIN", orders, (order) => order.vehicle?.vin);
+            fillTrackingDatalist("tracking-search-internal", "tracking-search-internal-list", "Escribe o selecciona identificador interno", orders, (order) => order.vehicle?.internalIdentifier || order.vehicle?.description);
+            renderBootstrapResults(getFilteredBootstrapOrders());
+          } catch {}
+        }
+
+        window.__adminTrackingFallbackSearch = () => {
+          const matches = getFilteredBootstrapOrders();
+          const feedback = document.getElementById("tracking-feedback");
+          renderBootstrapResults(matches);
+
+          if (!matches.length) {
+            bootstrapSelectedOrderId = "";
+            renderBootstrapStates(null);
+            if (feedback) {
+              feedback.textContent = "No hay pedidos activos que coincidan con esos filtros.";
+              feedback.className = "feedback error";
+            }
+            return;
+          }
+
+          const internalQuery = String(document.getElementById("tracking-search-internal")?.value || "").trim().toUpperCase();
+          const trackingQuery = String(document.getElementById("tracking-search-tracking")?.value || "").trim().toUpperCase();
+          const vinQuery = String(document.getElementById("tracking-search-vin")?.value || "").trim().toUpperCase();
+          const exactMatch = matches.find((order) => {
+            const internalValue = getInternalIdentifier(order).trim().toUpperCase();
+            const trackingValue = String(order.trackingNumber || "").trim().toUpperCase();
+            const vinValue = String(order.vehicle?.vin || "").trim().toUpperCase();
+            return (internalQuery && internalValue === internalQuery) || (trackingQuery && trackingValue === trackingQuery) || (vinQuery && vinValue === vinQuery);
+          }) || (matches.length === 1 ? matches[0] : null);
+
+          if (exactMatch) {
+            bootstrapSelectedOrderId = exactMatch._id;
+            bootstrapExpandedStateKey = "";
+            renderBootstrapResults(matches);
+            renderBootstrapStates(exactMatch);
+            if (feedback) {
+              feedback.textContent = "Pedido listo para gestionar sus estados.";
+              feedback.className = "feedback success";
+            }
+            return;
+          }
+
+          renderBootstrapStates(null);
+          if (feedback) {
+            feedback.textContent = "Selecciona uno de los pedidos encontrados para ver sus estados.";
+            feedback.className = "feedback";
+          }
+        };
+
+        async function saveBootstrapState(stateKey) {
+          const selectedOrder = getBootstrapSelectedOrder();
+
+          if (!selectedOrder) {
+            return;
+          }
+
+          const state = (selectedOrder.trackingSteps || []).find((item) => item.key === stateKey);
+          const stateCard = document.querySelector(`[data-bootstrap-state-key="${stateKey}"]`);
+          const stateFeedback = document.querySelector(`[data-bootstrap-state-feedback="${stateKey}"]`);
+
+          if (!stateCard || !state) {
+            return;
+          }
+
+          const notesField = stateCard.querySelector('[data-bootstrap-field="notes"]');
+          const confirmedField = stateCard.querySelector('[data-bootstrap-field="confirmed"]');
+          const hiddenFromClientField = stateCard.querySelector('[data-bootstrap-field="hiddenFromClient"]');
+          const documentFileField = stateCard.querySelector('[data-bootstrap-field="documentFile"]');
+          const singlePhotoFileField = stateCard.querySelector('[data-bootstrap-field="singlePhotoFile"]');
+          const carouselPhotoFilesField = stateCard.querySelector('[data-bootstrap-field="carouselPhotoFiles"]');
+          const videoFileField = stateCard.querySelector('[data-bootstrap-field="videoFile"]');
+          const formData = new FormData();
+          const mediaMeta = [];
+
+          const appendFiles = (files, category) => {
+            Array.from(files || []).forEach((file) => {
+              formData.append("mediaFiles", file);
+              mediaMeta.push({ category });
+            });
+          };
+
+          formData.append("notes", notesField?.value || "");
+          formData.append("confirmed", confirmedField?.checked ? "true" : "false");
+          formData.append("clientVisible", hiddenFromClientField?.checked ? "false" : "true");
+          formData.append("existingMedia", JSON.stringify(state.media || []));
+
+          appendFiles(documentFileField?.files, "document");
+          appendFiles(singlePhotoFileField?.files, "photo-single");
+          appendFiles(carouselPhotoFilesField?.files, "photo-carousel");
+          appendFiles(videoFileField?.files, "video");
+          formData.append("mediaMeta", JSON.stringify(mediaMeta));
+
+          if (stateFeedback) {
+            stateFeedback.textContent = "Guardando estado...";
+            stateFeedback.className = "feedback";
+          }
+
+          try {
+            const response = await fetchTrackingBootstrapJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
+              method: "PATCH",
+              body: formData,
+            });
+
+            bootstrapOrders = bootstrapOrders.map((order) => (order._id === response.order._id ? response.order : order));
+            bootstrapExpandedStateKey = stateKey;
+            renderBootstrapResults(getFilteredBootstrapOrders());
+            renderBootstrapStates(getBootstrapSelectedOrder());
+
+            const modal = document.getElementById("tracking-success-modal");
+
+            if (modal) {
+              modal.hidden = false;
+              document.body.classList.add("modal-open");
+            }
+          } catch (error) {
+            if (stateFeedback) {
+              stateFeedback.textContent = error.message;
+              stateFeedback.className = "feedback error";
+            }
+          }
+        }
+
+        if (!window.__closeTrackingSuccessModal) {
+          window.__closeTrackingSuccessModal = () => {
+            const modal = document.getElementById("tracking-success-modal");
+
+            if (!modal) {
+              return;
+            }
+
+            modal.hidden = true;
+            document.body.classList.remove("modal-open");
+          };
+        }
+
+        if (!window.__adminTrackingHandleSearch) {
+          window.__adminTrackingHandleSearch = () => {
+            window.__adminTrackingFallbackSearch();
+          };
+        }
+
+        window.__refreshTrackingSelectors = refreshTrackingSelectors;
+        document.addEventListener("DOMContentLoaded", () => {
+          refreshTrackingSelectors();
+          window.setTimeout(refreshTrackingSelectors, 500);
+        });
+        window.addEventListener("pageshow", refreshTrackingSelectors);
+        window.addEventListener("load", refreshTrackingSelectors);
+
+        document.addEventListener("click", (event) => {
+          const orderButton = event.target.closest("[data-bootstrap-order-id]");
+          if (orderButton) {
+            bootstrapSelectedOrderId = orderButton.dataset.bootstrapOrderId;
+            const order = getBootstrapSelectedOrder();
+            bootstrapExpandedStateKey = "";
+            renderBootstrapResults(getFilteredBootstrapOrders());
+            renderBootstrapStates(order);
+            return;
+          }
+
+          const stateButton = event.target.closest("[data-bootstrap-state-toggle]");
+          if (stateButton) {
+            bootstrapExpandedStateKey = bootstrapExpandedStateKey === stateButton.dataset.bootstrapStateToggle ? "" : stateButton.dataset.bootstrapStateToggle;
+            renderBootstrapStates(getBootstrapSelectedOrder());
+            return;
+          }
+
+          const saveButton = event.target.closest("[data-bootstrap-save-state]");
+          if (saveButton) {
+            saveBootstrapState(saveButton.dataset.bootstrapSaveState);
+            return;
+          }
+
+          const removeSavedMediaButton = event.target.closest("[data-bootstrap-remove-media-state][data-bootstrap-remove-media-index]");
+          if (removeSavedMediaButton) {
+            const stateKey = String(removeSavedMediaButton.dataset.bootstrapRemoveMediaState || "");
+            const mediaIndex = Number.parseInt(removeSavedMediaButton.dataset.bootstrapRemoveMediaIndex || "", 10);
+            const selectedOrder = getBootstrapSelectedOrder();
+
+            if (!selectedOrder || !stateKey || Number.isNaN(mediaIndex)) {
+              return;
+            }
+
+            const state = (selectedOrder.trackingSteps || []).find((item) => item.key === stateKey);
+
+            if (!state || !Array.isArray(state.media)) {
+              return;
+            }
+
+            state.media = state.media.filter((item, index) => index !== mediaIndex);
+            bootstrapExpandedStateKey = stateKey;
+            renderBootstrapStates(selectedOrder);
+            return;
+          }
+
+          if (event.target.closest("[data-close-tracking-modal]")) {
+            window.__closeTrackingSuccessModal?.();
+          }
+        });
+
+        document.addEventListener("change", (event) => {
+          const confirmedField = event.target.closest('[data-bootstrap-field="confirmed"]');
+
+          if (!confirmedField) {
+            return;
+          }
+
+          const stateCard = confirmedField.closest("[data-bootstrap-state-key]");
+
+          if (!stateCard) {
+            return;
+          }
+
+          const editButton = stateCard.querySelector("[data-bootstrap-state-toggle]");
+
+          stateCard.classList.toggle("is-confirmed", confirmedField.checked);
+
+          if (editButton) {
+            editButton.classList.toggle("is-confirmed", confirmedField.checked);
+            editButton.textContent = confirmedField.checked ? "Confirmado" : "Editar";
+          }
+        });
+      })();
+    </script>
+    <script src="/admin-tracking.js?v=20260409-11"></script>
+  </body>
+</html>

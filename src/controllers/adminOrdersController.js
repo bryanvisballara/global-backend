@@ -27,33 +27,13 @@ function resolveOrderRegionByRole(role) {
 }
 
 function canModifyTrackingStep(role, stepKey) {
-  const normalizedRole = String(role || "");
   const normalizedStepKey = String(stepKey || "");
 
   if (!normalizedStepKey) {
     return false;
   }
 
-  if (isUsaAdministrativeRole(normalizedRole)) {
-    // Permitir a admin/gerente USA editar los tres primeros y el último estado
-    const allStepKeys = [
-      "order-received",
-      "vehicle-search",
-      "booking-and-shipping",
-      "in-transit",
-      "nationalization",
-      "port-exit",
-      "vehicle-preparation",
-      "delivery",
-      "registration",
-    ];
-    const lastStepKey = allStepKeys[allStepKeys.length - 1];
-    if (LATAM_LOCKED_STEP_KEYS.has(normalizedStepKey) || normalizedStepKey === lastStepKey) {
-      return true;
-    }
-    return false;
-  }
-  return !LATAM_LOCKED_STEP_KEYS.has(normalizedStepKey);
+  return true;
 }
 
 function resolveOrderModelForCreate(role) {
@@ -92,9 +72,54 @@ async function findOrderForRole(orderId, role) {
   return { order: latamOrder, orderModel: Order, region: "latam" };
 }
 
+function getLatestTrackingStepUpdate(step, matcher = null) {
+  const updates = Array.isArray(step?.updates) ? step.updates : [];
+  const matchingUpdates = typeof matcher === "function"
+    ? updates.filter(matcher)
+    : updates;
+
+  return matchingUpdates.reduce((latestUpdate, currentUpdate) => {
+    if (!latestUpdate) {
+      return currentUpdate;
+    }
+
+    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
+    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+
+    return currentTime >= latestTime ? currentUpdate : latestUpdate;
+  }, null);
+}
+
+function buildTrackingStepSnapshot(step, update = null) {
+  if (!step) {
+    return null;
+  }
+
+  const resolvedUpdate = update || getLatestTrackingStepUpdate(step);
+
+  return {
+    ...step,
+    notes: resolvedUpdate?.notes || step.notes || "",
+    media: Array.isArray(resolvedUpdate?.media) ? resolvedUpdate.media : step.media || [],
+    clientVisible: typeof resolvedUpdate?.clientVisible === "boolean"
+      ? resolvedUpdate.clientVisible
+      : Boolean(step.clientVisible),
+    inProgress: typeof resolvedUpdate?.inProgress === "boolean"
+      ? resolvedUpdate.inProgress
+      : Boolean(step.inProgress),
+    confirmed: typeof resolvedUpdate?.completed === "boolean"
+      ? resolvedUpdate.completed
+      : Boolean(step.confirmed),
+    updatedAt: resolvedUpdate?.updatedAt || resolvedUpdate?.createdAt || step.updatedAt || null,
+    confirmedAt: resolvedUpdate?.completed
+      ? resolvedUpdate.updatedAt || resolvedUpdate.createdAt || step.confirmedAt || null
+      : step.confirmedAt || null,
+  };
+}
 function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
   return (steps || [])
-    .filter((step) => step.confirmed && step.clientVisible && step.key !== excludedStepKey)
+    .map((step) => buildTrackingStepSnapshot(step, getLatestTrackingStepUpdate(step, (update) => update.completed && update.clientVisible)))
+    .filter((step) => step?.confirmed && step?.clientVisible && step.key !== excludedStepKey)
     .sort((left, right) => new Date(left.updatedAt || 0).getTime() - new Date(right.updatedAt || 0).getTime())
     .slice(-1)[0] || null;
 }
@@ -357,7 +382,10 @@ function parseExistingMediaPayload(value) {
 
   try {
     const parsedValue = JSON.parse(value);
-    return normalizeMedia(parsedValue);
+    return normalizeMedia(parsedValue).map((item, index) => ({
+      ...item,
+      updateIndex: parseTrackingUpdateIndex(parsedValue[index]?.updateIndex),
+    }));
   } catch {
     return [];
   }
@@ -386,6 +414,16 @@ function dedupeTrackingMedia(media = []) {
     seenKeys.add(dedupeKey);
     return true;
   });
+}
+
+function buildTrackingMediaFingerprint(item = {}) {
+  return [
+    String(item.updateIndex ?? "").trim(),
+    String(item.category || "").trim().toLowerCase(),
+    String(item.url || "").trim(),
+    String(item.name || "").trim().toLowerCase(),
+    String(item.caption || "").trim().toLowerCase(),
+  ].join("::");
 }
 
 function parseTrackingMediaMeta(value, files = []) {
@@ -429,6 +467,82 @@ function parseTrackingVideoLinks(value) {
     }));
 }
 
+function parseTrackingUpdateIndex(value) {
+  const parsedValue = Number.parseInt(String(value || ""), 10);
+  return Number.isNaN(parsedValue) ? -1 : parsedValue;
+}
+
+function reconcileTrackingStepMedia(step, desiredMedia = []) {
+  if (!step || !Array.isArray(step.updates) || !Array.isArray(desiredMedia) || !desiredMedia.length) {
+    return;
+  }
+
+  const desiredMediaMap = new Map(
+    desiredMedia.map((item) => [buildTrackingMediaFingerprint(item), item])
+  );
+
+  step.updates = step.updates.map((update, updateIndex) => ({
+    ...update,
+    media: normalizeMedia(update.media || [])
+      .filter((item) => desiredMediaMap.has(buildTrackingMediaFingerprint({ ...item, updateIndex })))
+      .map((item) => {
+        const desiredEntry = desiredMediaMap.get(buildTrackingMediaFingerprint({ ...item, updateIndex })) || {};
+        return {
+          ...item,
+          clientVisible: parseBooleanValue(desiredEntry.clientVisible, item.clientVisible),
+        };
+      }),
+  }));
+}
+
+function hasTrackingUpdateChanges({ notes = "", media = [], requestedConfirmed = false, requestedInProgress = false, step }) {
+  const trimmedNotes = String(notes || "").trim();
+
+  if (trimmedNotes) {
+    return true;
+  }
+
+  if (Array.isArray(media) && media.length) {
+    return true;
+  }
+
+  if (requestedConfirmed !== Boolean(step?.confirmed)) {
+    return true;
+  }
+
+  if (requestedInProgress !== Boolean(step?.inProgress)) {
+    return true;
+  }
+
+  return false;
+}
+
+function syncTrackingStepProgression(steps = [], preferredActiveIndex = -1) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return steps;
+  }
+
+  let resolvedActiveIndex = preferredActiveIndex;
+
+  if (resolvedActiveIndex < 0 || steps[resolvedActiveIndex]?.confirmed) {
+    resolvedActiveIndex = steps.findIndex((item) => !item.confirmed);
+  }
+
+  steps.forEach((item, index) => {
+    if (item.confirmed) {
+      item.inProgress = false;
+      return;
+    }
+
+    item.inProgress = index === resolvedActiveIndex;
+  });
+
+  return steps;
+}
+
+function getLatestClientVisibleStepSnapshot(step) {
+  return buildTrackingStepSnapshot(step, getLatestTrackingStepUpdate(step, (update) => update.clientVisible));
+}
 function normalizeMediaVisibilityFingerprint(item = {}) {
   return {
     type: String(item.type || "").trim(),
@@ -466,6 +580,20 @@ function normalizeTrackingNumber(value) {
   return String(value || "")
     .trim()
     .toUpperCase();
+}
+
+function normalizeOptionalString(value) {
+  const normalizedValue = String(value || "").trim();
+  return normalizedValue || undefined;
+}
+
+function resolveOrderPurchaseDate(value) {
+  if (!value) {
+    return new Date();
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
 }
 
 function escapeRegex(value) {
@@ -585,44 +713,52 @@ async function createOrder(req, res) {
     const orderRegion = resolveOrderRegionByRole(req.user?.role);
     const OrderModel = resolveOrderModelForCreate(req.user?.role);
     const ClientModel = resolveClientModelForCreate(req.user?.role);
-    const internalIdentifier = req.body.internalIdentifier || req.body.description;
-    const destination = req.body.destination;
+    const internalIdentifier = normalizeOptionalString(req.body.internalIdentifier || req.body.description);
+    const destination = normalizeOptionalString(req.body.destination);
+    const fallbackColor = normalizeOptionalString(req.body.color);
+    const exteriorColor = normalizeOptionalString(req.body.exteriorColor) || fallbackColor;
+    const interiorColor = normalizeOptionalString(req.body.interiorColor) || fallbackColor;
+    const brand = normalizeOptionalString(req.body.brand);
+    const model = normalizeOptionalString(req.body.model);
+    const version = normalizeOptionalString(req.body.version);
+    const trackingNumber = normalizeTrackingNumber(req.body.trackingNumber);
+    const clientId = normalizeOptionalString(req.body.clientId);
+    const purchaseDate = resolveOrderPurchaseDate(req.body.purchaseDate);
+    const expectedArrivalDate = normalizeOptionalString(req.body.expectedArrivalDate);
+    const parsedYear = Number.parseInt(String(req.body.year || "").trim(), 10);
     const vehicle = {
-      brand: req.body.brand,
-      model: req.body.model,
-      version: req.body.version,
-      year: req.body.year,
-      vin: req.body.vin,
-      color: req.body.color,
+      brand,
+      model,
+      version,
+      year: parsedYear,
+      vin: normalizeOptionalString(req.body.vin),
+      color: exteriorColor || interiorColor || fallbackColor,
+      exteriorColor,
+      interiorColor,
       destination,
       internalIdentifier,
     };
-    const trackingNumber = req.body.trackingNumber;
-    const purchaseDate = req.body.purchaseDate;
-    const expectedArrivalDate = req.body.expectedArrivalDate;
-    const clientId = req.body.clientId;
 
     if (
       !vehicle.brand ||
       !vehicle.model ||
       !vehicle.version ||
-      !vehicle.year ||
+      Number.isNaN(vehicle.year) ||
       !trackingNumber ||
-      !purchaseDate ||
       !vehicle.destination ||
-      !vehicle.color ||
+      (!vehicle.exteriorColor && !vehicle.interiorColor && !vehicle.color) ||
       !clientId
     ) {
       return res.status(400).json({
-        message: "brand, model, version, year, trackingNumber, purchaseDate, destination, color and clientId are required",
+        message: "brand, model, version, year, trackingNumber, destination, color details and clientId are required",
       });
     }
 
     if (
       orderRegion === "latam" &&
-      !["Puerto Santa Marta", "Puerto Cartagena"].includes(String(vehicle.destination).trim())
+      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla"].includes(String(vehicle.destination).trim())
     ) {
-      return res.status(400).json({ message: "destination must be Puerto Santa Marta or Puerto Cartagena" });
+      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena or Puerto Barranquilla" });
     }
 
     const client = await ClientModel.findById(clientId);
@@ -644,14 +780,16 @@ async function createOrder(req, res) {
       createdBy: req.user._id,
       trackingNumber: normalizedTrackingNumber,
       vehicle: {
-        brand: String(vehicle.brand).trim(),
-        model: String(vehicle.model).trim(),
-        version: vehicle.version ? String(vehicle.version).trim() : undefined,
-        year: Number(vehicle.year),
-        vin: vehicle.vin ? String(vehicle.vin).trim() : undefined,
-        color: vehicle.color ? String(vehicle.color).trim() : undefined,
-        destination: vehicle.destination ? String(vehicle.destination).trim() : undefined,
-        internalIdentifier: vehicle.internalIdentifier ? String(vehicle.internalIdentifier).trim() : undefined,
+        brand: vehicle.brand,
+        model: vehicle.model,
+        version: vehicle.version,
+        year: vehicle.year,
+        vin: vehicle.vin,
+        color: vehicle.color,
+        exteriorColor: vehicle.exteriorColor,
+        interiorColor: vehicle.interiorColor,
+        destination: vehicle.destination,
+        internalIdentifier: vehicle.internalIdentifier,
       },
       purchaseDate,
       expectedArrivalDate: expectedArrivalDate || undefined,
@@ -823,53 +961,109 @@ async function updateTrackingState(req, res) {
     const existingMedia = parseExistingMediaPayload(req.body.existingMedia);
     const uploadedFiles = req.files || [];
     const externalVideoMedia = parseTrackingVideoLinks(req.body.videoLinks);
-    const requestedNotes = typeof notes === "string" ? notes.trim() : String(step.notes || "").trim();
+    const requestedNotes = typeof notes === "string" ? notes.trim() : "";
     const requestedConfirmed = parseBooleanValue(req.body.confirmed, step.confirmed);
-    const isVisibilityOnlyUpdate = (
-      requestedNotes === String(step.notes || "").trim() &&
-      requestedConfirmed === Boolean(step.confirmed) &&
+    const requestedInProgress = requestedConfirmed ? false : parseBooleanValue(req.body.inProgress, step.inProgress);
+    const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
+    const requestedVisibilityOnly = parseBooleanValue(req.body.visibilityOnly, false);
+    const forceCreateUpdate = !requestedVisibilityOnly && parseBooleanValue(req.body.forceCreateUpdate, false);
+    const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
+
+    if (!canModifyTrackingStep(req.user?.role, stepKey) && !requestedVisibilityOnly) {
+      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
+    }
+
+    const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
+    const updateShouldBeClientVisible = requestedVisibilityOnly ? requestedClientVisible : false;
+    const mediaMeta = parseTrackingMediaMeta(req.body.mediaMeta, uploadedFiles);
+    const uploadedMedia = await uploadTrackingFilesToCloudinary(uploadedFiles, mediaMeta);
+    const appendedMedia = dedupeTrackingMedia(
+      normalizeMedia([...uploadedMedia, ...externalVideoMedia]).map((item) => ({
+        ...item,
+        clientVisible: updateShouldBeClientVisible,
+      }))
+    );
+    const isVisibilityOnlyUpdate = requestedVisibilityOnly || (
+      !hasTrackingUpdateChanges({
+        notes: requestedNotes,
+        media: appendedMedia,
+        requestedConfirmed,
+        requestedInProgress,
+        step,
+      }) &&
       uploadedFiles.length === 0 &&
       externalVideoMedia.length === 0 &&
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
 
-    // Permitir a admin/gerente USA editar el último estado solo si es el creador del pedido
-    const allStepKeys = [
-      "order-received",
-      "vehicle-search",
-      "booking-and-shipping",
-      "in-transit",
-      "nationalization",
-      "port-exit",
-      "vehicle-preparation",
-      "delivery",
-      "registration",
-    ];
-    const lastStepKey = allStepKeys[allStepKeys.length - 1];
-    const isLastStep = stepKey === lastStepKey;
-    const isUsaRole = isUsaAdministrativeRole(req.user?.role);
-    const isOrderCreator = order?.createdBy?.toString?.() === req.user?._id?.toString?.();
-    if (!canModifyTrackingStep(req.user?.role, stepKey) && !isVisibilityOnlyUpdate) {
-      if (!(isUsaRole && isLastStep && isOrderCreator)) {
-        return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
+    reconcileTrackingStepMedia(step, existingMedia);
+
+    let clientPublishedStep = null;
+    const resolvedVisibilityUpdateIndex = isVisibilityOnlyUpdate && Array.isArray(step.updates) && step.updates.length
+      ? (requestedUpdateIndex >= 0 && step.updates[requestedUpdateIndex] ? requestedUpdateIndex : step.updates.length - 1)
+      : -1;
+
+    if (resolvedVisibilityUpdateIndex >= 0 && Array.isArray(step.updates) && step.updates[resolvedVisibilityUpdateIndex]) {
+      const targetUpdate = step.updates[resolvedVisibilityUpdateIndex];
+      const previouslyVisible = Boolean(targetUpdate.clientVisible);
+      const visibilityChangedAt = new Date();
+
+      targetUpdate.clientVisible = requestedClientVisible;
+      targetUpdate.updatedAt = visibilityChangedAt;
+      targetUpdate.media = normalizeMedia(targetUpdate.media || []).map((item) => ({
+        ...item,
+        clientVisible: requestedClientVisible,
+      }));
+      order.markModified("trackingSteps");
+
+      if (!previouslyVisible && requestedClientVisible) {
+        clientPublishedStep = buildTrackingStepSnapshot(step, targetUpdate);
+      }
+    } else if (forceCreateUpdate || hasTrackingUpdateChanges({
+      notes: requestedNotes,
+      media: appendedMedia,
+      requestedConfirmed,
+      requestedInProgress,
+      step,
+    })) {
+      const now = new Date();
+      const newUpdate = {
+        notes: requestedNotes,
+        media: appendedMedia,
+        clientVisible: updateShouldBeClientVisible,
+        inProgress: requestedConfirmed ? false : requestedInProgress,
+        completed: requestedConfirmed,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      if (!Array.isArray(step.updates)) {
+        step.updates = [];
+      }
+
+      step.updates.push(newUpdate);
+
+      if (updateShouldBeClientVisible) {
+        clientPublishedStep = buildTrackingStepSnapshot(step, newUpdate);
       }
     }
 
-    const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
-    const mediaMeta = parseTrackingMediaMeta(req.body.mediaMeta, uploadedFiles);
-    const uploadedMedia = await uploadTrackingFilesToCloudinary(uploadedFiles, mediaMeta);
+    step.confirmed = requestedConfirmed;
+    step.inProgress = requestedConfirmed ? false : requestedInProgress;
 
-    if (typeof notes === "string") {
-      step.notes = notes.trim();
-    }
+    syncTrackingStepProgression(order.trackingSteps, step.inProgress ? stepIndex : -1);
 
-    step.confirmed = parseBooleanValue(req.body.confirmed, step.confirmed);
-    step.clientVisible = parseBooleanValue(req.body.clientVisible, step.clientVisible);
-    step.media = dedupeTrackingMedia(normalizeMedia([...existingMedia, ...uploadedMedia, ...externalVideoMedia]));
-    step.confirmedAt = step.confirmed ? step.confirmedAt || new Date() : null;
-
-    step.updatedAt = new Date();
+    const latestUpdate = getLatestTrackingStepUpdate(step);
+    const latestClientVisibleStep = getLatestClientVisibleStepSnapshot(step);
+    step.clientVisible = Boolean(latestClientVisibleStep?.clientVisible);
+    step.notes = latestUpdate?.notes || "";
+    step.media = normalizeMedia(step.media || []);
+    step.updatedAt = latestUpdate?.updatedAt || latestUpdate?.createdAt || step.updatedAt || new Date();
+    step.confirmedAt = step.confirmed
+      ? step.confirmedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || new Date()
+      : null;
     order.status = order.trackingSteps.every((state) => state.confirmed) ? "completed" : "active";
+    order.markModified("trackingSteps");
 
     await order.save();
 
@@ -884,8 +1078,10 @@ async function updateTrackingState(req, res) {
 
     const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
 
-    await sendTrackingUpdateNotifications(updatedOrder, updatedStep, previousConfirmedStep).catch(() => null);
-    await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
+    if (clientPublishedStep?.clientVisible) {
+      await sendTrackingUpdateNotifications(updatedOrder, clientPublishedStep, previousConfirmedStep).catch(() => null);
+      await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
+    }
 
     await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
     await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
