@@ -1144,7 +1144,9 @@ async function updateTrackingState(req, res) {
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
 
-    reconcileTrackingStepMedia(step, existingMedia);
+    if (requestedVisibilityOnly) {
+      reconcileTrackingStepMedia(step, existingMedia);
+    }
 
     let clientPublishedStep = null;
     const resolvedVisibilityUpdateIndex = isVisibilityOnlyUpdate && Array.isArray(step.updates) && step.updates.length
