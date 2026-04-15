@@ -1015,6 +1015,51 @@ function getStateUpdates(state) {
   return Array.isArray(state?.updates) ? state.updates : [];
 }
 
+function buildTrackingMediaEntryFingerprint(item = {}) {
+  return [
+    String(item.type || "").trim().toLowerCase(),
+    String(item.category || "").trim().toLowerCase(),
+    String(item.url || "").trim(),
+    String(item.name || "").trim().toLowerCase(),
+    String(item.caption || "").trim().toLowerCase(),
+    String(item.updateIndex ?? "").trim(),
+    String(item.mediaIndex ?? "").trim(),
+  ].join("::");
+}
+
+function getFlattenedStateMediaForUpdate(state, update, updateIndex) {
+  const stateMedia = Array.isArray(state?.media) ? state.media : [];
+  const nestedMedia = Array.isArray(update?.media) ? update.media : [];
+  const fallbackMedia = update?.isSynthetic
+    ? stateMedia
+    : stateMedia.filter((item) => Number(item?.updateIndex) === updateIndex);
+  const mergedMedia = [...nestedMedia, ...fallbackMedia];
+  const seenMedia = new Set();
+
+  return mergedMedia.filter((item, mediaIndex) => {
+    if (!item?.url) {
+      return false;
+    }
+
+    const fingerprint = buildTrackingMediaEntryFingerprint({
+      ...item,
+      updateIndex: typeof item?.updateIndex === "number" ? item.updateIndex : updateIndex,
+      mediaIndex: typeof item?.mediaIndex === "number" ? item.mediaIndex : mediaIndex,
+    });
+
+    if (seenMedia.has(fingerprint)) {
+      return false;
+    }
+
+    seenMedia.add(fingerprint);
+    return true;
+  }).map((item, mediaIndex) => ({
+    ...item,
+    updateIndex: typeof item?.updateIndex === "number" ? item.updateIndex : updateIndex,
+    mediaIndex: typeof item?.mediaIndex === "number" ? item.mediaIndex : mediaIndex,
+  }));
+}
+
 function getLatestStateUpdate(state, order = getSelectedOrder()) {
   return getStateDisplayUpdates(state, order).reduce((latestUpdate, currentUpdate) => {
     if (!latestUpdate) {
@@ -1111,13 +1156,14 @@ function renderStateHistory(state) {
     <div class="tracking-state-history-list">
       ${updates.map((update, reverseIndex) => {
         const updateIndex = updates.length - reverseIndex - 1;
+        const updateMedia = getFlattenedStateMediaForUpdate(state, update, updateIndex);
         const updateStatus = update.completed
           ? "Etapa completada"
           : update.inProgress
             ? "Estado en curso"
             : "Actualizacion interna";
         const updateDate = update.updatedAt || update.createdAt || null;
-        const updateFilesCount = Array.isArray(update.media) ? update.media.length : 0;
+        const updateFilesCount = updateMedia.length;
 
         return `
           <article class="tracking-state-history-item ${update.clientVisible ? "is-client-visible" : "is-internal"}">
@@ -1147,7 +1193,7 @@ function buildRecentEvents(order) {
         .flatMap((update, updateIndex) => {
           const eventDate = update.updatedAt || update.createdAt || null;
           const updateNotes = String(update.notes || "").trim();
-          const updateMedia = Array.isArray(update.media) ? update.media : [];
+          const updateMedia = getFlattenedStateMediaForUpdate(state, update, updateIndex);
           const shouldIncludeUpdateEvent = Boolean(update.completed || update.inProgress || updateNotes || !updateMedia.length);
           const updateItems = shouldIncludeUpdateEvent
             ? [{
@@ -1168,11 +1214,11 @@ function buildRecentEvents(order) {
               }]
             : [];
           const mediaItems = updateMedia.map((item, mediaIndex) => ({
-            id: `${state.key}-media-${updateIndex}-${mediaIndex}`,
+            id: `${state.key}-media-${item.updateIndex}-${item.mediaIndex}`,
             itemType: "media",
             stateKey: state.key,
-            updateIndex,
-            mediaIndex,
+            updateIndex: typeof item.updateIndex === "number" ? item.updateIndex : updateIndex,
+            mediaIndex: typeof item.mediaIndex === "number" ? item.mediaIndex : mediaIndex,
             stateCode,
             stateLabel: state.label,
             date: eventDate,
@@ -1369,8 +1415,15 @@ async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaInde
 
   const stateUpdates = getStateUpdates(state);
   const targetUpdate = stateUpdates[updateIndex];
+  const flattenedUpdateMedia = (state?.media || []).filter((item) => item.updateIndex === updateIndex);
+  const resolvedUpdateMedia = Array.isArray(targetUpdate?.media) && targetUpdate.media.length
+    ? targetUpdate.media.map((item, index) => ({
+        ...item,
+        mediaIndex: typeof item?.mediaIndex === "number" ? item.mediaIndex : index,
+      }))
+    : flattenedUpdateMedia;
 
-  if (!state || !targetUpdate || !Array.isArray(targetUpdate.media) || mediaIndex < 0 || mediaIndex >= targetUpdate.media.length) {
+  if (!state || !resolvedUpdateMedia.length || mediaIndex < 0 || mediaIndex >= resolvedUpdateMedia.length) {
     return;
   }
 
@@ -1386,7 +1439,7 @@ async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaInde
   formData.append("confirmed", state.confirmed ? "true" : "false");
   formData.append(
     "clientVisible",
-    (nextVisible || targetUpdate.clientVisible || targetUpdate.media.some((item, index) => index !== mediaIndex && item?.clientVisible))
+    (nextVisible || Boolean(targetUpdate?.clientVisible) || resolvedUpdateMedia.some((item, index) => index !== mediaIndex && item?.clientVisible))
       ? "true"
       : "false"
   );
