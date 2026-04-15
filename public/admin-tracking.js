@@ -1861,7 +1861,6 @@ async function saveState(stateKey) {
   formData.append("confirmed", confirmedField.checked ? "true" : "false");
   formData.append("clientVisible", "false");
   formData.append("forceCreateUpdate", "true");
-  formData.append("existingMedia", JSON.stringify(state.media || []));
   appendFiles(pendingMedia.document, "document");
   appendFiles(pendingMedia.photoSingle, "photo-single");
   appendFiles(pendingMedia.photoCarousel, "photo-carousel");

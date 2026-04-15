@@ -140,6 +140,31 @@ function buildTrackingUpdateEntry({
   };
 }
 
+function buildFlattenedTrackingStepMedia(updates = []) {
+  return (Array.isArray(updates) ? updates : []).flatMap((update) => normalizeMedia(update?.media || []));
+}
+
+function syncTrackingStepDerivedFields(step) {
+  if (!step) {
+    return step;
+  }
+
+  const latestUpdate = getLatestTrackingStepUpdate(step);
+  const lastCompletedUpdate = [...(Array.isArray(step.updates) ? step.updates : [])]
+    .reverse()
+    .find((item) => item?.completed) || null;
+
+  step.notes = latestUpdate?.notes || "";
+  step.media = buildFlattenedTrackingStepMedia(step.updates || []);
+  step.updatedAt = latestUpdate?.updatedAt || latestUpdate?.createdAt || step.updatedAt || new Date();
+  step.clientVisible = Array.isArray(step.updates) && step.updates.some((item) => item?.clientVisible);
+  step.confirmedAt = step.confirmed
+    ? step.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || step.updatedAt || new Date()
+    : null;
+
+  return step;
+}
+
 function buildInitialTrackingSteps(timestamp = new Date()) {
   const resolvedTimestamp = timestamp instanceof Date && !Number.isNaN(timestamp.getTime())
     ? timestamp
@@ -1234,16 +1259,10 @@ async function updateTrackingState(req, res) {
 
       activeStepAfterSync.notes = autoActivatedUpdate?.notes || activeStepAfterSync.notes || "";
       activeStepAfterSync.updatedAt = autoActivatedUpdate?.updatedAt || autoActivatedUpdate?.createdAt || progressionTimestamp;
+      syncTrackingStepDerivedFields(activeStepAfterSync);
     }
 
-    const latestClientVisibleStep = getLatestClientVisibleStepSnapshot(step);
-    step.clientVisible = Boolean(latestClientVisibleStep?.clientVisible);
-    step.notes = latestUpdate?.notes || "";
-    step.media = normalizeMedia(step.media || []);
-    step.updatedAt = latestUpdate?.updatedAt || latestUpdate?.createdAt || step.updatedAt || new Date();
-    step.confirmedAt = step.confirmed
-      ? step.confirmedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || new Date()
-      : null;
+    syncTrackingStepDerivedFields(step);
     order.status = order.trackingSteps.every((state) => state.confirmed) ? "completed" : "active";
     order.markModified("trackingSteps");
 
