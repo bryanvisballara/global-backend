@@ -262,11 +262,11 @@ async function redirectAuthenticatedUser() {
     sessionStorage.setItem("globalAppRole", resolvedRole);
 
     if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
-      window.location.replace("/app/admin.html");
+      window.location.replace("/admin.html");
       return;
     }
 
-    window.location.replace("/app/client.html");
+    window.location.replace("/client.html");
     return;
   } catch {
     clearAuthState();
@@ -588,13 +588,13 @@ loginForm.addEventListener("submit", async (event) => {
 
     if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(data.user.role)) {
       window.setTimeout(() => {
-        window.location.href = "/app/admin.html";
+        window.location.href = "/admin.html";
       }, 250);
       return;
     }
 
     window.setTimeout(() => {
-      window.location.href = "/app/client.html";
+      window.location.href = "/client.html";
     }, 250);
   } catch (error) {
     const errorMessage = error?.message === "Failed to fetch"
@@ -650,7 +650,7 @@ if (verificationForm) {
       renderVerificationResendButton();
 
       window.setTimeout(() => {
-        window.location.href = "/app/client.html";
+        window.location.href = "/client.html";
       }, 300);
     } catch (error) {
       setVerificationFeedback(error.message, "error");

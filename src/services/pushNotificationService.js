@@ -4,6 +4,9 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Post = require("../models/Post");
 
+const PUSH_SOUND_FILENAME = "0414.WAV";
+const ADMIN_NOTIFICATION_ROLES = ["manager", "admin", "gerenteUSA", "adminUSA"];
+
 async function resolveTrackingRecipientUsers(order) {
   const emails = new Set();
   const userIds = new Set();
@@ -51,6 +54,7 @@ function getNotificationPayload(post) {
   return {
     title: "Nueva publicación en Global Imports",
     body: post.title,
+    sound: PUSH_SOUND_FILENAME,
     data: {
       postId: String(post._id),
       type: "post",
@@ -66,6 +70,7 @@ function getTrackingNotificationPayload({ order, step }) {
   return {
     title: `Tracking ${trackingNumber}`,
     body: `${stepLabel}: ${stepNotes}`,
+    sound: PUSH_SOUND_FILENAME,
     data: {
       type: "tracking",
       orderId: String(order?._id || ""),
@@ -84,6 +89,7 @@ function getAdminTrackingNotificationPayload({ order, step }) {
   return {
     title: `Tracking ${trackingNumber}`,
     body: `${stepLabel} · INT: ${internalIdentifier} · VIN: ${vin}`,
+    sound: PUSH_SOUND_FILENAME,
     data: {
       type: "tracking-admin",
       orderId: String(order?._id || ""),
@@ -228,7 +234,7 @@ function sendApnsNotification(deviceToken, notification) {
         title: notification.title,
         body: notification.body,
       },
-      sound: "default",
+      sound: String(notification?.sound || PUSH_SOUND_FILENAME),
     };
 
     if (Number.isFinite(Number(notification?.badge))) {
@@ -295,6 +301,7 @@ function sendFcmNotification(deviceToken, notification) {
         notification: {
           title: notification.title,
           body: notification.body,
+          sound: String(notification?.sound || PUSH_SOUND_FILENAME),
         },
         data: notification.data,
         priority: "high",
@@ -435,7 +442,7 @@ async function sendTrackingUpdateNotifications(order, step) {
 
 async function sendTrackingUpdateAdminNotifications(order, step) {
   const admins = await User.find({
-    role: "admin",
+    role: { $in: ADMIN_NOTIFICATION_ROLES },
     isActive: true,
     "pushDevices.0": { $exists: true },
   }).select("pushDevices");
@@ -455,6 +462,8 @@ async function sendTrackingUpdateAdminNotifications(order, step) {
 }
 
 module.exports = {
+  ADMIN_NOTIFICATION_ROLES,
+  PUSH_SOUND_FILENAME,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
   sendPublishedPostNotifications,

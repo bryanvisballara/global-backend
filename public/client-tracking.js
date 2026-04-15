@@ -40,7 +40,7 @@ const TRACKING_TIMELINE_STATES = [
 ];
 
 function redirectToLogin() {
-  const loginUrl = new URL("/app/index.html", window.location.origin);
+  const loginUrl = new URL("/index.html", window.location.origin);
   loginUrl.searchParams.set("logout", "1");
   loginUrl.searchParams.set("t", String(Date.now()));
   window.location.replace(loginUrl.toString());
@@ -441,7 +441,7 @@ function buildTimelineStates(visibleConfirmedStates = []) {
 
 function renderTruckIcon() {
   return `
-    <img class="tracking-road-truck-image" src="/app/camionglobal.jpg" alt="Camion de seguimiento" loading="lazy" />
+    <img class="tracking-road-truck-image" src="/camionglobal.jpg" alt="Camion de seguimiento" loading="lazy" />
   `;
 }
 
@@ -614,7 +614,7 @@ trackingNavButtons.forEach((button) => {
       return;
     }
 
-    const targetUrl = new URL("/app/client.html", window.location.origin);
+    const targetUrl = new URL("/client.html", window.location.origin);
     targetUrl.searchParams.set("view", targetView);
     window.location.href = targetUrl.toString();
   });

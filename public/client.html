@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/app/styles.css?v=20260410-22" />
+    <link rel="stylesheet" href="/styles.css?v=20260413-wompi1" />
   </head>
   <body>
     <main class="client-shell">
@@ -41,7 +41,7 @@
           </div>
 
           <div class="client-brand-center">
-            <img class="client-brand-logo" src="/app/logoblancoleon.png" alt="Logo blanco de leon" />
+            <img class="client-brand-logo" src="/logoblancoleon.png" alt="Logo blanco de leon" />
           </div>
 
           <div class="client-header-side right">
@@ -80,13 +80,34 @@
               </div>
             </div>
 
-            <form id="tracking-search-form" class="tracking-search-card tracking-search-form">
-                <label class="tracking-search-label" for="tracking-search-input">Número de guía</label>
-              <input id="tracking-search-input" class="tracking-search-input" list="tracking-search-options" type="text" placeholder="Ej. GI-2026-001" autocomplete="off" />
-              <datalist id="tracking-search-options"></datalist>
-              <button id="tracking-search-button" class="primary-button" type="submit">Rastrear</button>
-              <p id="tracking-search-feedback" class="feedback" aria-live="polite"></p>
-            </form>
+            <div class="tracking-tabs" role="tablist" aria-label="Seguimiento">
+              <button id="tracking-tab-search" class="tracking-tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="tracking-search-panel">
+                Buscar guía
+              </button>
+              <button id="tracking-tab-orders" class="tracking-tab-button" type="button" role="tab" aria-selected="false" aria-controls="tracking-orders-panel">
+                Mis pedidos
+              </button>
+            </div>
+
+            <div id="tracking-search-panel" role="tabpanel" aria-labelledby="tracking-tab-search">
+              <form id="tracking-search-form" class="tracking-search-card tracking-search-form">
+                  <label class="tracking-search-label" for="tracking-search-input">Número de guía</label>
+                <input id="tracking-search-input" class="tracking-search-input" list="tracking-search-options" type="text" placeholder="Ej. GI-2026-001" autocomplete="off" />
+                <datalist id="tracking-search-options"></datalist>
+                <button id="tracking-search-button" class="primary-button" type="submit">Rastrear</button>
+                <p id="tracking-search-feedback" class="feedback" aria-live="polite"></p>
+              </form>
+            </div>
+
+            <div id="tracking-orders-panel" role="tabpanel" aria-labelledby="tracking-tab-orders" hidden>
+              <section class="tracking-search-card tracking-orders-card" aria-label="Pedidos buscados">
+                <div class="tracking-orders-head">
+                  <strong>Mis pedidos buscados</strong>
+                  <button id="tracking-orders-clear" class="tracking-orders-clear" type="button">Limpiar historial</button>
+                </div>
+                <div id="tracking-orders-list" class="tracking-orders-list"></div>
+              </section>
+            </div>
           </section>
 
           <section class="client-view" data-view="order">
@@ -105,7 +126,7 @@
                   data-vehicle-key="sequoia"
                   data-vehicle-brand="Toyota"
                   data-vehicle-model="Sequoia"
-                  style="--vehicle-image:url('/app/sequ.jpg')"
+                  style="--vehicle-image:url('/sequ.jpg')"
                 >
                   <span class="order-vehicle-title">Toyota Sequoia</span>
                 </button>
@@ -115,7 +136,7 @@
                   data-vehicle-key="runner"
                   data-vehicle-brand="Toyota"
                   data-vehicle-model="4Runner"
-                  style="--vehicle-image:url('/app/runer.jpeg')"
+                  style="--vehicle-image:url('/runer.jpeg')"
                 >
                   <span class="order-vehicle-title">Toyota 4Runner</span>
                 </button>
@@ -162,7 +183,7 @@
 
               <article class="sequoia-config-carousel-card">
                 <div class="sequoia-config-image-frame" id="sequoia-config-image-frame">
-                  <img id="sequoia-config-main-image" src="/app/sequ.jpg" alt="Toyota Sequoia" loading="lazy" />
+                  <img id="sequoia-config-main-image" src="/sequ.jpg" alt="Toyota Sequoia" loading="lazy" />
                   <div id="sequoia-vision-hint" class="sequoia-vision-hint" aria-live="polite">
                     <span class="sequoia-vision-hint-icon" aria-hidden="true">360</span>
                     <span>Visión 360</span>
@@ -181,7 +202,7 @@
               <section class="sequoia-interior-section" aria-label="Configurador de interior">
                 <article class="sequoia-config-carousel-card">
                   <div class="sequoia-config-image-frame" id="sequoia-interior-image-frame">
-                    <img id="sequoia-interior-main-image" src="/app/sr5%20tela/sr5tela01.webp" alt="Interior Toyota Sequoia" loading="lazy" />
+                    <img id="sequoia-interior-main-image" src="/sr5%20tela/sr5tela01.webp" alt="Interior Toyota Sequoia" loading="lazy" />
                   </div>
                 </article>
 
@@ -261,6 +282,28 @@
             <section id="virtual-dealership-client-list" class="virtual-dealership-client-list" aria-label="Vehículos de compra inmediata"></section>
             <div id="virtual-dealership-load-more-sentinel" class="feed-load-more-sentinel" aria-hidden="true"></div>
           </section>
+
+          <section class="client-view" data-view="pago-separacion">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Paso final</p>
+                <h2>Paga tu separación</h2>
+                <p class="dashboard-lead">Tu contrato fue firmado exitosamente. Completa el pago de separación para reservar tu vehículo.</p>
+              </div>
+            </div>
+            <div id="pago-sep-summary" class="sequoia-order-summary" style="max-width:480px; margin: 0 auto;"></div>
+            <p id="pago-sep-feedback" class="feedback" aria-live="polite" style="text-align:center;"></p>
+          </section>
+
+          <section class="client-view" data-view="pago-exitoso">
+            <div class="client-section-head" style="text-align:center; display:block;">
+              <p class="section-tag">¡Listo!</p>
+              <h2>Separación en proceso</h2>
+              <p class="dashboard-lead">Tu pago fue recibido. Un asesor de Global Imports te contactará en breve.</p>
+            </div>
+            <div id="pago-exito-body" style="max-width:480px; margin: 24px auto; text-align:center;"></div>
+          </section>
+
         </section>
 
         <nav class="client-bottom-nav" aria-label="Navegación principal del cliente">
@@ -301,6 +344,11 @@
           </button>
         </header>
         <div id="notifications-list" class="client-notifications-list"></div>
+        <div class="notifications-aux-links" aria-label="Accesos adicionales">
+          <a class="notifications-aux-link" href="/privacy-policy.html">Privacy Policy</a>
+          <a class="notifications-aux-link" href="/contact.html">Contact</a>
+          <button id="client-delete-account-open" class="notifications-aux-link notifications-aux-link-danger" type="button">Eliminar cuenta</button>
+        </div>
       </section>
     </div>
 
@@ -403,6 +451,34 @@
       </section>
     </div>
 
-    <script src="/app/client-portal.js?v=20260412-60"></script>
+    <div id="delete-account-modal" class="client-modal" hidden>
+      <div id="delete-account-overlay" class="client-modal-overlay"></div>
+      <section class="client-modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Cuenta</p>
+            <h2 id="delete-account-title">Eliminar cuenta</h2>
+          </div>
+          <button id="delete-account-close" class="icon-button" type="button" aria-label="Cerrar eliminación de cuenta">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
+          </button>
+        </header>
+
+        <form id="delete-account-form" class="dashboard-form">
+          <p class="delete-account-warning">Esta acción es permanente. Para confirmar, escribe tu contraseña.</p>
+          <label>
+            <span>Contraseña</span>
+            <input id="delete-account-password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <p id="delete-account-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button id="delete-account-cancel" class="secondary-button" type="button">Cancelar</button>
+            <button id="delete-account-confirm" class="primary-button" type="submit">Confirmar eliminación</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script src="/client-portal.js?v=20260413-63"></script>
   </body>
 </html>

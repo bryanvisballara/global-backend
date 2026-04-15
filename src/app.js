@@ -27,7 +27,7 @@ app.get("/api/debug/list-users", async (req, res) => {
   }
 });
 const publicDirectory = path.join(__dirname, "..", "public");
-const adminPagePattern = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i;
+const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://teal-flamingo-532353.hostingersite.com",
   "https://global-backend-bdbx.onrender.com",
@@ -84,7 +84,7 @@ app.use((req, res, next) => {
     .find((item) => item.startsWith("globalAppToken="));
 
   if (!authCookie) {
-    return res.redirect("/app/index.html");
+    return res.redirect("/index.html");
   }
 
   const token = authCookie.slice("globalAppToken=".length);
@@ -93,14 +93,24 @@ app.use((req, res, next) => {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
     if (!["admin", "manager", "adminUSA", "gerenteUSA"].includes(decodedToken.role)) {
-      return res.redirect("/app/index.html");
+      return res.redirect("/index.html");
     }
 
     return next();
   } catch (error) {
-    return res.redirect("/app/index.html");
+    return res.redirect("/index.html");
   }
 });
+
+app.use(
+  express.static(publicDirectory, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      }
+    },
+  })
+);
 
 app.use(
   "/app",
@@ -114,7 +124,7 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  res.redirect("/app/index.html");
+  res.redirect("/index.html");
 });
 
 app.get("/api/health", (req, res) => {

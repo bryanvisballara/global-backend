@@ -94,7 +94,14 @@ function buildPasswordResetEmailHtml({ name, resetUrl }) {
   `;
 }
 
-async function sendBrevoEmail({ toEmail, toName, subject, htmlContent }) {
+async function sendBrevoEmail({
+  toEmail,
+  toName,
+  subject,
+  htmlContent,
+  senderName = "Global Imports",
+  senderEmail = "verify@globalimportsus.com",
+}) {
   const apiKey = String(process.env.BREVO_API_KEY || "").trim();
 
   if (!apiKey) {
@@ -110,8 +117,8 @@ async function sendBrevoEmail({ toEmail, toName, subject, htmlContent }) {
     },
     body: JSON.stringify({
       sender: {
-        name: "Global Imports",
-        email: "verify@globalimportsus.com",
+        name: senderName,
+        email: senderEmail,
       },
       to: [{ email: toEmail, name: toName }],
       subject,
@@ -153,6 +160,7 @@ async function sendPasswordResetEmail({ toEmail, toName, resetUrl }) {
 }
 
 module.exports = {
+  sendBrevoEmail,
   sendRegistrationVerificationEmail,
   sendPasswordResetEmail,
 };

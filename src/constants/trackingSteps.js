@@ -64,6 +64,7 @@ function normalizeTrackingStates(states = []) {
               url: String(item.url).trim(),
               caption: item.caption ? String(item.caption).trim() : undefined,
               name: item.name ? String(item.name).trim() : undefined,
+              clientVisible: typeof item.clientVisible === "boolean" ? item.clientVisible : true,
             }))
         : [],
       updatedAt: sourceState.updatedAt || null,

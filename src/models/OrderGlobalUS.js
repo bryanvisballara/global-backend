@@ -106,11 +106,11 @@ const trackingSubscriberSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const orderSchema = new mongoose.Schema(
+const orderGlobalUSSchema = new mongoose.Schema(
   {
     client: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
+      ref: "ClientGlobalUS",
       default: null,
     },
     createdBy: {
@@ -154,7 +154,6 @@ const orderSchema = new mongoose.Schema(
       },
       destination: {
         type: String,
-        enum: ["Puerto Santa Marta", "Puerto Cartagena"],
         trim: true,
       },
       internalIdentifier: {
@@ -206,12 +205,13 @@ const orderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    collection: "ordersglobalUS",
   }
 );
 
-orderSchema.pre("validate", function normalizeOrderTrackingStates(next) {
+orderGlobalUSSchema.pre("validate", function normalizeOrderTrackingStates(next) {
   this.trackingSteps = normalizeTrackingStates(this.trackingSteps || []);
   next();
 });
 
-module.exports = mongoose.model("Order", orderSchema);
+module.exports = mongoose.model("OrderGlobalUS", orderGlobalUSSchema);

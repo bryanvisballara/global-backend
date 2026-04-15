@@ -41,10 +41,11 @@ const state = {
 const FEED_PAGE_SIZE = 5;
 const VIRTUAL_DEALERSHIP_BATCH_SIZE = 3;
 const PULL_REFRESH_THRESHOLD = 78;
+const TRACKING_HISTORY_MAX_ITEMS = 12;
 
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
-  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership"]);
+  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
 
   if (allowedViews.has(urlView)) {
     return urlView;
@@ -66,7 +67,7 @@ function persistViewToUrl(viewName) {
 }
 
 function redirectToLogin() {
-  const loginUrl = new URL("/app/index.html", window.location.origin);
+  const loginUrl = new URL("/index.html", window.location.origin);
   loginUrl.searchParams.set("logout", "1");
   loginUrl.searchParams.set("t", String(Date.now()));
   window.location.replace(loginUrl.toString());
@@ -99,8 +100,8 @@ if (!getToken()) {
   redirectToLogin();
 }
 
-if (getRole() === "admin") {
-  window.location.href = "/app/admin.html";
+if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(getRole())) {
+  window.location.href = "/admin.html";
 }
 
 const viewNodes = Array.from(document.querySelectorAll(".client-view"));
@@ -110,6 +111,12 @@ const trackingForm = document.getElementById("tracking-search-form");
 const trackingInput = document.getElementById("tracking-search-input");
 const trackingOptions = document.getElementById("tracking-search-options");
 const trackingSearchFeedback = document.getElementById("tracking-search-feedback");
+const trackingTabSearchButton = document.getElementById("tracking-tab-search");
+const trackingTabOrdersButton = document.getElementById("tracking-tab-orders");
+const trackingSearchPanel = document.getElementById("tracking-search-panel");
+const trackingOrdersPanel = document.getElementById("tracking-orders-panel");
+const trackingOrdersList = document.getElementById("tracking-orders-list");
+const trackingOrdersClearButton = document.getElementById("tracking-orders-clear");
 const requestForm = document.getElementById("client-request-form");
 const requestFeedback = document.getElementById("client-request-feedback");
 const orderVehicleCarousel = document.getElementById("order-vehicle-carousel");
@@ -177,6 +184,15 @@ const notificationCount = document.getElementById("notification-count");
 const menuButton = document.getElementById("client-menu-button");
 const sessionMenu = document.getElementById("session-menu");
 const logoutButton = document.getElementById("client-logout-button");
+const deleteAccountOpenButton = document.getElementById("client-delete-account-open");
+const deleteAccountModal = document.getElementById("delete-account-modal");
+const deleteAccountOverlay = document.getElementById("delete-account-overlay");
+const deleteAccountCloseButton = document.getElementById("delete-account-close");
+const deleteAccountCancelButton = document.getElementById("delete-account-cancel");
+const deleteAccountForm = document.getElementById("delete-account-form");
+const deleteAccountPasswordInput = document.getElementById("delete-account-password");
+const deleteAccountConfirmButton = document.getElementById("delete-account-confirm");
+const deleteAccountFeedback = document.getElementById("delete-account-feedback");
 const refreshIndicator = document.getElementById("feed-refresh-indicator");
 const refreshLabel = document.getElementById("feed-refresh-label");
 const feedLoadMoreSentinel = document.getElementById("feed-load-more-sentinel");
@@ -187,6 +203,9 @@ let virtualDealershipObserver = null;
 let touchStartY = 0;
 let pullDistance = 0;
 let isPulling = false;
+let wheelUpRefreshAccumulator = 0;
+let lastWheelRefreshAt = 0;
+let trackingHistory = [];
 let selectedOrderVehicle = null;
 let selectedSequoiaVersion = "sr5";
 let selectedSequoiaColor = "lunar-rock";
@@ -195,9 +214,13 @@ let selectedSequoiaInteriorColor = "tela-color-black";
 let selectedSequoiaInteriorImageIndex = 0;
 let selectedSequoiaDeliveryCity = "barranquilla";
 let isSequoiaOrderDetailsExpanded = false;
-let sequoiaTouchStartX = 0;
+let sequoiaTouchLastX = 0;
+let sequoiaTouchAccumulator = 0;
+let isSequoiaTouchDragging = false;
 let sequoiaWheelAccumulator = 0;
-let sequoiaInteriorTouchStartX = 0;
+let sequoiaInteriorTouchLastX = 0;
+let sequoiaInteriorTouchAccumulator = 0;
+let isSequoiaInteriorTouchDragging = false;
 let sequoiaInteriorWheelAccumulator = 0;
 let sequoiaVisionHintTimeout = null;
 let virtualDealershipModalImages = [];
@@ -211,18 +234,19 @@ let virtualDealershipVideoContext = {
 };
 
 const SEQUOIA_SPIN_STEP_PX = 26;
+const SEQUOIA_TOUCH_SPIN_STEP_PX = 14;
 
 const ORDER_ACTION_TEMPLATES = [
-  { key: "demo", title: "Programa un Demo Drive.", image: "/app/runer.jpeg", button: "Explora" },
-  { key: "finance", title: "Opciones de financiamiento", image: "/app/sequ.jpg", button: "Explora" },
-  { key: "design", title: "Diseña tu {vehicle}", image: "/app/sequ.jpg", button: "Explora" },
+  { key: "demo", title: "Agenda un Demo Drive.", image: "/runer.jpeg", button: "Explora" },
+  { key: "finance", title: "Opciones de financiamiento", image: "/sequ.jpg", button: "Explora" },
+  { key: "design", title: "Diseña tu {vehicle}", image: "/sequ.jpg", button: "Explora" },
 ];
 
 const ORDER_ACTION_IMAGES_BY_VEHICLE = {
   sequoia: {
-    demo: "/app/sequ.jpg",
-    finance: "/app/sequ2.jpg",
-    design: "/app/sequ3.jpg",
+    demo: "/sequ.jpg",
+    finance: "/sequ2.jpg",
+    design: "/sequ3.jpg",
   },
 };
 
@@ -252,24 +276,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#7f8b80",
         tint: "rgba(108, 123, 113, 0.2)",
         images: [
-          "/app/sr5%20lunar%20rock/srlr1.png",
-          "/app/sr5%20lunar%20rock/srlr2.png",
-          "/app/sr5%20lunar%20rock/srlr3.png",
-          "/app/sr5%20lunar%20rock/srlr4.png",
-          "/app/sr5%20lunar%20rock/srlr5.png",
-          "/app/sr5%20lunar%20rock/srlr6.png",
-          "/app/sr5%20lunar%20rock/srlr7.png",
-          "/app/sr5%20lunar%20rock/srlr8.png",
-          "/app/sr5%20lunar%20rock/srlr9.png",
-          "/app/sr5%20lunar%20rock/srlr10.png",
-          "/app/sr5%20lunar%20rock/srlr11.png",
-          "/app/sr5%20lunar%20rock/srlr12.png",
-          "/app/sr5%20lunar%20rock/srlr13.png",
-          "/app/sr5%20lunar%20rock/slr14.png",
-          "/app/sr5%20lunar%20rock/srlr15.png",
-          "/app/sr5%20lunar%20rock/srlr16.png",
-          "/app/sr5%20lunar%20rock/srlr17.png",
-          "/app/sr5%20lunar%20rock/srlr18.png"
+          "/sr5%20lunar%20rock/srlr1.png",
+          "/sr5%20lunar%20rock/srlr2.png",
+          "/sr5%20lunar%20rock/srlr3.png",
+          "/sr5%20lunar%20rock/srlr4.png",
+          "/sr5%20lunar%20rock/srlr5.png",
+          "/sr5%20lunar%20rock/srlr6.png",
+          "/sr5%20lunar%20rock/srlr7.png",
+          "/sr5%20lunar%20rock/srlr8.png",
+          "/sr5%20lunar%20rock/srlr9.png",
+          "/sr5%20lunar%20rock/srlr10.png",
+          "/sr5%20lunar%20rock/srlr11.png",
+          "/sr5%20lunar%20rock/srlr12.png",
+          "/sr5%20lunar%20rock/srlr13.png",
+          "/sr5%20lunar%20rock/slr14.png",
+          "/sr5%20lunar%20rock/srlr15.png",
+          "/sr5%20lunar%20rock/srlr16.png",
+          "/sr5%20lunar%20rock/srlr17.png",
+          "/sr5%20lunar%20rock/srlr18.png"
         ]
       },
       {
@@ -278,24 +302,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#2d4e84",
         tint: "rgba(44, 77, 132, 0.2)",
         images: [
-          "/app/sr5%20blueprint/sr5bp01.png",
-          "/app/sr5%20blueprint/sr5bp02.png",
-          "/app/sr5%20blueprint/sr5bp03.png",
-          "/app/sr5%20blueprint/sr5bp04.png",
-          "/app/sr5%20blueprint/sr5bp05.png",
-          "/app/sr5%20blueprint/sr5bp06.png",
-          "/app/sr5%20blueprint/sr5bp07.png",
-          "/app/sr5%20blueprint/sr5bp08.png",
-          "/app/sr5%20blueprint/sr5bp09.png",
-          "/app/sr5%20blueprint/sr5bp10.png",
-          "/app/sr5%20blueprint/sr5bp11.png",
-          "/app/sr5%20blueprint/sr5bp12.png",
-          "/app/sr5%20blueprint/sr5bp13.png",
-          "/app/sr5%20blueprint/sr5bp14.png",
-          "/app/sr5%20blueprint/sr5bp15.png",
-          "/app/sr5%20blueprint/sr5bp16.png",
-          "/app/sr5%20blueprint/sr5bp17.png",
-          "/app/sr5%20blueprint/sr5bp18.png"
+          "/sr5%20blueprint/sr5bp01.png",
+          "/sr5%20blueprint/sr5bp02.png",
+          "/sr5%20blueprint/sr5bp03.png",
+          "/sr5%20blueprint/sr5bp04.png",
+          "/sr5%20blueprint/sr5bp05.png",
+          "/sr5%20blueprint/sr5bp06.png",
+          "/sr5%20blueprint/sr5bp07.png",
+          "/sr5%20blueprint/sr5bp08.png",
+          "/sr5%20blueprint/sr5bp09.png",
+          "/sr5%20blueprint/sr5bp10.png",
+          "/sr5%20blueprint/sr5bp11.png",
+          "/sr5%20blueprint/sr5bp12.png",
+          "/sr5%20blueprint/sr5bp13.png",
+          "/sr5%20blueprint/sr5bp14.png",
+          "/sr5%20blueprint/sr5bp15.png",
+          "/sr5%20blueprint/sr5bp16.png",
+          "/sr5%20blueprint/sr5bp17.png",
+          "/sr5%20blueprint/sr5bp18.png"
         ]
       },
       {
@@ -304,24 +328,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#aeb3b8",
         tint: "rgba(170, 178, 187, 0.2)",
         images: [
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm01.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm02.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm03.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm04.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm05.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm06.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm07.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm08.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm09.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm10.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm11.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm12.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm13.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm14.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm15.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm16.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm17.png",
-          "/app/sr5%20celestial%20silver%20metalic/sr5csm18.png"
+          "/sr5%20celestial%20silver%20metalic/sr5csm01.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm02.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm03.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm04.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm05.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm06.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm07.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm08.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm09.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm10.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm11.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm12.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm13.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm14.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm15.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm16.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm17.png",
+          "/sr5%20celestial%20silver%20metalic/sr5csm18.png"
         ]
       },
       {
@@ -330,24 +354,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm01.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm02.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm03.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm04.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm05.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm06.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm07.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm08.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm09.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm10.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm11.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm12.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm13.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm14.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm15.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm16.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm17.png",
-          "/app/sr5%20magnetic%20gray%20metallic/sr5mgm18.png"
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm01.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm02.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm03.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm04.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm05.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm06.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm07.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm08.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm09.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm10.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm11.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm12.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm13.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm14.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm15.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm16.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm17.png",
+          "/sr5%20magnetic%20gray%20metallic/sr5mgm18.png"
         ]
       },
       {
@@ -356,24 +380,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm01.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm02.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm03.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm04.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm05.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm06.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm07.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm08.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm09.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm10.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm11.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm12.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm13.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm14.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm15.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm16.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm17.png",
-          "/app/sr5%20midnight%20black%20metallic/sr5mbm18.png"
+          "/sr5%20midnight%20black%20metallic/sr5mbm01.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm02.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm03.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm04.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm05.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm06.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm07.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm08.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm09.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm10.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm11.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm12.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm13.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm14.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm15.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm16.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm17.png",
+          "/sr5%20midnight%20black%20metallic/sr5mbm18.png"
         ]
       },
       {
@@ -382,24 +406,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dde0df",
         tint: "rgba(215, 220, 220, 0.16)",
         images: [
-          "/app/sr5%20ice%20cap/sr5ic01.png",
-          "/app/sr5%20ice%20cap/sr5ic02.png",
-          "/app/sr5%20ice%20cap/sr5ic03.png",
-          "/app/sr5%20ice%20cap/sr5ic04.png",
-          "/app/sr5%20ice%20cap/sr5ic05.png",
-          "/app/sr5%20ice%20cap/sr5ic06.png",
-          "/app/sr5%20ice%20cap/sr5ic07.png",
-          "/app/sr5%20ice%20cap/sr5ic08.png",
-          "/app/sr5%20ice%20cap/sr5ic09.png",
-          "/app/sr5%20ice%20cap/sr5ic10.png",
-          "/app/sr5%20ice%20cap/sr5ic11.png",
-          "/app/sr5%20ice%20cap/sr5ic12.png",
-          "/app/sr5%20ice%20cap/sr5ic13.png",
-          "/app/sr5%20ice%20cap/sr5ic14.png",
-          "/app/sr5%20ice%20cap/sr5ic15.png",
-          "/app/sr5%20ice%20cap/sr5ic16.png",
-          "/app/sr5%20ice%20cap/sr5ic17.png",
-          "/app/sr5%20ice%20cap/sr5ic18.png"
+          "/sr5%20ice%20cap/sr5ic01.png",
+          "/sr5%20ice%20cap/sr5ic02.png",
+          "/sr5%20ice%20cap/sr5ic03.png",
+          "/sr5%20ice%20cap/sr5ic04.png",
+          "/sr5%20ice%20cap/sr5ic05.png",
+          "/sr5%20ice%20cap/sr5ic06.png",
+          "/sr5%20ice%20cap/sr5ic07.png",
+          "/sr5%20ice%20cap/sr5ic08.png",
+          "/sr5%20ice%20cap/sr5ic09.png",
+          "/sr5%20ice%20cap/sr5ic10.png",
+          "/sr5%20ice%20cap/sr5ic11.png",
+          "/sr5%20ice%20cap/sr5ic12.png",
+          "/sr5%20ice%20cap/sr5ic13.png",
+          "/sr5%20ice%20cap/sr5ic14.png",
+          "/sr5%20ice%20cap/sr5ic15.png",
+          "/sr5%20ice%20cap/sr5ic16.png",
+          "/sr5%20ice%20cap/sr5ic17.png",
+          "/sr5%20ice%20cap/sr5ic18.png"
         ]
       },
       {
@@ -408,24 +432,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#8a7b6b",
         tint: "rgba(138, 123, 107, 0.2)",
         images: [
-          "/app/sr5%20mudbath/sr5mdb01.png",
-          "/app/sr5%20mudbath/sr5mdb02.png",
-          "/app/sr5%20mudbath/sr5mdb03.png",
-          "/app/sr5%20mudbath/sr5mdb04.png",
-          "/app/sr5%20mudbath/sr5mdb05.png",
-          "/app/sr5%20mudbath/sr5mdb06.png",
-          "/app/sr5%20mudbath/sr5mdb07.png",
-          "/app/sr5%20mudbath/sr5mdb08.png",
-          "/app/sr5%20mudbath/sr5mdb09.png",
-          "/app/sr5%20mudbath/sr5mdb10.png",
-          "/app/sr5%20mudbath/sr5mdb11.png",
-          "/app/sr5%20mudbath/sr5mdb12.png",
-          "/app/sr5%20mudbath/sr5mdb13.png",
-          "/app/sr5%20mudbath/sr5mdb14.png",
-          "/app/sr5%20mudbath/sr5mdb15.png",
-          "/app/sr5%20mudbath/sr5mdb16.png",
-          "/app/sr5%20mudbath/sr5mdb17.png",
-          "/app/sr5%20mudbath/sr5mdb18.png"
+          "/sr5%20mudbath/sr5mdb01.png",
+          "/sr5%20mudbath/sr5mdb02.png",
+          "/sr5%20mudbath/sr5mdb03.png",
+          "/sr5%20mudbath/sr5mdb04.png",
+          "/sr5%20mudbath/sr5mdb05.png",
+          "/sr5%20mudbath/sr5mdb06.png",
+          "/sr5%20mudbath/sr5mdb07.png",
+          "/sr5%20mudbath/sr5mdb08.png",
+          "/sr5%20mudbath/sr5mdb09.png",
+          "/sr5%20mudbath/sr5mdb10.png",
+          "/sr5%20mudbath/sr5mdb11.png",
+          "/sr5%20mudbath/sr5mdb12.png",
+          "/sr5%20mudbath/sr5mdb13.png",
+          "/sr5%20mudbath/sr5mdb14.png",
+          "/sr5%20mudbath/sr5mdb15.png",
+          "/sr5%20mudbath/sr5mdb16.png",
+          "/sr5%20mudbath/sr5mdb17.png",
+          "/sr5%20mudbath/sr5mdb18.png"
         ]
       },
     ],
@@ -445,24 +469,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#7f8b80",
         tint: "rgba(108, 123, 113, 0.2)",
         images: [
-          "/app/limited%20lunar%20rock/ltlr01.png",
-          "/app/limited%20lunar%20rock/ltlr02.png",
-          "/app/limited%20lunar%20rock/ltlr03.png",
-          "/app/limited%20lunar%20rock/ltlr04.png",
-          "/app/limited%20lunar%20rock/ltlr05.png",
-          "/app/limited%20lunar%20rock/ltlr06.png",
-          "/app/limited%20lunar%20rock/ltlr07.png",
-          "/app/limited%20lunar%20rock/ltlr08.png",
-          "/app/limited%20lunar%20rock/ltlr09.png",
-          "/app/limited%20lunar%20rock/ltlr10.png",
-          "/app/limited%20lunar%20rock/ltlr11.png",
-          "/app/limited%20lunar%20rock/ltlr12.png",
-          "/app/limited%20lunar%20rock/ltlr13.png",
-          "/app/limited%20lunar%20rock/ltlr14.png",
-          "/app/limited%20lunar%20rock/ltlr15.png",
-          "/app/limited%20lunar%20rock/ltlr16.png",
-          "/app/limited%20lunar%20rock/ltlr17.png",
-          "/app/limited%20lunar%20rock/ltlr18.png"
+          "/limited%20lunar%20rock/ltlr01.png",
+          "/limited%20lunar%20rock/ltlr02.png",
+          "/limited%20lunar%20rock/ltlr03.png",
+          "/limited%20lunar%20rock/ltlr04.png",
+          "/limited%20lunar%20rock/ltlr05.png",
+          "/limited%20lunar%20rock/ltlr06.png",
+          "/limited%20lunar%20rock/ltlr07.png",
+          "/limited%20lunar%20rock/ltlr08.png",
+          "/limited%20lunar%20rock/ltlr09.png",
+          "/limited%20lunar%20rock/ltlr10.png",
+          "/limited%20lunar%20rock/ltlr11.png",
+          "/limited%20lunar%20rock/ltlr12.png",
+          "/limited%20lunar%20rock/ltlr13.png",
+          "/limited%20lunar%20rock/ltlr14.png",
+          "/limited%20lunar%20rock/ltlr15.png",
+          "/limited%20lunar%20rock/ltlr16.png",
+          "/limited%20lunar%20rock/ltlr17.png",
+          "/limited%20lunar%20rock/ltlr18.png"
         ]
       },
       {
@@ -471,24 +495,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#2d4e84",
         tint: "rgba(44, 77, 132, 0.2)",
         images: [
-          "/app/limited%20blueprint/ltbp01.png",
-          "/app/limited%20blueprint/ltbp02.png",
-          "/app/limited%20blueprint/ltbp03.png",
-          "/app/limited%20blueprint/ltbp04.png",
-          "/app/limited%20blueprint/ltbp05.png",
-          "/app/limited%20blueprint/ltbp06.png",
-          "/app/limited%20blueprint/ltbp07.png",
-          "/app/limited%20blueprint/ltbp08.png",
-          "/app/limited%20blueprint/ltbp09.png",
-          "/app/limited%20blueprint/ltbp10.png",
-          "/app/limited%20blueprint/ltbp11.png",
-          "/app/limited%20blueprint/ltbp12.png",
-          "/app/limited%20blueprint/ltbp13.png",
-          "/app/limited%20blueprint/ltbp14.png",
-          "/app/limited%20blueprint/ltbp15.png",
-          "/app/limited%20blueprint/ltbp16.png",
-          "/app/limited%20blueprint/ltbp17.png",
-          "/app/limited%20blueprint/ltbp18.png"
+          "/limited%20blueprint/ltbp01.png",
+          "/limited%20blueprint/ltbp02.png",
+          "/limited%20blueprint/ltbp03.png",
+          "/limited%20blueprint/ltbp04.png",
+          "/limited%20blueprint/ltbp05.png",
+          "/limited%20blueprint/ltbp06.png",
+          "/limited%20blueprint/ltbp07.png",
+          "/limited%20blueprint/ltbp08.png",
+          "/limited%20blueprint/ltbp09.png",
+          "/limited%20blueprint/ltbp10.png",
+          "/limited%20blueprint/ltbp11.png",
+          "/limited%20blueprint/ltbp12.png",
+          "/limited%20blueprint/ltbp13.png",
+          "/limited%20blueprint/ltbp14.png",
+          "/limited%20blueprint/ltbp15.png",
+          "/limited%20blueprint/ltbp16.png",
+          "/limited%20blueprint/ltbp17.png",
+          "/limited%20blueprint/ltbp18.png"
         ]
       },
       {
@@ -497,24 +521,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#aeb3b8",
         tint: "rgba(170, 178, 187, 0.2)",
         images: [
-          "/app/limited%20celestial%20silver%20metallic/ltcsm01.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm02.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm03.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm04.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm05.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm06.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm07.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm08.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm09.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm10.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm11.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm12.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm13.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm14.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm15.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm16.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm17.png",
-          "/app/limited%20celestial%20silver%20metallic/ltcsm18.png"
+          "/limited%20celestial%20silver%20metallic/ltcsm01.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm02.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm03.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm04.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm05.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm06.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm07.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm08.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm09.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm10.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm11.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm12.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm13.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm14.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm15.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm16.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm17.png",
+          "/limited%20celestial%20silver%20metallic/ltcsm18.png"
         ]
       },
       {
@@ -523,24 +547,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm01.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm02.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm03.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm04.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm05.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm06.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm07.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm08.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm09.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm10.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm11.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm12.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm13.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm14.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm15.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm16.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm17.png",
-          "/app/limited%20magnetic%20gray%20metallic/ltmgm18.png"
+          "/limited%20magnetic%20gray%20metallic/ltmgm01.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm02.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm03.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm04.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm05.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm06.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm07.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm08.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm09.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm10.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm11.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm12.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm13.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm14.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm15.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm16.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm17.png",
+          "/limited%20magnetic%20gray%20metallic/ltmgm18.png"
         ]
       },
       {
@@ -549,24 +573,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/limited%20midnight%20black%20metallic/ltmbm01.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm02.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm03.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm04.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm05.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm06.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm07.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm08.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm09.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm10.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm11.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm12.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm13.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm14.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm15.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm16.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm17.png",
-          "/app/limited%20midnight%20black%20metallic/ltmbm18.png"
+          "/limited%20midnight%20black%20metallic/ltmbm01.png",
+          "/limited%20midnight%20black%20metallic/ltmbm02.png",
+          "/limited%20midnight%20black%20metallic/ltmbm03.png",
+          "/limited%20midnight%20black%20metallic/ltmbm04.png",
+          "/limited%20midnight%20black%20metallic/ltmbm05.png",
+          "/limited%20midnight%20black%20metallic/ltmbm06.png",
+          "/limited%20midnight%20black%20metallic/ltmbm07.png",
+          "/limited%20midnight%20black%20metallic/ltmbm08.png",
+          "/limited%20midnight%20black%20metallic/ltmbm09.png",
+          "/limited%20midnight%20black%20metallic/ltmbm10.png",
+          "/limited%20midnight%20black%20metallic/ltmbm11.png",
+          "/limited%20midnight%20black%20metallic/ltmbm12.png",
+          "/limited%20midnight%20black%20metallic/ltmbm13.png",
+          "/limited%20midnight%20black%20metallic/ltmbm14.png",
+          "/limited%20midnight%20black%20metallic/ltmbm15.png",
+          "/limited%20midnight%20black%20metallic/ltmbm16.png",
+          "/limited%20midnight%20black%20metallic/ltmbm17.png",
+          "/limited%20midnight%20black%20metallic/ltmbm18.png"
         ]
       },
       {
@@ -575,24 +599,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dde0df",
         tint: "rgba(215, 220, 220, 0.16)",
         images: [
-          "/app/limited%20ice%20cap/ltic01.png",
-          "/app/limited%20ice%20cap/ltic02.png",
-          "/app/limited%20ice%20cap/ltic03.png",
-          "/app/limited%20ice%20cap/ltic04.png",
-          "/app/limited%20ice%20cap/ltic05.png",
-          "/app/limited%20ice%20cap/ltic06.png",
-          "/app/limited%20ice%20cap/ltic07.png",
-          "/app/limited%20ice%20cap/ltic08.png",
-          "/app/limited%20ice%20cap/ltic09.png",
-          "/app/limited%20ice%20cap/ltic10.png",
-          "/app/limited%20ice%20cap/ltic11.png",
-          "/app/limited%20ice%20cap/ltic12.png",
-          "/app/limited%20ice%20cap/ltic13.png",
-          "/app/limited%20ice%20cap/ltic14.png",
-          "/app/limited%20ice%20cap/ltic15.png",
-          "/app/limited%20ice%20cap/ltic16.png",
-          "/app/limited%20ice%20cap/ltic17.png",
-          "/app/limited%20ice%20cap/ltic18.png"
+          "/limited%20ice%20cap/ltic01.png",
+          "/limited%20ice%20cap/ltic02.png",
+          "/limited%20ice%20cap/ltic03.png",
+          "/limited%20ice%20cap/ltic04.png",
+          "/limited%20ice%20cap/ltic05.png",
+          "/limited%20ice%20cap/ltic06.png",
+          "/limited%20ice%20cap/ltic07.png",
+          "/limited%20ice%20cap/ltic08.png",
+          "/limited%20ice%20cap/ltic09.png",
+          "/limited%20ice%20cap/ltic10.png",
+          "/limited%20ice%20cap/ltic11.png",
+          "/limited%20ice%20cap/ltic12.png",
+          "/limited%20ice%20cap/ltic13.png",
+          "/limited%20ice%20cap/ltic14.png",
+          "/limited%20ice%20cap/ltic15.png",
+          "/limited%20ice%20cap/ltic16.png",
+          "/limited%20ice%20cap/ltic17.png",
+          "/limited%20ice%20cap/ltic18.png"
         ]
       },
       {
@@ -601,24 +625,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dfe3e8",
         tint: "rgba(204, 211, 218, 0.16)",
         images: [
-          "/app/limited%20wind%20chill%20pearl/ltwcp01.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp02.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp03.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp04.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp05.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp06.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp07.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp08.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp09.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp10.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp11.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp12.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp13.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp14.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp15.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp16.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp17.png",
-          "/app/limited%20wind%20chill%20pearl/ltwcp18.png"
+          "/limited%20wind%20chill%20pearl/ltwcp01.png",
+          "/limited%20wind%20chill%20pearl/ltwcp02.png",
+          "/limited%20wind%20chill%20pearl/ltwcp03.png",
+          "/limited%20wind%20chill%20pearl/ltwcp04.png",
+          "/limited%20wind%20chill%20pearl/ltwcp05.png",
+          "/limited%20wind%20chill%20pearl/ltwcp06.png",
+          "/limited%20wind%20chill%20pearl/ltwcp07.png",
+          "/limited%20wind%20chill%20pearl/ltwcp08.png",
+          "/limited%20wind%20chill%20pearl/ltwcp09.png",
+          "/limited%20wind%20chill%20pearl/ltwcp10.png",
+          "/limited%20wind%20chill%20pearl/ltwcp11.png",
+          "/limited%20wind%20chill%20pearl/ltwcp12.png",
+          "/limited%20wind%20chill%20pearl/ltwcp13.png",
+          "/limited%20wind%20chill%20pearl/ltwcp14.png",
+          "/limited%20wind%20chill%20pearl/ltwcp15.png",
+          "/limited%20wind%20chill%20pearl/ltwcp16.png",
+          "/limited%20wind%20chill%20pearl/ltwcp17.png",
+          "/limited%20wind%20chill%20pearl/ltwcp18.png"
         ]
       },
       {
@@ -627,24 +651,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#8a7b6b",
         tint: "rgba(138, 123, 107, 0.2)",
         images: [
-          "/app/limited%20mudbath/ltmdb01.png",
-          "/app/limited%20mudbath/ltmdb02.png",
-          "/app/limited%20mudbath/ltmdb03.png",
-          "/app/limited%20mudbath/ltmdb04.png",
-          "/app/limited%20mudbath/ltmdb05.png",
-          "/app/limited%20mudbath/ltmdb06.png",
-          "/app/limited%20mudbath/ltmdb07.png",
-          "/app/limited%20mudbath/ltmdb08.png",
-          "/app/limited%20mudbath/ltmdb09.png",
-          "/app/limited%20mudbath/ltmdb10.png",
-          "/app/limited%20mudbath/ltmdb11.png",
-          "/app/limited%20mudbath/ltmdb12.png",
-          "/app/limited%20mudbath/ltmdb13.png",
-          "/app/limited%20mudbath/ltmdb14.png",
-          "/app/limited%20mudbath/ltmdb15.png",
-          "/app/limited%20mudbath/ltmdb16.png",
-          "/app/limited%20mudbath/ltmdb17.png",
-          "/app/limited%20mudbath/ltmdb18.png"
+          "/limited%20mudbath/ltmdb01.png",
+          "/limited%20mudbath/ltmdb02.png",
+          "/limited%20mudbath/ltmdb03.png",
+          "/limited%20mudbath/ltmdb04.png",
+          "/limited%20mudbath/ltmdb05.png",
+          "/limited%20mudbath/ltmdb06.png",
+          "/limited%20mudbath/ltmdb07.png",
+          "/limited%20mudbath/ltmdb08.png",
+          "/limited%20mudbath/ltmdb09.png",
+          "/limited%20mudbath/ltmdb10.png",
+          "/limited%20mudbath/ltmdb11.png",
+          "/limited%20mudbath/ltmdb12.png",
+          "/limited%20mudbath/ltmdb13.png",
+          "/limited%20mudbath/ltmdb14.png",
+          "/limited%20mudbath/ltmdb15.png",
+          "/limited%20mudbath/ltmdb16.png",
+          "/limited%20mudbath/ltmdb17.png",
+          "/limited%20mudbath/ltmdb18.png"
         ]
       },
     ],
@@ -664,24 +688,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#7f8b80",
         tint: "rgba(108, 123, 113, 0.2)",
         images: [
-          "/app/platinum%20lunar%20rock/ptlr01.png",
-          "/app/platinum%20lunar%20rock/ptlr02.png",
-          "/app/platinum%20lunar%20rock/ptlr03.png",
-          "/app/platinum%20lunar%20rock/ptlr04.png",
-          "/app/platinum%20lunar%20rock/ptlr05.png",
-          "/app/platinum%20lunar%20rock/ptlr06.png",
-          "/app/platinum%20lunar%20rock/ptlr07.png",
-          "/app/platinum%20lunar%20rock/ptlr08.png",
-          "/app/platinum%20lunar%20rock/ptlr09.png",
-          "/app/platinum%20lunar%20rock/ptlr10.png",
-          "/app/platinum%20lunar%20rock/ptlr11.png",
-          "/app/platinum%20lunar%20rock/ptlr12.png",
-          "/app/platinum%20lunar%20rock/ptlr13.png",
-          "/app/platinum%20lunar%20rock/ptlr14.png",
-          "/app/platinum%20lunar%20rock/ptlr15.png",
-          "/app/platinum%20lunar%20rock/ptlr16.png",
-          "/app/platinum%20lunar%20rock/ptlr17.png",
-          "/app/platinum%20lunar%20rock/ptlr18.png"
+          "/platinum%20lunar%20rock/ptlr01.png",
+          "/platinum%20lunar%20rock/ptlr02.png",
+          "/platinum%20lunar%20rock/ptlr03.png",
+          "/platinum%20lunar%20rock/ptlr04.png",
+          "/platinum%20lunar%20rock/ptlr05.png",
+          "/platinum%20lunar%20rock/ptlr06.png",
+          "/platinum%20lunar%20rock/ptlr07.png",
+          "/platinum%20lunar%20rock/ptlr08.png",
+          "/platinum%20lunar%20rock/ptlr09.png",
+          "/platinum%20lunar%20rock/ptlr10.png",
+          "/platinum%20lunar%20rock/ptlr11.png",
+          "/platinum%20lunar%20rock/ptlr12.png",
+          "/platinum%20lunar%20rock/ptlr13.png",
+          "/platinum%20lunar%20rock/ptlr14.png",
+          "/platinum%20lunar%20rock/ptlr15.png",
+          "/platinum%20lunar%20rock/ptlr16.png",
+          "/platinum%20lunar%20rock/ptlr17.png",
+          "/platinum%20lunar%20rock/ptlr18.png"
         ]
       },
       {
@@ -690,24 +714,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#2d4e84",
         tint: "rgba(44, 77, 132, 0.2)",
         images: [
-          "/app/platinum%20blueprint/ptbp01.png",
-          "/app/platinum%20blueprint/ptbp02.png",
-          "/app/platinum%20blueprint/ptbp03.png",
-          "/app/platinum%20blueprint/ptbp04.png",
-          "/app/platinum%20blueprint/ptbp05.png",
-          "/app/platinum%20blueprint/ptbp06.png",
-          "/app/platinum%20blueprint/ptbp07.png",
-          "/app/platinum%20blueprint/ptbp08.png",
-          "/app/platinum%20blueprint/ptbp09.png",
-          "/app/platinum%20blueprint/ptbp10.png",
-          "/app/platinum%20blueprint/ptbp11.png",
-          "/app/platinum%20blueprint/ptbp12.png",
-          "/app/platinum%20blueprint/ptbp13.png",
-          "/app/platinum%20blueprint/ptbp14.png",
-          "/app/platinum%20blueprint/ptbp15.png",
-          "/app/platinum%20blueprint/ptbp16.png",
-          "/app/platinum%20blueprint/ptbp17.png",
-          "/app/platinum%20blueprint/ptbp18.png"
+          "/platinum%20blueprint/ptbp01.png",
+          "/platinum%20blueprint/ptbp02.png",
+          "/platinum%20blueprint/ptbp03.png",
+          "/platinum%20blueprint/ptbp04.png",
+          "/platinum%20blueprint/ptbp05.png",
+          "/platinum%20blueprint/ptbp06.png",
+          "/platinum%20blueprint/ptbp07.png",
+          "/platinum%20blueprint/ptbp08.png",
+          "/platinum%20blueprint/ptbp09.png",
+          "/platinum%20blueprint/ptbp10.png",
+          "/platinum%20blueprint/ptbp11.png",
+          "/platinum%20blueprint/ptbp12.png",
+          "/platinum%20blueprint/ptbp13.png",
+          "/platinum%20blueprint/ptbp14.png",
+          "/platinum%20blueprint/ptbp15.png",
+          "/platinum%20blueprint/ptbp16.png",
+          "/platinum%20blueprint/ptbp17.png",
+          "/platinum%20blueprint/ptbp18.png"
         ]
       },
       {
@@ -716,24 +740,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#aeb3b8",
         tint: "rgba(170, 178, 187, 0.2)",
         images: [
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm01.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm02.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm03.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm04.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm05.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm06.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm07.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm08.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm09.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm10.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm11.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm12.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm13.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm14.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm15.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm16.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm17.png",
-          "/app/platinum%20celestial%20silver%20metallic/ptcsm18.png"
+          "/platinum%20celestial%20silver%20metallic/ptcsm01.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm02.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm03.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm04.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm05.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm06.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm07.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm08.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm09.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm10.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm11.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm12.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm13.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm14.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm15.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm16.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm17.png",
+          "/platinum%20celestial%20silver%20metallic/ptcsm18.png"
         ]
       },
       {
@@ -742,24 +766,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm01.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm02.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm03.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm04.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm05.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm06.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm07.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm08.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm09.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm10.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm11.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm12.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm13.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm14.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm15.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm16.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm17.png",
-          "/app/platinum%20magnetic%20gray%20metallic/ptmgm18.png"
+          "/platinum%20magnetic%20gray%20metallic/ptmgm01.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm02.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm03.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm04.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm05.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm06.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm07.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm08.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm09.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm10.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm11.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm12.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm13.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm14.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm15.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm16.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm17.png",
+          "/platinum%20magnetic%20gray%20metallic/ptmgm18.png"
         ]
       },
       {
@@ -768,24 +792,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/platinum%20midnight%20black%20metallic/ptmbm01.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm02.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm03.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm04.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm05.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm06.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm07.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm08.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm09.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm10.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm11.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm12.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm13.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm14.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm15.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm16.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm17.png",
-          "/app/platinum%20midnight%20black%20metallic/ptmbm18.png"
+          "/platinum%20midnight%20black%20metallic/ptmbm01.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm02.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm03.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm04.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm05.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm06.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm07.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm08.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm09.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm10.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm11.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm12.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm13.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm14.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm15.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm16.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm17.png",
+          "/platinum%20midnight%20black%20metallic/ptmbm18.png"
         ]
       },
       {
@@ -794,24 +818,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dfe3e8",
         tint: "rgba(204, 211, 218, 0.16)",
         images: [
-          "/app/platinum%20wind%20chill%20pearl/ptwcp01.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp02.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp03.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp04.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp05.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp06.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp07.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp08.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp09.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp10.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp11.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp12.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp13.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp14.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp15.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp16.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp17.png",
-          "/app/platinum%20wind%20chill%20pearl/ptwcp18.png"
+          "/platinum%20wind%20chill%20pearl/ptwcp01.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp02.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp03.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp04.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp05.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp06.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp07.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp08.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp09.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp10.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp11.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp12.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp13.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp14.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp15.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp16.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp17.png",
+          "/platinum%20wind%20chill%20pearl/ptwcp18.png"
         ]
       },
       {
@@ -820,24 +844,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#8a7b6b",
         tint: "rgba(138, 123, 107, 0.2)",
         images: [
-          "/app/platinum%20mudbath/ptmdb01.png",
-          "/app/platinum%20mudbath/ptmdb02.png",
-          "/app/platinum%20mudbath/ptmdb03.png",
-          "/app/platinum%20mudbath/ptmdb04.png",
-          "/app/platinum%20mudbath/ptmdb05.png",
-          "/app/platinum%20mudbath/ptmdb06.png",
-          "/app/platinum%20mudbath/ptmdb07.png",
-          "/app/platinum%20mudbath/ptmdb08.png",
-          "/app/platinum%20mudbath/ptmdb09.png",
-          "/app/platinum%20mudbath/ptmdb10.png",
-          "/app/platinum%20mudbath/ptmdb11.png",
-          "/app/platinum%20mudbath/ptmdb12.png",
-          "/app/platinum%20mudbath/ptmdb13.png",
-          "/app/platinum%20mudbath/ptmdb14.png",
-          "/app/platinum%20mudbath/ptmdb15.png",
-          "/app/platinum%20mudbath/ptmdb16.png",
-          "/app/platinum%20mudbath/ptmdb17.png",
-          "/app/platinum%20mudbath/ptmdb18.png"
+          "/platinum%20mudbath/ptmdb01.png",
+          "/platinum%20mudbath/ptmdb02.png",
+          "/platinum%20mudbath/ptmdb03.png",
+          "/platinum%20mudbath/ptmdb04.png",
+          "/platinum%20mudbath/ptmdb05.png",
+          "/platinum%20mudbath/ptmdb06.png",
+          "/platinum%20mudbath/ptmdb07.png",
+          "/platinum%20mudbath/ptmdb08.png",
+          "/platinum%20mudbath/ptmdb09.png",
+          "/platinum%20mudbath/ptmdb10.png",
+          "/platinum%20mudbath/ptmdb11.png",
+          "/platinum%20mudbath/ptmdb12.png",
+          "/platinum%20mudbath/ptmdb13.png",
+          "/platinum%20mudbath/ptmdb14.png",
+          "/platinum%20mudbath/ptmdb15.png",
+          "/platinum%20mudbath/ptmdb16.png",
+          "/platinum%20mudbath/ptmdb17.png",
+          "/platinum%20mudbath/ptmdb18.png"
         ]
       },
     ],
@@ -857,24 +881,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#4f8aa2",
         tint: "rgba(76, 134, 160, 0.2)",
         images: [
-          "/app/trd%20wave%20maker/trdwm01.png",
-          "/app/trd%20wave%20maker/trdwm02.png",
-          "/app/trd%20wave%20maker/trdwm03.png",
-          "/app/trd%20wave%20maker/trdwm04.png",
-          "/app/trd%20wave%20maker/trdwm05.png",
-          "/app/trd%20wave%20maker/trdwm06.png",
-          "/app/trd%20wave%20maker/trdwm07.png",
-          "/app/trd%20wave%20maker/trdwm08.png",
-          "/app/trd%20wave%20maker/trdwm09.png",
-          "/app/trd%20wave%20maker/trdwm10.png",
-          "/app/trd%20wave%20maker/trdwm11.png",
-          "/app/trd%20wave%20maker/trdwm12.png",
-          "/app/trd%20wave%20maker/trdwm13.png",
-          "/app/trd%20wave%20maker/trdwm14.png",
-          "/app/trd%20wave%20maker/trdwm15.png",
-          "/app/trd%20wave%20maker/trdwm16.png",
-          "/app/trd%20wave%20maker/trdwm17.png",
-          "/app/trd%20wave%20maker/trdwm18.png"
+          "/trd%20wave%20maker/trdwm01.png",
+          "/trd%20wave%20maker/trdwm02.png",
+          "/trd%20wave%20maker/trdwm03.png",
+          "/trd%20wave%20maker/trdwm04.png",
+          "/trd%20wave%20maker/trdwm05.png",
+          "/trd%20wave%20maker/trdwm06.png",
+          "/trd%20wave%20maker/trdwm07.png",
+          "/trd%20wave%20maker/trdwm08.png",
+          "/trd%20wave%20maker/trdwm09.png",
+          "/trd%20wave%20maker/trdwm10.png",
+          "/trd%20wave%20maker/trdwm11.png",
+          "/trd%20wave%20maker/trdwm12.png",
+          "/trd%20wave%20maker/trdwm13.png",
+          "/trd%20wave%20maker/trdwm14.png",
+          "/trd%20wave%20maker/trdwm15.png",
+          "/trd%20wave%20maker/trdwm16.png",
+          "/trd%20wave%20maker/trdwm17.png",
+          "/trd%20wave%20maker/trdwm18.png"
         ]
       },
       {
@@ -883,24 +907,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm01.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm02.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm03.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm04.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm05.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm06.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm07.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm08.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm09.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm10.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm11.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm12.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm13.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm14.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm15.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm16.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm17.png",
-          "/app/trd%20magnetic%20gray%20metallic/trdmgm18.png"
+          "/trd%20magnetic%20gray%20metallic/trdmgm01.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm02.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm03.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm04.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm05.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm06.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm07.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm08.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm09.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm10.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm11.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm12.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm13.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm14.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm15.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm16.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm17.png",
+          "/trd%20magnetic%20gray%20metallic/trdmgm18.png"
         ]
       },
       {
@@ -909,24 +933,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/trd%20midnight%20black%20metallic/trdmbm01.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm02.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm03.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm04.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm05.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm06.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm07.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm08.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm09.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm10.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm11.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm12.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm13.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm14.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm15.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm16.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm17.png",
-          "/app/trd%20midnight%20black%20metallic/trdmbm18.png"
+          "/trd%20midnight%20black%20metallic/trdmbm01.png",
+          "/trd%20midnight%20black%20metallic/trdmbm02.png",
+          "/trd%20midnight%20black%20metallic/trdmbm03.png",
+          "/trd%20midnight%20black%20metallic/trdmbm04.png",
+          "/trd%20midnight%20black%20metallic/trdmbm05.png",
+          "/trd%20midnight%20black%20metallic/trdmbm06.png",
+          "/trd%20midnight%20black%20metallic/trdmbm07.png",
+          "/trd%20midnight%20black%20metallic/trdmbm08.png",
+          "/trd%20midnight%20black%20metallic/trdmbm09.png",
+          "/trd%20midnight%20black%20metallic/trdmbm10.png",
+          "/trd%20midnight%20black%20metallic/trdmbm11.png",
+          "/trd%20midnight%20black%20metallic/trdmbm12.png",
+          "/trd%20midnight%20black%20metallic/trdmbm13.png",
+          "/trd%20midnight%20black%20metallic/trdmbm14.png",
+          "/trd%20midnight%20black%20metallic/trdmbm15.png",
+          "/trd%20midnight%20black%20metallic/trdmbm16.png",
+          "/trd%20midnight%20black%20metallic/trdmbm17.png",
+          "/trd%20midnight%20black%20metallic/trdmbm18.png"
         ]
       },
     ],
@@ -946,24 +970,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#2d4e84",
         tint: "rgba(44, 77, 132, 0.2)",
         images: [
-          "/app/capstone%20blueprint/cpbp01.png",
-          "/app/capstone%20blueprint/cpbp02.png",
-          "/app/capstone%20blueprint/cpbp03.png",
-          "/app/capstone%20blueprint/cpbp04.png",
-          "/app/capstone%20blueprint/cpbp05.png",
-          "/app/capstone%20blueprint/cpbp06.png",
-          "/app/capstone%20blueprint/cpbp07.png",
-          "/app/capstone%20blueprint/cpbp08.png",
-          "/app/capstone%20blueprint/cpbp09.png",
-          "/app/capstone%20blueprint/cpbp10.png",
-          "/app/capstone%20blueprint/cpbp11.png",
-          "/app/capstone%20blueprint/cpbp12.png",
-          "/app/capstone%20blueprint/cpbp13.png",
-          "/app/capstone%20blueprint/cpbp14.png",
-          "/app/capstone%20blueprint/cpbp15.png",
-          "/app/capstone%20blueprint/cpbp16.png",
-          "/app/capstone%20blueprint/cpbp17.png",
-          "/app/capstone%20blueprint/cpbp18.png"
+          "/capstone%20blueprint/cpbp01.png",
+          "/capstone%20blueprint/cpbp02.png",
+          "/capstone%20blueprint/cpbp03.png",
+          "/capstone%20blueprint/cpbp04.png",
+          "/capstone%20blueprint/cpbp05.png",
+          "/capstone%20blueprint/cpbp06.png",
+          "/capstone%20blueprint/cpbp07.png",
+          "/capstone%20blueprint/cpbp08.png",
+          "/capstone%20blueprint/cpbp09.png",
+          "/capstone%20blueprint/cpbp10.png",
+          "/capstone%20blueprint/cpbp11.png",
+          "/capstone%20blueprint/cpbp12.png",
+          "/capstone%20blueprint/cpbp13.png",
+          "/capstone%20blueprint/cpbp14.png",
+          "/capstone%20blueprint/cpbp15.png",
+          "/capstone%20blueprint/cpbp16.png",
+          "/capstone%20blueprint/cpbp17.png",
+          "/capstone%20blueprint/cpbp18.png"
         ]
       },
       {
@@ -972,24 +996,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#aeb3b8",
         tint: "rgba(170, 178, 187, 0.2)",
         images: [
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm01.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm02.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm03.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm04.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm05.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm06.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm07.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm08.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm09.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm10.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm11.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm12.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm13.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm14.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm15.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm16.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm17.png",
-          "/app/capstone%20celestial%20silver%20metallic/cpcsm18.png"
+          "/capstone%20celestial%20silver%20metallic/cpcsm01.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm02.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm03.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm04.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm05.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm06.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm07.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm08.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm09.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm10.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm11.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm12.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm13.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm14.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm15.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm16.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm17.png",
+          "/capstone%20celestial%20silver%20metallic/cpcsm18.png"
         ]
       },
       {
@@ -998,24 +1022,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm01.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm02.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm03.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm04.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm05.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm06.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm07.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm08.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm09.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm10.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm11.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm12.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm13.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm14.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm15.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm16.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm17.png",
-          "/app/capstone%20magnetic%20gray%20metallic/cpmgm18.png"
+          "/capstone%20magnetic%20gray%20metallic/cpmgm01.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm02.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm03.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm04.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm05.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm06.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm07.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm08.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm09.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm10.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm11.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm12.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm13.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm14.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm15.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm16.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm17.png",
+          "/capstone%20magnetic%20gray%20metallic/cpmgm18.png"
         ]
       },
       {
@@ -1024,24 +1048,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/capstone%20midnight%20black%20metallic/cpmbm01.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm02.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm03.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm04.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm05.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm06.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm07.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm08.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm09.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm10.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm11.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm12.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm13.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm14.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm15.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm16.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm17.png",
-          "/app/capstone%20midnight%20black%20metallic/cpmbm18.png"
+          "/capstone%20midnight%20black%20metallic/cpmbm01.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm02.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm03.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm04.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm05.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm06.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm07.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm08.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm09.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm10.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm11.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm12.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm13.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm14.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm15.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm16.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm17.png",
+          "/capstone%20midnight%20black%20metallic/cpmbm18.png"
         ]
       },
       {
@@ -1050,24 +1074,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dfe3e8",
         tint: "rgba(204, 211, 218, 0.16)",
         images: [
-          "/app/capstone%20wind%20chill%20pearl/cpwcp01.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp02.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp03.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp04.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp05.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp06.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp07.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp08.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp09.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp10.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp11.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp12.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp13.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp14.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp15.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp16.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp17.png",
-          "/app/capstone%20wind%20chill%20pearl/cpwcp18.png"
+          "/capstone%20wind%20chill%20pearl/cpwcp01.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp02.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp03.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp04.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp05.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp06.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp07.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp08.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp09.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp10.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp11.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp12.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp13.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp14.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp15.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp16.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp17.png",
+          "/capstone%20wind%20chill%20pearl/cpwcp18.png"
         ]
       },
     ],
@@ -1087,24 +1111,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#1f335f",
         tint: "rgba(46, 66, 110, 0.22)",
         images: [
-          "/app/1794%20blueprint/n1794bp01.png",
-          "/app/1794%20blueprint/n1794bp02.png",
-          "/app/1794%20blueprint/n1794bp03.png",
-          "/app/1794%20blueprint/n1794bp04.png",
-          "/app/1794%20blueprint/n1794bp05.png",
-          "/app/1794%20blueprint/n1794bp06.png",
-          "/app/1794%20blueprint/n1794bp07.png",
-          "/app/1794%20blueprint/n1794bp08.png",
-          "/app/1794%20blueprint/n1794bp09.png",
-          "/app/1794%20blueprint/n1794bp10.png",
-          "/app/1794%20blueprint/n1794bp11.png",
-          "/app/1794%20blueprint/n1794bp12.png",
-          "/app/1794%20blueprint/n1794bp13.png",
-          "/app/1794%20blueprint/n1794bp14.png",
-          "/app/1794%20blueprint/n1794bp15.png",
-          "/app/1794%20blueprint/n1794bp16.png",
-          "/app/1794%20blueprint/n1794bp17.png",
-          "/app/1794%20blueprint/n1794bp18.png"
+          "/1794%20blueprint/n1794bp01.png",
+          "/1794%20blueprint/n1794bp02.png",
+          "/1794%20blueprint/n1794bp03.png",
+          "/1794%20blueprint/n1794bp04.png",
+          "/1794%20blueprint/n1794bp05.png",
+          "/1794%20blueprint/n1794bp06.png",
+          "/1794%20blueprint/n1794bp07.png",
+          "/1794%20blueprint/n1794bp08.png",
+          "/1794%20blueprint/n1794bp09.png",
+          "/1794%20blueprint/n1794bp10.png",
+          "/1794%20blueprint/n1794bp11.png",
+          "/1794%20blueprint/n1794bp12.png",
+          "/1794%20blueprint/n1794bp13.png",
+          "/1794%20blueprint/n1794bp14.png",
+          "/1794%20blueprint/n1794bp15.png",
+          "/1794%20blueprint/n1794bp16.png",
+          "/1794%20blueprint/n1794bp17.png",
+          "/1794%20blueprint/n1794bp18.png"
         ]
       },
       {
@@ -1113,24 +1137,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#c6c8cc",
         tint: "rgba(180, 184, 189, 0.2)",
         images: [
-          "/app/1794%20celestial%20silver%20metallic/n1794csm01.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm02.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm03.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm04.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm05.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm06.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm07.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm08.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm09.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm10.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm11.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm12.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm13.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm14.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm15.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm16.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm17.png",
-          "/app/1794%20celestial%20silver%20metallic/n1794csm18.png"
+          "/1794%20celestial%20silver%20metallic/n1794csm01.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm02.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm03.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm04.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm05.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm06.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm07.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm08.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm09.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm10.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm11.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm12.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm13.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm14.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm15.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm16.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm17.png",
+          "/1794%20celestial%20silver%20metallic/n1794csm18.png"
         ]
       },
       {
@@ -1139,24 +1163,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#7e7b6f",
         tint: "rgba(112, 108, 98, 0.2)",
         images: [
-          "/app/1794%20lunar%20rock/n1794lr01.png",
-          "/app/1794%20lunar%20rock/n1794lr02.png",
-          "/app/1794%20lunar%20rock/n1794lr03.png",
-          "/app/1794%20lunar%20rock/n1794lr04.png",
-          "/app/1794%20lunar%20rock/n1794lr05.png",
-          "/app/1794%20lunar%20rock/n1794lr06.png",
-          "/app/1794%20lunar%20rock/n1794lr07.png",
-          "/app/1794%20lunar%20rock/n1794lr08.png",
-          "/app/1794%20lunar%20rock/n1794lr09.png",
-          "/app/1794%20lunar%20rock/n1794lr10.png",
-          "/app/1794%20lunar%20rock/n1794lr11.png",
-          "/app/1794%20lunar%20rock/n1794lr12.png",
-          "/app/1794%20lunar%20rock/n1794lr13.png",
-          "/app/1794%20lunar%20rock/n1794lr14.png",
-          "/app/1794%20lunar%20rock/n1794lr15.png",
-          "/app/1794%20lunar%20rock/n1794lr16.png",
-          "/app/1794%20lunar%20rock/n1794lr17.png",
-          "/app/1794%20lunar%20rock/n1794lr18.png"
+          "/1794%20lunar%20rock/n1794lr01.png",
+          "/1794%20lunar%20rock/n1794lr02.png",
+          "/1794%20lunar%20rock/n1794lr03.png",
+          "/1794%20lunar%20rock/n1794lr04.png",
+          "/1794%20lunar%20rock/n1794lr05.png",
+          "/1794%20lunar%20rock/n1794lr06.png",
+          "/1794%20lunar%20rock/n1794lr07.png",
+          "/1794%20lunar%20rock/n1794lr08.png",
+          "/1794%20lunar%20rock/n1794lr09.png",
+          "/1794%20lunar%20rock/n1794lr10.png",
+          "/1794%20lunar%20rock/n1794lr11.png",
+          "/1794%20lunar%20rock/n1794lr12.png",
+          "/1794%20lunar%20rock/n1794lr13.png",
+          "/1794%20lunar%20rock/n1794lr14.png",
+          "/1794%20lunar%20rock/n1794lr15.png",
+          "/1794%20lunar%20rock/n1794lr16.png",
+          "/1794%20lunar%20rock/n1794lr17.png",
+          "/1794%20lunar%20rock/n1794lr18.png"
         ]
       },
       {
@@ -1165,24 +1189,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#5f666e",
         tint: "rgba(90, 98, 107, 0.2)",
         images: [
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm01.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm02.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm03.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm04.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm05.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm06.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm07.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm08.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm09.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm10.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm11.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm12.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm13.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm14.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm15.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm16.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm17.png",
-          "/app/1794%20magnetic%20gray%20metallic/n1794mgm18.png"
+          "/1794%20magnetic%20gray%20metallic/n1794mgm01.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm02.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm03.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm04.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm05.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm06.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm07.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm08.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm09.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm10.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm11.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm12.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm13.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm14.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm15.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm16.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm17.png",
+          "/1794%20magnetic%20gray%20metallic/n1794mgm18.png"
         ]
       },
       {
@@ -1191,24 +1215,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#141516",
         tint: "rgba(8, 8, 9, 0.2)",
         images: [
-          "/app/1794%20midnight%20black%20metallic/n1794mbm01.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm02.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm03.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm04.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm05.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm06.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm07.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm08.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm09.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm10.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm11.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm12.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm13.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm14.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm15.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm16.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm17.png",
-          "/app/1794%20midnight%20black%20metallic/n1794mbm18.png"
+          "/1794%20midnight%20black%20metallic/n1794mbm01.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm02.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm03.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm04.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm05.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm06.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm07.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm08.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm09.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm10.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm11.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm12.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm13.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm14.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm15.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm16.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm17.png",
+          "/1794%20midnight%20black%20metallic/n1794mbm18.png"
         ]
       },
       {
@@ -1217,24 +1241,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#6f5f49",
         tint: "rgba(111, 95, 73, 0.22)",
         images: [
-          "/app/1794%20mudbath/n1794mdb01.png",
-          "/app/1794%20mudbath/n1794mdb02.png",
-          "/app/1794%20mudbath/n1794mdb03.png",
-          "/app/1794%20mudbath/n1794mdb04.png",
-          "/app/1794%20mudbath/n1794mdb05.png",
-          "/app/1794%20mudbath/n1794mdb06.png",
-          "/app/1794%20mudbath/n1794mdb07.png",
-          "/app/1794%20mudbath/n1794mdb08.png",
-          "/app/1794%20mudbath/n1794mdb09.png",
-          "/app/1794%20mudbath/n1794mdb10.png",
-          "/app/1794%20mudbath/n1794mdb11.png",
-          "/app/1794%20mudbath/n1794mdb12.png",
-          "/app/1794%20mudbath/n1794mdb13.png",
-          "/app/1794%20mudbath/n1794mdb14.png",
-          "/app/1794%20mudbath/n1794mdb15.png",
-          "/app/1794%20mudbath/n1794mdb16.png",
-          "/app/1794%20mudbath/n1794mdb17.png",
-          "/app/1794%20mudbath/n1794mdb18.png"
+          "/1794%20mudbath/n1794mdb01.png",
+          "/1794%20mudbath/n1794mdb02.png",
+          "/1794%20mudbath/n1794mdb03.png",
+          "/1794%20mudbath/n1794mdb04.png",
+          "/1794%20mudbath/n1794mdb05.png",
+          "/1794%20mudbath/n1794mdb06.png",
+          "/1794%20mudbath/n1794mdb07.png",
+          "/1794%20mudbath/n1794mdb08.png",
+          "/1794%20mudbath/n1794mdb09.png",
+          "/1794%20mudbath/n1794mdb10.png",
+          "/1794%20mudbath/n1794mdb11.png",
+          "/1794%20mudbath/n1794mdb12.png",
+          "/1794%20mudbath/n1794mdb13.png",
+          "/1794%20mudbath/n1794mdb14.png",
+          "/1794%20mudbath/n1794mdb15.png",
+          "/1794%20mudbath/n1794mdb16.png",
+          "/1794%20mudbath/n1794mdb17.png",
+          "/1794%20mudbath/n1794mdb18.png"
         ]
       },
       {
@@ -1243,24 +1267,24 @@ const SEQUOIA_VERSION_CONFIG = {
         hex: "#dfe3e8",
         tint: "rgba(204, 211, 218, 0.16)",
         images: [
-          "/app/1794%20wind%20chill%20pearl/n1794wcp01.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp02.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp03.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp04.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp05.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp06.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp07.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp08.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp09.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp10.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp11.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp12.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp13.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp14.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp15.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp16.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp17.png",
-          "/app/1794%20wind%20chill%20pearl/n1794wcp18.png"
+          "/1794%20wind%20chill%20pearl/n1794wcp01.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp02.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp03.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp04.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp05.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp06.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp07.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp08.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp09.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp10.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp11.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp12.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp13.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp14.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp15.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp16.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp17.png",
+          "/1794%20wind%20chill%20pearl/n1794wcp18.png"
         ]
       },
     ],
@@ -1277,10 +1301,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Tela Black",
         hex: "#2a2a2c",
         images: [
-          "/app/sr5%20tela/sr5tela01.webp",
-          "/app/sr5%20tela/sr5tela02.webp",
-          "/app/sr5%20tela/sr5tela03.webp",
-          "/app/sr5%20tela/sr5tela04.webp"
+          "/sr5%20tela/sr5tela01.webp",
+          "/sr5%20tela/sr5tela02.webp",
+          "/sr5%20tela/sr5tela03.webp",
+          "/sr5%20tela/sr5tela04.webp"
         ]
       },
       {
@@ -1288,10 +1312,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Black",
         hex: "#101114",
         images: [
-          "/app/sr5%20piel%20black/sr5piel01.webp",
-          "/app/sr5%20piel%20black/sr5piel02.webp",
-          "/app/sr5%20piel%20black/sr5piel03.webp",
-          "/app/sr5%20piel%20black/sr5piel04.webp"
+          "/sr5%20piel%20black/sr5piel01.webp",
+          "/sr5%20piel%20black/sr5piel02.webp",
+          "/sr5%20piel%20black/sr5piel03.webp",
+          "/sr5%20piel%20black/sr5piel04.webp"
         ]
       },
       {
@@ -1299,10 +1323,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Boulder",
         hex: "#8e8273",
         images: [
-          "/app/sr5%20piel%20boulder/sr5pb01.webp",
-          "/app/sr5%20piel%20boulder/sr5pb02.webp",
-          "/app/sr5%20piel%20boulder/sr5pb03.webp",
-          "/app/sr5%20piel%20boulder/sr5pb04.webp"
+          "/sr5%20piel%20boulder/sr5pb01.webp",
+          "/sr5%20piel%20boulder/sr5pb02.webp",
+          "/sr5%20piel%20boulder/sr5pb03.webp",
+          "/sr5%20piel%20boulder/sr5pb04.webp"
         ]
       },
     ],
@@ -1314,10 +1338,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Black",
         hex: "#101114",
         images: [
-          "/app/limited%20piel%20black/ltpielb01.webp",
-          "/app/limited%20piel%20black/ltpielb02.webp",
-          "/app/limited%20piel%20black/ltpielb03.webp",
-          "/app/limited%20piel%20black/ltpielb04.webp"
+          "/limited%20piel%20black/ltpielb01.webp",
+          "/limited%20piel%20black/ltpielb02.webp",
+          "/limited%20piel%20black/ltpielb03.webp",
+          "/limited%20piel%20black/ltpielb04.webp"
         ]
       },
       {
@@ -1325,10 +1349,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Boulder",
         hex: "#8e8273",
         images: [
-          "/app/limited%20piel%20boulder/ltpielbo01.webp",
-          "/app/limited%20piel%20boulder/ltpielbo02.webp",
-          "/app/limited%20piel%20boulder/ltpielbo03.webp",
-          "/app/limited%20piel%20boulder/ltpielbo04.webp"
+          "/limited%20piel%20boulder/ltpielbo01.webp",
+          "/limited%20piel%20boulder/ltpielbo02.webp",
+          "/limited%20piel%20boulder/ltpielbo03.webp",
+          "/limited%20piel%20boulder/ltpielbo04.webp"
         ]
       },
     ],
@@ -1340,10 +1364,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Black",
         hex: "#101114",
         images: [
-          "/app/platinum%20piel%20black/ptpielb01.webp",
-          "/app/platinum%20piel%20black/ptpielb02.webp",
-          "/app/platinum%20piel%20black/ptpielb03.webp",
-          "/app/platinum%20piel%20black/ptpielb04.webp"
+          "/platinum%20piel%20black/ptpielb01.webp",
+          "/platinum%20piel%20black/ptpielb02.webp",
+          "/platinum%20piel%20black/ptpielb03.webp",
+          "/platinum%20piel%20black/ptpielb04.webp"
         ]
       },
     ],
@@ -1355,10 +1379,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Black Softex",
         hex: "#141416",
         images: [
-          "/app/trd%20black%20softex/trdbs01.webp",
-          "/app/trd%20black%20softex/trdbs02.webp",
-          "/app/trd%20black%20softex/trdbs03.webp",
-          "/app/trd%20black%20softex/trdbs04.webp"
+          "/trd%20black%20softex/trdbs01.webp",
+          "/trd%20black%20softex/trdbs02.webp",
+          "/trd%20black%20softex/trdbs03.webp",
+          "/trd%20black%20softex/trdbs04.webp"
         ]
       },
       {
@@ -1366,10 +1390,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Cockpit Red Softex",
         hex: "#8d1f2d",
         images: [
-          "/app/trd%20cockpit%20red%20softex/trdcrs01.webp",
-          "/app/trd%20cockpit%20red%20softex/trdcrs02.webp",
-          "/app/trd%20cockpit%20red%20softex/trdcrs03.webp",
-          "/app/trd%20cockpit%20red%20softex/trdcrs04.webp"
+          "/trd%20cockpit%20red%20softex/trdcrs01.webp",
+          "/trd%20cockpit%20red%20softex/trdcrs02.webp",
+          "/trd%20cockpit%20red%20softex/trdcrs03.webp",
+          "/trd%20cockpit%20red%20softex/trdcrs04.webp"
         ]
       },
     ],
@@ -1381,10 +1405,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Premium Texturizada Shale",
         hex: "#8f8579",
         images: [
-          "/app/capstone%20piel%20premium%20texturizada%20shale/cppts01.webp",
-          "/app/capstone%20piel%20premium%20texturizada%20shale/cppts02.webp",
-          "/app/capstone%20piel%20premium%20texturizada%20shale/cppts03.webp",
-          "/app/capstone%20piel%20premium%20texturizada%20shale/cppts04.webp"
+          "/capstone%20piel%20premium%20texturizada%20shale/cppts01.webp",
+          "/capstone%20piel%20premium%20texturizada%20shale/cppts02.webp",
+          "/capstone%20piel%20premium%20texturizada%20shale/cppts03.webp",
+          "/capstone%20piel%20premium%20texturizada%20shale/cppts04.webp"
         ]
       },
     ],
@@ -1396,10 +1420,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Piel Saddle Tan",
         hex: "#8a6a4a",
         images: [
-          "/app/1794%20piel%20saddle%20tan/n1794pst01.webp",
-          "/app/1794%20piel%20saddle%20tan/n1794pst02.webp",
-          "/app/1794%20piel%20saddle%20tan/n1794pst03.webp",
-          "/app/1794%20piel%20saddle%20tan/n1794pst04.webp"
+          "/1794%20piel%20saddle%20tan/n1794pst01.webp",
+          "/1794%20piel%20saddle%20tan/n1794pst02.webp",
+          "/1794%20piel%20saddle%20tan/n1794pst03.webp",
+          "/1794%20piel%20saddle%20tan/n1794pst04.webp"
         ]
       },
     ],
@@ -1469,6 +1493,131 @@ function setFeedback(element, message, type = "") {
 
   element.textContent = message;
   element.className = `feedback${type ? ` ${type}` : ""}`;
+}
+
+function getTrackingHistoryStorageKey() {
+  const userIdentifier =
+    state.user?.id
+    || state.user?._id
+    || state.user?.email
+    || state.user?.name
+    || "guest";
+
+  return `globalAppTrackingHistory:${String(userIdentifier).toLowerCase()}`;
+}
+
+function loadTrackingHistory() {
+  try {
+    const storedValue = localStorage.getItem(getTrackingHistoryStorageKey());
+
+    if (!storedValue) {
+      trackingHistory = [];
+      return;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+    trackingHistory = Array.isArray(parsedValue)
+      ? parsedValue
+        .map((item) => ({
+          trackingNumber: String(item?.trackingNumber || "").toUpperCase().trim(),
+          vehicleLabel: String(item?.vehicleLabel || ""),
+          searchedAt: String(item?.searchedAt || ""),
+        }))
+        .filter((item) => item.trackingNumber)
+        .slice(0, TRACKING_HISTORY_MAX_ITEMS)
+      : [];
+  } catch (error) {
+    trackingHistory = [];
+  }
+}
+
+function persistTrackingHistory() {
+  try {
+    localStorage.setItem(getTrackingHistoryStorageKey(), JSON.stringify(trackingHistory));
+  } catch (error) {
+    // Ignore storage write failures to keep tracking search available.
+  }
+}
+
+function renderTrackingHistory() {
+  if (!trackingOrdersList) {
+    return;
+  }
+
+  if (!trackingHistory.length) {
+    trackingOrdersList.innerHTML = '<p class="tracking-orders-empty">Aún no has buscado pedidos. Tus búsquedas aparecerán aquí.</p>';
+
+    if (trackingOrdersClearButton) {
+      trackingOrdersClearButton.hidden = true;
+    }
+
+    return;
+  }
+
+  if (trackingOrdersClearButton) {
+    trackingOrdersClearButton.hidden = false;
+  }
+
+  trackingOrdersList.innerHTML = trackingHistory
+    .map(
+      (item) => `
+        <button type="button" class="tracking-orders-item" data-tracking-history="${escapeHtml(item.trackingNumber)}">
+          <strong>Guía ${escapeHtml(item.trackingNumber)}</strong>
+          <span>${escapeHtml(item.vehicleLabel || "Pedido guardado")}</span>
+          <span>Buscado el ${escapeHtml(formatDate(item.searchedAt))}</span>
+        </button>
+      `
+    )
+    .join("");
+}
+
+function setTrackingActiveTab(tabName) {
+  const isSearchTab = tabName === "search";
+
+  if (trackingSearchPanel) {
+    trackingSearchPanel.hidden = !isSearchTab;
+  }
+
+  if (trackingOrdersPanel) {
+    trackingOrdersPanel.hidden = isSearchTab;
+  }
+
+  if (trackingTabSearchButton) {
+    trackingTabSearchButton.classList.toggle("is-active", isSearchTab);
+    trackingTabSearchButton.setAttribute("aria-selected", String(isSearchTab));
+  }
+
+  if (trackingTabOrdersButton) {
+    trackingTabOrdersButton.classList.toggle("is-active", !isSearchTab);
+    trackingTabOrdersButton.setAttribute("aria-selected", String(!isSearchTab));
+  }
+}
+
+function rememberTrackingSearch(trackingNumber) {
+  const normalizedTrackingNumber = String(trackingNumber || "").toUpperCase().trim();
+
+  if (!normalizedTrackingNumber) {
+    return;
+  }
+
+  const matchedOrder = state.orders.find(
+    (order) => String(order?.trackingNumber || "").toUpperCase().trim() === normalizedTrackingNumber
+  );
+  const vehicleLabel = [matchedOrder?.vehicle?.brand, matchedOrder?.vehicle?.model, matchedOrder?.vehicle?.version]
+    .filter(Boolean)
+    .join(" ");
+
+  trackingHistory = [
+    {
+      trackingNumber: normalizedTrackingNumber,
+      vehicleLabel,
+      searchedAt: new Date().toISOString(),
+    },
+    ...trackingHistory.filter((item) => item.trackingNumber !== normalizedTrackingNumber),
+  ].slice(0, TRACKING_HISTORY_MAX_ITEMS);
+
+  persistTrackingHistory();
+  renderTrackingHistory();
 }
 
 function formatDate(dateValue) {
@@ -1664,7 +1813,7 @@ function renderFeed() {
           <div class="feed-author-row">
             <div class="feed-author-meta">
               <div class="feed-author-avatar">
-                <img src="/app/logoblancoleon.png" alt="Logo Global Imports" loading="lazy" />
+                <img src="/logoblancoleon.png" alt="Logo Global Imports" loading="lazy" />
               </div>
               <div>
                 <strong>${authorName}</strong>
@@ -1791,6 +1940,9 @@ async function loadFeedPage({ reset = false } = {}) {
     renderFeed();
   }
 
+  let requestFailed = false;
+  let requestErrorMessage = "";
+
   try {
     const data = await fetchJson(`/api/client/posts?offset=${state.feedOffset}&limit=${FEED_PAGE_SIZE}`);
     const nextPosts = data.posts || [];
@@ -1798,7 +1950,10 @@ async function loadFeedPage({ reset = false } = {}) {
     state.feedPosts = reset ? nextPosts : state.feedPosts.concat(nextPosts);
     state.feedOffset = data.pagination?.nextOffset || state.feedPosts.length;
     state.feedHasMore = Boolean(data.pagination?.hasMore);
-    renderFeed();
+  } catch (error) {
+    requestFailed = true;
+    requestErrorMessage = error?.message || "No se pudieron cargar más publicaciones.";
+    throw error;
   } finally {
     state.isFetchingFeed = false;
 
@@ -1808,7 +1963,11 @@ async function loadFeedPage({ reset = false } = {}) {
       updateRefreshIndicator();
     }
 
-    if (state.feedPosts.length && state.feedHasMore) {
+    renderFeed();
+
+    if (requestFailed && state.feedPosts.length) {
+      feedLoadingState.textContent = requestErrorMessage;
+    } else if (state.feedPosts.length && state.feedHasMore) {
       feedLoadingState.textContent = "Desliza hacia abajo para ver más publicaciones.";
     }
   }
@@ -1822,6 +1981,48 @@ async function refreshFeed() {
   state.isRefreshingFeed = true;
   updateRefreshIndicator();
   await loadFeedPage({ reset: true });
+}
+
+function handleWheelRefresh(event) {
+  if (state.activeView !== "home" || state.isRefreshingFeed || state.isFetchingFeed) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  if (window.scrollY > 2) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  const deltaY = Number(event.deltaY || 0);
+
+  if (deltaY >= 0) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  // Track continuous upward wheel motion at the top to trigger a feed refresh.
+  wheelUpRefreshAccumulator += Math.abs(deltaY);
+
+  if (wheelUpRefreshAccumulator < 120) {
+    return;
+  }
+
+  const now = Date.now();
+
+  if (now - lastWheelRefreshAt < 1200) {
+    return;
+  }
+
+  wheelUpRefreshAccumulator = 0;
+  lastWheelRefreshAt = now;
+
+  refreshFeed().catch((error) => {
+    state.isRefreshingFeed = false;
+    pullDistance = 0;
+    updateRefreshIndicator();
+    feedLoadingState.textContent = error.message;
+  });
 }
 
 function setupInfiniteScroll() {
@@ -2387,8 +2588,74 @@ function closeVirtualDealershipVideoModal() {
 
   const shouldKeepModalOpen = (notificationsModal && !notificationsModal.hidden)
     || (maintenanceVehicleModal && !maintenanceVehicleModal.hidden)
-    || (virtualDealershipImageModal && !virtualDealershipImageModal.hidden);
+    || (virtualDealershipImageModal && !virtualDealershipImageModal.hidden)
+    || (deleteAccountModal && !deleteAccountModal.hidden);
   document.body.classList.toggle("modal-open", Boolean(shouldKeepModalOpen));
+}
+
+function openDeleteAccountModal() {
+  if (!deleteAccountModal) {
+    return;
+  }
+
+  if (notificationsModal && !notificationsModal.hidden) {
+    closeNotifications();
+  }
+
+  if (sessionMenu) {
+    sessionMenu.hidden = true;
+  }
+
+  deleteAccountForm?.reset();
+  setFeedback(deleteAccountFeedback, "");
+  deleteAccountModal.hidden = false;
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => deleteAccountPasswordInput?.focus(), 60);
+}
+
+function closeDeleteAccountModal() {
+  if (!deleteAccountModal) {
+    return;
+  }
+
+  deleteAccountModal.hidden = true;
+  const shouldKeepModalOpen = (notificationsModal && !notificationsModal.hidden)
+    || (maintenanceVehicleModal && !maintenanceVehicleModal.hidden)
+    || (virtualDealershipImageModal && !virtualDealershipImageModal.hidden)
+    || (virtualDealershipVideoModal && !virtualDealershipVideoModal.hidden);
+  document.body.classList.toggle("modal-open", Boolean(shouldKeepModalOpen));
+}
+
+async function submitDeleteAccount() {
+  const password = String(deleteAccountPasswordInput?.value || "");
+
+  if (!password) {
+    setFeedback(deleteAccountFeedback, "Escribe tu contraseña para confirmar.", "error");
+    return;
+  }
+
+  if (deleteAccountConfirmButton) {
+    deleteAccountConfirmButton.disabled = true;
+  }
+
+  setFeedback(deleteAccountFeedback, "Eliminando cuenta...");
+
+  try {
+    await fetchJson("/api/auth/delete-account", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+
+    await requestLogout();
+    clearAuth();
+    redirectToLogin();
+  } catch (error) {
+    setFeedback(deleteAccountFeedback, error.message, "error");
+  } finally {
+    if (deleteAccountConfirmButton) {
+      deleteAccountConfirmButton.disabled = false;
+    }
+  }
 }
 
 function refreshMaintenanceButtonLabel() {
@@ -2574,6 +2841,24 @@ function buildSequoiaWhatsappUrl(message) {
   const whatsappUrl = new URL(`https://wa.me/${GLOBAL_WHATSAPP_NUMBER}`);
   whatsappUrl.searchParams.set("text", message);
   return whatsappUrl.toString();
+}
+
+function getSelectedOrderVehicleLabel() {
+  if (!selectedOrderVehicle) {
+    return "el vehículo";
+  }
+
+  const parts = [selectedOrderVehicle.brand, selectedOrderVehicle.model];
+
+  if (selectedOrderVehicle.key === "sequoia") {
+    const activeVersion = getActiveSequoiaConfig()?.name;
+
+    if (activeVersion) {
+      parts.push(activeVersion);
+    }
+  }
+
+  return parts.filter(Boolean).join(" ").trim() || "el vehículo";
 }
 
 function renderSequoiaOrderSummary() {
@@ -2881,7 +3166,7 @@ function renderOrderActionCards(vehicleInfo) {
   orderActionCards.innerHTML = ORDER_ACTION_TEMPLATES.map((item) => {
     const cardTitle = item.title.replace("{vehicle}", vehicleTitle);
     const imageUrl = vehicleImages?.[item.key]
-      || (item.key === "design" ? (vehicleInfo.key === "runner" ? "/app/runer.jpeg" : "/app/sequ.jpg") : item.image);
+      || (item.key === "design" ? (vehicleInfo.key === "runner" ? "/runer.jpeg" : "/sequ.jpg") : item.image);
 
     return `
       <button
@@ -2951,19 +3236,19 @@ function bindOrderExperience() {
     }
 
     const action = actionButton.dataset.orderAction;
-    const vehicleLabel = `${selectedOrderVehicle.brand} ${selectedOrderVehicle.model}`.trim();
+    const vehicleLabel = getSelectedOrderVehicleLabel();
     const notesField = requestForm?.elements?.notes;
 
     if (action === "demo") {
       const message = `Hola, me encuentro interesado en la compra de una ${vehicleLabel} y quisiera hacer un Demo Drive para conocerla un poco más. ¿Podrías brindarme más información?`;
-      const whatsappUrl = new URL(`https://wa.me/${GLOBAL_WHATSAPP_NUMBER}`);
-      whatsappUrl.searchParams.set("text", message);
-      window.location.href = whatsappUrl.toString();
+      window.location.href = buildSequoiaWhatsappUrl(message);
       return;
     }
 
-    if (action === "finance" && notesField) {
-      notesField.value = `Quiero conocer opciones de financiamiento para ${vehicleLabel}.`;
+    if (action === "finance") {
+      const message = `Hola! estoy interesado en comprar ${vehicleLabel}, me gustaria que me ayudaras con el proceso de financiamiento para el vehiculo.`;
+      window.location.href = buildSequoiaWhatsappUrl(message);
+      return;
     }
 
     if (action === "design") {
@@ -3066,19 +3351,45 @@ function bindSequoiaConfigurator() {
   });
 
   sequoiaConfigImageFrame?.addEventListener("touchstart", (event) => {
-    sequoiaTouchStartX = event.touches?.[0]?.clientX || 0;
-  }, { passive: true });
-
-  sequoiaConfigImageFrame?.addEventListener("touchend", (event) => {
-    const touchEndX = event.changedTouches?.[0]?.clientX || sequoiaTouchStartX;
-    const deltaX = touchEndX - sequoiaTouchStartX;
-
-    if (Math.abs(deltaX) < 18) {
+    if ((event.touches?.length || 0) !== 1) {
+      isSequoiaTouchDragging = false;
       return;
     }
 
-    const steps = Math.max(1, Math.round(Math.abs(deltaX) / 18));
-    spinSequoiaImage(deltaX < 0 ? steps : -steps);
+    sequoiaTouchLastX = event.touches?.[0]?.clientX || 0;
+    sequoiaTouchAccumulator = 0;
+    isSequoiaTouchDragging = true;
+  }, { passive: true });
+
+  sequoiaConfigImageFrame?.addEventListener("touchmove", (event) => {
+    if (!isSequoiaTouchDragging || (event.touches?.length || 0) !== 1) {
+      return;
+    }
+
+    const currentX = event.touches?.[0]?.clientX || sequoiaTouchLastX;
+    const deltaX = currentX - sequoiaTouchLastX;
+    sequoiaTouchLastX = currentX;
+    sequoiaTouchAccumulator += deltaX;
+
+    const steps = Math.trunc(sequoiaTouchAccumulator / SEQUOIA_TOUCH_SPIN_STEP_PX);
+
+    if (steps !== 0) {
+      spinSequoiaImage(-steps);
+      sequoiaTouchAccumulator -= steps * SEQUOIA_TOUCH_SPIN_STEP_PX;
+    }
+
+    // Keep the gesture dedicated to 360 rotation while the finger is over the frame.
+    event.preventDefault();
+  }, { passive: false });
+
+  sequoiaConfigImageFrame?.addEventListener("touchend", () => {
+    isSequoiaTouchDragging = false;
+    sequoiaTouchAccumulator = 0;
+  }, { passive: true });
+
+  sequoiaConfigImageFrame?.addEventListener("touchcancel", () => {
+    isSequoiaTouchDragging = false;
+    sequoiaTouchAccumulator = 0;
   }, { passive: true });
 
   sequoiaConfigImageFrame?.addEventListener("wheel", (event) => {
@@ -3100,19 +3411,45 @@ function bindSequoiaConfigurator() {
   }, { passive: false });
 
   sequoiaInteriorImageFrame?.addEventListener("touchstart", (event) => {
-    sequoiaInteriorTouchStartX = event.touches?.[0]?.clientX || 0;
-  }, { passive: true });
-
-  sequoiaInteriorImageFrame?.addEventListener("touchend", (event) => {
-    const touchEndX = event.changedTouches?.[0]?.clientX || sequoiaInteriorTouchStartX;
-    const deltaX = touchEndX - sequoiaInteriorTouchStartX;
-
-    if (Math.abs(deltaX) < 18) {
+    if ((event.touches?.length || 0) !== 1) {
+      isSequoiaInteriorTouchDragging = false;
       return;
     }
 
-    const steps = Math.max(1, Math.round(Math.abs(deltaX) / 18));
-    spinSequoiaInteriorImage(deltaX < 0 ? steps : -steps);
+    sequoiaInteriorTouchLastX = event.touches?.[0]?.clientX || 0;
+    sequoiaInteriorTouchAccumulator = 0;
+    isSequoiaInteriorTouchDragging = true;
+  }, { passive: true });
+
+  sequoiaInteriorImageFrame?.addEventListener("touchmove", (event) => {
+    if (!isSequoiaInteriorTouchDragging || (event.touches?.length || 0) !== 1) {
+      return;
+    }
+
+    const currentX = event.touches?.[0]?.clientX || sequoiaInteriorTouchLastX;
+    const deltaX = currentX - sequoiaInteriorTouchLastX;
+    sequoiaInteriorTouchLastX = currentX;
+    sequoiaInteriorTouchAccumulator += deltaX;
+
+    const steps = Math.trunc(sequoiaInteriorTouchAccumulator / SEQUOIA_TOUCH_SPIN_STEP_PX);
+
+    if (steps !== 0) {
+      spinSequoiaInteriorImage(-steps);
+      sequoiaInteriorTouchAccumulator -= steps * SEQUOIA_TOUCH_SPIN_STEP_PX;
+    }
+
+    // Keep the gesture dedicated to 360 rotation while the finger is over the frame.
+    event.preventDefault();
+  }, { passive: false });
+
+  sequoiaInteriorImageFrame?.addEventListener("touchend", () => {
+    isSequoiaInteriorTouchDragging = false;
+    sequoiaInteriorTouchAccumulator = 0;
+  }, { passive: true });
+
+  sequoiaInteriorImageFrame?.addEventListener("touchcancel", () => {
+    isSequoiaInteriorTouchDragging = false;
+    sequoiaInteriorTouchAccumulator = 0;
   }, { passive: true });
 
   sequoiaInteriorImageFrame?.addEventListener("wheel", (event) => {
@@ -3165,10 +3502,52 @@ function bindSequoiaConfigurator() {
     renderSequoiaOrderSummary();
   });
 
-  sequoiaOrderCardButton?.addEventListener("click", () => {
+  sequoiaOrderCardButton?.addEventListener("click", async () => {
+    if (!sequoiaOrderCardButton) {
+      return;
+    }
+
+    const originalLabel = sequoiaOrderCardButton.textContent;
     const summary = getSequoiaOrderSummaryData();
-    const orderMessage = `Hola, quiero ordenar con tarjeta una ${summary.brand} ${summary.model} ${summary.versionName}. Exterior: ${summary.exteriorColorName}. Interior: ${summary.interiorColorName}. Entrega en ${summary.deliveryCityLabel}. Precio total: ${formatCopCurrency(summary.totalPrice)}. Pago hoy: ${formatCopCurrency(SEQUOIA_ORDER_RESERVATION_AMOUNT)}.`;
-    window.location.href = buildSequoiaWhatsappUrl(orderMessage);
+
+    sequoiaOrderCardButton.disabled = true;
+    sequoiaOrderCardButton.textContent = "Preparando contrato...";
+
+    try {
+      const response = await fetchJson("/api/client/docusign/preagreement-signing-url", {
+        method: "POST",
+        body: JSON.stringify({
+          vehicle: {
+            brand: summary.brand,
+            model: summary.model,
+            version: summary.versionName,
+            exteriorColor: summary.exteriorColorName,
+            interiorColor: summary.interiorColorName,
+          },
+          deliveryCity: summary.deliveryCityLabel,
+          totalPriceLabel: formatCopCurrency(summary.totalPrice),
+          reservationAmountLabel: formatCopCurrency(SEQUOIA_ORDER_RESERVATION_AMOUNT),
+        }),
+      });
+
+      if (!response?.signingUrl) {
+        throw new Error("No fue posible iniciar la firma del preacuerdo.");
+      }
+
+      window.location.href = response.signingUrl;
+    } catch (error) {
+      if (error?.message && /consentimiento jwt|consent_required|docusign requiere consentimiento/i.test(error.message)) {
+        const consentUrlMatch = String(error.message).match(/https?:\/\/\S+/i);
+
+        if (consentUrlMatch?.[0]) {
+          window.open(consentUrlMatch[0], "_blank", "noopener,noreferrer");
+        }
+      }
+
+      window.alert(error.message || "No se pudo iniciar la firma del preacuerdo.");
+      sequoiaOrderCardButton.disabled = false;
+      sequoiaOrderCardButton.textContent = originalLabel;
+    }
   });
 }
 
@@ -3181,8 +3560,9 @@ function goToTrackingPage() {
   }
 
   setFeedback(trackingSearchFeedback, "", "");
+  rememberTrackingSearch(query);
 
-  const trackingUrl = new URL("/app/client-tracking.html", window.location.origin);
+  const trackingUrl = new URL("/client-tracking.html", window.location.origin);
   trackingUrl.searchParams.set("tracking", query.toUpperCase());
   window.location.href = trackingUrl.toString();
 }
@@ -3263,7 +3643,7 @@ function renderVirtualDealership() {
       const vehicleKey = resolveVirtualVehicleKey(vehicle, index);
       const vehicleTitle = `${vehicle.brand || "Vehículo"} ${vehicle.model || ""} ${vehicle.version || ""}`.trim();
       const pricing = formatCopCurrency(vehicle.price || 0);
-      const publicationUrl = new URL("/app/client.html", window.location.origin);
+      const publicationUrl = new URL("/client.html", window.location.origin);
       publicationUrl.searchParams.set("view", "virtual-dealership");
       publicationUrl.hash = `virtual-vehicle-${vehicleKey}`;
 
@@ -3382,6 +3762,12 @@ function setActiveView(viewName, options = {}) {
   if (nextViewName === "order-configurator") {
     showSequoiaVisionHint();
   }
+  if (nextViewName === "pago-separacion") {
+    initPagoSeparacionView();
+  }
+  if (nextViewName === "pago-exitoso") {
+    initPagoExitosoView();
+  }
 }
 
 function openNotifications() {
@@ -3393,7 +3779,8 @@ function closeNotifications() {
   notificationsModal.hidden = true;
   const shouldKeepModalOpen = (maintenanceVehicleModal && !maintenanceVehicleModal.hidden)
     || (virtualDealershipImageModal && !virtualDealershipImageModal.hidden)
-    || (virtualDealershipVideoModal && !virtualDealershipVideoModal.hidden);
+    || (virtualDealershipVideoModal && !virtualDealershipVideoModal.hidden)
+    || (deleteAccountModal && !deleteAccountModal.hidden);
   document.body.classList.toggle("modal-open", Boolean(shouldKeepModalOpen));
 }
 
@@ -3410,9 +3797,11 @@ async function loadDashboard() {
     Array.from(state.maintenanceExpandedDetails).filter((key) => validMaintenanceKeys.has(key))
   );
   state.notifications = data.notifications || [];
+  loadTrackingHistory();
 
   updateSummary();
   renderTrackingOptions();
+  renderTrackingHistory();
   renderMaintenanceList();
   renderNotifications();
   renderVirtualDealership();
@@ -3444,6 +3833,38 @@ navButtons.forEach((button) => {
 trackingForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   goToTrackingPage();
+});
+
+trackingTabSearchButton?.addEventListener("click", () => {
+  setTrackingActiveTab("search");
+});
+
+trackingTabOrdersButton?.addEventListener("click", () => {
+  setTrackingActiveTab("orders");
+});
+
+trackingOrdersList?.addEventListener("click", (event) => {
+  const trackingButton = event.target.closest("[data-tracking-history]");
+
+  if (!trackingButton) {
+    return;
+  }
+
+  const trackingNumber = String(trackingButton.getAttribute("data-tracking-history") || "").trim();
+
+  if (!trackingNumber) {
+    return;
+  }
+
+  const trackingUrl = new URL("/client-tracking.html", window.location.origin);
+  trackingUrl.searchParams.set("tracking", trackingNumber);
+  window.location.href = trackingUrl.toString();
+});
+
+trackingOrdersClearButton?.addEventListener("click", () => {
+  trackingHistory = [];
+  persistTrackingHistory();
+  renderTrackingHistory();
 });
 
 if (requestForm) {
@@ -3724,6 +4145,17 @@ logoutButton?.addEventListener("click", async () => {
   redirectToLogin();
 });
 
+deleteAccountOpenButton?.addEventListener("click", openDeleteAccountModal);
+deleteAccountCloseButton?.addEventListener("click", closeDeleteAccountModal);
+deleteAccountCancelButton?.addEventListener("click", closeDeleteAccountModal);
+deleteAccountOverlay?.addEventListener("click", closeDeleteAccountModal);
+deleteAccountForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitDeleteAccount().catch((error) => {
+    setFeedback(deleteAccountFeedback, error.message, "error");
+  });
+});
+
 document.addEventListener("click", (event) => {
   if (sessionMenu && menuButton && !sessionMenu.contains(event.target) && !menuButton.contains(event.target)) {
     sessionMenu.hidden = true;
@@ -3747,6 +4179,7 @@ document.addEventListener("keydown", (event) => {
     closeMaintenanceVehicleModal();
     closeVirtualDealershipImageModal();
     closeVirtualDealershipVideoModal();
+    closeDeleteAccountModal();
     sessionMenu.hidden = true;
     return;
   }
@@ -3765,10 +4198,206 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("touchstart", handlePullStart, { passive: true });
 window.addEventListener("touchmove", handlePullMove, { passive: false });
 window.addEventListener("touchend", handlePullEnd, { passive: true });
+window.addEventListener("wheel", handleWheelRefresh, { passive: true });
 
 window.addEventListener("load", () => {
   document.body.classList.add("motion-ready");
+  setTrackingActiveTab("search");
 });
+
+// ─── Pago separación (post-DocuSign → Wompi) ─────────────────────────────
+let pagoSepInitialized = false;
+
+function initPagoSeparacionView() {
+  if (pagoSepInitialized) return;
+  pagoSepInitialized = true;
+
+  const params = new URLSearchParams(window.location.search);
+  const brand    = params.get("brand")    || "Vehículo";
+  const model    = params.get("model")    || "";
+  const version  = params.get("version")  || "";
+  const extColor = params.get("extColor") || "";
+  const intColor = params.get("intColor") || "";
+  const city     = params.get("city")     || "";
+  const price    = params.get("price")    || "";
+
+  const container = document.getElementById("pago-sep-summary");
+  const feedback  = document.getElementById("pago-sep-feedback");
+  if (!container) return;
+
+  const vehicleLabel = [brand, model, version].filter(Boolean).join(" ");
+
+  container.innerHTML = `
+    <header class="sequoia-order-summary-head">
+      <h3>${escapeHtml(vehicleLabel)}</h3>
+      <p>Has firmado el preacuerdo de compra exitosamente.</p>
+    </header>
+    <div style="margin:14px 0; font-size:14px; line-height:1.7;">
+      ${extColor ? `<p><strong>Color exterior:</strong> ${escapeHtml(extColor)}</p>` : ""}
+      ${intColor ? `<p><strong>Color interior:</strong> ${escapeHtml(intColor)}</p>` : ""}
+      ${city     ? `<p><strong>Ciudad de entrega:</strong> ${escapeHtml(city)}</p>` : ""}
+      ${price    ? `<p><strong>Precio total estimado:</strong> ${escapeHtml(price)}</p>` : ""}
+    </div>
+    <div class="sequoia-summary-paytoday">
+      <div class="sequoia-summary-line">
+        <strong>Paga hoy (separación)</strong>
+        <strong>$ 1.000.000</strong>
+      </div>
+      <p>Monto no reembolsable salvo incumplimiento de Global Imports</p>
+    </div>
+    <button id="wompi-pay-button" class="sequoia-summary-order-button" type="button" disabled>
+      Cargando pasarela de pago...
+    </button>
+  `;
+
+  fetchJson("/api/client/payment/wompi-config")
+    .then((cfg) => {
+      const reference = `GI-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+
+      const successParams = new URLSearchParams();
+      successParams.set("view", "pago-exitoso");
+      if (brand)    successParams.set("brand",    brand);
+      if (model)    successParams.set("model",    model);
+      if (version)  successParams.set("version",  version);
+      if (extColor) successParams.set("extColor", extColor);
+      if (intColor) successParams.set("intColor", intColor);
+      if (city)     successParams.set("city", city);
+      successParams.set("reference", reference);
+      const redirectAfterPayment = `${window.location.origin}/client.html?${successParams.toString()}`;
+
+      // Siempre usar el dominio oficial de Wompi (sandbox y prod usan el mismo)
+      const wompiUrl = new URL("https://checkout.wompi.co/p/");
+      wompiUrl.searchParams.set("public-key",     cfg.publicKey);
+      wompiUrl.searchParams.set("currency",        cfg.currency || "COP");
+      wompiUrl.searchParams.set("amount-in-cents", String(cfg.amountInCents || 100000000));
+      wompiUrl.searchParams.set("reference",       reference);
+      wompiUrl.searchParams.set("redirect-url",    redirectAfterPayment);
+
+      const btn = document.getElementById("wompi-pay-button");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Proceder al pago →";
+        btn.addEventListener("click", () => { window.location.href = wompiUrl.toString(); });
+      }
+    })
+    .catch(() => {
+      if (feedback) {
+        feedback.textContent = "No se pudo cargar la pasarela de pago. Intenta de nuevo.";
+        feedback.className = "feedback error";
+      }
+      const btn = document.getElementById("wompi-pay-button");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Reintentar";
+        btn.addEventListener("click", () => { pagoSepInitialized = false; initPagoSeparacionView(); });
+      }
+    });
+}
+
+// ─── Pago exitoso (post-Wompi → WhatsApp) ────────────────────────────────
+let pagoExitoInitialized = false;
+
+function initPagoExitosoView() {
+  if (pagoExitoInitialized) {
+    return;
+  }
+
+  pagoExitoInitialized = true;
+  const params = new URLSearchParams(window.location.search);
+  const brand    = params.get("brand")    || "Vehículo";
+  const model    = params.get("model")    || "";
+  const version  = params.get("version")  || "";
+  const extColor = params.get("extColor") || "";
+  const intColor = params.get("intColor") || "";
+  const city = params.get("city") || "";
+  const reference = params.get("reference") || "";
+  const transactionId = params.get("id") || params.get("transactionId") || params.get("transaction_id") || "";
+  const status = params.get("status") || "";
+
+  const container = document.getElementById("pago-exito-body");
+  if (!container) return;
+
+  const vehicleLabel = [brand, model, version].filter(Boolean).join(" ");
+
+  container.innerHTML = `
+    <p style="font-size:14px; color:#6b7280; text-align:center;">Validando pago con Wompi...</p>
+  `;
+
+  if (!transactionId) {
+    container.innerHTML = `
+      <p style="font-size:14px; color:#dc2626; text-align:center;">
+        No encontramos el identificador de la transacción. Si ya pagaste, contáctanos para validar manualmente.
+      </p>
+    `;
+    return;
+  }
+
+  const waMessage =
+    `¡Hola, Global Imports! Acabo de realizar el pago de separación de $1.000.000 para reservar mi ` +
+    vehicleLabel +
+    (extColor ? ` en color ${extColor}` : "") +
+    (intColor ? ` con interior ${intColor}` : "") +
+    `. ¿Cuál es el paso a seguir para formalizar el contrato de compra?`;
+
+  const waUrl = buildSequoiaWhatsappUrl(waMessage);
+
+  fetchJson("/api/client/payment/wompi-confirm", {
+    method: "POST",
+    body: JSON.stringify({
+      transactionId,
+      status,
+      reference,
+      brand,
+      model,
+      version,
+      extColor,
+      intColor,
+      city,
+      vehicle: {
+        brand,
+        model,
+        version,
+        exteriorColor: extColor,
+        interiorColor: intColor,
+      },
+    }),
+  }).then((result) => {
+    if (!result?.paid) {
+      container.innerHTML = `
+        <p style="font-size:14px; color:#b45309; text-align:center;">
+          El pago aún aparece como ${escapeHtml(String(result?.status || "PENDING"))}. Cuando se apruebe, verás tu confirmación aquí.
+        </p>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size:56px; margin-bottom:10px;">&#x2705;</div>
+      <p style="font-size:15px; font-weight:600; margin-bottom:6px;">¡Pago confirmado y registrado!</p>
+      <p style="font-size:13px; color:#4b5563; margin-bottom:20px;">
+        Has separado tu <strong>${escapeHtml(vehicleLabel)}</strong>
+        ${extColor ? `color <strong>${escapeHtml(extColor)}</strong>` : ""}.
+        Tu compra ya fue notificada al sistema administrativo.
+        Tracking: <strong>${escapeHtml(String(result?.trackingNumber || "por asignar"))}</strong>
+      </p>
+      <a href="${escapeHtml(waUrl)}"
+         target="_blank" rel="noopener noreferrer"
+         class="sequoia-summary-order-button"
+         style="display:inline-block; text-decoration:none; background:#25d366; margin-bottom:14px;">
+        &#x1F4AC; Contactar a Global Imports por WhatsApp
+      </a>
+      <p style="font-size:12px; color:#6b7280;">
+        Al hacer clic entrarás a WhatsApp con un mensaje preescrito sobre tu vehículo reservado.
+      </p>
+    `;
+  }).catch((error) => {
+    container.innerHTML = `
+      <p style="font-size:14px; color:#dc2626; text-align:center;">
+        No pudimos validar el pago automáticamente. ${escapeHtml(error?.message || "Intenta recargar la página.")}
+      </p>
+    `;
+  });
+}
 
 setActiveView(getInitialViewFromUrl());
 

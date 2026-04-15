@@ -76,6 +76,17 @@ Variables necesarias para Cloudinary si quieres subir archivos desde el portal a
 - `CLOUDINARY_API_SECRET`
 - `CLOUDINARY_FOLDER` opcional, por defecto `global-app/posts`
 
+Variables necesarias para correos transaccionales con Brevo:
+
+- `BREVO_API_KEY`
+- `PUBLIC_APP_URL` para construir enlaces del portal en correos de tracking y recuperación
+
+## Tracking: push + correo
+
+- Cuando un cliente autenticado consulta un tracking, su usuario queda asociado como suscriptor del pedido.
+- Cada actualización de un estado de tracking envía push notification y correo al email registrado del cliente/suscriptor.
+- El correo de tracking se envía vía Brevo con remitente `orders@globalimportsus.com`.
+
 ## Publicaciones admin -> feed cliente
 
 - El admin publica en `POST /api/admin/posts`.

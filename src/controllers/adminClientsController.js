@@ -1,8 +1,18 @@
 const Client = require("../models/Client");
+const ClientGlobalUS = require("../models/ClientGlobalUS");
+
+function isUsaAdministrativeRole(role) {
+  return ["gerenteUSA", "adminUSA"].includes(String(role || ""));
+}
+
+function resolveClientModelByRole(role) {
+  return isUsaAdministrativeRole(role) ? ClientGlobalUS : Client;
+}
 
 async function listClients(req, res) {
   try {
-    const clients = await Client.find().sort({ createdAt: -1 });
+    const ClientModel = resolveClientModelByRole(req.user?.role);
+    const clients = await ClientModel.find().sort({ createdAt: -1 });
 
     return res.status(200).json({ clients });
   } catch (error) {
@@ -12,6 +22,7 @@ async function listClients(req, res) {
 
 async function createClient(req, res) {
   try {
+    const ClientModel = resolveClientModelByRole(req.user?.role);
     const {
       name,
       email,
@@ -28,13 +39,13 @@ async function createClient(req, res) {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    const existingClient = await Client.findOne({ email: normalizedEmail });
+    const existingClient = await ClientModel.findOne({ email: normalizedEmail });
 
     if (existingClient) {
       return res.status(409).json({ message: "Client already exists" });
     }
 
-    const client = await Client.create({
+    const client = await ClientModel.create({
       name: String(name).trim(),
       email: normalizedEmail,
       phone: phone ? String(phone).trim() : undefined,
