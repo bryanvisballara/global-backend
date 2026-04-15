@@ -1139,6 +1139,7 @@ async function updateTrackingState(req, res) {
     const requestedInProgress = requestedConfirmed ? false : parseBooleanValue(req.body.inProgress, step.inProgress);
     const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
     const requestedVisibilityOnly = parseBooleanValue(req.body.visibilityOnly, false);
+    const requestedMediaVisibilityOnly = parseBooleanValue(req.body.mediaVisibilityOnly, false);
     const forceCreateUpdate = !requestedVisibilityOnly && parseBooleanValue(req.body.forceCreateUpdate, false);
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
 
@@ -1169,7 +1170,7 @@ async function updateTrackingState(req, res) {
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
 
-    if (requestedVisibilityOnly) {
+    if (requestedVisibilityOnly && requestedMediaVisibilityOnly) {
       reconcileTrackingStepMedia(step, existingMedia);
     }
 
@@ -1185,10 +1186,16 @@ async function updateTrackingState(req, res) {
 
       targetUpdate.clientVisible = requestedClientVisible;
       targetUpdate.updatedAt = visibilityChangedAt;
-      targetUpdate.media = normalizeMedia(targetUpdate.media || []).map((item) => ({
-        ...item,
-        clientVisible: requestedClientVisible,
-      }));
+
+      if (requestedMediaVisibilityOnly) {
+        targetUpdate.media = normalizeMedia(targetUpdate.media || []);
+      } else {
+        targetUpdate.media = normalizeMedia(targetUpdate.media || []).map((item) => ({
+          ...item,
+          clientVisible: requestedClientVisible,
+        }));
+      }
+
       order.markModified("trackingSteps");
 
       if (!previouslyVisible && requestedClientVisible) {

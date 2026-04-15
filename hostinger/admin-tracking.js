@@ -1023,7 +1023,6 @@ function buildTrackingMediaEntryFingerprint(item = {}) {
     String(item.name || "").trim().toLowerCase(),
     String(item.caption || "").trim().toLowerCase(),
     String(item.updateIndex ?? "").trim(),
-    String(item.mediaIndex ?? "").trim(),
   ].join("::");
 }
 
@@ -1387,10 +1386,13 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
   formData.append("inProgress", state.inProgress ? "true" : "false");
   formData.append("confirmed", state.confirmed ? "true" : "false");
   formData.append("clientVisible", nextVisible ? "true" : "false");
-  formData.append("existingMedia", JSON.stringify(existingMedia));
   formData.append("visibilityOnly", "true");
   formData.append("updateIndex", String(updateIndex));
   formData.append("mediaMeta", "[]");
+
+  if (updateIndex < 0) {
+    formData.append("existingMedia", JSON.stringify(existingMedia));
+  }
 
   const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
     method: "PATCH",
@@ -1400,6 +1402,7 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
   orders = orders.map((order) => (order._id === response.order._id ? response.order : order));
   renderOrderSummary(getSelectedOrder());
   renderStates();
+  renderTrackingOverview(getSelectedOrder());
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(trackingFeedback, nextVisible ? "Actualizacion visible para cliente." : "Actualizacion oculta para cliente.", "success");
 }
@@ -1445,6 +1448,7 @@ async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaInde
   );
   formData.append("existingMedia", JSON.stringify(updatedMedia));
   formData.append("visibilityOnly", "true");
+  formData.append("mediaVisibilityOnly", "true");
   formData.append("updateIndex", String(updateIndex));
   formData.append("mediaMeta", "[]");
 
@@ -1456,6 +1460,7 @@ async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaInde
   orders = orders.map((order) => (order._id === response.order._id ? response.order : order));
   renderOrderSummary(getSelectedOrder());
   renderStates();
+  renderTrackingOverview(getSelectedOrder());
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(trackingFeedback, nextVisible ? "Archivo visible para cliente." : "Archivo oculto para cliente.", "success");
 }
