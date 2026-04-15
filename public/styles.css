@@ -1,6 +1,5 @@
 :root {
   color-scheme: dark;
-  --ui-scale: 0.75;
   --bg: #050505;
   --bg-soft: #0f0f10;
   --card: rgba(19, 19, 19, 0.9);
@@ -37,15 +36,29 @@ body {
 }
 
 html {
-  zoom: var(--ui-scale);
+  zoom: 1;
+}
+
+@media (min-width: 1101px) {
+  html {
+    zoom: 0.75;
+  }
 }
 
 @supports not (zoom: 1) {
   html {
-    transform: scale(var(--ui-scale));
+    transform: none;
     transform-origin: top center;
-    width: calc(100% / var(--ui-scale));
-    min-height: calc(100% / var(--ui-scale));
+    width: 100%;
+    min-height: 100%;
+  }
+
+  @media (min-width: 1101px) {
+    html {
+      transform: scale(0.75);
+      width: calc(100% / 0.75);
+      min-height: calc(100% / 0.75);
+    }
   }
 }
 
@@ -3648,22 +3661,21 @@ body.modal-open {
 }
 
 .client-shell {
-  width: min(100%, 580px);
-  margin: 0 auto;
-  padding: calc(14px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: calc(10px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom));
 }
 
 .client-stage {
   position: relative;
-  overflow: hidden;
-  min-height: calc(100vh - 28px);
-  padding: 18px 16px calc(108px + env(safe-area-inset-bottom));
-  border-radius: 34px;
-  border: 1px solid var(--line);
-  background:
-    radial-gradient(circle at top left, rgba(216, 170, 82, 0.12), transparent 28%),
-    linear-gradient(180deg, rgba(15, 16, 17, 0.98), rgba(6, 6, 6, 0.99));
-  box-shadow: var(--shadow);
+  overflow: visible;
+  min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: 18px 20px calc(108px + env(safe-area-inset-bottom));
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .client-sheen {
@@ -4004,6 +4016,34 @@ a.popover-action {
 .tracking-search-card,
 .maintenance-card {
   padding: 0;
+}
+
+.tracking-search-card,
+.client-form-card,
+.maintenance-card,
+.tracking-orders-card,
+.sequoia-config-colors-section,
+.sequoia-config-versions-section,
+.sequoia-order-summary,
+.virtual-dealership-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tracking-search-card,
+.client-form-card,
+.tracking-orders-card,
+.sequoia-config-colors-section,
+.sequoia-config-versions-section,
+.sequoia-order-summary {
+  padding-inline: 0;
+}
+
+.maintenance-card {
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .feed-card {
@@ -4427,6 +4467,10 @@ a.popover-action {
   background: #060606;
   display: grid;
   gap: 14px;
+}
+
+.sequoia-order-summary {
+  padding: 18px 0 16px;
 }
 
 .sequoia-order-summary-head h3 {
@@ -5049,10 +5093,10 @@ a.popover-action {
 }
 
 .virtual-dealership-card {
-  overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  overflow: visible;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   position: relative;
 }
 
@@ -5097,6 +5141,7 @@ a.popover-action {
   height: 196px;
   object-fit: cover;
   display: block;
+  border-radius: 24px;
   transition: transform 260ms ease;
 }
 
@@ -5146,7 +5191,7 @@ a.popover-action {
 .virtual-dealership-card-body {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 16px 0 0;
 }
 
 .virtual-dealership-card-body p {
@@ -5593,13 +5638,13 @@ body.modal-open {
 
 @media (max-width: 640px) {
   .client-shell {
-    padding-inline: 8px;
+    padding-inline: 0;
   }
 
   .client-stage {
-    min-height: calc(100vh - 16px);
-    padding-inline: 14px;
-    border-radius: 28px;
+    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding-inline: 20px;
+    border-radius: 0;
   }
 
   .client-summary-grid,
@@ -5623,7 +5668,7 @@ body.modal-open {
 
   .feed-author-row,
   .feed-story-copy {
-    padding-inline: 14px;
+    padding-inline: 0;
   }
 
   .feed-media-card {
@@ -5656,7 +5701,7 @@ body.modal-open {
   }
 
   .sequoia-config-carousel-card {
-    margin-inline: -14px;
+    margin-inline: -20px;
   }
 
   .sequoia-config-specs {
