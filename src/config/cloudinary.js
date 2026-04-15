@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { v2: cloudinary } = require("cloudinary");
 const { Readable } = require("stream");
 
@@ -28,6 +29,10 @@ async function uploadBufferToCloudinary(file, folder = process.env.CLOUDINARY_FO
     throw new Error("Cloudinary is not configured");
   }
 
+  if (!file?.buffer && !file?.path) {
+    throw new Error("Uploaded file is missing both buffer and path");
+  }
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -47,7 +52,12 @@ async function uploadBufferToCloudinary(file, folder = process.env.CLOUDINARY_FO
       }
     );
 
-    Readable.from(file.buffer).pipe(uploadStream);
+    const sourceStream = file.buffer
+      ? Readable.from(file.buffer)
+      : fs.createReadStream(file.path);
+
+    sourceStream.on("error", reject);
+    sourceStream.pipe(uploadStream);
   });
 }
 

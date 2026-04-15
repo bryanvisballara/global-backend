@@ -24,11 +24,12 @@ const {
   updateVirtualDealershipVehicle,
 } = require("../controllers/adminVirtualDealershipController");
 
-const upload = require("../middleware/upload");
+const signedDocumentUpload = require("../middleware/upload");
+const { upload } = require("../middleware/uploadMiddleware");
 const signedDocumentController = require("../controllers/signedDocumentController");
 const router = express.Router();
 // Documentos firmados (DocuSign)
-router.post("/signed-documents", upload.single("pdf"), signedDocumentController.uploadSignedDocument);
+router.post("/signed-documents", signedDocumentUpload.single("pdf"), signedDocumentController.uploadSignedDocument);
 router.get("/signed-documents", signedDocumentController.listSignedDocuments);
 router.get("/signed-documents/:id/download", signedDocumentController.downloadSignedDocument);
 
