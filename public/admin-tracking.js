@@ -156,9 +156,64 @@ function getPendingMediaForState(stateKey) {
 function getStateDraftDefaults(state) {
   return {
     notes: "",
-    inProgress: Boolean(state?.confirmed ? false : state?.inProgress),
+    inProgress: isStateEffectivelyInProgress(state),
     confirmed: Boolean(state?.confirmed),
   };
+}
+
+function isStateEffectivelyInProgress(state, order = getSelectedOrder()) {
+  if (!state || state.confirmed) {
+    return false;
+  }
+
+  if (state.inProgress) {
+    return true;
+  }
+
+  const currentStageKey = resolveCurrentStageKey(order);
+  return Boolean(currentStageKey && currentStageKey === state.key);
+}
+
+function getStateDisplayUpdates(state, order = getSelectedOrder()) {
+  const persistedUpdates = getStateUpdates(state);
+
+  if (persistedUpdates.length) {
+    return persistedUpdates;
+  }
+
+  const effectiveInProgress = isStateEffectivelyInProgress(state, order);
+  const stateMedia = Array.isArray(state?.media) ? state.media : [];
+  const hasNotes = Boolean(String(state?.notes || "").trim());
+  const hasMedia = stateMedia.length > 0;
+  const syntheticTimestamp = state?.confirmedAt || state?.updatedAt || order?.purchaseDate || order?.createdAt || null;
+  const shouldCreateSyntheticUpdate = Boolean(state?.confirmed || effectiveInProgress || hasNotes || hasMedia || syntheticTimestamp);
+
+  if (!shouldCreateSyntheticUpdate) {
+    return [];
+  }
+
+  const syntheticNotes = hasNotes
+    ? String(state.notes).trim()
+    : state?.key === "order-received"
+      ? "Orden creada."
+      : state?.confirmed
+        ? "Etapa completada."
+        : effectiveInProgress
+          ? "Estado en curso."
+          : "";
+
+  return [
+    {
+      notes: syntheticNotes,
+      media: stateMedia,
+      clientVisible: Boolean(state?.clientVisible),
+      inProgress: effectiveInProgress,
+      completed: Boolean(state?.confirmed),
+      createdAt: syntheticTimestamp,
+      updatedAt: syntheticTimestamp,
+      isSynthetic: true,
+    },
+  ];
 }
 
 function getDraftStateValues(state) {
@@ -931,8 +986,8 @@ function getStateUpdates(state) {
   return Array.isArray(state?.updates) ? state.updates : [];
 }
 
-function getLatestStateUpdate(state) {
-  return getStateUpdates(state).reduce((latestUpdate, currentUpdate) => {
+function getLatestStateUpdate(state, order = getSelectedOrder()) {
+  return getStateDisplayUpdates(state, order).reduce((latestUpdate, currentUpdate) => {
     if (!latestUpdate) {
       return currentUpdate;
     }
@@ -971,7 +1026,7 @@ function resolveTimelineStateStatusLabel(variant) {
   }
 
   if (variant === "is-current") {
-    return "En proceso";
+    return "En curso";
   }
 
   return "Pendiente";
@@ -1017,7 +1072,7 @@ function renderMediaVisibilityButton(stateKey, updateIndex, mediaIndex, nextVisi
 }
 
 function renderStateHistory(state) {
-  const updates = [...getStateUpdates(state)].reverse();
+  const updates = [...getStateDisplayUpdates(state)].reverse();
 
   if (!updates.length) {
     return '<div class="tracking-state-history-empty">Todavia no hay actualizaciones en el historial de esta etapa.</div>';
@@ -1042,10 +1097,10 @@ function renderStateHistory(state) {
                 <strong>${escapeHtml(updateStatus)}</strong>
                 <p>${escapeHtml(updateDate ? formatDateTimeLabel(updateDate) : "Sin fecha")}</p>
               </div>
-              ${renderVisibilityButton(state.key, updateIndex, !update.clientVisible, update.clientVisible)}
+              ${update.isSynthetic ? "" : renderVisibilityButton(state.key, updateIndex, !update.clientVisible, update.clientVisible)}
             </div>
             <p>${escapeHtml(update.notes || "Sin nota registrada en esta actualización.")}</p>
-            <small>${escapeHtml(update.clientVisible ? "Visible al cliente" : "Oculto al cliente")}${updateFilesCount ? ` · ${escapeHtml(updateFilesCount)} archivo(s)` : ""}</small>
+            <small>${escapeHtml(update.isSynthetic ? "Registro derivado del estado actual" : update.clientVisible ? "Visible al cliente" : "Oculto al cliente")}${updateFilesCount ? ` · ${escapeHtml(updateFilesCount)} archivo(s)` : ""}</small>
           </article>
         `;
       }).join("")}
@@ -1059,7 +1114,7 @@ function buildRecentEvents(order) {
   return states
     .map((state, index) => {
       const stateCode = getStateCode(index);
-      const items = getStateUpdates(state)
+      const items = getStateDisplayUpdates(state, order)
         .flatMap((update, updateIndex) => {
           const eventDate = update.updatedAt || update.createdAt || null;
           const updateNotes = String(update.notes || "").trim();
@@ -1070,7 +1125,7 @@ function buildRecentEvents(order) {
                 id: `${state.key}-update-${updateIndex}`,
                 itemType: "update",
                 stateKey: state.key,
-                updateIndex,
+              updateIndex: update.isSynthetic ? -1 : updateIndex,
                 stateCode,
                 stateLabel: state.label,
                 date: eventDate,
@@ -1194,7 +1249,7 @@ function renderRecentEventItem(item) {
           <span class="tracking-stage-event-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
         </button>
         <div class="tracking-stage-event-actions">
-          ${renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible)}
+          ${item.updateIndex >= 0 ? renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible) : ""}
         </div>
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
@@ -1403,20 +1458,22 @@ function renderStates() {
   trackingStatesList.innerHTML = states
     .map((state, index) => {
       const isExpanded = expandedStateKey === state.key;
-      const latestUpdate = getLatestStateUpdate(state);
-      const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavia";
+      const effectiveInProgress = isStateEffectivelyInProgress(state, selectedOrder);
+      const latestUpdate = getLatestStateUpdate(state, selectedOrder);
+      const updatedAtValue = latestUpdate?.updatedAt || latestUpdate?.createdAt || state.updatedAt || selectedOrder?.purchaseDate || selectedOrder?.createdAt || null;
+      const updatedText = updatedAtValue ? `Actualizado ${formatDateLabel(updatedAtValue)}` : "Sin actualizaciones todavia";
       const mediaBuckets = buildStateMediaBuckets(state.media || []);
       const pendingMedia = getPendingMediaForState(state.key);
       const videoMethod = getVideoMethodForState(state.key);
       const videoLink = videoLinkByState.get(state.key) || "";
       const draft = getDraftStateValues(state);
-      const historyCount = getStateUpdates(state).length;
+      const historyCount = getStateDisplayUpdates(state, selectedOrder).length;
       const canEditState = canEditStateForRole(currentAdminRole, state.key);
       const lockMessage = "No tienes permisos para modificar este estado.";
-      const editButtonText = state.confirmed ? "Completado" : state.inProgress ? "En curso" : "Editar";
+      const editButtonText = state.confirmed ? "Completado" : effectiveInProgress ? "En curso" : "Editar";
 
       return `
-        <article class="tracking-state-card ${state.confirmed ? "is-confirmed" : ""} ${state.inProgress ? "is-in-progress" : ""} ${isExpanded ? "is-open" : ""}" data-state-card="${escapeHtml(state.key)}">
+        <article class="tracking-state-card ${state.confirmed ? "is-confirmed" : ""} ${effectiveInProgress ? "is-in-progress" : ""} ${isExpanded ? "is-open" : ""}" data-state-card="${escapeHtml(state.key)}">
           <div class="tracking-state-header">
             <div class="tracking-state-copy">
               <small>Estado ${index + 1}</small>

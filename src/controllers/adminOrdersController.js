@@ -116,6 +116,122 @@ function buildTrackingStepSnapshot(step, update = null) {
       : step.confirmedAt || null,
   };
 }
+
+function buildTrackingUpdateEntry({
+  notes = "",
+  media = [],
+  clientVisible = false,
+  inProgress = false,
+  completed = false,
+  timestamp = new Date(),
+}) {
+  const resolvedTimestamp = timestamp instanceof Date && !Number.isNaN(timestamp.getTime())
+    ? timestamp
+    : new Date(timestamp || Date.now());
+
+  return {
+    notes: typeof notes === "string" ? notes.trim() : "",
+    media: normalizeMedia(media || []),
+    clientVisible: Boolean(clientVisible),
+    inProgress: completed ? false : Boolean(inProgress),
+    completed: Boolean(completed),
+    createdAt: resolvedTimestamp,
+    updatedAt: resolvedTimestamp,
+  };
+}
+
+function buildInitialTrackingSteps(timestamp = new Date()) {
+  const resolvedTimestamp = timestamp instanceof Date && !Number.isNaN(timestamp.getTime())
+    ? timestamp
+    : new Date(timestamp || Date.now());
+  const trackingSteps = normalizeTrackingStates([]);
+
+  return trackingSteps.map((step, index) => {
+    if (index !== 0) {
+      return {
+        ...step,
+        inProgress: false,
+        confirmed: false,
+        clientVisible: false,
+        notes: "",
+        media: [],
+        updates: [],
+        updatedAt: null,
+        confirmedAt: null,
+      };
+    }
+
+    const initialUpdate = buildTrackingUpdateEntry({
+      notes: "Orden creada.",
+      media: [],
+      clientVisible: false,
+      inProgress: true,
+      completed: false,
+      timestamp: resolvedTimestamp,
+    });
+
+    return {
+      ...step,
+      inProgress: true,
+      confirmed: false,
+      clientVisible: false,
+      notes: initialUpdate.notes,
+      media: [],
+      updates: [initialUpdate],
+      updatedAt: resolvedTimestamp,
+      confirmedAt: null,
+    };
+  });
+}
+
+function ensureTrackingStepLifecycleUpdate(step, {
+  notes = "",
+  clientVisible = false,
+  inProgress = false,
+  completed = false,
+  timestamp = new Date(),
+} = {}) {
+  if (!step) {
+    return null;
+  }
+
+  if (!Array.isArray(step.updates)) {
+    step.updates = [];
+  }
+
+  const resolvedTimestamp = timestamp instanceof Date && !Number.isNaN(timestamp.getTime())
+    ? timestamp
+    : new Date(timestamp || Date.now());
+  const normalizedNotes = typeof notes === "string" ? notes.trim() : "";
+  const latestUpdate = getLatestTrackingStepUpdate(step);
+  const latestNotes = String(latestUpdate?.notes || "").trim();
+  const latestMediaCount = Array.isArray(latestUpdate?.media) ? latestUpdate.media.length : 0;
+  const latestMatchesLifecycle = Boolean(latestUpdate)
+    && Boolean(latestUpdate.completed) === Boolean(completed)
+    && Boolean(latestUpdate.inProgress) === Boolean(completed ? false : inProgress)
+    && Boolean(latestUpdate.clientVisible) === Boolean(clientVisible)
+    && latestNotes === normalizedNotes
+    && latestMediaCount === 0;
+
+  if (latestMatchesLifecycle) {
+    latestUpdate.createdAt = latestUpdate.createdAt || resolvedTimestamp;
+    latestUpdate.updatedAt = latestUpdate.updatedAt || resolvedTimestamp;
+    return latestUpdate;
+  }
+
+  const lifecycleUpdate = buildTrackingUpdateEntry({
+    notes: normalizedNotes,
+    media: [],
+    clientVisible,
+    inProgress,
+    completed,
+    timestamp: resolvedTimestamp,
+  });
+
+  step.updates.push(lifecycleUpdate);
+  return lifecycleUpdate;
+}
+
 function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
   return (steps || [])
     .map((step) => buildTrackingStepSnapshot(step, getLatestTrackingStepUpdate(step, (update) => update.completed && update.clientVisible)))
@@ -774,6 +890,8 @@ async function createOrder(req, res) {
     }
 
     const uploadedMedia = await uploadFilesToCloudinary(req.files || []);
+    const initialTrackingTimestamp = purchaseDate || new Date();
+    const trackingSteps = buildInitialTrackingSteps(initialTrackingTimestamp);
 
     const order = await OrderModel.create({
       client: client._id,
@@ -794,6 +912,7 @@ async function createOrder(req, res) {
       purchaseDate,
       expectedArrivalDate: expectedArrivalDate || undefined,
       media: normalizeMedia(uploadedMedia),
+      trackingSteps,
     });
 
     if (orderRegion === "latam") {
@@ -1054,6 +1173,22 @@ async function updateTrackingState(req, res) {
     syncTrackingStepProgression(order.trackingSteps, step.inProgress ? stepIndex : -1);
 
     const latestUpdate = getLatestTrackingStepUpdate(step);
+    const progressionTimestamp = latestUpdate?.updatedAt || latestUpdate?.createdAt || new Date();
+    const activeStepAfterSync = order.trackingSteps.find((item) => item?.inProgress && !item?.confirmed) || null;
+
+    if (requestedConfirmed && activeStepAfterSync && activeStepAfterSync.key !== step.key) {
+      const autoActivatedUpdate = ensureTrackingStepLifecycleUpdate(activeStepAfterSync, {
+        notes: "Estado activado automaticamente al completar la etapa anterior.",
+        clientVisible: false,
+        inProgress: true,
+        completed: false,
+        timestamp: progressionTimestamp,
+      });
+
+      activeStepAfterSync.notes = autoActivatedUpdate?.notes || activeStepAfterSync.notes || "";
+      activeStepAfterSync.updatedAt = autoActivatedUpdate?.updatedAt || autoActivatedUpdate?.createdAt || progressionTimestamp;
+    }
+
     const latestClientVisibleStep = getLatestClientVisibleStepSnapshot(step);
     step.clientVisible = Boolean(latestClientVisibleStep?.clientVisible);
     step.notes = latestUpdate?.notes || "";
