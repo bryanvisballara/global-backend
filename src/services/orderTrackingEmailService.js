@@ -1,4 +1,5 @@
 const { sendBrevoEmail } = require("./brevoEmailService");
+const { normalizePublicBaseUrl } = require("../utils/publicUrl");
 
 function escapeHtml(value) {
   return String(value || "")
@@ -17,11 +18,10 @@ function formatEmailParagraphs(value) {
 }
 
 function resolveTrackingUrl(trackingNumber) {
-  const baseUrl = String(
+  const baseUrl = normalizePublicBaseUrl(
     process.env.PUBLIC_APP_URL || process.env.APP_BASE_URL || process.env.CORS_ORIGIN || ""
   )
-    .trim()
-    .replace(/\/$/, "");
+    .trim();
 
   if (!baseUrl || !trackingNumber) {
     return "";

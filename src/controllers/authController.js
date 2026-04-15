@@ -8,6 +8,7 @@ const {
   sendRegistrationVerificationEmail,
 } = require("../services/brevoEmailService");
 const { generateToken } = require("../utils/token");
+const { normalizePublicBaseUrl } = require("../utils/publicUrl");
 
 const VERIFICATION_TTL_MINUTES = 10;
 const VERIFICATION_RESEND_COOLDOWN_MS = 30 * 1000;
@@ -39,10 +40,10 @@ function generatePasswordResetToken() {
 }
 
 function resolvePublicAppBaseUrl(req) {
-  const configuredBaseUrl = String(process.env.PUBLIC_APP_URL || process.env.APP_BASE_URL || "").trim();
+  const configuredBaseUrl = normalizePublicBaseUrl(process.env.PUBLIC_APP_URL || process.env.APP_BASE_URL || "");
 
   if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, "");
+    return configuredBaseUrl;
   }
 
   const forwardedProto = req.headers["x-forwarded-proto"] || (req.secure ? "https" : "http");
@@ -53,7 +54,9 @@ function resolvePublicAppBaseUrl(req) {
 
 function buildPasswordResetUrl(req, token) {
   const appBaseUrl = resolvePublicAppBaseUrl(req);
-  return `${appBaseUrl}/app/reset-password.html?token=${encodeURIComponent(token)}`;
+  const resetUrl = new URL("/app/reset-password.html", `${appBaseUrl}/`);
+  resetUrl.searchParams.set("token", String(token || ""));
+  return resetUrl.toString();
 }
 
 function getAuthCookieOptions(req) {
