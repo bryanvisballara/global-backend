@@ -232,6 +232,35 @@ function ensureTrackingStepLifecycleUpdate(step, {
   return lifecycleUpdate;
 }
 
+function buildSyntheticTrackingVisibilityUpdate(step, {
+  clientVisible = false,
+  inProgress = false,
+  completed = false,
+  timestamp = new Date(),
+} = {}) {
+  if (!step) {
+    return null;
+  }
+
+  const fallbackNotes = String(step.notes || "").trim()
+    || (completed
+      ? "Etapa completada."
+      : inProgress
+        ? "Estado en curso."
+        : step.key === "order-received"
+          ? "Orden creada."
+          : "Actualizacion interna.");
+
+  return buildTrackingUpdateEntry({
+    notes: fallbackNotes,
+    media: [],
+    clientVisible,
+    inProgress,
+    completed,
+    timestamp,
+  });
+}
+
 function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
   return (steps || [])
     .map((step) => buildTrackingStepSnapshot(step, getLatestTrackingStepUpdate(step, (update) => update.completed && update.clientVisible)))
@@ -1137,6 +1166,22 @@ async function updateTrackingState(req, res) {
 
       if (!previouslyVisible && requestedClientVisible) {
         clientPublishedStep = buildTrackingStepSnapshot(step, targetUpdate);
+      }
+    } else if (isVisibilityOnlyUpdate && requestedUpdateIndex < 0 && requestedClientVisible) {
+      if (!Array.isArray(step.updates)) {
+        step.updates = [];
+      }
+
+      const seededUpdate = buildSyntheticTrackingVisibilityUpdate(step, {
+        clientVisible: true,
+        inProgress: requestedConfirmed ? false : requestedInProgress,
+        completed: requestedConfirmed,
+        timestamp: new Date(),
+      });
+
+      if (seededUpdate) {
+        step.updates.push(seededUpdate);
+        clientPublishedStep = buildTrackingStepSnapshot(step, seededUpdate);
       }
     } else if (forceCreateUpdate || hasTrackingUpdateChanges({
       notes: requestedNotes,

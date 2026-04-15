@@ -24,6 +24,18 @@ function configureCloudinary() {
   return true;
 }
 
+function resolveCloudinaryResourceType(file) {
+  if (file?.mimetype?.startsWith("video/")) {
+    return "video";
+  }
+
+  if (file?.mimetype?.startsWith("image/")) {
+    return "image";
+  }
+
+  return "raw";
+}
+
 async function uploadBufferToCloudinary(file, folder = process.env.CLOUDINARY_FOLDER || "global-app/posts") {
   if (!configureCloudinary()) {
     throw new Error("Cloudinary is not configured");
@@ -37,7 +49,7 @@ async function uploadBufferToCloudinary(file, folder = process.env.CLOUDINARY_FO
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: "auto",
+        resource_type: resolveCloudinaryResourceType(file),
         use_filename: true,
         unique_filename: true,
         overwrite: false,

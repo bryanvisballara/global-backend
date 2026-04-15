@@ -1278,7 +1278,7 @@ function renderRecentEventItem(item) {
           <span class="tracking-stage-event-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
         </button>
         <div class="tracking-stage-event-actions">
-          ${item.updateIndex >= 0 ? renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible) : ""}
+            ${renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible)}
         </div>
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
@@ -1322,16 +1322,26 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
 
   const state = (selectedOrder.trackingSteps || []).find((item) => item.key === stateKey);
 
-  if (!state || updateIndex < 0 || updateIndex >= getStateUpdates(state).length) {
+  if (!state) {
     return;
   }
+
+  const persistedUpdates = getStateUpdates(state);
+
+  if (updateIndex >= 0 && updateIndex >= persistedUpdates.length) {
+    return;
+  }
+
+  const existingMedia = updateIndex < 0
+    ? (state.media || []).map((item) => ({ ...item, clientVisible: nextVisible }))
+    : state.media || [];
 
   const formData = new FormData();
   formData.append("notes", "");
   formData.append("inProgress", state.inProgress ? "true" : "false");
   formData.append("confirmed", state.confirmed ? "true" : "false");
   formData.append("clientVisible", nextVisible ? "true" : "false");
-  formData.append("existingMedia", JSON.stringify(state.media || []));
+  formData.append("existingMedia", JSON.stringify(existingMedia));
   formData.append("visibilityOnly", "true");
   formData.append("updateIndex", String(updateIndex));
   formData.append("mediaMeta", "[]");
