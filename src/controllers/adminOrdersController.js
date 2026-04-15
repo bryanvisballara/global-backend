@@ -884,7 +884,7 @@ async function updateTrackingState(req, res) {
 
     const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
 
-    await sendTrackingUpdateNotifications(updatedOrder, updatedStep).catch(() => null);
+    await sendTrackingUpdateNotifications(updatedOrder, updatedStep, previousConfirmedStep).catch(() => null);
     await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
 
     await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);

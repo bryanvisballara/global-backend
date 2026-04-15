@@ -70,14 +70,17 @@ function getNotificationPayload(post) {
   };
 }
 
-function getTrackingNotificationPayload({ order, step }) {
+function getTrackingNotificationPayload({ order, previousStep, step }) {
   const trackingNumber = String(order?.trackingNumber || "");
-  const stepLabel = String(step?.label || "Estado actualizado");
-  const stepNotes = String(step?.notes || "Tu tracking tiene una actualización.").trim();
+  const previousStepLabel = String(previousStep?.label || "").trim();
+  const nextStepLabel = String(step?.label || "Estado actualizado").trim();
+  const body = previousStepLabel && previousStepLabel !== nextStepLabel
+    ? `Tracking ${trackingNumber} - Tu vehículo pasó de ${previousStepLabel} a ${nextStepLabel}. Revisa más detalles aquí.`
+    : `Tracking ${trackingNumber} - Tu vehículo tiene una actualización al estado ${nextStepLabel}. Revisa más detalles aquí.`;
 
   return {
-    title: `Tracking ${trackingNumber}`,
-    body: `${stepLabel}: ${stepNotes}`,
+    title: "Order Update",
+    body,
     sound: PUSH_SOUND_FILENAME,
     data: {
       type: "tracking",
@@ -638,7 +641,7 @@ async function sendPublishedPostNotifications(post) {
   return { sent, skipped };
 }
 
-async function sendTrackingUpdateNotifications(order, step) {
+async function sendTrackingUpdateNotifications(order, step, previousStep = null) {
   const users = await resolveTrackingRecipientUsers(order);
 
   if (!users.length) {
@@ -656,7 +659,7 @@ async function sendTrackingUpdateNotifications(order, step) {
 
     const nextBadgeCount = Math.max(0, Number(user.notificationBadgeCount || 0) + 1);
     const notification = {
-      ...getTrackingNotificationPayload({ order, step }),
+      ...getTrackingNotificationPayload({ order, previousStep, step }),
       badge: nextBadgeCount,
     };
 
