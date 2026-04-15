@@ -278,7 +278,7 @@ function buildSyntheticTrackingVisibilityUpdate(step, {
 
   return buildTrackingUpdateEntry({
     notes: fallbackNotes,
-    media: [],
+    media: normalizeMedia(step.media || []),
     clientVisible,
     inProgress,
     completed,
@@ -640,6 +640,39 @@ function parseTrackingVideoLinks(value) {
 function parseTrackingUpdateIndex(value) {
   const parsedValue = Number.parseInt(String(value || ""), 10);
   return Number.isNaN(parsedValue) ? -1 : parsedValue;
+}
+
+function hydrateTrackingStepMediaFromFlattenedState(step) {
+  if (!step || !Array.isArray(step.updates) || !step.updates.length || !Array.isArray(step.media) || !step.media.length) {
+    return step;
+  }
+
+  step.updates.forEach((update, updateIndex) => {
+    const normalizedUpdateMedia = normalizeMedia(update?.media || []);
+
+    if (normalizedUpdateMedia.length) {
+      update.media = normalizedUpdateMedia;
+      return;
+    }
+
+    const fallbackMedia = normalizeMedia(
+      step.media.filter((item) => {
+        const mediaUpdateIndex = parseTrackingUpdateIndex(item?.updateIndex);
+
+        if (mediaUpdateIndex >= 0) {
+          return mediaUpdateIndex === updateIndex;
+        }
+
+        return step.updates.length === 1 && updateIndex === 0;
+      })
+    );
+
+    if (fallbackMedia.length) {
+      update.media = fallbackMedia;
+    }
+  });
+
+  return step;
 }
 
 function reconcileTrackingStepMedia(step, desiredMedia = []) {
@@ -1142,10 +1175,13 @@ async function updateTrackingState(req, res) {
     const requestedMediaVisibilityOnly = parseBooleanValue(req.body.mediaVisibilityOnly, false);
     const forceCreateUpdate = !requestedVisibilityOnly && parseBooleanValue(req.body.forceCreateUpdate, false);
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
+    const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
 
     if (!canModifyTrackingStep(req.user?.role, stepKey) && !requestedVisibilityOnly) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
+
+    hydrateTrackingStepMediaFromFlattenedState(step);
 
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
     const updateShouldBeClientVisible = requestedVisibilityOnly ? requestedClientVisible : false;
@@ -1170,10 +1206,6 @@ async function updateTrackingState(req, res) {
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
 
-    if (requestedVisibilityOnly && requestedMediaVisibilityOnly) {
-      reconcileTrackingStepMedia(step, existingMedia);
-    }
-
     let clientPublishedStep = null;
     const resolvedVisibilityUpdateIndex = isVisibilityOnlyUpdate && Array.isArray(step.updates) && step.updates.length
       ? (requestedUpdateIndex >= 0 && step.updates[requestedUpdateIndex] ? requestedUpdateIndex : step.updates.length - 1)
@@ -1184,23 +1216,32 @@ async function updateTrackingState(req, res) {
       const previouslyVisible = Boolean(targetUpdate.clientVisible);
       const visibilityChangedAt = new Date();
 
-      targetUpdate.clientVisible = requestedClientVisible;
-      targetUpdate.updatedAt = visibilityChangedAt;
+      const resolvedTargetMedia = normalizeMedia(targetUpdate.media || []);
 
       if (requestedMediaVisibilityOnly) {
-        targetUpdate.media = normalizeMedia(targetUpdate.media || []);
-      } else {
-        targetUpdate.media = normalizeMedia(targetUpdate.media || []).map((item) => ({
-          ...item,
+        if (requestedMediaIndex < 0 || !resolvedTargetMedia[requestedMediaIndex]) {
+          return res.status(404).json({ message: "Tracking media not found" });
+        }
+
+        resolvedTargetMedia[requestedMediaIndex] = {
+          ...resolvedTargetMedia[requestedMediaIndex],
           clientVisible: requestedClientVisible,
-        }));
+        };
+
+        targetUpdate.media = resolvedTargetMedia;
+        targetUpdate.clientVisible = resolvedTargetMedia.some((item) => item?.clientVisible !== false);
+      } else {
+        targetUpdate.media = resolvedTargetMedia;
+        targetUpdate.clientVisible = requestedClientVisible;
       }
 
-      order.markModified("trackingSteps");
+      targetUpdate.updatedAt = visibilityChangedAt;
 
       if (!previouslyVisible && requestedClientVisible) {
         clientPublishedStep = buildTrackingStepSnapshot(step, targetUpdate);
       }
+    } else if (requestedMediaVisibilityOnly) {
+      return res.status(404).json({ message: "Tracking media not found" });
     } else if (isVisibilityOnlyUpdate && requestedUpdateIndex < 0 && requestedClientVisible) {
       if (!Array.isArray(step.updates)) {
         step.updates = [];
@@ -1271,9 +1312,24 @@ async function updateTrackingState(req, res) {
 
     syncTrackingStepDerivedFields(step);
     order.status = order.trackingSteps.every((state) => state.confirmed) ? "completed" : "active";
-    order.markModified("trackingSteps");
+    order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
 
-    await order.save();
+    await order.validate();
+
+    const persistedTrackingSteps = order.toObject().trackingSteps || [];
+
+    await orderResult.orderModel.findByIdAndUpdate(
+      order._id,
+      {
+        $set: {
+          trackingSteps: persistedTrackingSteps,
+          status: order.status,
+        },
+      },
+      {
+        runValidators: true,
+      }
+    );
 
     // Automatizar agendamiento de mantenimiento si es LATAM y se confirma 'delivery'
     if (orderResult.region === "latam" && stepKey === "delivery" && step.confirmed) {

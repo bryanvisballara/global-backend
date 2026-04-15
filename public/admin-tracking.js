@@ -1377,10 +1377,6 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
     return;
   }
 
-  const existingMedia = updateIndex < 0
-    ? (state.media || []).map((item) => ({ ...item, clientVisible: nextVisible }))
-    : state.media || [];
-
   const formData = new FormData();
   formData.append("notes", "");
   formData.append("inProgress", state.inProgress ? "true" : "false");
@@ -1389,10 +1385,6 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
   formData.append("visibilityOnly", "true");
   formData.append("updateIndex", String(updateIndex));
   formData.append("mediaMeta", "[]");
-
-  if (updateIndex < 0) {
-    formData.append("existingMedia", JSON.stringify(existingMedia));
-  }
 
   const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
     method: "PATCH",
@@ -1446,10 +1438,10 @@ async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaInde
       ? "true"
       : "false"
   );
-  formData.append("existingMedia", JSON.stringify(updatedMedia));
   formData.append("visibilityOnly", "true");
   formData.append("mediaVisibilityOnly", "true");
   formData.append("updateIndex", String(updateIndex));
+  formData.append("mediaIndex", String(mediaIndex));
   formData.append("mediaMeta", "[]");
 
   const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
@@ -1590,7 +1582,7 @@ function renderStates() {
               <label class="dashboard-checkbox"><input type="checkbox" data-field="inProgress" ${draft.inProgress ? "checked" : ""} ${canEditState ? "" : "disabled"} /> Activar estado en curso</label>
               <label class="dashboard-checkbox"><input type="checkbox" data-field="confirmed" ${draft.confirmed ? "checked" : ""} ${canEditState ? "" : "disabled"} /> Completar estado</label>
             </div>
-            <p class="tracking-state-helper-copy">Cada guardado crea una entrada interna en el historial. El cliente solo recibe push/correo cuando publicas ese evento con el ojo.</p>
+            <p class="tracking-state-helper-copy">Cada vez que agregas un estado se crea una entrada interna en el historial. El cliente solo recibe push/correo cuando publicas ese evento con el ojo.</p>
             <div class="tracking-state-upload-grid two-up">
               <label>
                 <span>Subir documento (PDF)</span>
@@ -1626,7 +1618,7 @@ function renderStates() {
               <textarea rows="4" data-field="notes" placeholder="Describe lo ocurrido en esta actualizacion" ${canEditState ? "" : "disabled"}>${escapeHtml(draft.notes || "")}</textarea>
             </label>
             <div class="tracking-state-actions">
-              <button class="primary-button" type="button" data-save-state-key="${escapeHtml(state.key)}" ${canEditState ? "" : "disabled"}>Guardar estado</button>
+              <button class="primary-button" type="button" data-save-state-key="${escapeHtml(state.key)}" ${canEditState ? "" : "disabled"}>Agregar estado</button>
               <p class="feedback" data-state-feedback="${escapeHtml(state.key)}"></p>
             </div>
             <section class="tracking-state-history-block">
@@ -1851,7 +1843,7 @@ async function saveState(stateKey) {
   savingStates.add(stateKey);
   if (stateSaveButton) {
     stateSaveButton.disabled = true;
-    stateSaveButton.textContent = "Guardando...";
+    stateSaveButton.textContent = "Agregando...";
   }
 
   const appendFiles = (files, category) => {
@@ -1880,7 +1872,7 @@ async function saveState(stateKey) {
       savingStates.delete(stateKey);
       if (stateSaveButton) {
         stateSaveButton.disabled = false;
-        stateSaveButton.textContent = "Guardar estado";
+        stateSaveButton.textContent = "Agregar estado";
       }
       return;
     }
@@ -1894,7 +1886,7 @@ async function saveState(stateKey) {
 
   formData.append("mediaMeta", JSON.stringify(mediaMeta));
 
-  adminSetFeedback(stateFeedback, "Guardando estado...");
+  adminSetFeedback(stateFeedback, "Agregando estado...");
 
   try {
     const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
@@ -1907,7 +1899,7 @@ async function saveState(stateKey) {
     renderOrderSummary(getSelectedOrder());
     renderStates();
     renderSearchResults(getFilteredOrders());
-    adminSetFeedback(trackingFeedback, "Estado actualizado correctamente.", "success");
+    adminSetFeedback(trackingFeedback, "Estado agregado correctamente.", "success");
     clearDraftStateValues(stateKey);
     pendingMediaByState.set(stateKey, createEmptyPendingMedia());
     videoSourceMethodByState.delete(stateKey);
@@ -1921,7 +1913,7 @@ async function saveState(stateKey) {
 
     if (stateSaveButton) {
       stateSaveButton.disabled = false;
-      stateSaveButton.textContent = "Guardar estado";
+      stateSaveButton.textContent = "Agregar estado";
     }
   }
 }
