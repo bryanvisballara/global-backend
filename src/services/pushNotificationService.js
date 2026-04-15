@@ -6,6 +6,14 @@ const Post = require("../models/Post");
 
 const PUSH_SOUND_FILENAME = "0414.WAV";
 const ADMIN_NOTIFICATION_ROLES = ["manager", "admin", "gerenteUSA", "adminUSA"];
+const FIREBASE_MESSAGING_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
+
+let firebaseAccessTokenCache = {
+  token: "",
+  expiresAt: 0,
+};
+
+const loggedPushWarnings = new Set();
 
 async function resolveTrackingRecipientUsers(order) {
   const emails = new Set();
@@ -110,6 +118,10 @@ async function sendNotificationToDevices(devices = [], notification) {
     try {
       if (device.provider === "apns" && device.platform === "ios") {
         if (!isApnsConfigured()) {
+          logPushWarningOnce(
+            "apns-missing-config",
+            "[push] Skipping APNs notification because APNS_TEAM_ID, APNS_KEY_ID, APNS_PRIVATE_KEY or APNS_BUNDLE_ID is missing."
+          );
           skipped += 1;
           continue;
         }
@@ -127,6 +139,10 @@ async function sendNotificationToDevices(devices = [], notification) {
 
       if (device.provider === "fcm") {
         if (!isFcmConfigured()) {
+          logPushWarningOnce(
+            "fcm-missing-config",
+            "[push] Skipping FCM notification because Firebase credentials are not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in Render."
+          );
           skipped += 1;
           continue;
         }
@@ -143,7 +159,11 @@ async function sendNotificationToDevices(devices = [], notification) {
       }
 
       skipped += 1;
-    } catch {
+    } catch (error) {
+      console.error(
+        `[push] Failed sending ${String(device?.provider || "unknown")}/${String(device?.platform || "unknown")} notification`,
+        error?.message || error
+      );
       skipped += 1;
     }
   }
@@ -162,6 +182,33 @@ function isApnsConfigured() {
       process.env.APNS_PRIVATE_KEY &&
       process.env.APNS_BUNDLE_ID
   );
+}
+
+function logPushWarningOnce(key, message) {
+  if (loggedPushWarnings.has(key)) {
+    return;
+  }
+
+  loggedPushWarnings.add(key);
+  console.warn(message);
+}
+
+function getFirebaseConfig() {
+  return {
+    projectId: String(process.env.FIREBASE_PROJECT_ID || process.env.FCM_PROJECT_ID || "").trim(),
+    clientEmail: String(process.env.FIREBASE_CLIENT_EMAIL || "").trim(),
+    privateKey: String(process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n").trim(),
+    legacyServerKey: String(process.env.FCM_SERVER_KEY || "").trim(),
+  };
+}
+
+function isFcmV1Configured() {
+  const { projectId, clientEmail, privateKey } = getFirebaseConfig();
+  return Boolean(projectId && clientEmail && privateKey);
+}
+
+function isFcmLegacyConfigured() {
+  return Boolean(getFirebaseConfig().legacyServerKey);
 }
 
 function buildApnsJwt() {
@@ -251,17 +298,107 @@ function sendApnsNotification(deviceToken, notification) {
 }
 
 function isFcmConfigured() {
-  return Boolean(process.env.FCM_SERVER_KEY);
+  return isFcmV1Configured() || isFcmLegacyConfigured();
 }
 
-function sendFcmNotification(deviceToken, notification) {
+function normalizeFirebaseDataPayload(data) {
+  const normalizedPayload = {};
+
+  for (const [key, value] of Object.entries(data || {})) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    normalizedPayload[key] = typeof value === "string" ? value : JSON.stringify(value);
+  }
+
+  return normalizedPayload;
+}
+
+function getFirebaseAccessToken() {
+  if (firebaseAccessTokenCache.token && firebaseAccessTokenCache.expiresAt > Date.now() + 60 * 1000) {
+    return Promise.resolve(firebaseAccessTokenCache.token);
+  }
+
+  const { clientEmail, privateKey } = getFirebaseConfig();
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  const assertion = jwt.sign(
+    {
+      iss: clientEmail,
+      sub: clientEmail,
+      aud: "https://oauth2.googleapis.com/token",
+      scope: FIREBASE_MESSAGING_SCOPE,
+      iat: nowInSeconds,
+      exp: nowInSeconds + 3600,
+    },
+    privateKey,
+    { algorithm: "RS256" }
+  );
+
+  const requestBody = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion,
+  }).toString();
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      "https://oauth2.googleapis.com/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(requestBody),
+        },
+      },
+      (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(`Firebase OAuth request failed with status ${response.statusCode}`));
+            return;
+          }
+
+          try {
+            const parsedBody = JSON.parse(body || "{}");
+            const accessToken = String(parsedBody.access_token || "").trim();
+            const expiresInMs = Math.max(0, Number(parsedBody.expires_in || 3600) * 1000);
+
+            if (!accessToken) {
+              reject(new Error("Firebase OAuth response did not include an access token"));
+              return;
+            }
+
+            firebaseAccessTokenCache = {
+              token: accessToken,
+              expiresAt: Date.now() + expiresInMs,
+            };
+            resolve(accessToken);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+
+    request.on("error", reject);
+    request.end(requestBody);
+  });
+}
+
+function sendFcmLegacyNotification(deviceToken, notification) {
+  const { legacyServerKey } = getFirebaseConfig();
+
   return new Promise((resolve, reject) => {
     const request = https.request(
       "https://fcm.googleapis.com/fcm/send",
       {
         method: "POST",
         headers: {
-          Authorization: `key=${process.env.FCM_SERVER_KEY}`,
+          Authorization: `key=${legacyServerKey}`,
           "Content-Type": "application/json",
         },
       },
@@ -289,7 +426,7 @@ function sendFcmNotification(deviceToken, notification) {
             return;
           }
 
-          reject(new Error(`FCM request failed with status ${response.statusCode}`));
+          reject(new Error(`FCM legacy request failed with status ${response.statusCode}`));
         });
       }
     );
@@ -308,6 +445,88 @@ function sendFcmNotification(deviceToken, notification) {
       })
     );
   });
+}
+
+async function sendFcmV1Notification(deviceToken, notification) {
+  const accessToken = await getFirebaseAccessToken();
+  const { projectId } = getFirebaseConfig();
+
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+      (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            resolve({ ok: true });
+            return;
+          }
+
+          try {
+            const parsedBody = JSON.parse(body || "{}");
+            const errorCode = String(parsedBody?.error?.status || "").trim();
+            const errorMessage = String(parsedBody?.error?.message || "").trim();
+            const reason = errorCode || errorMessage || `FCM v1 request failed with status ${response.statusCode}`;
+            resolve({ ok: false, reason });
+          } catch {
+            reject(new Error(`FCM v1 request failed with status ${response.statusCode}`));
+          }
+        });
+      }
+    );
+
+    request.on("error", reject);
+    request.end(
+      JSON.stringify({
+        message: {
+          token: deviceToken,
+          notification: {
+            title: notification.title,
+            body: notification.body,
+          },
+          data: normalizeFirebaseDataPayload(notification.data),
+          apns: {
+            headers: {
+              "apns-priority": "10",
+            },
+            payload: {
+              aps: {
+                sound: String(notification?.sound || PUSH_SOUND_FILENAME),
+                ...(Number.isFinite(Number(notification?.badge))
+                  ? { badge: Math.max(0, Number(notification.badge)) }
+                  : {}),
+              },
+            },
+          },
+          android: {
+            priority: "high",
+            notification: {
+              sound: String(notification?.sound || PUSH_SOUND_FILENAME),
+            },
+          },
+        },
+      })
+    );
+  });
+}
+
+function sendFcmNotification(deviceToken, notification) {
+  if (isFcmV1Configured()) {
+    return sendFcmV1Notification(deviceToken, notification);
+  }
+
+  return sendFcmLegacyNotification(deviceToken, notification);
 }
 
 async function removeInvalidDeviceTokens(tokens = []) {
@@ -359,6 +578,10 @@ async function sendPublishedPostNotifications(post) {
       try {
         if (device.provider === "apns" && device.platform === "ios") {
           if (!isApnsConfigured()) {
+            logPushWarningOnce(
+              "apns-missing-config",
+              "[push] Skipping APNs notification because APNS_TEAM_ID, APNS_KEY_ID, APNS_PRIVATE_KEY or APNS_BUNDLE_ID is missing."
+            );
             skipped += 1;
             continue;
           }
@@ -376,6 +599,10 @@ async function sendPublishedPostNotifications(post) {
 
         if (device.provider === "fcm") {
           if (!isFcmConfigured()) {
+            logPushWarningOnce(
+              "fcm-missing-config",
+              "[push] Skipping FCM notification because Firebase credentials are not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in Render."
+            );
             skipped += 1;
             continue;
           }
@@ -393,6 +620,10 @@ async function sendPublishedPostNotifications(post) {
 
         skipped += 1;
       } catch (error) {
+        console.error(
+          `[push] Failed sending ${String(device?.provider || "unknown")}/${String(device?.platform || "unknown")} notification`,
+          error?.message || error
+        );
         skipped += 1;
       }
     }
