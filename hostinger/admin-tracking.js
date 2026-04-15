@@ -388,10 +388,32 @@ function setLockedStateFeedback(stateKey) {
 function getOrderTrackingSteps(order) {
   const orderSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
 
-  return adminTrackingTemplates.map((template, index) => {
+  const normalizedSteps = adminTrackingTemplates.map((template, index) => {
     const matchingStep = orderSteps.find((step) => step?.key === template.key);
-    return matchingStep || orderSteps[index] || { ...template, confirmed: false };
+    const step = matchingStep || orderSteps[index] || {};
+
+    return {
+      ...template,
+      ...step,
+      confirmed: Boolean(step?.confirmed),
+      inProgress: Boolean(step?.confirmed ? false : step?.inProgress),
+      clientVisible: typeof step?.clientVisible === "boolean" ? step.clientVisible : false,
+      notes: String(step?.notes || "").trim(),
+      media: Array.isArray(step?.media) ? step.media : [],
+      updates: Array.isArray(step?.updates) ? step.updates : [],
+      updatedAt: step?.updatedAt || null,
+      confirmedAt: step?.confirmedAt || null,
+    };
   });
+
+  const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
+  const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
+  const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+
+  return normalizedSteps.map((step, index) => ({
+    ...step,
+    inProgress: !step.confirmed && index === activeIndex,
+  }));
 }
 
 function resolveCurrentStageKey(order) {
@@ -438,7 +460,14 @@ function normalizeToDateEnd(value) {
 }
 
 function getSelectedOrder() {
-  return orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null;
+  const selectedOrder = orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null;
+
+  if (!selectedOrder) {
+    return null;
+  }
+
+  selectedOrder.trackingSteps = getOrderTrackingSteps(selectedOrder);
+  return selectedOrder;
 }
 
 function formatOrderLabel(order) {
@@ -1109,7 +1138,7 @@ function renderStateHistory(state) {
 }
 
 function buildRecentEvents(order) {
-  const states = order?.trackingSteps || [];
+  const states = getOrderTrackingSteps(order);
 
   return states
     .map((state, index) => {
@@ -1453,7 +1482,7 @@ function renderStates() {
     return;
   }
 
-  const states = selectedOrder.trackingSteps || adminTrackingTemplates;
+  const states = getOrderTrackingSteps(selectedOrder);
 
   trackingStatesList.innerHTML = states
     .map((state, index) => {
