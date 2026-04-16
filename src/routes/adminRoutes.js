@@ -11,6 +11,7 @@ const {
   createOrder,
   deleteTrackingUpdate,
   getOrder,
+  listOrderDeletionRequests,
   listOrders,
   requestOrderDeletion,
   reviewOrderDeletionRequest,
@@ -57,6 +58,7 @@ router.get("/client-requests", requireLatamAdministrativeRole, listClientRequest
 router.get("/tracking-suggestion", suggestTrackingNumber);
 
 router.get("/orders", listOrders);
+router.get("/orders/deletion-requests", listOrderDeletionRequests);
 router.post("/orders", upload.array("mediaFiles", 10), createOrder);
 router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
