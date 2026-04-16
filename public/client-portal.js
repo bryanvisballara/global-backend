@@ -42,7 +42,7 @@ const FEED_PAGE_SIZE = 5;
 const VIRTUAL_DEALERSHIP_BATCH_SIZE = 3;
 const PULL_REFRESH_THRESHOLD = 78;
 const TRACKING_HISTORY_MAX_ITEMS = 12;
-const TRACKING_PAGE_VERSION = "20260416-clientevents03";
+const TRACKING_PAGE_VERSION = "20260416-clientevents04";
 
 function buildTrackingPageUrl(trackingNumber = "") {
   const trackingUrl = new URL("/client-tracking.html", window.location.origin);

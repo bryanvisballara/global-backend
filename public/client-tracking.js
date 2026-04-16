@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260416-clientevents03";
+const TRACKING_PAGE_VERSION = "20260416-clientevents04";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
@@ -505,12 +505,13 @@ function buildTimelineStates(visibleConfirmedStates = []) {
   );
 
   return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
-    const confirmedState = visibleByKey.get(stateTemplate.key);
+    const visibleState = visibleByKey.get(stateTemplate.key);
 
     return {
       key: stateTemplate.key,
-      label: confirmedState?.label || stateTemplate.label,
-      confirmed: Boolean(confirmedState),
+      label: visibleState?.label || stateTemplate.label,
+      confirmed: Boolean(visibleState?.confirmed),
+      inProgress: Boolean(visibleState?.inProgress),
     };
   });
 }
@@ -525,7 +526,8 @@ function renderTrackingTimeline(order, selectedStateKey = "") {
   const timelineStates = buildTimelineStates(buildTrackingStepsFromEvents(order));
   const completedCount = timelineStates.filter((state) => state.confirmed).length;
   const maxIndex = timelineStates.length - 1;
-  const activeIndex = Math.min(completedCount, maxIndex);
+  const inProgressIndex = timelineStates.findIndex((state) => state.inProgress && !state.confirmed);
+  const activeIndex = inProgressIndex >= 0 ? inProgressIndex : Math.min(completedCount, maxIndex);
   const progressPercent = maxIndex > 0 ? (activeIndex / maxIndex) * 100 : 0;
 
   const statesMarkup = timelineStates
@@ -533,10 +535,10 @@ function renderTrackingTimeline(order, selectedStateKey = "") {
       let stateClass = "pending";
       let stateStatus = "Pendiente";
 
-      if (index < completedCount) {
+      if (state.confirmed) {
         stateClass = "completed";
         stateStatus = "Completado";
-      } else if (index === activeIndex) {
+      } else if (state.inProgress || index === activeIndex) {
         stateClass = "current";
         stateStatus = completedCount >= timelineStates.length ? "Completado" : "En curso";
       }

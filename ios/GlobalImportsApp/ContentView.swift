@@ -1,6 +1,6 @@
 import SwiftUI
 
-private let webShellVersion = "20260416-45"
+private let webShellVersion = "20260416-46"
 private let productionWebAppURL = "https://global-backend-bdbx.onrender.com/app/index.html?v=\(webShellVersion)"
 private let simulatorWebAppURL = "http://localhost:10000/app/index.html?v=\(webShellVersion)"
 private let deviceLocalWebAppURL = "http://192.168.1.95:10000/app/index.html?v=\(webShellVersion)"
