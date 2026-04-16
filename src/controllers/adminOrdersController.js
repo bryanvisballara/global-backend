@@ -1459,7 +1459,9 @@ async function deleteTrackingUpdate(req, res) {
     (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
     await backfillTrackingEventsFromOrder(order, orderResult.region);
     order.trackingEventCollectionEnabled = true;
-    order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
 

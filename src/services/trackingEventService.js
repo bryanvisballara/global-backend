@@ -60,7 +60,7 @@ function buildStepEventMap(events = []) {
 }
 
 function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = new Map(), preferCollectionOnly = false) {
-  const baseTrackingSteps = Array.isArray(sourceTrackingSteps) ? sourceTrackingSteps : [];
+  const baseTrackingSteps = normalizeTrackingStates(sourceTrackingSteps || []);
   const mergedTrackingSteps = baseTrackingSteps.map((step) => {
     const stepKey = String(step?.key || "").trim();
     const externalUpdates = stepEventMap.get(stepKey);
