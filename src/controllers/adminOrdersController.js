@@ -59,7 +59,7 @@ function isAnthonyGlobalOwner(requester) {
 
 function canAccessLatamOrders(requester) {
   const normalizedRole = normalizeRequesterRole(requester);
-  return normalizedRole === "admin" || normalizedRole === "manager";
+  return normalizedRole === "admin" || normalizedRole === "manager" || isUsaAdministrativeRole(normalizedRole);
 }
 
 function canAccessUsaOrders(requester) {
