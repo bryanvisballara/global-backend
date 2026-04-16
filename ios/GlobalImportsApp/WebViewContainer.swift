@@ -26,7 +26,9 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
 
         webView.configuration.userContentController.add(self, name: "globalImportsDownload")
         webView.configuration.userContentController.add(self, name: "globalImportsBadge")
+        webView.configuration.userContentController.add(self, name: "globalImportsExternalLink")
         webView.navigationDelegate = self
+        webView.uiDelegate = self
         webView.isOpaque = false
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
@@ -52,6 +54,7 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
 
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "globalImportsDownload")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "globalImportsBadge")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "globalImportsExternalLink")
     }
 
     func load(_ url: URL, forceReload: Bool = false) {
@@ -117,6 +120,13 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
             return
         }
 
+        if message.name == "globalImportsExternalLink" {
+            let body = message.body as? [String: Any]
+            let rawURL = body?["url"] as? String ?? ""
+            openExternalLink(rawURL: rawURL)
+            return
+        }
+
         guard message.name == "globalImportsDownload" else { return }
         guard let body = message.body as? [String: Any] else { return }
         guard let rawURL = body["url"] as? String, !rawURL.isEmpty else { return }
@@ -127,6 +137,14 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
 
     private func setBadgeCount(_ count: Int) {
         UIApplication.shared.applicationIconBadgeNumber = max(0, count)
+    }
+
+    private func openExternalLink(rawURL: String) {
+        guard let resolvedURL = URL(string: rawURL, relativeTo: webView.url)?.absoluteURL else {
+            return
+        }
+
+        UIApplication.shared.open(resolvedURL, options: [:], completionHandler: nil)
     }
 
     private func startNativeDownload(rawURL: String, preferredFileName: String?) {
@@ -320,9 +338,39 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
     }
 }
 
-extension WebViewStore: WKNavigationDelegate {}
+extension WebViewStore: WKNavigationDelegate, WKUIDelegate {}
 
 extension WebViewStore {
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        let scheme = url.scheme?.lowercased() ?? ""
+        let host = url.host?.lowercased() ?? ""
+        let shouldOpenOutsideWebView = navigationAction.navigationType == .linkActivated && (
+            navigationAction.targetFrame == nil
+            || scheme == "whatsapp"
+            || scheme == "mailto"
+            || scheme == "tel"
+            || host == "wa.me"
+            || host == "api.whatsapp.com"
+        )
+
+        if shouldOpenOutsideWebView {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            decisionHandler(.cancel)
+            return
+        }
+
+        decisionHandler(.allow)
+    }
+
     func resetWebsiteData(completion: (() -> Void)? = nil) {
         let dataStore = webView.configuration.websiteDataStore
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
@@ -349,6 +397,19 @@ extension WebViewStore {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         finishLoading(withError: error.localizedDescription)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        if let url = navigationAction.request.url {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+
+        return nil
     }
 }
 

@@ -290,7 +290,6 @@ const ORDER_ACTION_IMAGES_BY_VEHICLE = {
 };
 
 const GLOBAL_WHATSAPP_NUMBER = "3016698126";
-const GLOBAL_WHATSAPP_FALLBACK_DELAY_MS = 900;
 const SEQUOIA_ORDER_RESERVATION_AMOUNT = 1000000;
 const SEQUOIA_DELIVERY_OPTIONS = {
   barranquilla: { label: "Barranquilla", fee: 0 },
@@ -2887,38 +2886,42 @@ function buildSequoiaWhatsappUrl(message) {
   return whatsappUrl.toString();
 }
 
-function buildSequoiaWhatsappAppUrl(message) {
-  const whatsappUrl = new URL("whatsapp://send");
-  whatsappUrl.searchParams.set("phone", GLOBAL_WHATSAPP_NUMBER);
+function openExternalBrowserUrl(url) {
+  const resolvedUrl = String(url || "").trim();
 
-  if (message) {
-    whatsappUrl.searchParams.set("text", message);
+  if (!resolvedUrl) {
+    return false;
   }
 
-  return whatsappUrl.toString();
+  const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
+
+  if (nativeExternalLinkHandler?.postMessage) {
+    nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
+    return true;
+  }
+
+  const openedWindow = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+
+  if (openedWindow) {
+    openedWindow.opener = null;
+    return true;
+  }
+
+  const externalLink = document.createElement("a");
+  externalLink.href = resolvedUrl;
+  externalLink.target = "_blank";
+  externalLink.rel = "noopener noreferrer external";
+  document.body.appendChild(externalLink);
+  externalLink.click();
+  externalLink.remove();
+
+  return true;
 }
 
 function openSequoiaWhatsappChat(message) {
   const normalizedMessage = String(message || "").trim();
-  const appUrl = buildSequoiaWhatsappAppUrl(normalizedMessage);
   const webUrl = buildSequoiaWhatsappUrl(normalizedMessage);
-  let appOpened = false;
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden") {
-      appOpened = true;
-    }
-  };
-
-  document.addEventListener("visibilitychange", handleVisibilityChange, { once: true });
-  window.location.href = appUrl;
-
-  window.setTimeout(() => {
-    if (!appOpened && document.visibilityState === "visible") {
-      window.location.href = webUrl;
-    }
-  }, GLOBAL_WHATSAPP_FALLBACK_DELAY_MS);
-
+  openExternalBrowserUrl(webUrl);
   return webUrl;
 }
 

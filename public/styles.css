@@ -3690,11 +3690,13 @@ body.modal-open {
   max-width: none;
   margin: 0;
   padding: calc(10px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom));
+  overflow-x: clip;
 }
 
 .client-stage {
   position: relative;
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 18px 20px calc(108px + env(safe-area-inset-bottom));
   border-radius: 0;
@@ -3720,6 +3722,8 @@ body.modal-open {
 .client-bottom-nav {
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 100%;
 }
 
 .client-header {
@@ -4263,7 +4267,7 @@ a.popover-action {
 
 .sequoia-config-carousel-card {
   padding: 0;
-  margin-inline: -16px;
+  margin-inline: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -5524,6 +5528,8 @@ a.popover-action {
   bottom: 0;
   left: 0;
   z-index: 15;
+  width: 100%;
+  max-width: 100vw;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
@@ -5726,7 +5732,7 @@ body.modal-open {
   }
 
   .sequoia-config-carousel-card {
-    margin-inline: -20px;
+    margin-inline: 0;
   }
 
   .sequoia-config-specs {
