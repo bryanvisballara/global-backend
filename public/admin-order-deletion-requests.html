@@ -3,18 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Global Imports | Solicitudes de compra</title>
+    <title>Global Imports | Solicitudes de eliminacion</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <link rel="stylesheet" href="/styles.css?v=20260416-ordermanage03" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -24,18 +25,19 @@
           </div>
         </header>
         <section class="page-hero">
-          <h1>Solicitudes de compra</h1>
-          <p class="dashboard-lead">Aquí verás los pedidos hechos por clientes en el portal del cliente, con vehículo y datos para contactarlos.</p>
+          <h1>Solicitudes de eliminación</h1>
+          <p class="dashboard-lead">Aprueba o rechaza las solicitudes enviadas por el equipo antes de eliminar definitivamente un pedido.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
-            <div class="module-metric-inline"><span>Total</span><strong id="requests-count">0</strong></div>
-            <div id="client-requests-list" class="request-grid"></div>
+            <div class="module-metric-inline"><span>Pendientes</span><strong id="deletion-requests-count">0</strong></div>
+            <p id="deletion-requests-feedback" class="feedback" aria-live="polite"></p>
+            <div id="order-deletion-requests-list" class="request-grid"></div>
           </article>
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js?v=20260409-05"></script>
-    <script src="/app/admin-client-requests.js?v=20260416-clientrequests01"></script>
+    <script src="/admin-common.js?v=20260416-adminlayout07"></script>
+    <script src="/admin-order-deletion-requests.js?v=20260416-orderdelete05"></script>
   </body>
 </html>

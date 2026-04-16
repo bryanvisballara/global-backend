@@ -61,6 +61,62 @@
     return false;
   }
 
+  function getLatestTrackingUpdate(updates = []) {
+    if (!Array.isArray(updates) || !updates.length) {
+      return null;
+    }
+
+    return updates.reduce((latestUpdate, currentUpdate) => {
+      if (!latestUpdate) {
+        return currentUpdate;
+      }
+
+      const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
+      const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+
+      return currentTime >= latestTime ? currentUpdate : latestUpdate;
+    }, null);
+  }
+
+  function normalizeText(value) {
+    return String(value || "").trim();
+  }
+
+  function getOrderTrackingEvents(order) {
+    return (Array.isArray(order?.trackingEvents) ? order.trackingEvents : [])
+      .map((event) => {
+        const stateKey = String(event?.stateKey || event?.stepKey || "").trim();
+        const stageIndex = stageTemplates.findIndex((stage) => stage.key === stateKey);
+        const parsedStateIndex = Number.isInteger(event?.stateIndex)
+          ? event.stateIndex
+          : Number.parseInt(String(event?.stateIndex || ""), 10);
+        const parsedUpdateIndex = Number.isInteger(event?.updateIndex)
+          ? event.updateIndex
+          : Number.parseInt(String(event?.updateIndex || ""), 10);
+
+        return {
+          eventId: String(event?.eventId || event?._id || `${stateKey}-${parsedUpdateIndex}`),
+          stateKey,
+          stateIndex: Number.isNaN(parsedStateIndex) ? stageIndex : parsedStateIndex,
+          updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
+          notes: normalizeText(event?.notes || ""),
+          media: Array.isArray(event?.media) ? event.media.filter((item) => item?.url) : [],
+          clientVisible: Boolean(event?.clientVisible),
+          inProgress: Boolean(event?.completed ? false : event?.inProgress),
+          completed: Boolean(event?.completed),
+          createdAt: event?.createdAt || null,
+          updatedAt: event?.updatedAt || event?.createdAt || null,
+        };
+      })
+      .filter((event) => event.stateKey)
+      .sort((left, right) => {
+        const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+        const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+
+        return rightTime - leftTime;
+      });
+  }
+
   function normalizeCollectionPayload(payload, keys = []) {
     if (Array.isArray(payload)) {
       return payload;
@@ -129,14 +185,79 @@
   }
 
   function getOrderTrackingSteps(order) {
-    if (!Array.isArray(order?.trackingSteps)) {
-      return [];
-    }
+    const orderSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+    const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || stageTemplates[index]?.key || ""), step]));
+    const trackingEvents = getOrderTrackingEvents(order);
+    const trackingEventsByKey = new Map();
 
-    return stageTemplates.map((template, index) => {
-      const matchingStep = order.trackingSteps.find((step) => step?.key === template.key);
-      return matchingStep || order.trackingSteps[index] || { ...template, confirmed: false };
+    trackingEvents.forEach((event) => {
+      if (!trackingEventsByKey.has(event.stateKey)) {
+        trackingEventsByKey.set(event.stateKey, []);
+      }
+
+      trackingEventsByKey.get(event.stateKey).push(event);
     });
+
+    const normalizedSteps = stageTemplates.map((template, index) => {
+      const sourceStep = stepsByKey.get(template.key) || orderSteps[index] || {};
+      const eventUpdates = (trackingEventsByKey.get(template.key) || [])
+        .slice()
+        .sort((left, right) => left.updateIndex - right.updateIndex)
+        .map((event) => ({
+          eventId: event.eventId,
+          notes: event.notes,
+          media: event.media,
+          clientVisible: event.clientVisible,
+          inProgress: event.inProgress,
+          completed: event.completed,
+          createdAt: event.createdAt,
+          updatedAt: event.updatedAt,
+        }));
+      const updates = eventUpdates.length
+        ? eventUpdates
+        : (Array.isArray(sourceStep?.updates)
+          ? sourceStep.updates.map((update) => ({
+              eventId: String(update?.eventId || "").trim(),
+              notes: normalizeText(update?.notes || ""),
+              media: Array.isArray(update?.media) ? update.media.filter((item) => item?.url) : [],
+              clientVisible: Boolean(update?.clientVisible),
+              inProgress: Boolean(update?.completed ? false : update?.inProgress),
+              completed: Boolean(update?.completed),
+              createdAt: update?.createdAt || null,
+              updatedAt: update?.updatedAt || null,
+            }))
+          : []);
+      const hasEventUpdates = eventUpdates.length > 0;
+      const latestUpdate = getLatestTrackingUpdate(updates);
+      const derivedConfirmed = hasEventUpdates
+        ? Boolean(latestUpdate?.completed)
+        : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
+      const derivedInProgress = hasEventUpdates
+        ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
+        : Boolean(
+            typeof sourceStep?.inProgress === "boolean"
+              ? sourceStep.inProgress && !derivedConfirmed
+              : latestUpdate?.completed
+                ? false
+                : latestUpdate?.inProgress
+          );
+
+      return {
+        key: template.key,
+        label: String(sourceStep?.label || template.label),
+        confirmed: derivedConfirmed,
+        inProgress: derivedInProgress,
+      };
+    });
+
+    const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
+    const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
+    const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+
+    return normalizedSteps.map((step, index) => ({
+      ...step,
+      inProgress: !step.confirmed && index === activeIndex,
+    }));
   }
 
   function resolveCurrentStageKey(order) {
@@ -145,6 +266,12 @@
     }
 
     const steps = getOrderTrackingSteps(order);
+    const activeStep = steps.find((step) => Boolean(step?.inProgress) && !isStepConfirmed(step?.confirmed));
+
+    if (activeStep?.key) {
+      return activeStep.key;
+    }
+
     const firstPendingIndex = steps.findIndex((step) => !isStepConfirmed(step?.confirmed));
 
     if (firstPendingIndex === -1) {

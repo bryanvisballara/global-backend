@@ -1,3 +1,4 @@
+(() => {
 const {
   attachLogout,
   fetchJson,
@@ -64,3 +65,4 @@ if (requireAdminAccess()) {
     renderEmptyState(requestsList, error.message);
   });
 }
+})();
