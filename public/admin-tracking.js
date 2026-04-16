@@ -1289,14 +1289,31 @@ async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventI
     }),
   });
 
+  const publishedEvent = getOrderTrackingEvents(response.order).find((event) => {
+    if (eventId) {
+      return event.eventId === eventId;
+    }
+
+    return event.stateKey === stateKey && event.updateIndex === updateIndex;
+  });
+  const publishConfirmed = !nextVisible || Boolean(publishedEvent?.clientVisible);
+
   orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
   expandedOverviewStateKey = stateKey;
   renderOrderSummary(getSelectedOrder());
   renderStates();
   renderSearchResults(getFilteredOrders());
-  adminSetFeedback(trackingFeedback, nextVisible ? "Evento publicado para la app del cliente." : "Evento oculto para la app del cliente.", "success");
+  adminSetFeedback(
+    trackingFeedback,
+    nextVisible
+      ? (publishConfirmed
+        ? "Evento publicado para la app del cliente."
+        : "No se pudo confirmar la publicacion del evento en la app del cliente.")
+      : "Evento oculto para la app del cliente.",
+    publishConfirmed ? "success" : "error"
+  );
 
-  if (nextVisible) {
+  if (nextVisible && publishConfirmed) {
     openSuccessModal({
       title: "Evento notificado",
       message: "El evento fue notificado al cliente y le aparecera en su app.",

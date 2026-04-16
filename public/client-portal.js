@@ -43,6 +43,33 @@ const VIRTUAL_DEALERSHIP_BATCH_SIZE = 3;
 const PULL_REFRESH_THRESHOLD = 78;
 const TRACKING_HISTORY_MAX_ITEMS = 12;
 
+function installZoomGuards() {
+  document.documentElement.style.touchAction = "manipulation";
+  document.body?.style?.setProperty("touch-action", "manipulation");
+
+  const preventGesture = (event) => {
+    event.preventDefault();
+  };
+
+  ["gesturestart", "gesturechange", "gestureend", "dblclick"].forEach((eventName) => {
+    document.addEventListener(eventName, preventGesture, { passive: false });
+  });
+
+  let lastTouchEndAt = 0;
+
+  document.addEventListener("touchend", (event) => {
+    const now = Date.now();
+
+    if (now - lastTouchEndAt <= 280) {
+      event.preventDefault();
+    }
+
+    lastTouchEndAt = now;
+  }, { passive: false });
+}
+
+installZoomGuards();
+
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
   const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
@@ -3165,8 +3192,7 @@ function renderOrderActionCards(vehicleInfo) {
 
   orderActionCards.innerHTML = ORDER_ACTION_TEMPLATES.map((item) => {
     const cardTitle = item.title.replace("{vehicle}", vehicleTitle);
-    const imageUrl = vehicleImages?.[item.key]
-      || (item.key === "design" ? (vehicleInfo.key === "runner" ? "/runer.jpeg" : "/sequ.jpg") : item.image);
+    const imageUrl = vehicleImages?.[item.key] || item.image;
 
     return `
       <button

@@ -27,6 +27,33 @@ const trackingNavButtons = Array.from(document.querySelectorAll("[data-nav-go]")
 let registeredPushToken = "";
 let activeTrackingOrder = null;
 
+function installZoomGuards() {
+  document.documentElement.style.touchAction = "manipulation";
+  document.body?.style?.setProperty("touch-action", "manipulation");
+
+  const preventGesture = (event) => {
+    event.preventDefault();
+  };
+
+  ["gesturestart", "gesturechange", "gestureend", "dblclick"].forEach((eventName) => {
+    document.addEventListener(eventName, preventGesture, { passive: false });
+  });
+
+  let lastTouchEndAt = 0;
+
+  document.addEventListener("touchend", (event) => {
+    const now = Date.now();
+
+    if (now - lastTouchEndAt <= 280) {
+      event.preventDefault();
+    }
+
+    lastTouchEndAt = now;
+  }, { passive: false });
+}
+
+installZoomGuards();
+
 const TRACKING_TIMELINE_STATES = [
   { key: "order-received", label: "Orden recibida" },
   { key: "vehicle-search", label: "Busqueda del carro" },
