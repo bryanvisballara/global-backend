@@ -600,6 +600,8 @@ function normalizePaginationValue(value, fallback, maxValue = 20) {
 function sanitizeOrderForClient(order) {
   const serializedOrder = order?.toObject ? order.toObject() : { ...(order || {}) };
 
+  delete serializedOrder.trackingEvents;
+
   if (serializedOrder.vehicle) {
     delete serializedOrder.vehicle.description;
     delete serializedOrder.vehicle.internalIdentifier;

@@ -385,24 +385,128 @@ function setLockedStateFeedback(stateKey) {
   adminSetFeedback(trackingFeedback, message, "error");
 }
 
+function getLatestTrackingUpdate(updates = []) {
+  return updates.reduce((latestUpdate, currentUpdate) => {
+    if (!latestUpdate) {
+      return currentUpdate;
+    }
+
+    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
+    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+
+    return currentTime >= latestTime ? currentUpdate : latestUpdate;
+  }, null);
+}
+
+function getTrackingTemplateMeta(stateKey) {
+  const resolvedStateKey = String(stateKey || "").trim();
+  const stateIndex = adminTrackingTemplates.findIndex((template) => template.key === resolvedStateKey);
+
+  return {
+    key: resolvedStateKey,
+    index: stateIndex,
+    label: stateIndex >= 0 ? adminTrackingTemplates[stateIndex].label : resolvedStateKey,
+    code: stateIndex >= 0 ? getStateCode(stateIndex) : "-",
+  };
+}
+
+function getOrderTrackingEvents(order) {
+  return (Array.isArray(order?.trackingEvents) ? order.trackingEvents : [])
+    .map((event) => {
+      const stateMeta = getTrackingTemplateMeta(event?.stateKey || event?.stepKey || "");
+      const parsedStateIndex = Number.isInteger(event?.stateIndex)
+        ? event.stateIndex
+        : Number.parseInt(String(event?.stateIndex || ""), 10);
+      const parsedUpdateIndex = Number.isInteger(event?.updateIndex)
+        ? event.updateIndex
+        : Number.parseInt(String(event?.updateIndex || ""), 10);
+
+      return {
+        eventId: String(event?.eventId || event?._id || `${stateMeta.key}-${parsedUpdateIndex}`),
+        stateKey: stateMeta.key,
+        stateLabel: String(event?.stateLabel || stateMeta.label || "Estado"),
+        stateIndex: Number.isNaN(parsedStateIndex) ? stateMeta.index : parsedStateIndex,
+        stateCode: String(event?.stateCode || stateMeta.code || "-"),
+        updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
+        notes: String(event?.notes || "").trim(),
+        media: Array.isArray(event?.media) ? event.media.filter((item) => item?.url) : [],
+        clientVisible: Boolean(event?.clientVisible),
+        inProgress: Boolean(event?.completed ? false : event?.inProgress),
+        completed: Boolean(event?.completed),
+        createdAt: event?.createdAt || null,
+        updatedAt: event?.updatedAt || event?.createdAt || null,
+      };
+    })
+    .filter((event) => event.stateKey)
+    .sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+
+      return rightTime - leftTime;
+    });
+}
+
 function getOrderTrackingSteps(order) {
   const orderSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+  const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || adminTrackingTemplates[index]?.key || ""), step]));
+  const trackingEvents = getOrderTrackingEvents(order);
+  const trackingEventsByKey = new Map();
+
+  trackingEvents.forEach((event) => {
+    if (!trackingEventsByKey.has(event.stateKey)) {
+      trackingEventsByKey.set(event.stateKey, []);
+    }
+
+    trackingEventsByKey.get(event.stateKey).push(event);
+  });
 
   const normalizedSteps = adminTrackingTemplates.map((template, index) => {
-    const matchingStep = orderSteps.find((step) => step?.key === template.key);
-    const step = matchingStep || orderSteps[index] || {};
+    const step = stepsByKey.get(template.key) || orderSteps[index] || {};
+    const eventUpdates = (trackingEventsByKey.get(template.key) || [])
+      .slice()
+      .sort((left, right) => left.updateIndex - right.updateIndex)
+      .map((event) => ({
+        notes: event.notes,
+        media: event.media,
+        clientVisible: event.clientVisible,
+        inProgress: event.inProgress,
+        completed: event.completed,
+        createdAt: event.createdAt,
+        updatedAt: event.updatedAt,
+      }));
+    const updates = eventUpdates.length
+      ? eventUpdates
+      : (Array.isArray(step?.updates)
+        ? step.updates.map((update) => ({
+            notes: String(update?.notes || "").trim(),
+            media: Array.isArray(update?.media) ? update.media.filter((item) => item?.url) : [],
+            clientVisible: Boolean(update?.clientVisible),
+            inProgress: Boolean(update?.completed ? false : update?.inProgress),
+            completed: Boolean(update?.completed),
+            createdAt: update?.createdAt || null,
+            updatedAt: update?.updatedAt || null,
+          }))
+        : []);
+    const latestUpdate = getLatestTrackingUpdate(updates);
+    const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
 
     return {
       ...template,
       ...step,
-      confirmed: Boolean(step?.confirmed),
-      inProgress: Boolean(step?.confirmed ? false : step?.inProgress),
-      clientVisible: typeof step?.clientVisible === "boolean" ? step.clientVisible : false,
-      notes: String(step?.notes || "").trim(),
-      media: Array.isArray(step?.media) ? step.media : [],
-      updates: Array.isArray(step?.updates) ? step.updates : [],
-      updatedAt: step?.updatedAt || null,
-      confirmedAt: step?.confirmedAt || null,
+      confirmed: Boolean(typeof step?.confirmed === "boolean" ? step.confirmed : latestUpdate?.completed),
+      inProgress: Boolean(
+        typeof step?.inProgress === "boolean"
+          ? step.inProgress && !step.confirmed
+          : latestUpdate?.completed
+            ? false
+            : latestUpdate?.inProgress
+      ),
+      clientVisible: updates.some((item) => item.clientVisible),
+      notes: String(step?.notes || latestUpdate?.notes || "").trim(),
+      media: Array.isArray(step?.media) ? step.media.filter((item) => item?.url) : [],
+      updates,
+      updatedAt: step?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
+      confirmedAt: step?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || null,
     };
   });
 
@@ -1183,6 +1287,57 @@ function renderStateHistory(state) {
 }
 
 function buildRecentEvents(order) {
+  const trackingEvents = getOrderTrackingEvents(order);
+
+  if (trackingEvents.length) {
+    const groupedEvents = new Map();
+
+    trackingEvents.forEach((event) => {
+      if (!groupedEvents.has(event.stateKey)) {
+        groupedEvents.set(event.stateKey, {
+          stateKey: event.stateKey,
+          stateCode: event.stateCode,
+          stateLabel: event.stateLabel,
+          latestDate: event.updatedAt || event.createdAt || null,
+          items: [],
+        });
+      }
+
+      const stageGroup = groupedEvents.get(event.stateKey);
+      stageGroup.items.push({
+        id: event.eventId || `${event.stateKey}-${event.updateIndex}`,
+        itemType: "update",
+        stateKey: event.stateKey,
+        updateIndex: event.updateIndex,
+        stateCode: event.stateCode,
+        stateLabel: event.stateLabel,
+        date: event.updatedAt || event.createdAt || null,
+        title: event.completed
+          ? "Etapa completada"
+          : event.inProgress
+            ? "Estado en curso"
+            : "Actualizacion interna",
+        description: event.notes || (event.media.length ? `${event.media.length} adjunto(s) cargados.` : "Sin descripcion registrada."),
+        clientVisible: event.clientVisible,
+        media: event.media || [],
+      });
+
+      const stageGroupTime = new Date(stageGroup.latestDate || 0).getTime();
+      const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
+
+      if (eventTime > stageGroupTime) {
+        stageGroup.latestDate = event.updatedAt || event.createdAt || null;
+      }
+    });
+
+    return Array.from(groupedEvents.values())
+      .map((group) => ({
+        ...group,
+        items: group.items.sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime()),
+      }))
+      .sort((left, right) => new Date(right.latestDate || 0).getTime() - new Date(left.latestDate || 0).getTime());
+  }
+
   const states = getOrderTrackingSteps(order);
 
   return states
@@ -1318,6 +1473,7 @@ function renderRecentEventItem(item) {
             <div class="tracking-stage-event-meta">
               <span>${escapeHtml(formatDateTimeLabel(item.date))}</span>
               <span>${escapeHtml(item.clientVisible ? "Visible al cliente" : "Oculto al cliente")}</span>
+              <span>${escapeHtml(`${(item.media || []).length} adjunto(s)`)}</span>
             </div>
           </div>
           <span class="tracking-stage-event-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
@@ -1328,6 +1484,7 @@ function renderRecentEventItem(item) {
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
         <p>${escapeHtml(item.description || "Sin descripcion registrada.")}</p>
+        ${renderCategorizedMediaSections(item.media || [])}
       </div>
     </article>
   `;

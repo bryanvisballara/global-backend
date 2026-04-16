@@ -1,5 +1,20 @@
 const OrderTrackingEvent = require("../models/OrderTrackingEvent");
-const { normalizeTrackingStates } = require("../constants/trackingSteps");
+const {
+  TRACKING_STATE_TEMPLATES,
+  normalizeTrackingStates,
+} = require("../constants/trackingSteps");
+
+const trackingStateMetaByKey = new Map(
+  TRACKING_STATE_TEMPLATES.map((step, index) => [
+    step.key,
+    {
+      key: step.key,
+      label: step.label,
+      index,
+      code: `E${index + 1}`,
+    },
+  ])
+);
 
 function toPlainObject(value) {
   return value?.toObject ? value.toObject() : { ...(value || {}) };
@@ -7,6 +22,29 @@ function toPlainObject(value) {
 
 function resolveOrderKey(orderId, orderRegion) {
   return `${String(orderRegion || "latam")}:${String(orderId || "")}`;
+}
+
+function resolveTrackingStateMeta(stepKey = "") {
+  const normalizedStepKey = String(stepKey || "").trim();
+
+  return trackingStateMetaByKey.get(normalizedStepKey) || {
+    key: normalizedStepKey,
+    label: normalizedStepKey,
+    index: 0,
+    code: "E1",
+  };
+}
+
+function buildTrackingEventStateFields(stepKey = "", source = {}) {
+  const stateMeta = resolveTrackingStateMeta(source?.stateKey || source?.stepKey || stepKey);
+
+  return {
+    stepKey: stateMeta.key,
+    stateKey: stateMeta.key,
+    stateLabel: String(source?.stateLabel || stateMeta.label),
+    stateIndex: Number.isInteger(source?.stateIndex) ? source.stateIndex : stateMeta.index,
+    stateCode: String(source?.stateCode || stateMeta.code),
+  };
 }
 
 function normalizeEventMedia(media = []) {
@@ -37,6 +75,94 @@ function mapTrackingEventToUpdate(event) {
     createdAt: event?.createdAt || null,
     updatedAt: event?.updatedAt || event?.createdAt || null,
   };
+}
+
+function mapTrackingEventForResponse(event, updateIndex = -1) {
+  const stateFields = buildTrackingEventStateFields(event?.stepKey, event);
+
+  return {
+    eventId: String(event?._id || event?.id || ""),
+    orderId: String(event?.orderId || ""),
+    orderRegion: String(event?.orderRegion || ""),
+    stepKey: stateFields.stepKey,
+    stateKey: stateFields.stateKey,
+    stateLabel: stateFields.stateLabel,
+    stateIndex: stateFields.stateIndex,
+    stateCode: stateFields.stateCode,
+    updateIndex,
+    notes: String(event?.notes || "").trim(),
+    media: normalizeEventMedia(event?.media || []),
+    clientVisible: Boolean(event?.clientVisible),
+    inProgress: Boolean(event?.completed ? false : event?.inProgress),
+    completed: Boolean(event?.completed),
+    createdAt: event?.createdAt || null,
+    updatedAt: event?.updatedAt || event?.createdAt || null,
+  };
+}
+
+async function enrichTrackingEventsWithStateFields(events = []) {
+  const normalizedEvents = [];
+  const bulkOperations = [];
+
+  (events || []).forEach((event) => {
+    const stateFields = buildTrackingEventStateFields(event?.stepKey, event);
+
+    normalizedEvents.push({
+      ...event,
+      ...stateFields,
+    });
+
+    const needsUpdate = Boolean(event?._id) && (
+      String(event?.stateKey || "") !== stateFields.stateKey ||
+      String(event?.stateLabel || "") !== stateFields.stateLabel ||
+      Number(event?.stateIndex) !== stateFields.stateIndex ||
+      String(event?.stateCode || "") !== stateFields.stateCode
+    );
+
+    if (!needsUpdate) {
+      return;
+    }
+
+    bulkOperations.push({
+      updateOne: {
+        filter: { _id: event._id },
+        update: {
+          $set: {
+            stateKey: stateFields.stateKey,
+            stateLabel: stateFields.stateLabel,
+            stateIndex: stateFields.stateIndex,
+            stateCode: stateFields.stateCode,
+          },
+        },
+      },
+    });
+  });
+
+  if (bulkOperations.length) {
+    await OrderTrackingEvent.bulkWrite(bulkOperations, { ordered: false });
+  }
+
+  return normalizedEvents;
+}
+
+function buildTrackingEventsCollection(events = []) {
+  const nextUpdateIndexByStateKey = new Map();
+
+  return (events || [])
+    .map((event) => {
+      const stateKey = String(event?.stateKey || event?.stepKey || "").trim();
+      const nextUpdateIndex = nextUpdateIndexByStateKey.get(stateKey) || 0;
+
+      nextUpdateIndexByStateKey.set(stateKey, nextUpdateIndex + 1);
+
+      return mapTrackingEventForResponse(event, nextUpdateIndex);
+    })
+    .sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+
+      return rightTime - leftTime;
+    });
 }
 
 function buildStepEventMap(events = []) {
@@ -120,11 +246,23 @@ async function fetchTrackingStepEvents(orderId, orderRegion, stepKey) {
     return [];
   }
 
-  return OrderTrackingEvent.find({
+  const events = await OrderTrackingEvent.find({
     orderId,
     orderRegion,
     stepKey,
   }).sort({ createdAt: 1, _id: 1 });
+
+  return events.map((event) => {
+    const stateFields = buildTrackingEventStateFields(event?.stepKey, event);
+
+    event.stepKey = stateFields.stepKey;
+    event.stateKey = stateFields.stateKey;
+    event.stateLabel = stateFields.stateLabel;
+    event.stateIndex = stateFields.stateIndex;
+    event.stateCode = stateFields.stateCode;
+
+    return event;
+  });
 }
 
 async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, orderRegion, options = {}) {
@@ -138,10 +276,11 @@ async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, ord
   })
     .sort({ createdAt: 1, _id: 1 })
     .lean();
+  const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
 
   return mergeTrackingStepsWithEvents(
     sourceTrackingSteps,
-    buildStepEventMap(events),
+    buildStepEventMap(normalizedEvents),
     Boolean(options.preferCollectionOnly)
   );
 }
@@ -153,15 +292,20 @@ async function hydrateOrderTracking(order, orderRegion, options = {}) {
 
   const plainOrder = toPlainObject(order);
   const orderId = plainOrder._id || plainOrder.id;
-
-  plainOrder.trackingSteps = await buildHydratedTrackingSteps(
-    plainOrder.trackingSteps || [],
+  const events = await OrderTrackingEvent.find({
     orderId,
     orderRegion,
-    {
-      preferCollectionOnly: options.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled,
-    }
+  })
+    .sort({ createdAt: 1, _id: 1 })
+    .lean();
+  const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
+
+  plainOrder.trackingSteps = mergeTrackingStepsWithEvents(
+    plainOrder.trackingSteps || [],
+    buildStepEventMap(normalizedEvents),
+    Boolean(options.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled)
   );
+  plainOrder.trackingEvents = buildTrackingEventsCollection(normalizedEvents);
   plainOrder.orderRegion = orderRegion;
 
   return plainOrder;
@@ -180,9 +324,10 @@ async function hydrateOrdersTracking(orderEntries = []) {
       .sort({ createdAt: 1, _id: 1 })
       .lean()
     : [];
+  const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
   const eventsByOrderKey = new Map();
 
-  events.forEach((event) => {
+  normalizedEvents.forEach((event) => {
     const orderKey = resolveOrderKey(event?.orderId, event?.orderRegion);
 
     if (!eventsByOrderKey.has(orderKey)) {
@@ -195,12 +340,14 @@ async function hydrateOrdersTracking(orderEntries = []) {
   return normalizedEntries.map((entry) => {
     const plainOrder = toPlainObject(entry.order);
     const orderKey = resolveOrderKey(plainOrder._id || plainOrder.id, entry.orderRegion);
+    const orderEvents = eventsByOrderKey.get(orderKey) || [];
 
     plainOrder.trackingSteps = mergeTrackingStepsWithEvents(
       plainOrder.trackingSteps || [],
-      buildStepEventMap(eventsByOrderKey.get(orderKey) || []),
+      buildStepEventMap(orderEvents),
       Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled)
     );
+    plainOrder.trackingEvents = buildTrackingEventsCollection(orderEvents);
     plainOrder.orderRegion = entry.orderRegion;
 
     return plainOrder;
@@ -238,6 +385,7 @@ async function backfillTrackingEventsFromOrder(order, orderRegion) {
         orderId: order._id,
         orderRegion,
         stepKey: String(step?.key || "").trim(),
+        ...buildTrackingEventStateFields(step?.key, step),
         notes: String(update?.notes || "").trim(),
         media: normalizeEventMedia(update?.media || []),
         clientVisible: Boolean(update?.clientVisible),
@@ -276,6 +424,7 @@ async function createTrackingEvent({
     orderId,
     orderRegion,
     stepKey,
+    ...buildTrackingEventStateFields(stepKey),
     notes: String(notes || "").trim(),
     media: normalizeEventMedia(media),
     clientVisible: Boolean(clientVisible),

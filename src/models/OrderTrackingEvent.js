@@ -55,6 +55,28 @@ const orderTrackingEventSchema = new mongoose.Schema(
       enum: TRACKING_STATE_TEMPLATES.map((step) => step.key),
       index: true,
     },
+    stateKey: {
+      type: String,
+      required: true,
+      enum: TRACKING_STATE_TEMPLATES.map((step) => step.key),
+      index: true,
+    },
+    stateLabel: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    stateIndex: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: TRACKING_STATE_TEMPLATES.length - 1,
+    },
+    stateCode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     notes: {
       type: String,
       trim: true,
@@ -94,6 +116,7 @@ const orderTrackingEventSchema = new mongoose.Schema(
 orderTrackingEventSchema.index({
   orderRegion: 1,
   orderId: 1,
+  stateKey: 1,
   stepKey: 1,
   createdAt: 1,
   _id: 1,
