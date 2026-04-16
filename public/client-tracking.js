@@ -19,6 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
+const TRACKING_PAGE_VERSION = "20260416-clientevents03";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
@@ -726,7 +727,19 @@ trackingNavButtons.forEach((button) => {
 
 function updateUrl(query) {
   const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("v", TRACKING_PAGE_VERSION);
   nextUrl.searchParams.set("tracking", query);
+  window.history.replaceState({}, document.title, nextUrl.toString());
+}
+
+function ensureTrackingPageVersion() {
+  const nextUrl = new URL(window.location.href);
+
+  if (nextUrl.searchParams.get("v") === TRACKING_PAGE_VERSION) {
+    return;
+  }
+
+  nextUrl.searchParams.set("v", TRACKING_PAGE_VERSION);
   window.history.replaceState({}, document.title, nextUrl.toString());
 }
 
@@ -764,6 +777,7 @@ async function handleTrackingSearch() {
 }
 
 async function loadTrackingPage() {
+  ensureTrackingPageVersion();
   const params = new URLSearchParams(window.location.search);
   const trackingQuery = params.get("tracking") || "";
   trackingInput.value = trackingQuery;

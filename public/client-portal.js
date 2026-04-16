@@ -42,6 +42,18 @@ const FEED_PAGE_SIZE = 5;
 const VIRTUAL_DEALERSHIP_BATCH_SIZE = 3;
 const PULL_REFRESH_THRESHOLD = 78;
 const TRACKING_HISTORY_MAX_ITEMS = 12;
+const TRACKING_PAGE_VERSION = "20260416-clientevents03";
+
+function buildTrackingPageUrl(trackingNumber = "") {
+  const trackingUrl = new URL("/client-tracking.html", window.location.origin);
+  trackingUrl.searchParams.set("v", TRACKING_PAGE_VERSION);
+
+  if (trackingNumber) {
+    trackingUrl.searchParams.set("tracking", String(trackingNumber).toUpperCase().trim());
+  }
+
+  return trackingUrl;
+}
 
 function installZoomGuards() {
   document.documentElement.style.touchAction = "manipulation";
@@ -3588,8 +3600,7 @@ function goToTrackingPage() {
   setFeedback(trackingSearchFeedback, "", "");
   rememberTrackingSearch(query);
 
-  const trackingUrl = new URL("/client-tracking.html", window.location.origin);
-  trackingUrl.searchParams.set("tracking", query.toUpperCase());
+  const trackingUrl = buildTrackingPageUrl(query);
   window.location.href = trackingUrl.toString();
 }
 
@@ -3882,8 +3893,7 @@ trackingOrdersList?.addEventListener("click", (event) => {
     return;
   }
 
-  const trackingUrl = new URL("/client-tracking.html", window.location.origin);
-  trackingUrl.searchParams.set("tracking", trackingNumber);
+  const trackingUrl = buildTrackingPageUrl(trackingNumber);
   window.location.href = trackingUrl.toString();
 });
 

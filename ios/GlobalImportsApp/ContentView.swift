@@ -1,12 +1,12 @@
 import SwiftUI
 
-private let webShellVersion = "20260407-43"
+private let webShellVersion = "20260416-45"
 private let productionWebAppURL = "https://global-backend-bdbx.onrender.com/app/index.html?v=\(webShellVersion)"
 private let simulatorWebAppURL = "http://localhost:10000/app/index.html?v=\(webShellVersion)"
 private let deviceLocalWebAppURL = "http://192.168.1.95:10000/app/index.html?v=\(webShellVersion)"
 
 struct ContentView: View {
-    @AppStorage("webAppURL_v4") private var webAppURL = deviceLocalWebAppURL
+    @AppStorage("webAppURL_v4") private var webAppURL = productionWebAppURL
     @AppStorage("webShellVersion") private var storedWebShellVersion = ""
     @State private var draftURL = ""
     @State private var showSettings = false
