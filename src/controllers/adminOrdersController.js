@@ -165,6 +165,39 @@ function syncTrackingStepDerivedFields(step) {
   return step;
 }
 
+function syncTrackingStepFlagsFromLatestUpdate(step) {
+  if (!step) {
+    return step;
+  }
+
+  const latestUpdate = getLatestTrackingStepUpdate(step);
+
+  step.confirmed = Boolean(latestUpdate?.completed);
+  step.inProgress = step.confirmed ? false : Boolean(latestUpdate?.inProgress);
+
+  return syncTrackingStepDerivedFields(step);
+}
+
+async function persistTrackingOrderState(orderResult, order) {
+  const normalizedTrackingSteps = normalizeTrackingStates(order.trackingSteps || []);
+  const nextStatus = normalizedTrackingSteps.every((state) => state.confirmed) ? "completed" : "active";
+
+  order.set("trackingSteps", normalizedTrackingSteps);
+  order.set("status", nextStatus);
+
+  await order.validate();
+
+  await orderResult.orderModel.findByIdAndUpdate(order._id, {
+    $set: {
+      trackingSteps: normalizedTrackingSteps,
+      status: nextStatus,
+    },
+  });
+
+  return orderResult.orderModel.findById(order._id)
+    .populate("client", "name email phone")
+    .populate("createdBy", "name email role");
+}
 function buildInitialTrackingSteps(timestamp = new Date()) {
   const resolvedTimestamp = timestamp instanceof Date && !Number.isNaN(timestamp.getTime())
     ? timestamp
@@ -1147,7 +1180,6 @@ async function updateOrder(req, res) {
 async function updateTrackingState(req, res) {
   try {
     const { orderId, stepKey } = req.params;
-    const { notes } = req.body;
     const orderResult = await findOrderForRole(orderId, req.user?.role);
     const order = orderResult.order;
 
@@ -1205,8 +1237,8 @@ async function updateTrackingState(req, res) {
       externalVideoMedia.length === 0 &&
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
-
     let clientPublishedStep = null;
+
     const resolvedVisibilityUpdateIndex = isVisibilityOnlyUpdate && Array.isArray(step.updates) && step.updates.length
       ? (requestedUpdateIndex >= 0 && step.updates[requestedUpdateIndex] ? requestedUpdateIndex : step.updates.length - 1)
       : -1;
@@ -1280,8 +1312,6 @@ async function updateTrackingState(req, res) {
         step.updates = [];
       }
 
-      step.updates.push(newUpdate);
-
       if (updateShouldBeClientVisible) {
         clientPublishedStep = buildTrackingStepSnapshot(step, newUpdate);
       }
@@ -1311,22 +1341,13 @@ async function updateTrackingState(req, res) {
     }
 
     syncTrackingStepDerivedFields(step);
-    order.status = order.trackingSteps.every((state) => state.confirmed) ? "completed" : "active";
-    order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
 
-    await order.validate();
-
-    order.markModified("trackingSteps");
-    await order.save();
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
 
     // Automatizar agendamiento de mantenimiento si es LATAM y se confirma 'delivery'
     if (orderResult.region === "latam" && stepKey === "delivery" && step.confirmed) {
       await syncMaintenanceSchedule(order, req.user._id);
     }
-
-    const updatedOrder = await orderResult.orderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
 
     const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
 
@@ -1351,8 +1372,53 @@ async function updateTrackingState(req, res) {
   }
 }
 
+async function deleteTrackingUpdate(req, res) {
+  try {
+    const { orderId, stepKey, updateIndex: rawUpdateIndex } = req.params;
+    const updateIndex = parseTrackingUpdateIndex(rawUpdateIndex);
+    const orderResult = await findOrderForRole(orderId, req.user?.role);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
+
+    const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
+
+    if (stepIndex === -1) {
+      return res.status(404).json({ message: "Tracking state not found" });
+    }
+
+    if (!canModifyTrackingStep(req.user?.role, stepKey)) {
+      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
+    }
+
+    const step = order.trackingSteps[stepIndex];
+
+    if (!Array.isArray(step.updates) || updateIndex < 0 || !step.updates[updateIndex]) {
+      return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    step.updates.splice(updateIndex, 1);
+    syncTrackingStepFlagsFromLatestUpdate(step);
+    syncTrackingStepProgression(order.trackingSteps, step.inProgress ? stepIndex : -1);
+
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
+
+    return res.status(200).json({
+      message: "Subestado eliminado correctamente",
+      order: serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error deleting tracking update" });
+  }
+}
+
 module.exports = {
   createOrder,
+  deleteTrackingUpdate,
   getOrder,
   listOrders,
   suggestTrackingNumber,

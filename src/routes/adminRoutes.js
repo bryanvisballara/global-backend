@@ -9,6 +9,7 @@ const { createClient, listClients } = require("../controllers/adminClientsContro
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
   createOrder,
+  deleteTrackingUpdate,
   getOrder,
   listOrders,
   suggestTrackingNumber,
@@ -58,6 +59,7 @@ router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
 router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
+router.delete("/orders/:orderId/tracking-states/:stepKey/updates/:updateIndex", deleteTrackingUpdate);
 
 router.get("/maintenance", listMaintenance);
 router.patch("/maintenance/:maintenanceId", updateMaintenance);
