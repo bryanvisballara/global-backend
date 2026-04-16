@@ -610,7 +610,10 @@ function sanitizeOrderForClient(order) {
     .map((event) => ({
       ...event,
       media: Array.isArray(event.media)
-        ? event.media.filter((item) => item?.clientVisible !== false)
+        ? event.media.map((item) => ({
+            ...item,
+            clientVisible: true,
+          }))
         : [],
     }));
 
