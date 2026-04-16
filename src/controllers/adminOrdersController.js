@@ -4,6 +4,7 @@ const ClientGlobalUS = require("../models/ClientGlobalUS");
 const Maintenance = require("../models/Maintenance");
 const Order = require("../models/Order");
 const OrderGlobalUS = require("../models/OrderGlobalUS");
+const OrderTrackingEvent = require("../models/OrderTrackingEvent");
 const User = require("../models/User");
 const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/cloudinary");
 const { normalizeTrackingStates } = require("../constants/trackingSteps");
@@ -1287,7 +1288,7 @@ async function updateTrackingState(req, res) {
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
     const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
 
-    if (!canModifyTrackingStep(req.user?.role, stepKey) && !requestedVisibilityOnly) {
+    if (!canModifyTrackingStep(req.user?.role, stepKey)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
@@ -1316,74 +1317,31 @@ async function updateTrackingState(req, res) {
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
     let clientPublishedStep = null;
-
-    const resolvedVisibilityUpdateIndex = isVisibilityOnlyUpdate && Array.isArray(step.updates) && step.updates.length
-      ? (requestedUpdateIndex >= 0 && step.updates[requestedUpdateIndex] ? requestedUpdateIndex : step.updates.length - 1)
-      : -1;
-
-    if (resolvedVisibilityUpdateIndex >= 0 && Array.isArray(step.updates) && step.updates[resolvedVisibilityUpdateIndex]) {
-      const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
-      const targetEvent = resolveTrackingEventByReference(stepEvents, {
-        eventId: requestedEventId,
-        updateIndex: resolvedVisibilityUpdateIndex,
-      });
-
-      if (!targetEvent) {
-        return res.status(404).json({ message: "Subestado no encontrado" });
+    if (operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly) {
+      if (!requestedEventId) {
+        return res.status(400).json({ message: "Event ID is required" });
       }
 
-      const previouslyVisible = Boolean(targetEvent.clientVisible);
-      const resolvedTargetMedia = normalizeMedia(targetEvent.media || []);
-
-      if (requestedMediaVisibilityOnly) {
-        if (requestedMediaIndex < 0 || !resolvedTargetMedia[requestedMediaIndex]) {
-          return res.status(404).json({ message: "Tracking media not found" });
-        }
-
-        resolvedTargetMedia[requestedMediaIndex] = {
-          ...resolvedTargetMedia[requestedMediaIndex],
-          clientVisible: requestedClientVisible,
-        };
-
-        targetEvent.media = resolvedTargetMedia;
-        targetEvent.clientVisible = resolvedTargetMedia.some((item) => item?.clientVisible !== false);
-      } else {
-        targetEvent.media = resolvedTargetMedia.map((item) => ({
-          ...item,
-          clientVisible: requestedClientVisible,
-        }));
-        targetEvent.clientVisible = requestedClientVisible;
-      }
-
-      targetEvent.markModified("media");
-      await targetEvent.save();
-
-      if (!previouslyVisible && targetEvent.clientVisible) {
-        clientPublishedStep = buildTrackingStepSnapshot(step, mapTrackingEventToUpdate(targetEvent));
-      }
-    } else if (requestedMediaVisibilityOnly) {
-      return res.status(404).json({ message: "Tracking media not found" });
-    } else if (isVisibilityOnlyUpdate && requestedUpdateIndex < 0 && requestedClientVisible) {
-      const seededUpdate = buildSyntheticTrackingVisibilityUpdate(step, {
-        clientVisible: true,
-        inProgress: requestedConfirmed ? false : requestedInProgress,
-        completed: requestedConfirmed,
-        timestamp: new Date(),
-      });
-
-      if (seededUpdate) {
-        await createTrackingEvent({
+      const updatedEvent = await OrderTrackingEvent.findOneAndUpdate(
+        {
+          _id: requestedEventId,
           orderId: order._id,
           orderRegion: orderResult.region,
           stepKey,
-          notes: seededUpdate.notes,
-          media: seededUpdate.media || [],
-          clientVisible: Boolean(seededUpdate.clientVisible),
-          inProgress: Boolean(seededUpdate.completed ? false : seededUpdate.inProgress),
-          completed: Boolean(seededUpdate.completed),
-          timestamp: seededUpdate.updatedAt || seededUpdate.createdAt || new Date(),
-        });
-        clientPublishedStep = buildTrackingStepSnapshot(step, seededUpdate);
+        },
+        {
+          $set: {
+            clientVisible: requestedClientVisible,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!updatedEvent) {
+        return res.status(404).json({ message: "Subestado no encontrado" });
       }
     } else if (forceCreateUpdate || hasTrackingUpdateChanges({
       notes: requestedNotes,
@@ -1489,7 +1447,7 @@ async function updateTrackingState(req, res) {
 
       await sendTrackingUpdateAdminNotifications(updatedOrder, clientPublishedStep).catch(() => null);
       await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
-    } else if (!requestedVisibilityOnly) {
+    } else if (!(operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly)) {
       await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
       await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
     }
@@ -1504,6 +1462,54 @@ async function updateTrackingState(req, res) {
     }
 
     return res.status(500).json({ message: "Error updating tracking state" });
+  }
+}
+
+async function toggleTrackingEventVisibility(req, res) {
+  try {
+    const { orderId, eventId } = req.params;
+    const orderResult = await findOrderForRole(orderId, req.user?.role);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
+    const updatedEvent = await OrderTrackingEvent.findOneAndUpdate(
+      {
+        _id: String(eventId || "").trim(),
+        orderId: order._id,
+        orderRegion: orderResult.region,
+      },
+      {
+        $set: {
+          clientVisible: requestedClientVisible,
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedEvent) {
+      return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    order.trackingEventCollectionEnabled = true;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
+
+    return res.status(200).json({
+      message: "Tracking event visibility updated successfully",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error updating tracking event visibility" });
   }
 }
 
@@ -1569,6 +1575,7 @@ module.exports = {
   getOrder,
   listOrders,
   suggestTrackingNumber,
+  toggleTrackingEventVisibility,
   updateOrder,
   updateTrackingState,
 };
