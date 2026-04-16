@@ -1209,7 +1209,7 @@ function resolveTimelineStateStatusLabel(variant) {
   return "Pendiente";
 }
 
-function renderVisibilityButton(stateKey, updateIndex, nextVisible, isCurrentlyVisible) {
+function renderVisibilityButton(stateKey, updateIndex, nextVisible, isCurrentlyVisible, eventId = "") {
   return `
     <button
       type="button"
@@ -1217,6 +1217,7 @@ function renderVisibilityButton(stateKey, updateIndex, nextVisible, isCurrentlyV
       data-toggle-client-visible="true"
       data-state-key="${escapeHtml(stateKey)}"
       data-update-index="${updateIndex}"
+      data-event-id="${escapeHtml(eventId)}"
       data-next-visible="${nextVisible ? "true" : "false"}"
       title="${isCurrentlyVisible ? "Ocultar al cliente" : "Mostrar al cliente"}"
       aria-label="${isCurrentlyVisible ? "Ocultar al cliente" : "Mostrar al cliente"}"
@@ -1225,6 +1226,21 @@ function renderVisibilityButton(stateKey, updateIndex, nextVisible, isCurrentlyV
         ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.6 4.3-10.9 6-.2.3-.2.7 0 1 1.3 1.7 5.4 6 10.9 6s9.6-4.3 10.9-6c.2-.3.2-.7 0-1C21.6 9.3 17.5 5 12 5Zm0 11a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"></path></svg>'
         : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2.7 1.3-1.4 1.4 3 3C2.6 7 1.4 8.4.6 9.5c-.2.3-.2.7 0 1 1.3 1.7 5.4 6 10.9 6 2 0 3.8-.5 5.4-1.3l3 3 1.4-1.4L2.7 1.3Zm8.8 8.8 3 3a2.4 2.4 0 0 1-3-3Zm7.9 2.8a15.5 15.5 0 0 0-3.8-3.5l1.5 1.5c.6.5 1.2 1.1 1.7 1.7-.8 1-2.1 2.4-3.8 3.4l1.5 1.5c2-1.3 3.4-3.1 4.2-4.1.2-.3.2-.7 0-1ZM12 6.5c.8 0 1.5.1 2.1.3L15.7 8c-1-.7-2.3-1.1-3.7-1.1-1 0-1.9.2-2.7.6l1.3 1.3c.4-.2.9-.3 1.4-.3Z"></path></svg>'}
     </button>
+  `;
+}
+
+function renderDeleteButton(stateKey, updateIndex, eventId = "") {
+  return `
+    <button
+      type="button"
+      class="tracking-file-remove-button"
+      data-delete-update="true"
+      data-state-key="${escapeHtml(stateKey)}"
+      data-update-index="${updateIndex}"
+      data-event-id="${escapeHtml(eventId)}"
+      title="Borrar evento"
+      aria-label="Borrar evento"
+    >x</button>
   `;
 }
 
@@ -1275,7 +1291,12 @@ function renderStateHistory(state) {
                 <strong>${escapeHtml(updateStatus)}</strong>
                 <p>${escapeHtml(updateDate ? formatDateTimeLabel(updateDate) : "Sin fecha")}</p>
               </div>
-              ${update.isSynthetic ? "" : renderVisibilityButton(state.key, updateIndex, !update.clientVisible, update.clientVisible)}
+              ${update.isSynthetic ? "" : `
+                <div class="tracking-stage-event-actions">
+                  ${renderVisibilityButton(state.key, updateIndex, !update.clientVisible, update.clientVisible, update.eventId || "")}
+                  ${renderDeleteButton(state.key, updateIndex, update.eventId || "")}
+                </div>
+              `}
             </div>
             <p>${escapeHtml(update.notes || "Sin nota registrada en esta actualización.")}</p>
             <small>${escapeHtml(update.isSynthetic ? "Registro derivado del estado actual" : update.clientVisible ? "Visible al cliente" : "Oculto al cliente")}${updateFilesCount ? ` · ${escapeHtml(updateFilesCount)} archivo(s)` : ""}</small>
@@ -1306,6 +1327,7 @@ function buildRecentEvents(order) {
       const stageGroup = groupedEvents.get(event.stateKey);
       stageGroup.items.push({
         id: event.eventId || `${event.stateKey}-${event.updateIndex}`,
+        eventId: event.eventId || `${event.stateKey}-${event.updateIndex}`,
         itemType: "update",
         stateKey: event.stateKey,
         updateIndex: event.updateIndex,
@@ -1352,6 +1374,7 @@ function buildRecentEvents(order) {
           const updateItems = shouldIncludeUpdateEvent
             ? [{
                 id: `${state.key}-update-${updateIndex}`,
+                eventId: String(update?.eventId || ""),
                 itemType: "update",
                 stateKey: state.key,
               updateIndex: update.isSynthetic ? -1 : updateIndex,
@@ -1479,7 +1502,8 @@ function renderRecentEventItem(item) {
           <span class="tracking-stage-event-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
         </button>
         <div class="tracking-stage-event-actions">
-            ${renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible)}
+            ${renderVisibilityButton(item.stateKey, item.updateIndex, !item.clientVisible, item.clientVisible, item.eventId || "")}
+            ${renderDeleteButton(item.stateKey, item.updateIndex, item.eventId || "")}
         </div>
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
@@ -1515,37 +1539,22 @@ function renderRecentEventStage(stageGroup, isExpanded) {
   `;
 }
 
-async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
+async function updateStateClientVisibility(stateKey, updateIndex, nextVisible, eventId = "") {
   const selectedOrder = getSelectedOrder();
 
   if (!selectedOrder) {
     return;
   }
 
-  const state = (selectedOrder.trackingSteps || []).find((item) => item.key === stateKey);
-
-  if (!state) {
-    return;
-  }
-
-  const persistedUpdates = getStateUpdates(state);
-
-  if (updateIndex >= 0 && updateIndex >= persistedUpdates.length) {
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("notes", "");
-  formData.append("inProgress", state.inProgress ? "true" : "false");
-  formData.append("confirmed", state.confirmed ? "true" : "false");
-  formData.append("clientVisible", nextVisible ? "true" : "false");
-  formData.append("visibilityOnly", "true");
-  formData.append("updateIndex", String(updateIndex));
-  formData.append("mediaMeta", "[]");
-
   const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
     method: "PATCH",
-    body: formData,
+    body: JSON.stringify({
+      operation: "toggle-update-visibility",
+      visibilityOnly: true,
+      eventId,
+      updateIndex,
+      clientVisible: nextVisible,
+    }),
   });
 
   orders = orders.map((order) => (order._id === response.order._id ? response.order : order));
@@ -1554,6 +1563,70 @@ async function updateStateClientVisibility(stateKey, updateIndex, nextVisible) {
   renderTrackingOverview(getSelectedOrder());
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(trackingFeedback, nextVisible ? "Actualizacion visible para cliente." : "Actualizacion oculta para cliente.", "success");
+}
+
+async function deleteUpdate(stateKey, updateIndex, eventId = "") {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder) {
+    return;
+  }
+
+  const deleteUrl = new URL(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}/updates/${updateIndex}`, window.location.origin);
+
+  if (eventId) {
+    deleteUrl.searchParams.set("eventId", eventId);
+  }
+
+  const response = await fetchTrackingPageJson(`${deleteUrl.pathname}${deleteUrl.search}`, {
+    method: "DELETE",
+  });
+
+  orders = orders.map((order) => (order._id === response.order._id ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderTrackingOverview(getSelectedOrder());
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Evento eliminado correctamente.", "success");
+}
+
+function handleUpdateActionClick(event) {
+  const visibilityButton = event.target.closest("[data-toggle-client-visible][data-state-key][data-update-index][data-next-visible]");
+
+  if (visibilityButton) {
+    const stateKey = String(visibilityButton.dataset.stateKey || "");
+    const updateIndex = Number.parseInt(String(visibilityButton.dataset.updateIndex || ""), 10);
+    const eventId = String(visibilityButton.dataset.eventId || "").trim();
+    const nextVisible = String(visibilityButton.dataset.nextVisible || "") === "true";
+
+    if (!stateKey || Number.isNaN(updateIndex)) {
+      return true;
+    }
+
+    updateStateClientVisibility(stateKey, updateIndex, nextVisible, eventId).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar la visibilidad del cliente.", "error");
+    });
+    return true;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-update][data-state-key][data-update-index]");
+
+  if (!deleteButton) {
+    return false;
+  }
+
+  const stateKey = String(deleteButton.dataset.stateKey || "");
+  const updateIndex = Number.parseInt(String(deleteButton.dataset.updateIndex || ""), 10);
+  const eventId = String(deleteButton.dataset.eventId || "").trim();
+
+  if (!stateKey || Number.isNaN(updateIndex)) {
+    return true;
+  }
+
+  deleteUpdate(stateKey, updateIndex, eventId).catch((error) => {
+    adminSetFeedback(trackingFeedback, error.message || "No se pudo borrar el evento.", "error");
+  });
+  return true;
 }
 
 async function updateStateMediaClientVisibility(stateKey, updateIndex, mediaIndex, nextVisible) {
@@ -2156,6 +2229,10 @@ trackingRoot.addEventListener("click", (event) => {
     return;
   }
 
+  if (handleUpdateActionClick(event)) {
+    return;
+  }
+
   const removeMediaButton = event.target.closest("[data-remove-media-state][data-remove-media-index]");
 
   if (removeMediaButton) {
@@ -2302,23 +2379,7 @@ trackingPreview.addEventListener("click", (event) => {
     return;
   }
 
-  const visibilityButton = event.target.closest("[data-toggle-client-visible][data-state-key][data-update-index][data-next-visible]");
-
-  if (!visibilityButton) {
-    return;
-  }
-
-  const stateKey = String(visibilityButton.dataset.stateKey || "");
-  const updateIndex = Number.parseInt(String(visibilityButton.dataset.updateIndex || ""), 10);
-  const nextVisible = String(visibilityButton.dataset.nextVisible || "") === "true";
-
-  if (!stateKey || Number.isNaN(updateIndex)) {
-    return;
-  }
-
-  updateStateClientVisibility(stateKey, updateIndex, nextVisible).catch((error) => {
-    adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar la visibilidad del cliente.", "error");
-  });
+  handleUpdateActionClick(event);
 });
 
 trackingRoot.addEventListener("change", (event) => {
