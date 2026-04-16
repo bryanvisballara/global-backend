@@ -1316,20 +1316,8 @@ async function updateTrackingState(req, res) {
 
     await order.validate();
 
-    const persistedTrackingSteps = order.toObject().trackingSteps || [];
-
-    await orderResult.orderModel.findByIdAndUpdate(
-      order._id,
-      {
-        $set: {
-          trackingSteps: persistedTrackingSteps,
-          status: order.status,
-        },
-      },
-      {
-        runValidators: true,
-      }
-    );
+    order.markModified("trackingSteps");
+    await order.save();
 
     // Automatizar agendamiento de mantenimiento si es LATAM y se confirma 'delivery'
     if (orderResult.region === "latam" && stepKey === "delivery" && step.confirmed) {
