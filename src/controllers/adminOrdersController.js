@@ -27,13 +27,51 @@ const {
 
 const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
+const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+
+function normalizeRequesterRole(requester) {
+  if (requester && typeof requester === "object") {
+    return String(requester.role || "");
+  }
+
+  return String(requester || "");
+}
+
+function normalizeRequesterEmail(requester) {
+  if (!requester || typeof requester !== "object") {
+    return "";
+  }
+
+  return String(requester.email || "").trim().toLowerCase();
+}
 
 function isUsaAdministrativeRole(role) {
   return USA_ADMIN_ROLES.has(String(role || ""));
 }
 
+function isGlobalManagerRole(requester) {
+  return normalizeRequesterRole(requester) === "manager";
+}
+
+function isAnthonyGlobalOwner(requester) {
+  return isGlobalManagerRole(requester) && normalizeRequesterEmail(requester) === ANTHONY_GLOBAL_OWNER_EMAIL;
+}
+
+function canAccessLatamOrders(requester) {
+  const normalizedRole = normalizeRequesterRole(requester);
+  return normalizedRole === "admin" || normalizedRole === "manager";
+}
+
+function canAccessUsaOrders(requester) {
+  return isAnthonyGlobalOwner(requester) || isUsaAdministrativeRole(normalizeRequesterRole(requester));
+}
+
 function resolveOrderRegionByRole(role) {
   return isUsaAdministrativeRole(role) ? "usa" : "latam";
+}
+
+function canManageDeletionRequests(role) {
+  return ["manager", "gerenteUSA"].includes(String(role || ""));
 }
 
 function canModifyTrackingStep(role, stepKey) {
@@ -54,32 +92,52 @@ function resolveClientModelForCreate(role) {
   return isUsaAdministrativeRole(role) ? ClientGlobalUS : Client;
 }
 
-async function findOrderForRole(orderId, role) {
-  const isUsaRole = isUsaAdministrativeRole(role);
+async function findOrderForRole(orderId, requester) {
+  if (canAccessLatamOrders(requester)) {
+    const latamOrder = await Order.findById(orderId);
 
-  if (isUsaRole) {
+    if (latamOrder) {
+      return { order: latamOrder, orderModel: Order, region: "latam" };
+    }
+  }
+
+  if (canAccessUsaOrders(requester)) {
     const usaOrder = await OrderGlobalUS.findById(orderId);
 
     if (usaOrder) {
       return { order: usaOrder, orderModel: OrderGlobalUS, region: "usa" };
     }
+  }
 
+  return { order: null, orderModel: null, region: null };
+}
+
+async function findOrderForDeletionManagement(orderId, requester) {
+  const normalizedRole = normalizeRequesterRole(requester);
+
+  if (normalizedRole === "gerenteUSA") {
+    const usaOrder = await OrderGlobalUS.findById(orderId);
+    return { order: usaOrder, orderModel: usaOrder ? OrderGlobalUS : null, region: usaOrder ? "usa" : null };
+  }
+
+  if (isAnthonyGlobalOwner(requester)) {
     const latamOrder = await Order.findById(orderId);
 
     if (latamOrder) {
       return { order: latamOrder, orderModel: Order, region: "latam" };
     }
 
-    return { order: null, orderModel: null, region: null };
+    const usaOrder = await OrderGlobalUS.findById(orderId);
+    return { order: usaOrder, orderModel: usaOrder ? OrderGlobalUS : null, region: usaOrder ? "usa" : null };
+  }
+
+  if (normalizedRole === "manager") {
+    const latamOrder = await Order.findById(orderId);
+    return { order: latamOrder, orderModel: latamOrder ? Order : null, region: latamOrder ? "latam" : null };
   }
 
   const latamOrder = await Order.findById(orderId);
-
-  if (!latamOrder) {
-    return { order: null, orderModel: null, region: null };
-  }
-
-  return { order: latamOrder, orderModel: Order, region: "latam" };
+  return { order: latamOrder, orderModel: latamOrder ? Order : null, region: latamOrder ? "latam" : null };
 }
 
 function getLatestTrackingStepUpdate(step, matcher = null) {
@@ -1048,9 +1106,9 @@ async function createOrder(req, res) {
 
     if (
       orderRegion === "latam" &&
-      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla"].includes(String(vehicle.destination).trim())
+      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto Miami"].includes(String(vehicle.destination).trim())
     ) {
-      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena or Puerto Barranquilla" });
+      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla or Puerto Miami" });
     }
 
     const client = await ClientModel.findById(clientId);
@@ -1126,48 +1184,88 @@ async function suggestTrackingNumber(req, res) {
 
 async function listOrders(req, res) {
   try {
-    if (isUsaAdministrativeRole(req.user?.role)) {
-      const [latamOrders, usaOrders] = await Promise.all([
-        Order.find().populate("client", "name email phone").populate("createdBy", "name email role"),
-        OrderGlobalUS.find().populate("client", "name email phone").populate("createdBy", "name email role"),
-      ]);
+    const [latamOrders, usaOrders] = await Promise.all([
+      canAccessLatamOrders(req.user)
+        ? Order.find().populate("client", "name email phone").populate("createdBy", "name email role")
+        : Promise.resolve([]),
+      canAccessUsaOrders(req.user)
+        ? OrderGlobalUS.find().populate("client", "name email phone").populate("createdBy", "name email role")
+        : Promise.resolve([]),
+    ]);
 
-      const orderEntries = latamOrders
-        .map((order) => ({ order, orderModel: Order, orderRegion: "latam" }))
-        .concat(usaOrders.map((order) => ({ order, orderModel: OrderGlobalUS, orderRegion: "usa" })));
-
-      await ensureTrackingEventCollectionsReady(orderEntries);
-
-      const mergedOrders = await hydrateOrdersTracking(
-        orderEntries
-      );
-
-      mergedOrders
-        .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime());
-
-      return res.status(200).json({ orders: mergedOrders });
-    }
-
-    const orders = await Order.find()
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role")
-      .sort({ createdAt: -1 });
-
-    const orderEntries = orders.map((order) => ({ order, orderModel: Order, orderRegion: "latam" }));
+    const orderEntries = latamOrders
+      .map((order) => ({ order, orderModel: Order, orderRegion: "latam" }))
+      .concat(usaOrders.map((order) => ({ order, orderModel: OrderGlobalUS, orderRegion: "usa" })));
 
     await ensureTrackingEventCollectionsReady(orderEntries);
 
+    const hydratedOrders = await hydrateOrdersTracking(orderEntries);
+    hydratedOrders.sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime());
+
     return res.status(200).json({
-      orders: await hydrateOrdersTracking(orderEntries),
+      orders: hydratedOrders,
     });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching orders" });
   }
 }
 
+async function listOrderDeletionRequests(req, res) {
+  try {
+    const requesterRole = String(req.user?.role || "");
+
+    if (!canManageDeletionRequests(requesterRole)) {
+      return res.status(403).json({ message: "No tienes permisos para ver solicitudes de eliminacion" });
+    }
+
+    const [latamPendingOrders, usaPendingOrders] = await Promise.all([
+      requesterRole === "manager"
+        ? Order.find({ "deletionRequest.status": "pending" })
+            .populate("client", "name email phone")
+            .populate("createdBy", "name email role")
+            .populate("deletionRequest.requestedBy", "name email role")
+            .sort({ "deletionRequest.requestedAt": -1, createdAt: -1 })
+        : Promise.resolve([]),
+      (isAnthonyGlobalOwner(req.user) || requesterRole === "gerenteUSA")
+        ? OrderGlobalUS.find({ "deletionRequest.status": "pending" })
+            .populate("client", "name email phone")
+            .populate("createdBy", "name email role")
+            .populate("deletionRequest.requestedBy", "name email role")
+            .sort({ "deletionRequest.requestedAt": -1, createdAt: -1 })
+        : Promise.resolve([]),
+    ]);
+
+    const orderEntries = latamPendingOrders
+      .map((order) => ({ order, orderModel: Order, orderRegion: "latam" }))
+      .concat(usaPendingOrders.map((order) => ({ order, orderModel: OrderGlobalUS, orderRegion: "usa" })));
+
+    const pendingOrders = orderEntries
+      .map((entry) => {
+        const plainOrder = entry.order?.toObject ? entry.order.toObject() : { ...(entry.order || {}) };
+
+        return {
+          ...plainOrder,
+          orderRegion: entry.orderRegion,
+        };
+      })
+      .sort((left, right) => {
+        const leftTime = new Date(left?.deletionRequest?.requestedAt || left?.createdAt || 0).getTime();
+        const rightTime = new Date(right?.deletionRequest?.requestedAt || right?.createdAt || 0).getTime();
+        return rightTime - leftTime;
+      });
+
+    return res.status(200).json({
+      orders: pendingOrders,
+    });
+  } catch (error) {
+    console.error("Error fetching deletion requests", error);
+    return res.status(500).json({ message: "Error fetching deletion requests" });
+  }
+}
+
 async function getOrder(req, res) {
   try {
-    const orderResult = await findOrderForRole(req.params.orderId, req.user?.role);
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
 
     if (!orderResult.order) {
       return res.status(404).json({ message: "Order not found" });
@@ -1188,7 +1286,7 @@ async function getOrder(req, res) {
 async function updateOrder(req, res) {
   try {
     const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
-    const orderResult = await findOrderForRole(req.params.orderId, req.user?.role);
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -1249,10 +1347,137 @@ async function updateOrder(req, res) {
   }
 }
 
+async function requestOrderDeletion(req, res) {
+  try {
+    const requesterRole = String(req.user?.role || "");
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (canManageDeletionRequests(requesterRole)) {
+      await Promise.all([
+        OrderTrackingEvent.deleteMany({ orderId: order._id, orderRegion: orderResult.region }),
+        orderResult.region === "latam" ? Maintenance.deleteOne({ order: order._id }) : Promise.resolve(),
+      ]);
+
+      await order.deleteOne();
+
+      return res.status(200).json({
+        message: "Pedido eliminado correctamente",
+        orderId: String(req.params.orderId || ""),
+      });
+    }
+
+    const reason = String(req.body.reason || "").trim();
+
+    if (!reason) {
+      return res.status(400).json({ message: "Debes indicar el motivo de la solicitud" });
+    }
+
+    if (String(order.deletionRequest?.status || "none") === "pending") {
+      return res.status(400).json({ message: "Este pedido ya tiene una solicitud de eliminacion pendiente" });
+    }
+
+    order.deletionRequest = {
+      status: "pending",
+      requestedBy: req.user?._id || null,
+      requestedByRole: String(req.user?.role || "").trim(),
+      requestedAt: new Date(),
+      reason,
+      reviewedBy: null,
+      reviewedByRole: "",
+      reviewedAt: null,
+      rejectionReason: "",
+    };
+
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role")
+      .populate("deletionRequest.requestedBy", "name email role");
+
+    return res.status(200).json({
+      message: "Solicitud de eliminacion enviada correctamente",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error requesting order deletion" });
+  }
+}
+
+async function reviewOrderDeletionRequest(req, res) {
+  try {
+    const requesterRole = String(req.user?.role || "");
+
+    if (!canManageDeletionRequests(requesterRole)) {
+      return res.status(403).json({ message: "No tienes permisos para revisar solicitudes de eliminacion" });
+    }
+
+    const action = String(req.body.action || "").trim().toLowerCase();
+    const rejectionReason = String(req.body.rejectionReason || "").trim();
+    const orderResult = await findOrderForDeletionManagement(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (String(order.deletionRequest?.status || "none") !== "pending") {
+      return res.status(400).json({ message: "Este pedido no tiene una solicitud pendiente" });
+    }
+
+    if (action === "approve") {
+      await Promise.all([
+        OrderTrackingEvent.deleteMany({ orderId: order._id, orderRegion: orderResult.region }),
+        orderResult.region === "latam" ? Maintenance.deleteOne({ order: order._id }) : Promise.resolve(),
+      ]);
+
+      await order.deleteOne();
+
+      return res.status(200).json({
+        message: "Pedido eliminado correctamente",
+        orderId: String(req.params.orderId || ""),
+      });
+    }
+
+    if (action !== "reject") {
+      return res.status(400).json({ message: "Accion no valida" });
+    }
+
+    order.deletionRequest = {
+      ...order.deletionRequest?.toObject?.(),
+      status: "rejected",
+      reviewedBy: req.user?._id || null,
+      reviewedByRole: requesterRole,
+      reviewedAt: new Date(),
+      rejectionReason,
+    };
+
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role")
+      .populate("deletionRequest.requestedBy", "name email role")
+      .populate("deletionRequest.reviewedBy", "name email role");
+
+    return res.status(200).json({
+      message: "Solicitud rechazada",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error reviewing deletion request" });
+  }
+}
+
 async function updateTrackingState(req, res) {
   try {
     const { orderId, stepKey } = req.params;
-    const orderResult = await findOrderForRole(orderId, req.user?.role);
+    const orderResult = await findOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -1468,7 +1693,7 @@ async function updateTrackingState(req, res) {
 async function toggleTrackingEventVisibility(req, res) {
   try {
     const { orderId, eventId } = req.params;
-    const orderResult = await findOrderForRole(orderId, req.user?.role);
+    const orderResult = await findOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -1532,7 +1757,7 @@ async function deleteTrackingUpdate(req, res) {
     const { orderId, stepKey, updateIndex: rawUpdateIndex } = req.params;
     const requestedEventId = String(req.query.eventId || "").trim();
     const updateIndex = parseTrackingUpdateIndex(rawUpdateIndex);
-    const orderResult = await findOrderForRole(orderId, req.user?.role);
+    const orderResult = await findOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -1587,7 +1812,10 @@ module.exports = {
   createOrder,
   deleteTrackingUpdate,
   getOrder,
+  listOrderDeletionRequests,
   listOrders,
+  requestOrderDeletion,
+  reviewOrderDeletionRequest,
   suggestTrackingNumber,
   toggleTrackingEventVisibility,
   updateOrder,
