@@ -587,6 +587,38 @@ async function serializeOrder(order, orderRegion = "latam") {
   });
 }
 
+async function ensureTrackingEventCollectionReady(order, orderModel, orderRegion) {
+  if (!order?._id || !orderModel) {
+    return order;
+  }
+
+  (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+
+  const wasCollectionEnabled = Boolean(order.trackingEventCollectionEnabled);
+
+  await backfillTrackingEventsFromOrder(order, orderRegion);
+
+  if (!wasCollectionEnabled && order.trackingEventCollectionEnabled) {
+    await orderModel.findByIdAndUpdate(order._id, {
+      $set: {
+        trackingEventCollectionEnabled: true,
+      },
+    });
+  }
+
+  return order;
+}
+
+async function ensureTrackingEventCollectionsReady(orderEntries = []) {
+  await Promise.all(
+    (orderEntries || []).map((entry) =>
+      ensureTrackingEventCollectionReady(entry?.order, entry?.orderModel, entry?.orderRegion)
+    )
+  );
+
+  return orderEntries;
+}
+
 function parseExistingMediaPayload(value) {
   if (!value) {
     return [];
@@ -1099,10 +1131,14 @@ async function listOrders(req, res) {
         OrderGlobalUS.find().populate("client", "name email phone").populate("createdBy", "name email role"),
       ]);
 
+      const orderEntries = latamOrders
+        .map((order) => ({ order, orderModel: Order, orderRegion: "latam" }))
+        .concat(usaOrders.map((order) => ({ order, orderModel: OrderGlobalUS, orderRegion: "usa" })));
+
+      await ensureTrackingEventCollectionsReady(orderEntries);
+
       const mergedOrders = await hydrateOrdersTracking(
-        latamOrders
-          .map((order) => ({ order, orderRegion: "latam" }))
-          .concat(usaOrders.map((order) => ({ order, orderRegion: "usa" })))
+        orderEntries
       );
 
       mergedOrders
@@ -1116,8 +1152,12 @@ async function listOrders(req, res) {
       .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
+    const orderEntries = orders.map((order) => ({ order, orderModel: Order, orderRegion: "latam" }));
+
+    await ensureTrackingEventCollectionsReady(orderEntries);
+
     return res.status(200).json({
-      orders: await hydrateOrdersTracking(orders.map((order) => ({ order, orderRegion: "latam" }))),
+      orders: await hydrateOrdersTracking(orderEntries),
     });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching orders" });
@@ -1135,6 +1175,8 @@ async function getOrder(req, res) {
     const order = await orderResult.orderModel.findById(req.params.orderId)
       .populate("client", "name email phone")
       .populate("createdBy", "name email role");
+
+    await ensureTrackingEventCollectionReady(order, orderResult.orderModel, orderResult.region);
 
     return res.status(200).json({ order: await serializeOrder(order, orderResult.region) });
   } catch (error) {
