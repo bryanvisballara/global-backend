@@ -25,6 +25,10 @@ function resolveOrderKey(orderId, orderRegion) {
   return `${String(orderRegion || "latam")}:${String(orderId || "")}`;
 }
 
+function resolveOrderIdKey(orderId) {
+  return String(orderId || "");
+}
+
 function resolveTrackingStateMeta(stepKey = "") {
   const normalizedStepKey = String(stepKey || "").trim();
 
@@ -217,33 +221,19 @@ function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = n
 }
 
 function buildOrderEventsQuery(orderEntries = []) {
-  const idsByRegion = {
-    latam: [],
-    usa: [],
-  };
+  const orderIds = [];
 
   (orderEntries || []).forEach((entry) => {
     const orderId = entry?.order?._id || entry?.order?.id;
-    const orderRegion = String(entry?.orderRegion || "latam").trim();
 
-    if (!orderId || !idsByRegion[orderRegion]) {
+    if (!orderId) {
       return;
     }
 
-    idsByRegion[orderRegion].push(orderId);
+    orderIds.push(orderId);
   });
 
-  const query = [];
-
-  if (idsByRegion.latam.length) {
-    query.push({ orderRegion: "latam", orderId: { $in: idsByRegion.latam } });
-  }
-
-  if (idsByRegion.usa.length) {
-    query.push({ orderRegion: "usa", orderId: { $in: idsByRegion.usa } });
-  }
-
-  return query;
+  return orderIds.length ? { orderId: { $in: orderIds } } : null;
 }
 
 async function fetchTrackingStepEvents(orderId, orderRegion, stepKey) {
@@ -253,7 +243,6 @@ async function fetchTrackingStepEvents(orderId, orderRegion, stepKey) {
 
   const events = await OrderTrackingEvent.find({
     orderId,
-    orderRegion,
     stepKey,
   }).sort({ createdAt: 1, _id: 1 });
 
@@ -277,7 +266,6 @@ async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, ord
 
   const events = await OrderTrackingEvent.find({
     orderId,
-    orderRegion,
   })
     .sort({ createdAt: 1, _id: 1 })
     .lean();
@@ -303,7 +291,6 @@ async function hydrateOrderTracking(order, orderRegion, options = {}) {
   const orderId = plainOrder._id || plainOrder.id;
   const events = await OrderTrackingEvent.find({
     orderId,
-    orderRegion,
   })
     .sort({ createdAt: 1, _id: 1 })
     .lean();
@@ -331,8 +318,8 @@ async function hydrateOrdersTracking(orderEntries = []) {
   }
 
   const orderEventsQuery = buildOrderEventsQuery(normalizedEntries);
-  const events = orderEventsQuery.length
-    ? await OrderTrackingEvent.find({ $or: orderEventsQuery })
+  const events = orderEventsQuery
+    ? await OrderTrackingEvent.find(orderEventsQuery)
       .sort({ createdAt: 1, _id: 1 })
       .lean()
     : [];
@@ -340,7 +327,7 @@ async function hydrateOrdersTracking(orderEntries = []) {
   const eventsByOrderKey = new Map();
 
   normalizedEvents.forEach((event) => {
-    const orderKey = resolveOrderKey(event?.orderId, event?.orderRegion);
+    const orderKey = resolveOrderIdKey(event?.orderId);
 
     if (!eventsByOrderKey.has(orderKey)) {
       eventsByOrderKey.set(orderKey, []);
@@ -351,7 +338,7 @@ async function hydrateOrdersTracking(orderEntries = []) {
 
   return normalizedEntries.map((entry) => {
     const plainOrder = toPlainObject(entry.order);
-    const orderKey = resolveOrderKey(plainOrder._id || plainOrder.id, entry.orderRegion);
+    const orderKey = resolveOrderIdKey(plainOrder._id || plainOrder.id);
     const orderEvents = eventsByOrderKey.get(orderKey) || [];
     const preferCollectionOnly = Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
