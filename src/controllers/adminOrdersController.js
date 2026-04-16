@@ -1475,34 +1475,48 @@ async function toggleTrackingEventVisibility(req, res) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
-    const updatedEvent = await OrderTrackingEvent.findOneAndUpdate(
-      {
-        _id: String(eventId || "").trim(),
-        orderId: order._id,
-        orderRegion: orderResult.region,
-      },
-      {
-        $set: {
-          clientVisible: requestedClientVisible,
-        },
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
-
-    if (!updatedEvent) {
-      return res.status(404).json({ message: "Subestado no encontrado" });
-    }
-
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
     order.trackingEventCollectionEnabled = true;
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
       preferCollectionOnly: true,
     });
 
+    const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
+    const targetEvent = await OrderTrackingEvent.findOne(
+      {
+        _id: String(eventId || "").trim(),
+        orderId: order._id,
+        orderRegion: orderResult.region,
+      }
+    );
+
+    if (!targetEvent) {
+      return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    const previousClientVisible = Boolean(targetEvent.clientVisible);
+    const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, targetEvent.stepKey);
+
+    targetEvent.clientVisible = requestedClientVisible;
+    targetEvent.updatedAt = new Date();
+    await targetEvent.save();
+
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+
     const updatedOrder = await persistTrackingOrderState(orderResult, order);
+    const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === targetEvent.stepKey) || null;
+
+    if (requestedClientVisible && !previousClientVisible && updatedStep) {
+      const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(targetEvent));
+
+      await sendTrackingUpdateNotifications(updatedOrder, publishedStep, previousConfirmedStep).catch(() => null);
+      await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, publishedStep).catch(() => null);
+      await sendTrackingUpdateAdminNotifications(updatedOrder, publishedStep).catch(() => null);
+      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, publishedStep).catch(() => null);
+    }
 
     return res.status(200).json({
       message: "Tracking event visibility updated successfully",
