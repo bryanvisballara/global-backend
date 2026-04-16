@@ -1274,29 +1274,17 @@ function clearSearchFilters() {
 async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventId = "") {
   const selectedOrder = getSelectedOrder();
 
-  if (!selectedOrder) {
+  if (!selectedOrder || !eventId) {
+    adminSetFeedback(trackingFeedback, "No se pudo identificar el evento del ojito.", "error");
     return;
   }
 
-  const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-events/${eventId}/visibility`, {
     method: "PATCH",
     body: JSON.stringify({
-      operation: "toggle-update-visibility",
-      visibilityOnly: true,
-      eventId,
-      updateIndex,
       clientVisible: nextVisible,
     }),
   });
-
-  const publishedEvent = getOrderTrackingEvents(response.order).find((event) => {
-    if (eventId) {
-      return event.eventId === eventId;
-    }
-
-    return event.stateKey === stateKey && event.updateIndex === updateIndex;
-  });
-  const publishConfirmed = !nextVisible || Boolean(publishedEvent?.clientVisible);
 
   orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
   expandedOverviewStateKey = stateKey;
@@ -1305,12 +1293,8 @@ async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventI
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(
     trackingFeedback,
-    nextVisible
-      ? (publishConfirmed
-        ? "Evento publicado para la app del cliente."
-        : "No se pudo confirmar la publicacion del evento en la app del cliente.")
-      : "Evento oculto para la app del cliente.",
-    publishConfirmed ? "success" : "error"
+    nextVisible ? "Evento visible para el cliente." : "Evento oculto para el cliente.",
+    "success"
   );
 
   if (nextVisible && publishConfirmed) {
