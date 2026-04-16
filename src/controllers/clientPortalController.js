@@ -600,36 +600,69 @@ function normalizePaginationValue(value, fallback, maxValue = 20) {
 function sanitizeOrderForClient(order) {
   const serializedOrder = order?.toObject ? order.toObject() : { ...(order || {}) };
 
-  delete serializedOrder.trackingEvents;
-
   if (serializedOrder.vehicle) {
     delete serializedOrder.vehicle.description;
     delete serializedOrder.vehicle.internalIdentifier;
   }
 
-  serializedOrder.trackingSteps = normalizeTrackingStates(serializedOrder.trackingSteps || [])
+  const visibleTrackingEvents = (Array.isArray(serializedOrder.trackingEvents) ? serializedOrder.trackingEvents : [])
+    .filter((event) => event?.clientVisible)
+    .map((event) => ({
+      ...event,
+      media: Array.isArray(event.media)
+        ? event.media.filter((item) => item?.clientVisible !== false)
+        : [],
+    }));
+
+  const updatesByStepKey = new Map();
+
+  visibleTrackingEvents.forEach((event) => {
+    const stepKey = String(event?.stateKey || event?.stepKey || "").trim();
+
+    if (!stepKey) {
+      return;
+    }
+
+    if (!updatesByStepKey.has(stepKey)) {
+      updatesByStepKey.set(stepKey, []);
+    }
+
+    updatesByStepKey.get(stepKey).push({
+      eventId: String(event?.eventId || event?._id || ""),
+      notes: String(event?.notes || "").trim(),
+      media: Array.isArray(event.media) ? event.media : [],
+      clientVisible: true,
+      inProgress: Boolean(event?.completed ? false : event?.inProgress),
+      completed: Boolean(event?.completed),
+      createdAt: event?.createdAt || null,
+      updatedAt: event?.updatedAt || event?.createdAt || null,
+    });
+  });
+
+  serializedOrder.trackingEvents = visibleTrackingEvents;
+  serializedOrder.trackingSteps = normalizeTrackingStates([])
     .map((step) => {
-      const visibleUpdates = Array.isArray(step.updates)
-        ? step.updates
-            .filter((update) => update?.clientVisible)
-            .map((update) => ({
-              ...update,
-              media: Array.isArray(update.media)
-                ? update.media.filter((item) => item?.clientVisible !== false)
-                : [],
-            }))
-        : [];
+      const visibleUpdates = (updatesByStepKey.get(step.key) || []).sort((left, right) => {
+        const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+        const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+        return leftTime - rightTime;
+      });
+      const latestUpdate = visibleUpdates[visibleUpdates.length - 1] || null;
 
       return {
         ...step,
+        label: step.label,
         clientVisible: visibleUpdates.length > 0,
-        media: Array.isArray(step.media)
-          ? step.media.filter((item) => item?.clientVisible !== false)
-          : [],
+        confirmed: visibleUpdates.some((update) => update.completed),
+        inProgress: visibleUpdates.some((update) => update.inProgress),
+        media: [],
         updates: visibleUpdates,
+        notes: latestUpdate?.notes || "",
+        updatedAt: latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
+        confirmedAt: null,
       };
     })
-    .filter((step) => step.clientVisible && (step.confirmed || step.inProgress || step.updates.length));
+    .filter((step) => step.clientVisible);
 
   return serializedOrder;
 }

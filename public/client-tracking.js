@@ -450,6 +450,54 @@ function renderEmptyState(message) {
   trackingResults.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
+function getClientVisibleTrackingEvents(order) {
+  return (Array.isArray(order?.trackingEvents) ? order.trackingEvents : [])
+    .filter((event) => event?.clientVisible)
+    .map((event) => ({
+      ...event,
+      key: String(event?.stateKey || event?.stepKey || "").trim(),
+      label: String(event?.stateLabel || "").trim(),
+      media: Array.isArray(event?.media) ? event.media.filter((item) => item?.clientVisible !== false) : [],
+      updatedAt: event?.updatedAt || event?.createdAt || null,
+      createdAt: event?.createdAt || null,
+      inProgress: Boolean(event?.completed ? false : event?.inProgress),
+      completed: Boolean(event?.completed),
+    }))
+    .filter((event) => event.key);
+}
+
+function buildTrackingStepsFromEvents(order) {
+  const events = getClientVisibleTrackingEvents(order);
+  const eventsByStepKey = new Map();
+
+  events.forEach((event) => {
+    if (!eventsByStepKey.has(event.key)) {
+      eventsByStepKey.set(event.key, []);
+    }
+
+    eventsByStepKey.get(event.key).push(event);
+  });
+
+  return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
+    const stepEvents = (eventsByStepKey.get(stateTemplate.key) || []).sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      return leftTime - rightTime;
+    });
+    const latestEvent = stepEvents[stepEvents.length - 1] || null;
+
+    return {
+      key: stateTemplate.key,
+      label: latestEvent?.label || stateTemplate.label,
+      clientVisible: stepEvents.length > 0,
+      confirmed: stepEvents.some((event) => event.completed),
+      inProgress: stepEvents.some((event) => event.inProgress),
+      updatedAt: latestEvent?.updatedAt || latestEvent?.createdAt || null,
+      updates: stepEvents,
+    };
+  });
+}
+
 function buildTimelineStates(visibleConfirmedStates = []) {
   const visibleByKey = new Map(
     (visibleConfirmedStates || []).map((item) => [String(item.key || ""), item])
@@ -473,7 +521,7 @@ function renderTruckIcon() {
 }
 
 function renderTrackingTimeline(order, selectedStateKey = "") {
-  const timelineStates = buildTimelineStates(order?.trackingSteps || []);
+  const timelineStates = buildTimelineStates(buildTrackingStepsFromEvents(order));
   const completedCount = timelineStates.filter((state) => state.confirmed).length;
   const maxIndex = timelineStates.length - 1;
   const activeIndex = Math.min(completedCount, maxIndex);
@@ -526,9 +574,9 @@ function renderSelectedStateDetail(order, stateKey) {
   }
 
   const selectedTemplate = TRACKING_TIMELINE_STATES.find((item) => item.key === stateKey) || TRACKING_TIMELINE_STATES[0];
-  const selectedStep = (order.trackingSteps || []).find((item) => item.key === selectedTemplate.key);
+  const selectedStep = buildTrackingStepsFromEvents(order).find((item) => item.key === selectedTemplate.key);
 
-  if (!selectedStep) {
+  if (!selectedStep || !selectedStep.updates.length) {
     detailPanel.innerHTML = `
       <section class="tracking-state-detail-panel">
         <strong>${escapeHtml(selectedTemplate.label)}</strong>
@@ -539,12 +587,34 @@ function renderSelectedStateDetail(order, stateKey) {
     return;
   }
 
+  const visibleUpdates = [...selectedStep.updates].reverse();
+  const historyMarkup = visibleUpdates.map((update) => {
+    const updateDate = update.updatedAt || update.createdAt || null;
+    const updateStatus = update.completed
+      ? "Etapa completada"
+      : update.inProgress
+        ? "Estado en curso"
+        : "Actualizacion";
+
+    return `
+      <article class="tracking-state-history-item is-client-visible">
+        <div class="tracking-state-history-header">
+          <div>
+            <strong>${escapeHtml(updateStatus)}</strong>
+            <p>${escapeHtml(updateDate ? formatDate(updateDate) : "Sin fecha")}</p>
+          </div>
+        </div>
+        <p>${escapeHtml(update.notes || "Sin observaciones por ahora.")}</p>
+        ${renderCategorizedMediaSections(update.media || [])}
+      </article>
+    `;
+  }).join("");
+
   detailPanel.innerHTML = `
     <section class="tracking-state-detail-panel">
       <strong>${escapeHtml(selectedStep.label || selectedTemplate.label)}</strong>
       <p>${escapeHtml(selectedStep.updatedAt ? `Actualizado ${formatDate(selectedStep.updatedAt)}` : "Esperando actualización")}</p>
-      <p>${escapeHtml(selectedStep.notes || "Sin observaciones por ahora.")}</p>
-      ${renderCategorizedMediaSections(selectedStep.media || [])}
+      <div class="tracking-state-history-list">${historyMarkup}</div>
     </section>
   `;
 
@@ -561,7 +631,11 @@ function activateTimelineState(order, stateKey) {
 
 function renderTrackingResult(order) {
   activeTrackingOrder = order;
-  const defaultStep = (order.trackingSteps || [])[order.trackingSteps.length - 1] || TRACKING_TIMELINE_STATES[0];
+  const trackingSteps = buildTrackingStepsFromEvents(order);
+  const defaultStep = trackingSteps.find((item) => item.inProgress && !item.confirmed && item.updates.length)
+    || trackingSteps.find((item) => item.updates.length)
+    || trackingSteps[trackingSteps.length - 1]
+    || TRACKING_TIMELINE_STATES[0];
   const defaultStateKey = defaultStep?.key || TRACKING_TIMELINE_STATES[0].key;
   const timelineMarkup = renderTrackingTimeline(order, defaultStateKey);
 
