@@ -578,7 +578,7 @@ function renderSelectedStateDetail(order, stateKey) {
 
   if (!selectedStep || !selectedStep.updates.length) {
     detailPanel.innerHTML = `
-      <section class="tracking-state-detail-panel">
+      <section class="tracking-state-detail-panel tracking-state-detail-summary-card">
         <strong>${escapeHtml(selectedTemplate.label)}</strong>
         <p>Este estado aun no tiene informacion visible.</p>
       </section>
@@ -588,7 +588,7 @@ function renderSelectedStateDetail(order, stateKey) {
   }
 
   const visibleUpdates = [...selectedStep.updates].reverse();
-  const historyMarkup = visibleUpdates.map((update) => {
+  const historyMarkup = visibleUpdates.map((update, index) => {
     const updateDate = update.updatedAt || update.createdAt || null;
     const updateStatus = update.completed
       ? "Etapa completada"
@@ -597,9 +597,10 @@ function renderSelectedStateDetail(order, stateKey) {
         : "Actualizacion";
 
     return `
-      <article class="tracking-state-history-item is-client-visible">
+      <article class="tracking-state-detail-panel tracking-state-event-card is-client-visible">
         <div class="tracking-state-history-header">
           <div>
+            <span class="tracking-state-event-count">Evento ${visibleUpdates.length - index}</span>
             <strong>${escapeHtml(updateStatus)}</strong>
             <p>${escapeHtml(updateDate ? formatDate(updateDate) : "Sin fecha")}</p>
           </div>
@@ -611,10 +612,12 @@ function renderSelectedStateDetail(order, stateKey) {
   }).join("");
 
   detailPanel.innerHTML = `
-    <section class="tracking-state-detail-panel">
-      <strong>${escapeHtml(selectedStep.label || selectedTemplate.label)}</strong>
-      <p>${escapeHtml(selectedStep.updatedAt ? `Actualizado ${formatDate(selectedStep.updatedAt)}` : "Esperando actualización")}</p>
-      <div class="tracking-state-history-list">${historyMarkup}</div>
+    <section class="tracking-state-detail-stack">
+      <section class="tracking-state-detail-panel tracking-state-detail-summary-card">
+        <strong>${escapeHtml(selectedStep.label || selectedTemplate.label)}</strong>
+        <p>${escapeHtml(selectedStep.updatedAt ? `Actualizado ${formatDate(selectedStep.updatedAt)}` : "Esperando actualización")}</p>
+      </section>
+      ${historyMarkup}
     </section>
   `;
 

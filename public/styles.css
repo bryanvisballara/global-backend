@@ -2547,6 +2547,31 @@ body.tracking-detail-mode #tracking-form {
   line-height: 1.5;
 }
 
+.tracking-state-detail-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-state-detail-summary-card {
+  border-color: rgba(96, 211, 168, 0.42);
+  background: linear-gradient(180deg, rgba(96, 211, 168, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.tracking-state-event-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.tracking-state-event-count {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: rgba(244, 210, 143, 0.78);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .tracking-steps-list {
   display: grid;
   gap: 10px;
