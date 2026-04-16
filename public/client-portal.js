@@ -289,7 +289,8 @@ const ORDER_ACTION_IMAGES_BY_VEHICLE = {
   },
 };
 
-const GLOBAL_WHATSAPP_NUMBER = "573147360210";
+const GLOBAL_WHATSAPP_NUMBER = "3016698126";
+const GLOBAL_WHATSAPP_FALLBACK_DELAY_MS = 900;
 const SEQUOIA_ORDER_RESERVATION_AMOUNT = 1000000;
 const SEQUOIA_DELIVERY_OPTIONS = {
   barranquilla: { label: "Barranquilla", fee: 0 },
@@ -2878,8 +2879,47 @@ function getSequoiaOrderSummaryData() {
 
 function buildSequoiaWhatsappUrl(message) {
   const whatsappUrl = new URL(`https://wa.me/${GLOBAL_WHATSAPP_NUMBER}`);
-  whatsappUrl.searchParams.set("text", message);
+
+  if (message) {
+    whatsappUrl.searchParams.set("text", message);
+  }
+
   return whatsappUrl.toString();
+}
+
+function buildSequoiaWhatsappAppUrl(message) {
+  const whatsappUrl = new URL("whatsapp://send");
+  whatsappUrl.searchParams.set("phone", GLOBAL_WHATSAPP_NUMBER);
+
+  if (message) {
+    whatsappUrl.searchParams.set("text", message);
+  }
+
+  return whatsappUrl.toString();
+}
+
+function openSequoiaWhatsappChat(message) {
+  const normalizedMessage = String(message || "").trim();
+  const appUrl = buildSequoiaWhatsappAppUrl(normalizedMessage);
+  const webUrl = buildSequoiaWhatsappUrl(normalizedMessage);
+  let appOpened = false;
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      appOpened = true;
+    }
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange, { once: true });
+  window.location.href = appUrl;
+
+  window.setTimeout(() => {
+    if (!appOpened && document.visibilityState === "visible") {
+      window.location.href = webUrl;
+    }
+  }, GLOBAL_WHATSAPP_FALLBACK_DELAY_MS);
+
+  return webUrl;
 }
 
 function getSelectedOrderVehicleLabel() {
@@ -2964,6 +3004,7 @@ function renderSequoiaOrderSummary() {
   if (sequoiaSummaryFinancingLink) {
     const financeMessage = `Hola, quiero explorar financiamiento para una ${summary.brand} ${summary.model} ${summary.versionName}. Precio total estimado: ${formatCopCurrency(summary.totalPrice)}.`;
     sequoiaSummaryFinancingLink.href = buildSequoiaWhatsappUrl(financeMessage);
+    sequoiaSummaryFinancingLink.setAttribute("data-whatsapp-message", encodeURIComponent(financeMessage));
   }
 
   if (sequoiaOrderDetails) {
@@ -3279,13 +3320,13 @@ function bindOrderExperience() {
 
     if (action === "demo") {
       const message = `Hola, me encuentro interesado en la compra de una ${vehicleLabel} y quisiera hacer un Demo Drive para conocerla un poco más. ¿Podrías brindarme más información?`;
-      window.location.href = buildSequoiaWhatsappUrl(message);
+      openSequoiaWhatsappChat(message);
       return;
     }
 
     if (action === "finance") {
       const message = `Hola! estoy interesado en comprar ${vehicleLabel}, me gustaria que me ayudaras con el proceso de financiamiento para el vehiculo.`;
-      window.location.href = buildSequoiaWhatsappUrl(message);
+      openSequoiaWhatsappChat(message);
       return;
     }
 
@@ -3685,8 +3726,7 @@ function renderVirtualDealership() {
       publicationUrl.hash = `virtual-vehicle-${vehicleKey}`;
 
       const whatsappMessage = `Hola, estoy muy interesado en comprar este vehículo (${publicationUrl.toString()}); ¿podrías darme más información o llamarme?`;
-      const whatsappUrl = new URL(`https://wa.me/${GLOBAL_WHATSAPP_NUMBER}`);
-      whatsappUrl.searchParams.set("text", whatsappMessage);
+      const whatsappUrl = buildSequoiaWhatsappUrl(whatsappMessage);
       const detailsExpanded = state.virtualDealershipExpandedDetails.has(vehicleKey);
 
       return `
@@ -3735,7 +3775,7 @@ function renderVirtualDealership() {
               <p>${escapeHtml(vehicle.mileage != null ? `${vehicle.mileage} km` : "Kilometraje por confirmar")} · ${escapeHtml(vehicle.engine || "Motor por confirmar")} · ${escapeHtml(vehicle.horsepower != null ? `${vehicle.horsepower} HP` : "Potencia por confirmar")}</p>
               <p>${escapeHtml(vehicle.description || "Vehículo en vitrina para compra inmediata.")}</p>
               <div class="virtual-dealership-card-actions">
-                <a class="secondary-button virtual-dealership-buy-button" href="${escapeHtml(whatsappUrl.toString())}" target="_blank" rel="noopener noreferrer">Comprar ahora</a>
+                <a class="secondary-button virtual-dealership-buy-button" href="${escapeHtml(whatsappUrl)}" data-whatsapp-message="${encodeURIComponent(whatsappMessage)}" rel="noopener noreferrer">Comprar ahora</a>
                 <div class="virtual-dealership-video-column">
                   <button type="button" class="primary-button virtual-dealership-video-button" data-virtual-video-call="1" data-virtual-video-title="${encodeURIComponent(vehicleTitle)}" data-virtual-video-publication="${encodeURIComponent(publicationUrl.toString())}">Verla en vivo</button>
                 </div>
@@ -4104,7 +4144,19 @@ virtualDealershipVideoConfirm?.addEventListener("click", () => {
   ].join("\n");
 
   setVirtualDealershipVideoFeedback("Perfecto, te llevamos a WhatsApp para confirmar la videollamada.", "success");
-  window.location.href = buildSequoiaWhatsappUrl(message);
+  openSequoiaWhatsappChat(message);
+});
+document.addEventListener("click", (event) => {
+  const whatsappTrigger = event.target.closest("[data-whatsapp-message]");
+
+  if (!whatsappTrigger) {
+    return;
+  }
+
+  event.preventDefault();
+  const encodedMessage = whatsappTrigger.getAttribute("data-whatsapp-message") || "";
+  const message = encodedMessage ? decodeURIComponent(encodedMessage) : "";
+  openSequoiaWhatsappChat(message);
 });
 notificationsList?.addEventListener("click", (event) => {
   const dismissButton = event.target.closest("[data-notification-dismiss]");

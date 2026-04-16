@@ -859,6 +859,26 @@ function getUpdateStatusLabel(update) {
   return "Actualizacion interna";
 }
 
+function getRecentEventSummary(item) {
+  const statusLabel = String(item?.title || "Evento").trim();
+  const description = String(item?.description || "").trim();
+  const attachmentCount = Array.isArray(item?.media) ? item.media.length : 0;
+  const attachmentLabel = attachmentCount === 1 ? "1 documento adjunto" : `${attachmentCount} documentos adjuntos`;
+  const summaryParts = [];
+
+  if (description) {
+    summaryParts.push(`${statusLabel}: ${description}`);
+  } else {
+    summaryParts.push(statusLabel);
+  }
+
+  if (attachmentCount > 0) {
+    summaryParts.push(attachmentLabel);
+  }
+
+  return summaryParts.join(" - ");
+}
+
 function renderStateUpdates(step) {
   const indexedUpdates = getIndexedUpdates(step);
 
@@ -976,6 +996,7 @@ function buildRecentEvents(order) {
 function renderRecentEventItem(item) {
   const eventId = String(item.id || "");
   const isExpanded = expandedOverviewEventIds.has(eventId);
+  const eventSummary = getRecentEventSummary(item);
 
   return `
     <article class="tracking-stage-event-item ${isExpanded ? "is-open" : ""}">
@@ -988,7 +1009,7 @@ function renderRecentEventItem(item) {
         >
           <div class="tracking-stage-event-main">
             <span class="tracking-stage-event-kind">Evento</span>
-            <strong>${escapeHtml(item.title)}</strong>
+            <strong>${escapeHtml(eventSummary)}</strong>
             <div class="tracking-stage-event-meta">
               <span>${escapeHtml(formatDateTimeLabel(item.date))}</span>
               <span>${escapeHtml(item.clientVisible ? "Visible al cliente" : "Oculto al cliente")}</span>
