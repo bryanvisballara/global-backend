@@ -250,6 +250,10 @@ const orderSchema = new mongoose.Schema(
       type: [trackingSubscriberSchema],
       default: [],
     },
+    trackingEventCollectionEnabled: {
+      type: Boolean,
+      default: false,
+    },
     notes: {
       type: String,
       trim: true,

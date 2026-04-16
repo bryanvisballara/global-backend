@@ -79,6 +79,10 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { normalizeTrackingStates } = require("../constants/trackingSteps");
 const { publishDueScheduledPosts } = require("./adminPostsController");
+const {
+  hydrateOrderTracking,
+  hydrateOrdersTracking,
+} = require("../services/trackingEventService");
 
 function getDocuSignOAuthBaseUrl() {
   const envName = String(process.env.DOCUSIGN_ENV || "sandbox").toLowerCase();
@@ -729,10 +733,12 @@ async function getPublicTrackingOrder(req, res) {
     };
 
     let order = await Order.findOne(trackingQuery).populate("createdBy", "name email role");
+    let orderRegion = "latam";
     let linkedClientModel = Client;
 
     if (!order) {
       order = await OrderGlobalUS.findOne(trackingQuery).populate("createdBy", "name email role");
+      orderRegion = "usa";
       linkedClientModel = ClientGlobalUS;
     }
 
@@ -779,8 +785,12 @@ async function getPublicTrackingOrder(req, res) {
       await order.save();
     }
 
+    const hydratedOrder = await hydrateOrderTracking(order, orderRegion, {
+      preferCollectionOnly: Boolean(order.trackingEventCollectionEnabled),
+    });
+
     return res.status(200).json({
-      order: sanitizeOrderForClient(order),
+      order: sanitizeOrderForClient(hydratedOrder),
       linkedToClient,
     });
   } catch (error) {
@@ -817,7 +827,13 @@ async function getClientDashboard(req, res) {
         .sort({ createdAt: -1 }),
     ]);
 
-    const orders = [...latamOrders, ...usaOrders].sort((left, right) => {
+    const hydratedOrders = await hydrateOrdersTracking(
+      latamOrders
+        .map((order) => ({ order, orderRegion: "latam" }))
+        .concat(usaOrders.map((order) => ({ order, orderRegion: "usa" })))
+    );
+
+    const orders = hydratedOrders.sort((left, right) => {
       const leftCreatedAt = new Date(left.createdAt || 0).getTime();
       const rightCreatedAt = new Date(right.createdAt || 0).getTime();
 

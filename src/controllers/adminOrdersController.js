@@ -14,6 +14,15 @@ const {
   sendTrackingUpdateNotifications,
 } = require("../services/pushNotificationService");
 const { sendOrderTrackingUpdateEmail } = require("../services/orderTrackingEmailService");
+const {
+  backfillTrackingEventsFromOrder,
+  buildHydratedTrackingSteps,
+  createTrackingEvent,
+  fetchTrackingStepEvents,
+  hydrateOrderTracking,
+  hydrateOrdersTracking,
+  mapTrackingEventToUpdate,
+} = require("../services/trackingEventService");
 
 const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
@@ -181,9 +190,11 @@ function syncTrackingStepFlagsFromLatestUpdate(step) {
 async function persistTrackingOrderState(orderResult, order) {
   const normalizedTrackingSteps = normalizeTrackingStates(order.trackingSteps || []);
   const nextStatus = normalizedTrackingSteps.every((state) => state.confirmed) ? "completed" : "active";
+  const trackingEventCollectionEnabled = Boolean(order.trackingEventCollectionEnabled);
 
   order.set("trackingSteps", normalizedTrackingSteps);
   order.set("status", nextStatus);
+  order.set("trackingEventCollectionEnabled", trackingEventCollectionEnabled);
 
   await order.validate();
 
@@ -191,6 +202,7 @@ async function persistTrackingOrderState(orderResult, order) {
     $set: {
       trackingSteps: normalizedTrackingSteps,
       status: nextStatus,
+      trackingEventCollectionEnabled,
     },
   });
 
@@ -569,13 +581,10 @@ function inferFileMediaType(file, result) {
   return "document";
 }
 
-function serializeOrder(order, orderRegion = "latam") {
-  const serializedOrder = order?.toObject ? order.toObject() : { ...(order || {}) };
-
-  serializedOrder.trackingSteps = normalizeTrackingStates(serializedOrder.trackingSteps || []);
-  serializedOrder.orderRegion = orderRegion;
-
-  return serializedOrder;
+async function serializeOrder(order, orderRegion = "latam") {
+  return hydrateOrderTracking(order, orderRegion, {
+    preferCollectionOnly: Boolean(order?.trackingEventCollectionEnabled),
+  });
 }
 
 function parseExistingMediaPayload(value) {
@@ -1045,7 +1054,7 @@ async function createOrder(req, res) {
 
     return res.status(201).json({
       message: "Order created successfully",
-      order: serializeOrder(populatedOrder, orderRegion),
+      order: await serializeOrder(populatedOrder, orderRegion),
     });
   } catch (error) {
     console.error("Error creating order", error);
@@ -1076,9 +1085,13 @@ async function listOrders(req, res) {
         OrderGlobalUS.find().populate("client", "name email phone").populate("createdBy", "name email role"),
       ]);
 
-      const mergedOrders = latamOrders
-        .map((order) => serializeOrder(order, "latam"))
-        .concat(usaOrders.map((order) => serializeOrder(order, "usa")))
+      const mergedOrders = await hydrateOrdersTracking(
+        latamOrders
+          .map((order) => ({ order, orderRegion: "latam" }))
+          .concat(usaOrders.map((order) => ({ order, orderRegion: "usa" })))
+      );
+
+      mergedOrders
         .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime());
 
       return res.status(200).json({ orders: mergedOrders });
@@ -1089,7 +1102,9 @@ async function listOrders(req, res) {
       .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
-    return res.status(200).json({ orders: orders.map((order) => serializeOrder(order, "latam")) });
+    return res.status(200).json({
+      orders: await hydrateOrdersTracking(orders.map((order) => ({ order, orderRegion: "latam" }))),
+    });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching orders" });
   }
@@ -1107,7 +1122,7 @@ async function getOrder(req, res) {
       .populate("client", "name email phone")
       .populate("createdBy", "name email role");
 
-    return res.status(200).json({ order: serializeOrder(order, orderResult.region) });
+    return res.status(200).json({ order: await serializeOrder(order, orderResult.region) });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching order" });
   }
@@ -1170,7 +1185,7 @@ async function updateOrder(req, res) {
 
     return res.status(200).json({
       message: "Order updated successfully",
-      order: serializeOrder(updatedOrder, orderResult.region),
+      order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
     return res.status(500).json({ message: "Error updating order" });
@@ -1187,7 +1202,12 @@ async function updateTrackingState(req, res) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
+    order.trackingEventCollectionEnabled = true;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
 
@@ -1196,14 +1216,15 @@ async function updateTrackingState(req, res) {
     }
 
     const step = order.trackingSteps[stepIndex];
+    const operation = String(req.body.operation || "add-update").trim().toLowerCase();
     const existingMedia = parseExistingMediaPayload(req.body.existingMedia);
     const uploadedFiles = req.files || [];
     const externalVideoMedia = parseTrackingVideoLinks(req.body.videoLinks);
-    const requestedNotes = typeof notes === "string" ? notes.trim() : "";
+    const requestedNotes = String(req.body.notes || "").trim();
     const requestedConfirmed = parseBooleanValue(req.body.confirmed, step.confirmed);
     const requestedInProgress = requestedConfirmed ? false : parseBooleanValue(req.body.inProgress, step.inProgress);
     const requestedClientVisible = parseBooleanValue(req.body.clientVisible, false);
-    const requestedVisibilityOnly = parseBooleanValue(req.body.visibilityOnly, false);
+    const requestedVisibilityOnly = parseBooleanValue(req.body.visibilityOnly, operation === "toggle-update-visibility");
     const requestedMediaVisibilityOnly = parseBooleanValue(req.body.mediaVisibilityOnly, false);
     const forceCreateUpdate = !requestedVisibilityOnly && parseBooleanValue(req.body.forceCreateUpdate, false);
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
@@ -1244,11 +1265,16 @@ async function updateTrackingState(req, res) {
       : -1;
 
     if (resolvedVisibilityUpdateIndex >= 0 && Array.isArray(step.updates) && step.updates[resolvedVisibilityUpdateIndex]) {
-      const targetUpdate = step.updates[resolvedVisibilityUpdateIndex];
-      const previouslyVisible = Boolean(targetUpdate.clientVisible);
-      const visibilityChangedAt = new Date();
+      const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
+      const targetEvent = stepEvents[resolvedVisibilityUpdateIndex];
 
-      const resolvedTargetMedia = normalizeMedia(targetUpdate.media || []);
+      if (!targetEvent) {
+        return res.status(404).json({ message: "Subestado no encontrado" });
+      }
+
+      const previouslyVisible = Boolean(targetEvent.clientVisible);
+      const visibilityChangedAt = new Date();
+      const resolvedTargetMedia = normalizeMedia(targetEvent.media || []);
 
       if (requestedMediaVisibilityOnly) {
         if (requestedMediaIndex < 0 || !resolvedTargetMedia[requestedMediaIndex]) {
@@ -1260,25 +1286,25 @@ async function updateTrackingState(req, res) {
           clientVisible: requestedClientVisible,
         };
 
-        targetUpdate.media = resolvedTargetMedia;
-        targetUpdate.clientVisible = resolvedTargetMedia.some((item) => item?.clientVisible !== false);
+        targetEvent.media = resolvedTargetMedia;
+        targetEvent.clientVisible = resolvedTargetMedia.some((item) => item?.clientVisible !== false);
       } else {
-        targetUpdate.media = resolvedTargetMedia;
-        targetUpdate.clientVisible = requestedClientVisible;
+        targetEvent.media = resolvedTargetMedia.map((item) => ({
+          ...item,
+          clientVisible: requestedClientVisible,
+        }));
+        targetEvent.clientVisible = requestedClientVisible;
       }
 
-      targetUpdate.updatedAt = visibilityChangedAt;
+      targetEvent.updatedAt = visibilityChangedAt;
+      await targetEvent.save();
 
-      if (!previouslyVisible && requestedClientVisible) {
-        clientPublishedStep = buildTrackingStepSnapshot(step, targetUpdate);
+      if (!previouslyVisible && targetEvent.clientVisible) {
+        clientPublishedStep = buildTrackingStepSnapshot(step, mapTrackingEventToUpdate(targetEvent));
       }
     } else if (requestedMediaVisibilityOnly) {
       return res.status(404).json({ message: "Tracking media not found" });
     } else if (isVisibilityOnlyUpdate && requestedUpdateIndex < 0 && requestedClientVisible) {
-      if (!Array.isArray(step.updates)) {
-        step.updates = [];
-      }
-
       const seededUpdate = buildSyntheticTrackingVisibilityUpdate(step, {
         clientVisible: true,
         inProgress: requestedConfirmed ? false : requestedInProgress,
@@ -1287,7 +1313,17 @@ async function updateTrackingState(req, res) {
       });
 
       if (seededUpdate) {
-        step.updates.push(seededUpdate);
+        await createTrackingEvent({
+          orderId: order._id,
+          orderRegion: orderResult.region,
+          stepKey,
+          notes: seededUpdate.notes,
+          media: seededUpdate.media || [],
+          clientVisible: Boolean(seededUpdate.clientVisible),
+          inProgress: Boolean(seededUpdate.completed ? false : seededUpdate.inProgress),
+          completed: Boolean(seededUpdate.completed),
+          timestamp: seededUpdate.updatedAt || seededUpdate.createdAt || new Date(),
+        });
         clientPublishedStep = buildTrackingStepSnapshot(step, seededUpdate);
       }
     } else if (forceCreateUpdate || hasTrackingUpdateChanges({
@@ -1312,21 +1348,44 @@ async function updateTrackingState(req, res) {
         step.updates = [];
       }
 
+      await createTrackingEvent({
+        orderId: order._id,
+        orderRegion: orderResult.region,
+        stepKey,
+        notes: requestedNotes,
+        media: appendedMedia,
+        clientVisible: updateShouldBeClientVisible,
+        inProgress: requestedConfirmed ? false : requestedInProgress,
+        completed: requestedConfirmed,
+        timestamp: new Date(),
+      });
+
       if (updateShouldBeClientVisible) {
         clientPublishedStep = buildTrackingStepSnapshot(step, newUpdate);
       }
     }
 
-    step.confirmed = requestedConfirmed;
-    step.inProgress = requestedConfirmed ? false : requestedInProgress;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
 
-    syncTrackingStepProgression(order.trackingSteps, step.inProgress ? stepIndex : -1);
+    const refreshedStepIndex = order.trackingSteps.findIndex((state) => state.key === stepKey);
+    const refreshedStep = refreshedStepIndex >= 0 ? order.trackingSteps[refreshedStepIndex] : null;
 
-    const latestUpdate = getLatestTrackingStepUpdate(step);
+    if (!refreshedStep) {
+      return res.status(404).json({ message: "Tracking state not found" });
+    }
+
+    refreshedStep.confirmed = requestedConfirmed;
+    refreshedStep.inProgress = requestedConfirmed ? false : requestedInProgress;
+
+    syncTrackingStepProgression(order.trackingSteps, refreshedStep.inProgress ? refreshedStepIndex : -1);
+
+    const latestUpdate = getLatestTrackingStepUpdate(refreshedStep);
     const progressionTimestamp = latestUpdate?.updatedAt || latestUpdate?.createdAt || new Date();
     const activeStepAfterSync = order.trackingSteps.find((item) => item?.inProgress && !item?.confirmed) || null;
 
-    if (requestedConfirmed && activeStepAfterSync && activeStepAfterSync.key !== step.key) {
+    if (requestedConfirmed && activeStepAfterSync && activeStepAfterSync.key !== refreshedStep.key) {
       const autoActivatedUpdate = ensureTrackingStepLifecycleUpdate(activeStepAfterSync, {
         notes: "Estado activado automaticamente al completar la etapa anterior.",
         clientVisible: false,
@@ -1335,21 +1394,35 @@ async function updateTrackingState(req, res) {
         timestamp: progressionTimestamp,
       });
 
+      if (autoActivatedUpdate && !autoActivatedUpdate.eventId) {
+        await createTrackingEvent({
+          orderId: order._id,
+          orderRegion: orderResult.region,
+          stepKey: activeStepAfterSync.key,
+          notes: autoActivatedUpdate.notes,
+          media: autoActivatedUpdate.media || [],
+          clientVisible: Boolean(autoActivatedUpdate.clientVisible),
+          inProgress: Boolean(autoActivatedUpdate.completed ? false : autoActivatedUpdate.inProgress),
+          completed: Boolean(autoActivatedUpdate.completed),
+          timestamp: autoActivatedUpdate.updatedAt || autoActivatedUpdate.createdAt || progressionTimestamp,
+        });
+      }
+
       activeStepAfterSync.notes = autoActivatedUpdate?.notes || activeStepAfterSync.notes || "";
       activeStepAfterSync.updatedAt = autoActivatedUpdate?.updatedAt || autoActivatedUpdate?.createdAt || progressionTimestamp;
       syncTrackingStepDerivedFields(activeStepAfterSync);
     }
 
-    syncTrackingStepDerivedFields(step);
+    syncTrackingStepDerivedFields(refreshedStep);
 
     const updatedOrder = await persistTrackingOrderState(orderResult, order);
 
     // Automatizar agendamiento de mantenimiento si es LATAM y se confirma 'delivery'
-    if (orderResult.region === "latam" && stepKey === "delivery" && step.confirmed) {
+    const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
+
+    if (orderResult.region === "latam" && stepKey === "delivery" && updatedStep?.confirmed) {
       await syncMaintenanceSchedule(order, req.user._id);
     }
-
-    const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
 
     if (clientPublishedStep?.clientVisible) {
       await sendTrackingUpdateNotifications(updatedOrder, clientPublishedStep, previousConfirmedStep).catch(() => null);
@@ -1361,7 +1434,7 @@ async function updateTrackingState(req, res) {
 
     return res.status(200).json({
       message: "Tracking state updated successfully",
-      order: serializeOrder(updatedOrder, orderResult.region),
+      order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
     if (error.message === "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.") {
@@ -1383,6 +1456,9 @@ async function deleteTrackingUpdate(req, res) {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
+    order.trackingEventCollectionEnabled = true;
     order.trackingSteps = normalizeTrackingStates(order.trackingSteps || []);
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
@@ -1396,20 +1472,23 @@ async function deleteTrackingUpdate(req, res) {
     }
 
     const step = order.trackingSteps[stepIndex];
+    const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
+    const targetEvent = stepEvents[updateIndex];
 
-    if (!Array.isArray(step.updates) || updateIndex < 0 || !step.updates[updateIndex]) {
+    if (!targetEvent) {
       return res.status(404).json({ message: "Subestado no encontrado" });
     }
 
-    step.updates.splice(updateIndex, 1);
-    syncTrackingStepFlagsFromLatestUpdate(step);
-    syncTrackingStepProgression(order.trackingSteps, step.inProgress ? stepIndex : -1);
+    await targetEvent.deleteOne();
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
 
     const updatedOrder = await persistTrackingOrderState(orderResult, order);
 
     return res.status(200).json({
       message: "Subestado eliminado correctamente",
-      order: serializeOrder(updatedOrder, orderResult.region),
+      order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
     return res.status(500).json({ message: "Error deleting tracking update" });
