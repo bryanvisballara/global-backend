@@ -5249,23 +5249,38 @@ a.popover-action {
 }
 
 .feed-media-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  min-height: 420px;
+  min-height: 0;
+  max-height: min(78vh, 720px);
   background: rgba(255, 255, 255, 0.03);
   scroll-snap-align: start;
 }
 
 .feed-media-card img,
-.feed-media-card video,
-.feed-media-card iframe {
+.feed-media-card video {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-width: 100%;
+  max-height: min(78vh, 720px);
+  margin-inline: auto;
+  object-fit: contain;
 }
 
 .feed-media-card.video {
+  min-height: 0;
+}
+
+.feed-media-card iframe {
+  display: block;
+  width: 100%;
   min-height: 240px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
 }
 
 .tracking-search-card {
