@@ -1,6 +1,7 @@
 const OrderTrackingEvent = require("../models/OrderTrackingEvent");
 const {
   TRACKING_STATE_TEMPLATES,
+  buildTrackingStates,
   normalizeTrackingStates,
 } = require("../constants/trackingSteps");
 
@@ -185,6 +186,10 @@ function buildStepEventMap(events = []) {
   return stepEventMap;
 }
 
+function buildCollectionTrackingSteps(events = []) {
+  return mergeTrackingStepsWithEvents(buildTrackingStates(), buildStepEventMap(events), true);
+}
+
 function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = new Map(), preferCollectionOnly = false) {
   const baseTrackingSteps = normalizeTrackingStates(sourceTrackingSteps || []);
   const mergedTrackingSteps = baseTrackingSteps.map((step) => {
@@ -278,6 +283,10 @@ async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, ord
     .lean();
   const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
 
+  if (options.preferCollectionOnly) {
+    return buildCollectionTrackingSteps(normalizedEvents);
+  }
+
   return mergeTrackingStepsWithEvents(
     sourceTrackingSteps,
     buildStepEventMap(normalizedEvents),
@@ -299,12 +308,15 @@ async function hydrateOrderTracking(order, orderRegion, options = {}) {
     .sort({ createdAt: 1, _id: 1 })
     .lean();
   const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
+  const preferCollectionOnly = Boolean(options.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
-  plainOrder.trackingSteps = mergeTrackingStepsWithEvents(
-    plainOrder.trackingSteps || [],
-    buildStepEventMap(normalizedEvents),
-    Boolean(options.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled)
-  );
+  plainOrder.trackingSteps = preferCollectionOnly
+    ? buildCollectionTrackingSteps(normalizedEvents)
+    : mergeTrackingStepsWithEvents(
+        plainOrder.trackingSteps || [],
+        buildStepEventMap(normalizedEvents),
+        false
+      );
   plainOrder.trackingEvents = buildTrackingEventsCollection(normalizedEvents);
   plainOrder.orderRegion = orderRegion;
 
@@ -341,12 +353,15 @@ async function hydrateOrdersTracking(orderEntries = []) {
     const plainOrder = toPlainObject(entry.order);
     const orderKey = resolveOrderKey(plainOrder._id || plainOrder.id, entry.orderRegion);
     const orderEvents = eventsByOrderKey.get(orderKey) || [];
+    const preferCollectionOnly = Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
-    plainOrder.trackingSteps = mergeTrackingStepsWithEvents(
-      plainOrder.trackingSteps || [],
-      buildStepEventMap(orderEvents),
-      Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled)
-    );
+    plainOrder.trackingSteps = preferCollectionOnly
+      ? buildCollectionTrackingSteps(orderEvents)
+      : mergeTrackingStepsWithEvents(
+          plainOrder.trackingSteps || [],
+          buildStepEventMap(orderEvents),
+          false
+        );
     plainOrder.trackingEvents = buildTrackingEventsCollection(orderEvents);
     plainOrder.orderRegion = entry.orderRegion;
 

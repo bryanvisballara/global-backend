@@ -788,7 +788,7 @@ async function getPublicTrackingOrder(req, res) {
     }
 
     const hydratedOrder = await hydrateOrderTracking(order, orderRegion, {
-      preferCollectionOnly: Boolean(order.trackingEventCollectionEnabled),
+      preferCollectionOnly: true,
     });
 
     return res.status(200).json({
@@ -831,8 +831,8 @@ async function getClientDashboard(req, res) {
 
     const hydratedOrders = await hydrateOrdersTracking(
       latamOrders
-        .map((order) => ({ order, orderRegion: "latam" }))
-        .concat(usaOrders.map((order) => ({ order, orderRegion: "usa" })))
+        .map((order) => ({ order, orderRegion: "latam", preferCollectionOnly: true }))
+        .concat(usaOrders.map((order) => ({ order, orderRegion: "usa", preferCollectionOnly: true })))
     );
 
     const orders = hydratedOrders.sort((left, right) => {
