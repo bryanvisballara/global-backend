@@ -12,6 +12,8 @@ const {
   deleteTrackingUpdate,
   getOrder,
   listOrders,
+  requestOrderDeletion,
+  reviewOrderDeletionRequest,
   suggestTrackingNumber,
   toggleTrackingEventVisibility,
   updateOrder,
@@ -58,6 +60,8 @@ router.get("/orders", listOrders);
 router.post("/orders", upload.array("mediaFiles", 10), createOrder);
 router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
+router.post("/orders/:orderId/deletion-request", requestOrderDeletion);
+router.patch("/orders/:orderId/deletion-request", reviewOrderDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/visibility", toggleTrackingEventVisibility);
 router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
