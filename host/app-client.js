@@ -333,9 +333,11 @@ async function storeBiometricSession(token, role) {
     role: role || "client",
   });
 
-  if (response?.ok) {
-    biometricStatus.enrolledSession = true;
-    updateBiometricButtonVisibility();
+  biometricStatus.enrolledSession = Boolean(response?.enrolledSession);
+  updateBiometricButtonVisibility();
+
+  if (!response?.ok) {
+    throw new Error(response?.error || "No pudimos activar el acceso biométrico.");
   }
 }
 
@@ -356,7 +358,12 @@ function persistAuthenticatedSession(token, role) {
 async function completeAuthenticatedSession({ token, role, user }) {
   const resolvedRole = user?.role || role || "";
   persistAuthenticatedSession(token, resolvedRole);
-  await storeBiometricSession(token, resolvedRole);
+
+  try {
+    await storeBiometricSession(token, resolvedRole);
+  } catch (error) {
+    setFeedback(error.message || "No pudimos activar el acceso biométrico.", "error");
+  }
 
   setFeedback("Acceso correcto. Redirigiendo...", "success");
 

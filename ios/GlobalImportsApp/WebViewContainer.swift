@@ -739,7 +739,13 @@ private final class BiometricSessionStore {
         ]
 
         let status = SecItemCopyMatching(query as CFDictionary, nil)
-        return status == errSecSuccess
+
+        switch status {
+        case errSecSuccess, errSecInteractionNotAllowed, errSecAuthFailed:
+            return true
+        default:
+            return false
+        }
     }
 
     private func resolveBiometryType(from type: LABiometryType) -> BiometryType {
