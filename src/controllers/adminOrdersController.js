@@ -684,6 +684,20 @@ function parseTrackingUpdateIndex(value) {
   return Number.isNaN(parsedValue) ? -1 : parsedValue;
 }
 
+function resolveTrackingEventByReference(stepEvents = [], { eventId = "", updateIndex = -1 } = {}) {
+  const normalizedEventId = String(eventId || "").trim();
+
+  if (normalizedEventId) {
+    return (stepEvents || []).find((event) => String(event?._id || event?.id || "") === normalizedEventId) || null;
+  }
+
+  if (!Array.isArray(stepEvents) || updateIndex < 0) {
+    return null;
+  }
+
+  return stepEvents[updateIndex] || null;
+}
+
 function hydrateTrackingStepMediaFromFlattenedState(step) {
   if (!step || !Array.isArray(step.updates) || !step.updates.length || !Array.isArray(step.media) || !step.media.length) {
     return step;
@@ -1227,6 +1241,7 @@ async function updateTrackingState(req, res) {
     const requestedVisibilityOnly = parseBooleanValue(req.body.visibilityOnly, operation === "toggle-update-visibility");
     const requestedMediaVisibilityOnly = parseBooleanValue(req.body.mediaVisibilityOnly, false);
     const forceCreateUpdate = !requestedVisibilityOnly && parseBooleanValue(req.body.forceCreateUpdate, false);
+    const requestedEventId = String(req.body.eventId || "").trim();
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
     const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
 
@@ -1266,14 +1281,16 @@ async function updateTrackingState(req, res) {
 
     if (resolvedVisibilityUpdateIndex >= 0 && Array.isArray(step.updates) && step.updates[resolvedVisibilityUpdateIndex]) {
       const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
-      const targetEvent = stepEvents[resolvedVisibilityUpdateIndex];
+      const targetEvent = resolveTrackingEventByReference(stepEvents, {
+        eventId: requestedEventId,
+        updateIndex: resolvedVisibilityUpdateIndex,
+      });
 
       if (!targetEvent) {
         return res.status(404).json({ message: "Subestado no encontrado" });
       }
 
       const previouslyVisible = Boolean(targetEvent.clientVisible);
-      const visibilityChangedAt = new Date();
       const resolvedTargetMedia = normalizeMedia(targetEvent.media || []);
 
       if (requestedMediaVisibilityOnly) {
@@ -1296,7 +1313,7 @@ async function updateTrackingState(req, res) {
         targetEvent.clientVisible = requestedClientVisible;
       }
 
-      targetEvent.updatedAt = visibilityChangedAt;
+      targetEvent.markModified("media");
       await targetEvent.save();
 
       if (!previouslyVisible && targetEvent.clientVisible) {
@@ -1427,10 +1444,13 @@ async function updateTrackingState(req, res) {
     if (clientPublishedStep?.clientVisible) {
       await sendTrackingUpdateNotifications(updatedOrder, clientPublishedStep, previousConfirmedStep).catch(() => null);
       await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
-    }
 
-    await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
-    await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
+      await sendTrackingUpdateAdminNotifications(updatedOrder, clientPublishedStep).catch(() => null);
+      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
+    } else if (!requestedVisibilityOnly) {
+      await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
+      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
+    }
 
     return res.status(200).json({
       message: "Tracking state updated successfully",
@@ -1448,6 +1468,7 @@ async function updateTrackingState(req, res) {
 async function deleteTrackingUpdate(req, res) {
   try {
     const { orderId, stepKey, updateIndex: rawUpdateIndex } = req.params;
+    const requestedEventId = String(req.query.eventId || "").trim();
     const updateIndex = parseTrackingUpdateIndex(rawUpdateIndex);
     const orderResult = await findOrderForRole(orderId, req.user?.role);
     const order = orderResult.order;
@@ -1475,7 +1496,10 @@ async function deleteTrackingUpdate(req, res) {
 
     const step = order.trackingSteps[stepIndex];
     const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
-    const targetEvent = stepEvents[updateIndex];
+    const targetEvent = resolveTrackingEventByReference(stepEvents, {
+      eventId: requestedEventId,
+      updateIndex,
+    });
 
     if (!targetEvent) {
       return res.status(404).json({ message: "Subestado no encontrado" });
