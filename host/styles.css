@@ -1687,6 +1687,42 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   outline: none;
 }
 
+.login-form select,
+.dashboard-form select,
+.client-form-card select,
+.clients-filter-grid select,
+.tracking-native-select,
+.virtual-dealership-video-select,
+.maint-status-select {
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #111214;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23f7f7f4' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 12px 12px;
+  padding-right: 46px;
+}
+
+.login-form select option,
+.login-form select optgroup,
+.dashboard-form select option,
+.dashboard-form select optgroup,
+.client-form-card select option,
+.client-form-card select optgroup,
+.clients-filter-grid select option,
+.clients-filter-grid select optgroup,
+.tracking-native-select option,
+.tracking-native-select optgroup,
+.virtual-dealership-video-select option,
+.virtual-dealership-video-select optgroup,
+.maint-status-select option,
+.maint-status-select optgroup {
+  background: #111214;
+  color: #f7f7f4;
+}
+
 .dashboard-form textarea {
   resize: vertical;
   min-height: 90px;
@@ -2341,9 +2377,13 @@ body.tracking-detail-mode #tracking-form {
   border: 1px solid rgba(216, 170, 82, 0.18);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23f7f7f4' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, right 16px center;
+  background-size: auto, 12px 12px;
   color: var(--text);
-  padding: 14px 18px;
+  padding: 14px 46px 14px 18px;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
@@ -2910,6 +2950,38 @@ body.tracking-detail-mode #tracking-form {
   color: #f4d28f;
 }
 
+.tracking-search-results-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tracking-search-results-table {
+  min-width: 980px;
+}
+
+.tracking-order-row {
+  cursor: pointer;
+}
+
+.tracking-order-row td {
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.tracking-order-row td strong {
+  color: var(--text);
+}
+
+.tracking-order-row:hover td,
+.tracking-order-row.selected td {
+  background: rgba(216, 170, 82, 0.08);
+}
+
+.tracking-order-row:focus-visible {
+  outline: 2px solid rgba(216, 170, 82, 0.48);
+  outline-offset: -2px;
+}
+
 body.orders-creation-page .single-module-grid {
   width: 100%;
 }
@@ -2933,6 +3005,11 @@ body.orders-creation-page #order-form {
 .tracking-state-card.is-confirmed {
   border-color: rgba(96, 211, 168, 0.42);
   background: linear-gradient(180deg, rgba(96, 211, 168, 0.12), rgba(255, 255, 255, 0.04));
+}
+
+.tracking-state-card.is-in-progress {
+  border-color: rgba(244, 210, 143, 0.34);
+  background: linear-gradient(180deg, rgba(244, 210, 143, 0.1), rgba(255, 255, 255, 0.035));
 }
 
 .tracking-state-header {
@@ -3001,7 +3078,14 @@ body.orders-creation-page #order-form {
 }
 
 .tracking-state-switches {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tracking-state-helper-copy {
+  margin: -4px 0 0;
+  color: rgba(243, 237, 224, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .tracking-state-switches .dashboard-checkbox {
@@ -3107,6 +3191,227 @@ body.orders-creation-page #order-form {
 .tracking-state-media-groups {
   display: grid;
   gap: 16px;
+}
+
+.tracking-state-history-block {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-state-history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-state-history-item {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tracking-state-history-item.is-client-visible {
+  border-color: rgba(96, 211, 168, 0.26);
+  background: rgba(96, 211, 168, 0.08);
+}
+
+.tracking-state-history-item.is-internal {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.tracking-state-history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tracking-state-history-header p,
+.tracking-state-history-item p,
+.tracking-state-history-item small,
+.tracking-state-history-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tracking-state-history-header strong,
+.tracking-state-history-item strong {
+  color: var(--text);
+}
+
+.tracking-state-history-empty {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tracking-stage-events-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-stage-events-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.tracking-stage-events-card.is-open {
+  border-color: rgba(216, 170, 82, 0.26);
+  background: linear-gradient(180deg, rgba(216, 170, 82, 0.08), rgba(255, 255, 255, 0.025));
+}
+
+.tracking-stage-events-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tracking-stage-events-toggle-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.tracking-stage-events-toggle-copy span {
+  color: rgba(244, 210, 143, 0.78);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracking-stage-events-toggle-copy p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tracking-stage-events-chevron {
+  flex: 0 0 auto;
+  color: #f4d28f;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tracking-stage-events-body {
+  padding: 0 18px 18px;
+}
+
+.tracking-stage-events-body[hidden] {
+  display: none !important;
+}
+
+.tracking-stage-events-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tracking-stage-event-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tracking-stage-event-item.is-open {
+  border-color: rgba(216, 170, 82, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tracking-stage-event-item.is-media {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.tracking-stage-event-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.tracking-stage-event-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tracking-stage-event-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tracking-stage-event-chevron {
+  flex: 0 0 auto;
+  color: #f4d28f;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tracking-stage-event-kind {
+  color: rgba(244, 210, 143, 0.78);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracking-stage-event-main p,
+.tracking-stage-event-meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tracking-stage-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+}
+
+.tracking-stage-event-actions {
+  flex: 0 0 auto;
+}
+
+.tracking-stage-event-body {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+}
+
+.tracking-stage-event-body[hidden] {
+  display: none !important;
+}
+
+.tracking-stage-event-body p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .tracking-state-media-block {
@@ -3746,13 +4051,11 @@ body.modal-open {
   max-width: none;
   margin: 0;
   padding: calc(10px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom));
-  overflow-x: clip;
 }
 
 .client-stage {
   position: relative;
-  overflow-x: clip;
-  overflow-y: visible;
+  overflow: visible;
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 18px 20px calc(108px + env(safe-area-inset-bottom));
   border-radius: 0;
@@ -3778,8 +4081,6 @@ body.modal-open {
 .client-bottom-nav {
   position: relative;
   z-index: 1;
-  width: 100%;
-  max-width: 100%;
 }
 
 .client-header {
@@ -4323,7 +4624,7 @@ a.popover-action {
 
 .sequoia-config-carousel-card {
   padding: 0;
-  margin-inline: 0;
+  margin-inline: -16px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -4412,6 +4713,14 @@ a.popover-action {
   letter-spacing: 0.12em;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.sequoia-config-subtitle-note {
+  color: rgba(247, 247, 244, 0.76);
+  font-size: 0.84em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .sequoia-config-color-name {
@@ -5141,6 +5450,148 @@ a.popover-action {
   font-size: 0.8rem;
 }
 
+.admin-users-actions-cell {
+  width: 92px;
+}
+
+.admin-user-delete-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(236, 109, 92, 0.3);
+  border-radius: 999px;
+  background: rgba(236, 109, 92, 0.12);
+  color: #ffd4ce;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-user-delete-button:hover {
+  background: rgba(236, 109, 92, 0.2);
+  border-color: rgba(236, 109, 92, 0.45);
+}
+
+.admin-user-delete-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.admin-user-delete-placeholder {
+  color: var(--muted);
+}
+
+.order-actions-cell {
+  width: 190px;
+}
+
+.order-actions-stack {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.order-edit-button {
+  min-width: 88px;
+  padding: 10px 14px;
+  border: 1px solid rgba(244, 234, 211, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #f4ead3;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-edit-button:hover {
+  background: rgba(244, 234, 211, 0.12);
+  border-color: rgba(244, 234, 211, 0.3);
+}
+
+.order-delete-button {
+  min-width: 88px;
+  padding: 10px 14px;
+  border: 1px solid rgba(236, 109, 92, 0.24);
+  border-radius: 999px;
+  background: rgba(236, 109, 92, 0.08);
+  color: #ffd4ce;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-delete-button:hover {
+  background: rgba(236, 109, 92, 0.16);
+  border-color: rgba(236, 109, 92, 0.36);
+}
+
+.order-delete-button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.order-request-status {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.order-request-status.pending {
+  color: #f7c891;
+}
+
+.order-request-status.rejected {
+  color: #ffb8ad;
+}
+
+.order-vin-missing {
+  color: #f7c891;
+  font-weight: 700;
+}
+
+.orders-creation-page .tracking-data-table td {
+  vertical-align: middle;
+}
+
+.orders-creation-page .tracking-data-table td strong {
+  display: block;
+}
+
+.orders-creation-page .tracking-data-table td small {
+  display: block;
+  margin-top: 4px;
+}
+
+#order-edit-modal input[readonly] {
+  opacity: 0.82;
+}
+
+#order-delete-request-modal textarea,
+#order-delete-request-modal input[readonly] {
+  width: 100%;
+}
+
+.request-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.request-card-actions .secondary-button,
+.request-card-actions .primary-button {
+  min-width: 140px;
+}
+
+.request-card-actions .secondary-button.is-danger {
+  border-color: rgba(236, 109, 92, 0.28);
+  color: #ffd4ce;
+}
+
+.request-card-actions .secondary-button.is-danger:hover {
+  background: rgba(236, 109, 92, 0.14);
+}
+
 .tracking-search-page .page-topbar {
   align-items: center;
 }
@@ -5584,8 +6035,6 @@ a.popover-action {
   bottom: 0;
   left: 0;
   z-index: 15;
-  width: 100%;
-  max-width: 100vw;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
@@ -5788,7 +6237,7 @@ body.modal-open {
   }
 
   .sequoia-config-carousel-card {
-    margin-inline: 0;
+    margin-inline: -20px;
   }
 
   .sequoia-config-specs {

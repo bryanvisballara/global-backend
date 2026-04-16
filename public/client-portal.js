@@ -1418,10 +1418,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Black Softex",
         hex: "#141416",
         images: [
-          "/trd%20black%20softex/trdbs01.webp",
-          "/trd%20black%20softex/trdbs02.webp",
-          "/trd%20black%20softex/trdbs03.webp",
-          "/trd%20black%20softex/trdbs04.webp"
+          "/trd%20Black%20Softex/trdbs01.webp",
+          "/trd%20Black%20Softex/trdbs02.webp",
+          "/trd%20Black%20Softex/trdbs03.webp",
+          "/trd%20Black%20Softex/trdbs04.webp"
         ]
       },
       {
@@ -1429,10 +1429,10 @@ const SEQUOIA_INTERIOR_CONFIG = {
         name: "Cockpit Red Softex",
         hex: "#8d1f2d",
         images: [
-          "/trd%20cockpit%20red%20softex/trdcrs01.webp",
-          "/trd%20cockpit%20red%20softex/trdcrs02.webp",
-          "/trd%20cockpit%20red%20softex/trdcrs03.webp",
-          "/trd%20cockpit%20red%20softex/trdcrs04.webp"
+          "/trd%20Cockpit%20Red%20Softex/trdcrs01.webp",
+          "/trd%20Cockpit%20Red%20Softex/trdcrs02.webp",
+          "/trd%20Cockpit%20Red%20Softex/trdcrs03.webp",
+          "/trd%20Cockpit%20Red%20Softex/trdcrs04.webp"
         ]
       },
     ],
@@ -2877,7 +2877,8 @@ function getSequoiaOrderSummaryData() {
 }
 
 function buildSequoiaWhatsappUrl(message) {
-  const whatsappUrl = new URL(`https://wa.me/${GLOBAL_WHATSAPP_NUMBER}`);
+  const whatsappUrl = new URL("https://api.whatsapp.com/send");
+  whatsappUrl.searchParams.set("phone", GLOBAL_WHATSAPP_NUMBER);
 
   if (message) {
     whatsappUrl.searchParams.set("text", message);
@@ -2911,9 +2912,13 @@ function openExternalBrowserUrl(url) {
   externalLink.href = resolvedUrl;
   externalLink.target = "_blank";
   externalLink.rel = "noopener noreferrer external";
-  document.body.appendChild(externalLink);
+  (document.body || document.documentElement).appendChild(externalLink);
   externalLink.click();
   externalLink.remove();
+
+  if (document.visibilityState === "visible") {
+    window.location.assign(resolvedUrl);
+  }
 
   return true;
 }
