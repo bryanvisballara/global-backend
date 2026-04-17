@@ -2887,17 +2887,29 @@ function buildSequoiaWhatsappUrl(message) {
   return whatsappUrl.toString();
 }
 
-function openExternalBrowserUrl(url) {
+function openExternalBrowserUrl(url, pendingWindow = null) {
   const resolvedUrl = String(url || "").trim();
 
   if (!resolvedUrl) {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.close();
+    }
     return false;
   }
 
   const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
 
   if (nativeExternalLinkHandler?.postMessage) {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.close();
+    }
     nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
+    return true;
+  }
+
+  if (pendingWindow && !pendingWindow.closed) {
+    pendingWindow.opener = null;
+    pendingWindow.location.replace(resolvedUrl);
     return true;
   }
 
@@ -3596,6 +3608,10 @@ function bindSequoiaConfigurator() {
 
     const originalLabel = sequoiaOrderCardButton.textContent;
     const summary = getSequoiaOrderSummaryData();
+    const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
+    const pendingExternalWindow = nativeExternalLinkHandler?.postMessage
+      ? null
+      : window.open("", "_blank", "noopener,noreferrer");
 
     sequoiaOrderCardButton.disabled = true;
     sequoiaOrderCardButton.textContent = "Preparando contrato...";
@@ -3621,14 +3637,16 @@ function bindSequoiaConfigurator() {
         throw new Error("No fue posible iniciar la firma del preacuerdo.");
       }
 
-      window.location.href = response.signingUrl;
+      openExternalBrowserUrl(response.signingUrl, pendingExternalWindow);
     } catch (error) {
       if (error?.message && /consentimiento jwt|consent_required|docusign requiere consentimiento/i.test(error.message)) {
         const consentUrlMatch = String(error.message).match(/https?:\/\/\S+/i);
 
         if (consentUrlMatch?.[0]) {
-          window.open(consentUrlMatch[0], "_blank", "noopener,noreferrer");
+          openExternalBrowserUrl(consentUrlMatch[0], pendingExternalWindow);
         }
+      } else if (pendingExternalWindow && !pendingExternalWindow.closed) {
+        pendingExternalWindow.close();
       }
 
       window.alert(error.message || "No se pudo iniciar la firma del preacuerdo.");
