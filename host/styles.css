@@ -321,6 +321,12 @@ body.login-page .auth-copy h2 {
   font-weight: 700;
 }
 
+.login-form .auth-field-optional {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.62);
+}
+
 .login-form input {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1751,6 +1757,31 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.5;
+}
+
+.account-deleted-panel {
+  max-width: 620px;
+}
+
+.account-deleted-feedback-form {
+  margin-top: 18px;
+}
+
+.account-deleted-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.deleted-account-recommendation {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.deleted-account-recommendation.is-empty {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .dashboard-list {

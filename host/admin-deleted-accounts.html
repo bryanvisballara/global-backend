@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Cuentas eliminadas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260420-deletedaccounts01" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1>Cuentas eliminadas</h1>
+          <p class="dashboard-lead">Consulta qué cuentas fueron eliminadas y las recomendaciones que dejaron los clientes antes de irse.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="clients-dashboard-stack">
+              <section class="clients-stats-grid" aria-label="Resumen cuentas eliminadas">
+                <article class="metric-card client-stat-card">
+                  <span>Total eliminadas</span>
+                  <strong id="deleted-accounts-total-count">0</strong>
+                </article>
+                <article class="metric-card client-stat-card">
+                  <span>Con opinión</span>
+                  <strong id="deleted-accounts-with-feedback-count">0</strong>
+                </article>
+                <article class="metric-card client-stat-card">
+                  <span>Sin opinión</span>
+                  <strong id="deleted-accounts-without-feedback-count">0</strong>
+                </article>
+              </section>
+
+              <section class="dashboard-card clients-filter-card" aria-label="Filtros cuentas eliminadas">
+                <div class="clients-filter-grid">
+                  <label>
+                    <span>Búsqueda</span>
+                    <input id="deleted-accounts-search-input" type="text" placeholder="Nombre, email, teléfono u opinión..." />
+                  </label>
+                  <div class="clients-filter-actions">
+                    <button id="deleted-accounts-clear-button" class="secondary-button" type="button">Limpiar</button>
+                    <button id="deleted-accounts-filter-button" class="secondary-button" type="button">Filtrar</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="dashboard-card tracking-table-card clients-results-card" aria-label="Resultados cuentas eliminadas">
+                <div class="card-heading">
+                  <h2>Resultados</h2>
+                  <span id="deleted-accounts-results-count" class="section-tag">0 cuenta(s)</span>
+                </div>
+                <div class="tracking-table-wrap">
+                  <table class="tracking-data-table">
+                    <thead>
+                      <tr>
+                        <th>Cuenta</th>
+                        <th>Contacto</th>
+                        <th>Eliminada</th>
+                        <th>Opinión</th>
+                      </tr>
+                    </thead>
+                    <tbody id="deleted-accounts-results-body">
+                      <tr>
+                        <td colspan="4"><div class="empty-state">Cargando cuentas eliminadas...</div></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p id="deleted-accounts-feedback" class="feedback" aria-live="polite"></p>
+              </section>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script src="/admin-common.js?v=20260420-deletedaccounts01"></script>
+    <script src="/admin-deleted-accounts.js?v=20260420-deletedaccounts01"></script>
+  </body>
+</html>

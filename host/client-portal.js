@@ -303,6 +303,7 @@ const ORDER_ACTION_IMAGES_BY_VEHICLE = {
 };
 
 const GLOBAL_WHATSAPP_NUMBER = "3016698126";
+const GLOBAL_WHATSAPP_FALLBACK_DELAY_MS = 900;
 const SEQUOIA_ORDER_RESERVATION_AMOUNT = 1000000;
 const SEQUOIA_DELIVERY_OPTIONS = {
   barranquilla: { label: "Barranquilla", fee: 0 },
@@ -2952,6 +2953,7 @@ function openSequoiaWhatsappChat(message) {
   const normalizedMessage = String(message || "").trim();
   const webUrl = buildSequoiaWhatsappUrl(normalizedMessage);
   openExternalBrowserUrl(webUrl);
+
   return webUrl;
 }
 

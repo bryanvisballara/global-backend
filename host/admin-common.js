@@ -100,7 +100,7 @@ function forceHideAnyLoadingOverlay() {
 }
 
 function redirectToLogin() {
-  const loginUrl = new URL("/app/index.html", window.location.origin);
+  const loginUrl = new URL("/index.html", window.location.origin);
   loginUrl.searchParams.set("logout", "1");
   loginUrl.searchParams.set("t", String(Date.now()));
   window.location.replace(loginUrl.toString());
@@ -164,10 +164,10 @@ function requireAdminAccess() {
   const currentRole = getCurrentRole();
   const hasAuthToken = Boolean(getAuthToken());
   const latamOnlyPages = new Set([
-    "/app/admin-client-requests.html",
-    "/app/admin-maintenance.html",
-    "/app/admin-posts.html",
-    "/app/admin-virtual-dealership.html",
+    "/admin-client-requests.html",
+    "/admin-maintenance.html",
+    "/admin-posts.html",
+    "/admin-virtual-dealership.html",
   ]);
 
   if (currentRole && !isAdminPanelRole(currentRole)) {
@@ -181,7 +181,7 @@ function requireAdminAccess() {
   }
 
   if (isUsaAdministrativeRole(currentRole) && latamOnlyPages.has(currentPath)) {
-    window.location.replace("/app/admin.html");
+    window.location.replace("/admin.html");
     return false;
   }
 
@@ -342,24 +342,24 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const isUsaRole = isUsaAdministrativeRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navItems = [
-    { href: "/app/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-orders.html", label: "Creacion de pedidos", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-tracking.html", label: "Seguimiento de pedidos", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true },
-    { href: "/app/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true },
-    { href: "/app/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true },
-    { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true },
-    { href: "/app/admin-admins.html", label: "Creacion de administradores", adminCreatorOnly: true, latamOnly: false },
+    { href: "/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false },
+    { href: "/admin-orders.html", label: "Creacion de pedidos", adminCreatorOnly: false, latamOnly: false },
+    { href: "/admin-tracking.html", label: "Seguimiento de pedidos", adminCreatorOnly: false, latamOnly: false },
+    { href: "/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false },
+    { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false },
+    { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminacion", adminCreatorOnly: true, latamOnly: false },
+    { href: "/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true },
+    { href: "/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true },
+    { href: "/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true },
+    { href: "/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true },
+    { href: "/admin-admins.html", label: "Creacion de administradores", adminCreatorOnly: true, latamOnly: false },
   ];
 
   const navMarkup = navItems
-    .filter((item) => !item.adminCreatorOnly || canCreateAdministrativeUsers(currentRole))
-    .filter((item) => !item.latamOnly || !isUsaRole)
     .map((item) => {
       const isActive = currentPath === item.href;
       const classes = ["admin-nav-link"];
+      const inlineStyles = [];
 
       if (isActive) {
         classes.push("active");
@@ -371,9 +371,17 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
 
       if (item.latamOnly) {
         classes.push("admin-latam-only");
+
+        if (isUsaRole) {
+          inlineStyles.push("display:none");
+        }
       }
 
-      return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
+      if (item.adminCreatorOnly && !canCreateAdministrativeUsers(currentRole)) {
+        inlineStyles.push("display:none");
+      }
+
+      return `<a class="${classes.join(" ")}" href="${item.href}"${inlineStyles.length ? ` style="${inlineStyles.join("; ")}"` : ""}>${item.label}</a>`;
     })
     .join("");
 
@@ -382,7 +390,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   sidebar.setAttribute("aria-label", "Navegacion administrativa");
   sidebar.innerHTML = `
     <div class="admin-sidebar-brand">
-      <img class="admin-sidebar-logo" src="/app/logoblancoleon.png" alt="Global Imports" />
+      <img class="admin-sidebar-logo" src="/logoblancoleon.png" alt="Global Imports" />
       <div>
         <p class="section-tag">${brandLabel}</p>
         <strong>Panel administrativo</strong>
@@ -407,7 +415,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
 
 function injectAdminSidebarLayout() {
   const currentPath = String(window.location.pathname || "");
-  const isAdminHtmlRoute = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
 
   if (!isAdminHtmlRoute) {
     return;
@@ -488,7 +496,7 @@ function ensureSidebarToggleButton() {
 
 function initializeAdminSidebarDrawer() {
   const currentPath = String(window.location.pathname || "");
-  const isAdminHtmlRoute = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
 
   if (!isAdminHtmlRoute) {
     return;
@@ -501,6 +509,8 @@ function initializeAdminSidebarDrawer() {
   if (!sidebar || !main || !stage) {
     return;
   }
+
+  document.body.classList.add("admin-app-view");
 
   document.querySelectorAll(".page-topbar .back-link").forEach((link) => {
     link.remove();
@@ -537,7 +547,39 @@ function initializeAdminSidebarDrawer() {
     });
   };
 
+  const syncDesktopSidebarLayout = () => {
+    const nav = sidebar.querySelector(".admin-sidebar-nav");
+
+    if (desktopMediaQuery.matches) {
+      sidebar.style.height = "auto";
+      sidebar.style.maxHeight = "none";
+      sidebar.style.overflow = "visible";
+      sidebar.style.display = "flex";
+      sidebar.style.flexDirection = "column";
+
+      if (nav) {
+        nav.style.maxHeight = "none";
+        nav.style.overflow = "visible";
+      }
+
+      return;
+    }
+
+    sidebar.style.removeProperty("height");
+    sidebar.style.removeProperty("max-height");
+    sidebar.style.removeProperty("overflow");
+    sidebar.style.removeProperty("display");
+    sidebar.style.removeProperty("flex-direction");
+
+    if (nav) {
+      nav.style.removeProperty("max-height");
+      nav.style.removeProperty("overflow");
+    }
+  };
+
   const syncSidebarMode = () => {
+    syncDesktopSidebarLayout();
+
     if (desktopMediaQuery.matches) {
       const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
       document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
@@ -575,11 +617,70 @@ function initializeAdminSidebarDrawer() {
   };
 
   if (document.body.dataset.adminDrawerBound === "true") {
+    sidebar.querySelectorAll(".admin-nav-link").forEach((navLink) => {
+      if (navLink.dataset.mobileNavBound === "true") {
+        return;
+      }
+
+      navLink.dataset.mobileNavBound = "true";
+    });
     updateToggleButtons();
     return;
   }
 
   document.body.dataset.adminDrawerBound = "true";
+  let mobileNavigationInFlight = false;
+
+  const navigateMobileSidebarLink = (navLink, event) => {
+    if (!navLink || desktopMediaQuery.matches) {
+      return false;
+    }
+
+    if (mobileNavigationInFlight) {
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    }
+
+    const destination = navLink.getAttribute("href");
+
+    if (!destination) {
+      return true;
+    }
+
+    mobileNavigationInFlight = true;
+    event.preventDefault();
+    event.stopPropagation();
+    document.body.classList.remove("admin-sidebar-open");
+    updateToggleButtons();
+    window.setTimeout(() => {
+      window.location.assign(destination);
+    }, 0);
+    return true;
+  };
+
+  const bindMobileSidebarLinks = () => {
+    sidebar.querySelectorAll(".admin-nav-link").forEach((navLink) => {
+      if (navLink.dataset.mobileNavBound === "true") {
+        return;
+      }
+
+      navLink.dataset.mobileNavBound = "true";
+
+      const handleNavigation = (event) => {
+        if (desktopMediaQuery.matches) {
+          return;
+        }
+
+        navigateMobileSidebarLink(navLink, event);
+      };
+
+      navLink.addEventListener("click", handleNavigation, true);
+      navLink.addEventListener("touchend", handleNavigation, { capture: true, passive: false });
+    });
+  };
+
+  bindMobileSidebarLinks();
 
   document.addEventListener("click", (event) => {
     const toggleButton = event.target.closest(".admin-sidebar-toggle");
@@ -594,10 +695,13 @@ function initializeAdminSidebarDrawer() {
       return;
     }
 
-    if (event.target.closest(".admin-sidebar .admin-nav-link")) {
-      if (!desktopMediaQuery.matches) {
-        closeSidebar();
+    const navLink = event.target.closest(".admin-sidebar .admin-nav-link");
+
+    if (navLink) {
+      if (navigateMobileSidebarLink(navLink, event)) {
+        return;
       }
+
       return;
     }
 
@@ -615,6 +719,22 @@ function initializeAdminSidebarDrawer() {
       closeSidebar();
     }
   });
+
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (desktopMediaQuery.matches || !document.body.classList.contains("admin-sidebar-open")) {
+        return;
+      }
+
+      if (event.target.closest(".admin-sidebar")) {
+        return;
+      }
+
+      event.preventDefault();
+    },
+    { capture: true, passive: false }
+  );
 
   if (typeof desktopMediaQuery.addEventListener === "function") {
     desktopMediaQuery.addEventListener("change", syncSidebarMode);

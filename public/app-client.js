@@ -627,7 +627,7 @@ function applyAuthContent() {
   }
 
   if (phoneInput) {
-    phoneInput.required = isRegisterMode;
+    phoneInput.required = false;
     phoneInput.disabled = !isRegisterMode;
   }
 
@@ -648,7 +648,7 @@ function applyAuthContent() {
   }
 
   updateBiometricButtonVisibility();
-  setFeedback(isRegisterMode ? "Completa todos los campos para crear tu cuenta." : "Ingresa tus credenciales para continuar.");
+  setFeedback(isRegisterMode ? "Completa los campos para crear tu cuenta." : "Ingresa tus credenciales para continuar.");
 }
 
 function toggleAuthMode() {
@@ -739,15 +739,15 @@ loginForm.addEventListener("submit", async (event) => {
   const formData = new FormData(loginForm);
   const rawPhone = String(formData.get("phone") || "").trim();
   const selectedCode = String(formData.get("phoneCountryCode") || "+57").trim();
-  const composedPhone = rawPhone.startsWith("+")
-    ? rawPhone
-    : `${selectedCode} ${rawPhone}`.trim();
+  const composedPhone = rawPhone
+    ? (rawPhone.startsWith("+") ? rawPhone : `${selectedCode} ${rawPhone}`.trim())
+    : "";
   const payload = authMode === "register"
     ? {
         name: String(formData.get("name") || "").trim(),
-        phone: composedPhone,
         email: String(formData.get("email") || "").trim(),
         password: String(formData.get("password") || ""),
+        ...(composedPhone ? { phone: composedPhone } : {}),
       }
     : {
         email: formData.get("email"),

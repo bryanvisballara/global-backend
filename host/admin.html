@@ -14,14 +14,15 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260414-scale75" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-responsive05" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
     <style>
       .global-loading-overlay {
         display: none !important;
       }
     </style>
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage admin-dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -41,6 +42,7 @@
               <a class="admin-nav-link" href="/admin-tracking.html">Seguimiento de pedidos</a>
               <a class="admin-nav-link" href="/admin-clients.html">Clientes</a>
               <a class="admin-nav-link" href="/admin-deleted-accounts.html">Cuentas eliminadas</a>
+              <a class="admin-nav-link admin-admin-creator-only" href="/admin-order-deletion-requests.html" style="display:none">Solicitudes de eliminacion</a>
               <a class="admin-nav-link admin-latam-only" href="/admin-client-requests.html">Solicitudes de compra</a>
               <a class="admin-nav-link admin-latam-only" href="/admin-maintenance.html">Mantenimientos</a>
               <a class="admin-nav-link admin-latam-only" href="/admin-posts.html">Publicaciones</a>
@@ -69,6 +71,10 @@
                   <button class="admin-meta-pill admin-meta-pill-btn" type="button" data-href="/admin-clients.html">
                     <span>Clientes</span>
                     <strong id="clients-count">0</strong>
+                  </button>
+                  <button class="admin-meta-pill admin-meta-pill-btn admin-admin-creator-only" type="button" data-href="/admin-order-deletion-requests.html" hidden>
+                    <span>Solicitudes de eliminacion</span>
+                    <strong id="deletion-requests-count">0</strong>
                   </button>
                   <button class="admin-meta-pill admin-meta-pill-btn admin-latam-only" type="button" data-href="/admin-client-requests.html">
                     <span>Solicitudes de compra</span>
@@ -168,7 +174,7 @@
       </section>
     </main>
 
-    <script src="/admin-common.js?v=20260409-05"></script>
+    <script src="/admin-common.js?v=20260416-adminlayout07"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -183,6 +189,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260409-13"></script>
+    <script src="/admin-dashboard.js?v=20260416-dashboard19"></script>
   </body>
 </html>
