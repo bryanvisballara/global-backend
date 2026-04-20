@@ -2914,11 +2914,16 @@ function openExternalBrowserUrl(url, pendingWindow = null) {
   const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
 
   if (nativeExternalLinkHandler?.postMessage) {
-    if (pendingWindow && !pendingWindow.closed) {
-      pendingWindow.close();
+    try {
+      if (pendingWindow && !pendingWindow.closed) {
+        pendingWindow.close();
+      }
+
+      nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
+      return true;
+    } catch (error) {
+      console.warn("No se pudo abrir el enlace en el handler nativo.", error);
     }
-    nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
-    return true;
   }
 
   if (pendingWindow && !pendingWindow.closed) {
@@ -3652,13 +3657,17 @@ function bindSequoiaConfigurator() {
         throw new Error("No fue posible iniciar la firma del preacuerdo.");
       }
 
-      openExternalBrowserUrl(response.signingUrl, pendingExternalWindow);
+      if (!openExternalBrowserUrl(response.signingUrl, pendingExternalWindow)) {
+        window.location.assign(response.signingUrl);
+      }
     } catch (error) {
       if (error?.message && /consentimiento jwt|consent_required|docusign requiere consentimiento/i.test(error.message)) {
         const consentUrlMatch = String(error.message).match(/https?:\/\/\S+/i);
 
         if (consentUrlMatch?.[0]) {
-          openExternalBrowserUrl(consentUrlMatch[0], pendingExternalWindow);
+          if (!openExternalBrowserUrl(consentUrlMatch[0], pendingExternalWindow)) {
+            window.location.assign(consentUrlMatch[0]);
+          }
         }
       } else if (pendingExternalWindow && !pendingExternalWindow.closed) {
         pendingExternalWindow.close();

@@ -1,6 +1,7 @@
 const express = require("express");
 const { requireAuth, requireRole } = require("../middleware/authMiddleware");
 const {
+  createDocuSignPreagreementSigningUrl,
   createAuthenticatedClientRequest,
   createClientMaintenanceVehicle,
   deleteClientMaintenanceVehicle,
@@ -25,6 +26,7 @@ router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle)
 router.delete("/maintenance-vehicles/:vehicleId", deleteClientMaintenanceVehicle);
 router.delete("/notifications/:notificationId", dismissClientNotification);
 router.post("/push-devices", registerClientPushDevice);
+router.post("/docusign/preagreement-signing-url", createDocuSignPreagreementSigningUrl);
 router.post("/requests", createAuthenticatedClientRequest);
 router.patch("/maintenance/:maintenanceId/report", updateClientMaintenance);
 
