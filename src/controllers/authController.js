@@ -79,6 +79,16 @@ function getAuthCookieOptions(req) {
   };
 }
 
+function clearAuthCookie(req, res) {
+  const cookieOptions = getAuthCookieOptions(req);
+
+  res.clearCookie("token", {
+    ...cookieOptions,
+    maxAge: undefined,
+    expires: new Date(0),
+  });
+}
+
 
 async function startRegistrationVerification(req, res) {
   try {
