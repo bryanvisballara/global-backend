@@ -6,6 +6,7 @@ const {
   createAdministrativeUser,
 } = require("../controllers/adminUsersController");
 const { createClient, listClients } = require("../controllers/adminClientsController");
+const { listDeletedAccounts } = require("../controllers/adminDeletedAccountsController");
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
   createOrder,
@@ -52,6 +53,7 @@ router.get("/users", listUsers);
 router.get("/users/admins", listAdministrativeUsers);
 router.post("/users/admins", requireRole("manager", "gerenteUSA"), createAdministrativeUser);
 router.get("/clients", listClients);
+router.get("/deleted-accounts", listDeletedAccounts);
 router.post("/clients", createClient);
 router.post("/users/clients", createClient);
 router.get("/client-requests", requireLatamAdministrativeRole, listClientRequests);

@@ -7,6 +7,7 @@ const {
 	requestPasswordReset,
 	resetPassword,
 	startRegistrationVerification,
+	submitDeletedAccountFeedback,
 	verifyRegistrationCode,
 } = require("../controllers/authController");
 const { requireAuth } = require("../middleware/authMiddleware");
@@ -19,6 +20,7 @@ router.post("/forgot-password", requestPasswordReset);
 router.post("/reset-password", resetPassword);
 router.post("/login", login);
 router.post("/logout", logout);
+router.post("/delete-account/feedback", submitDeletedAccountFeedback);
 router.post("/delete-account", requireAuth, deleteAccount);
 router.get("/me", requireAuth, me);
 

@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const DeletedAccount = require("../models/DeletedAccount");
 const User = require("../models/User");
 const EmailVerification = require("../models/EmailVerification");
 const PasswordResetToken = require("../models/PasswordResetToken");
@@ -37,6 +38,10 @@ function hashResetToken(token) {
 
 function generatePasswordResetToken() {
   return crypto.randomBytes(32).toString("hex");
+}
+
+function generateDeletedAccountFeedbackToken() {
+  return crypto.randomBytes(24).toString("hex");
 }
 
 function resolvePublicAppBaseUrl(req) {
@@ -79,13 +84,13 @@ async function startRegistrationVerification(req, res) {
   try {
     const { name, email, password, phone } = req.body;
 
-    if (!name || !email || !password || !phone) {
-      return res.status(400).json({ message: "Name, email, password and phone are required" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email and password are required" });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
     const trimmedName = name.trim();
-    const trimmedPhone = String(phone).trim();
+    const trimmedPhone = String(phone || "").trim();
 
     const existingUser = await User.findOne({ email: normalizedEmail });
 
@@ -109,7 +114,7 @@ async function startRegistrationVerification(req, res) {
       {
         email: normalizedEmail,
         name: trimmedName,
-        phone: trimmedPhone,
+        phone: trimmedPhone || undefined,
         passwordHash,
         codeHash: hashVerificationCode(verificationCode),
         expiresAt: buildVerificationExpiryDate(),
@@ -186,7 +191,7 @@ async function verifyRegistrationCode(req, res) {
       name: pendingVerification.name,
       email: pendingVerification.email,
       password: pendingVerification.passwordHash,
-      phone: pendingVerification.phone,
+      ...(pendingVerification.phone ? { phone: pendingVerification.phone } : {}),
       role: "client",
     });
 
@@ -382,15 +387,64 @@ async function deleteAccount(req, res) {
       return res.status(403).json({ message: "La contraseña no es correcta." });
     }
 
+    const feedbackToken = generateDeletedAccountFeedbackToken();
+
+    await DeletedAccount.create({
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      ...(user.phone ? { phone: user.phone } : {}),
+      role: user.role,
+      deletionSource: "self-service",
+      feedbackToken,
+      deletedAt: new Date(),
+    });
+
     await PasswordResetToken.deleteMany({ user: user._id });
     await EmailVerification.deleteMany({ email: user.email });
     await User.deleteOne({ _id: user._id });
 
     clearAuthCookie(req, res);
 
-    return res.status(200).json({ message: "Tu cuenta fue eliminada correctamente." });
+    return res.status(200).json({
+      message: "Tu cuenta fue eliminada correctamente.",
+      feedbackToken,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Error eliminando la cuenta" });
+  }
+}
+
+async function submitDeletedAccountFeedback(req, res) {
+  try {
+    const feedbackToken = String(req.body?.token || "").trim();
+    const recommendation = String(req.body?.recommendation || "").trim();
+
+    if (!feedbackToken) {
+      return res.status(400).json({ message: "El token de feedback es obligatorio." });
+    }
+
+    if (!recommendation) {
+      return res.status(400).json({ message: "Escribe una recomendación antes de enviarla." });
+    }
+
+    if (recommendation.length > 2000) {
+      return res.status(400).json({ message: "La recomendación no puede superar los 2000 caracteres." });
+    }
+
+    const deletedAccount = await DeletedAccount.findOne({ feedbackToken });
+
+    if (!deletedAccount) {
+      return res.status(404).json({ message: "No encontramos el registro de la cuenta eliminada." });
+    }
+
+    deletedAccount.recommendation = recommendation;
+    deletedAccount.feedbackSubmittedAt = new Date();
+    await deletedAccount.save();
+
+    return res.status(200).json({ message: "Gracias por compartir tu recomendación." });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error guardando la recomendación" });
   }
 }
 
@@ -402,5 +456,6 @@ module.exports = {
   login,
   logout,
   deleteAccount,
+  submitDeletedAccountFeedback,
   me,
 };

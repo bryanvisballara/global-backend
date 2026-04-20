@@ -19,7 +19,6 @@ const emailVerificationSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 40,
     },
