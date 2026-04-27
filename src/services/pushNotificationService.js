@@ -643,16 +643,28 @@ async function sendPublishedPostNotifications(post) {
 
 async function sendTrackingUpdateNotifications(order, step, previousStep = null) {
   const users = await resolveTrackingRecipientUsers(order);
+  const trackingNumber = String(order?.trackingNumber || "").trim();
+  const stepKey = String(step?.key || "").trim();
 
   if (!users.length) {
+    console.warn(
+      `[push][tracking] No recipient users resolved for tracking ${trackingNumber || "unknown"} step ${stepKey || "unknown"}. clientEmail=${String(order?.client?.email || "").trim().toLowerCase()} subscribers=${Array.isArray(order?.trackingSubscribers) ? order.trackingSubscribers.length : 0}`
+    );
     return { sent: 0, skipped: 0 };
   }
+
+  console.info(
+    `[push][tracking] Dispatching tracking ${trackingNumber || "unknown"} step ${stepKey || "unknown"} to ${users.length} recipient(s).`
+  );
 
   let aggregateSent = 0;
   let aggregateSkipped = 0;
 
   for (const user of users) {
     if (!Array.isArray(user.pushDevices) || !user.pushDevices.length) {
+      console.warn(
+        `[push][tracking] Recipient ${String(user?._id || "unknown")} ${String(user?.email || "").trim().toLowerCase()} has no registered push devices for tracking ${trackingNumber || "unknown"}.`
+      );
       aggregateSkipped += 1;
       continue;
     }
@@ -667,9 +679,16 @@ async function sendTrackingUpdateNotifications(order, step, previousStep = null)
     await user.save();
 
     const result = await sendNotificationToDevices(user.pushDevices, notification);
+    console.info(
+      `[push][tracking] Result tracking ${trackingNumber || "unknown"} recipient ${String(user?._id || "unknown")} ${String(user?.email || "").trim().toLowerCase()}: devices=${user.pushDevices.length} sent=${Number(result.sent || 0)} skipped=${Number(result.skipped || 0)}.`
+    );
     aggregateSent += Number(result.sent || 0);
     aggregateSkipped += Number(result.skipped || 0);
   }
+
+  console.info(
+    `[push][tracking] Aggregate result tracking ${trackingNumber || "unknown"} step ${stepKey || "unknown"}: sent=${aggregateSent} skipped=${aggregateSkipped}.`
+  );
 
   return { sent: aggregateSent, skipped: aggregateSkipped };
 }

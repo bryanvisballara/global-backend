@@ -1070,6 +1070,10 @@ async function registerClientPushDevice(req, res) {
     req.user.pushDevices = nextDevices;
     await req.user.save();
 
+    console.info(
+      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} devices=${req.user.pushDevices.length}`
+    );
+
     return res.status(200).json({
       message: "Push device registered successfully",
       pushDevices: req.user.pushDevices,
