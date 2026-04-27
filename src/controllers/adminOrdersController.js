@@ -398,6 +398,26 @@ function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
     .slice(-1)[0] || null;
 }
 
+async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
+  if (!publishedStep?.clientVisible) {
+    return {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+  }
+
+  const clientPushResult = await sendTrackingUpdateNotifications(order, publishedStep, previousStep).catch(() => ({ sent: 0, skipped: 0 }));
+
+  await sendTrackingUpdateEmails(order, previousStep, publishedStep).catch(() => null);
+  await sendTrackingUpdateAdminNotifications(order, publishedStep).catch(() => null);
+  await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep).catch(() => null);
+
+  return {
+    clientPushSent: Number(clientPushResult?.sent || 0),
+    clientPushSkipped: Number(clientPushResult?.skipped || 0),
+  };
+}
+
 async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
   if (!updatedStep) {
     return { sent: 0, failed: 0 };
@@ -415,26 +435,6 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
     }
 
     const normalizedUserId = String(userId || "").trim();
-
-    async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
-      if (!publishedStep?.clientVisible) {
-        return {
-          clientPushSent: 0,
-          clientPushSkipped: 0,
-        };
-      }
-
-      const clientPushResult = await sendTrackingUpdateNotifications(order, publishedStep, previousStep).catch(() => ({ sent: 0, skipped: 0 }));
-
-      await sendTrackingUpdateEmails(order, previousStep, publishedStep).catch(() => null);
-      await sendTrackingUpdateAdminNotifications(order, publishedStep).catch(() => null);
-      await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep).catch(() => null);
-
-      return {
-        clientPushSent: Number(clientPushResult?.sent || 0),
-        clientPushSkipped: Number(clientPushResult?.skipped || 0),
-      };
-    }
     const existingRecipient = recipientMap.get(normalizedEmail);
 
     recipientEmails.add(normalizedEmail);
