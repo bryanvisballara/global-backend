@@ -415,6 +415,26 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
     }
 
     const normalizedUserId = String(userId || "").trim();
+
+    async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
+      if (!publishedStep?.clientVisible) {
+        return {
+          clientPushSent: 0,
+          clientPushSkipped: 0,
+        };
+      }
+
+      const clientPushResult = await sendTrackingUpdateNotifications(order, publishedStep, previousStep).catch(() => ({ sent: 0, skipped: 0 }));
+
+      await sendTrackingUpdateEmails(order, previousStep, publishedStep).catch(() => null);
+      await sendTrackingUpdateAdminNotifications(order, publishedStep).catch(() => null);
+      await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep).catch(() => null);
+
+      return {
+        clientPushSent: Number(clientPushResult?.sent || 0),
+        clientPushSkipped: Number(clientPushResult?.skipped || 0),
+      };
+    }
     const existingRecipient = recipientMap.get(normalizedEmail);
 
     recipientEmails.add(normalizedEmail);
@@ -1542,32 +1562,29 @@ async function updateTrackingState(req, res) {
       isVisibilityOnlyMediaUpdate(step.media || [], existingMedia)
     );
     let clientPublishedStep = null;
+    let visibilityPublicationEvent = null;
+    let visibilityPreviouslyVisible = false;
     if (operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly) {
       if (!requestedEventId) {
         return res.status(400).json({ message: "Event ID is required" });
       }
 
-      const updatedEvent = await OrderTrackingEvent.findOneAndUpdate(
-        {
-          _id: requestedEventId,
-          orderId: order._id,
-          orderRegion: orderResult.region,
-          stepKey,
-        },
-        {
-          $set: {
-            clientVisible: requestedClientVisible,
-          },
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      const updatedEvent = await OrderTrackingEvent.findOne({
+        _id: requestedEventId,
+        orderId: order._id,
+        orderRegion: orderResult.region,
+        stepKey,
+      });
 
       if (!updatedEvent) {
         return res.status(404).json({ message: "Subestado no encontrado" });
       }
+
+      visibilityPreviouslyVisible = Boolean(updatedEvent.clientVisible);
+      updatedEvent.clientVisible = requestedClientVisible;
+      updatedEvent.updatedAt = new Date();
+      await updatedEvent.save();
+      visibilityPublicationEvent = updatedEvent;
     } else if (forceCreateUpdate || hasTrackingUpdateChanges({
       notes: requestedNotes,
       media: appendedMedia,
@@ -1666,12 +1683,16 @@ async function updateTrackingState(req, res) {
       await syncMaintenanceSchedule(order, req.user._id);
     }
 
-    if (clientPublishedStep?.clientVisible) {
-      await sendTrackingUpdateNotifications(updatedOrder, clientPublishedStep, previousConfirmedStep).catch(() => null);
-      await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
+    let notificationSummary = {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
 
-      await sendTrackingUpdateAdminNotifications(updatedOrder, clientPublishedStep).catch(() => null);
-      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, clientPublishedStep).catch(() => null);
+    if (clientPublishedStep?.clientVisible) {
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, clientPublishedStep);
+    } else if (visibilityPublicationEvent && requestedClientVisible && !visibilityPreviouslyVisible && updatedStep) {
+      const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(visibilityPublicationEvent));
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
     } else if (!(operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly)) {
       await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
       await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
@@ -1679,6 +1700,7 @@ async function updateTrackingState(req, res) {
 
     return res.status(200).json({
       message: "Tracking state updated successfully",
+      notificationSummary,
       order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
@@ -1734,17 +1756,19 @@ async function toggleTrackingEventVisibility(req, res) {
     const updatedOrder = await persistTrackingOrderState(orderResult, order);
     const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === targetEvent.stepKey) || null;
 
+    let notificationSummary = {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+
     if (requestedClientVisible && !previousClientVisible && updatedStep) {
       const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(targetEvent));
-
-      await sendTrackingUpdateNotifications(updatedOrder, publishedStep, previousConfirmedStep).catch(() => null);
-      await sendTrackingUpdateEmails(updatedOrder, previousConfirmedStep, publishedStep).catch(() => null);
-      await sendTrackingUpdateAdminNotifications(updatedOrder, publishedStep).catch(() => null);
-      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, publishedStep).catch(() => null);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
     }
 
     return res.status(200).json({
       message: "Tracking event visibility updated successfully",
+      notificationSummary,
       order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {

@@ -1321,13 +1321,18 @@ async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventI
   renderOrderSummary(getSelectedOrder());
   renderStates();
   renderSearchResults(getFilteredOrders());
+  const clientPushSent = Number(response?.notificationSummary?.clientPushSent || 0);
   adminSetFeedback(
     trackingFeedback,
-    nextVisible ? "Evento visible para el cliente." : "Evento oculto para el cliente.",
+    nextVisible
+      ? clientPushSent > 0
+        ? "Evento visible para el cliente. Push enviado."
+        : "Evento visible para el cliente. No se encontro un dispositivo push activo para este cliente."
+      : "Evento oculto para el cliente.",
     "success"
   );
 
-  if (nextVisible && publishConfirmed) {
+  if (nextVisible && clientPushSent > 0) {
     openSuccessModal({
       title: "Evento notificado",
       message: "El evento fue notificado al cliente y le aparecera en su app.",
