@@ -222,8 +222,8 @@ const searchConfigs = [
   },
   {
     key: "clientOrInternal",
-    input: document.getElementById("tracking-search-internal"),
-    list: document.getElementById("tracking-search-internal-list"),
+    input: document.getElementById("tracking-search-client"),
+    list: document.getElementById("tracking-search-client-list"),
     placeholder: "Escribe cliente o identificador interno",
     getSearchValues(order) {
       return getClientOrInternalSearchValues(order);
@@ -285,15 +285,18 @@ function getOrderTrackingEvents(order) {
   return (Array.isArray(order?.trackingEvents) ? order.trackingEvents : [])
     .map((event) => {
       const stateMeta = getTrackingTemplateMeta(event?.stateKey || event?.stepKey || "");
+      const parsedStateIndex = Number.isInteger(event?.stateIndex)
+        ? event.stateIndex
+        : Number.parseInt(String(event?.stateIndex || ""), 10);
       const parsedUpdateIndex = Number.isInteger(event?.updateIndex)
         ? event.updateIndex
         : Number.parseInt(String(event?.updateIndex || ""), 10);
 
       return {
-        eventId: String(event?.eventId || event?._id || ""),
+        eventId: String(event?.eventId || event?._id || `${stateMeta.key}-${parsedUpdateIndex}`),
         stateKey: stateMeta.key,
         stateLabel: String(event?.stateLabel || stateMeta.label || "Estado"),
-        stateIndex: Number.isInteger(event?.stateIndex) ? event.stateIndex : stateMeta.index,
+        stateIndex: Number.isNaN(parsedStateIndex) ? stateMeta.index : parsedStateIndex,
         stateCode: String(event?.stateCode || stateMeta.code || "-"),
         updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
         notes: normalizeText(event?.notes || ""),
@@ -357,21 +360,28 @@ function getOrderTrackingSteps(order) {
             updatedAt: update?.updatedAt || null,
           }))
         : []);
+    const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestUpdate({ updates });
     const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
+    const derivedConfirmed = hasEventUpdates
+      ? Boolean(latestUpdate?.completed)
+      : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
+    const derivedInProgress = hasEventUpdates
+      ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
+      : Boolean(
+          typeof sourceStep?.inProgress === "boolean"
+            ? sourceStep.inProgress && !derivedConfirmed
+            : latestUpdate?.completed
+              ? false
+              : latestUpdate?.inProgress
+        );
 
     return {
       key: template.key,
       label: String(sourceStep?.label || template.label),
       updates,
-      confirmed: Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed),
-      inProgress: Boolean(
-        typeof sourceStep?.inProgress === "boolean"
-          ? sourceStep.inProgress && !sourceStep.confirmed
-          : latestUpdate?.completed
-            ? false
-            : latestUpdate?.inProgress
-      ),
+      confirmed: derivedConfirmed,
+      inProgress: derivedInProgress,
       clientVisible: updates.some((item) => item.clientVisible),
       updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
       confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || null,
@@ -533,7 +543,7 @@ function updateUrlForOrder(order) {
   url.searchParams.set("tracking", String(order?.trackingNumber || ""));
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
-  url.searchParams.set("internal", getInternalIdentifier(order));
+  url.searchParams.delete("internal");
   window.history.replaceState({}, document.title, url.toString());
 }
 
@@ -615,8 +625,8 @@ function renderSearchResults(matches) {
             const orderId = getOrderIdentifier(order);
             const trackingValue = String(order?.trackingNumber || "").trim();
             const vinValue = String(order?.vehicle?.vin || "").trim();
-            const internalValue = String(getInternalIdentifier(order) || "").trim();
-            const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&internal=${encodeURIComponent(internalValue)}`;
+            const clientValue = String(getClientDisplayName(order) || "").trim();
+            const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
             const stageMeta = getCurrentStageMeta(order);
             const vehicleLabel = formatOrderLabel(order);
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
@@ -843,6 +853,12 @@ function resolveTimelineStateVariant(state, index, states) {
     return "is-current";
   }
 
+  const explicitCurrentIndex = states.findIndex((item) => item?.inProgress && !item?.confirmed);
+
+  if (explicitCurrentIndex >= 0) {
+    return "is-pending";
+  }
+
   const firstPendingIndex = states.findIndex((item) => !item?.confirmed);
 
   if (firstPendingIndex === -1) {
@@ -887,6 +903,26 @@ function getUpdateStatusLabel(update) {
   }
 
   return "Actualizacion interna";
+}
+
+function getRecentEventSummary(item) {
+  const statusLabel = String(item?.title || "Evento").trim();
+  const description = String(item?.description || "").trim();
+  const attachmentCount = Array.isArray(item?.media) ? item.media.length : 0;
+  const attachmentLabel = attachmentCount === 1 ? "1 documento adjunto" : `${attachmentCount} documentos adjuntos`;
+  const summaryParts = [];
+
+  if (description) {
+    summaryParts.push(`${statusLabel}: ${description}`);
+  } else {
+    summaryParts.push(statusLabel);
+  }
+
+  if (attachmentCount > 0) {
+    summaryParts.push(attachmentLabel);
+  }
+
+  return summaryParts.join(" - ");
 }
 
 function renderStateUpdates(step) {
@@ -1006,6 +1042,7 @@ function buildRecentEvents(order) {
 function renderRecentEventItem(item) {
   const eventId = String(item.id || "");
   const isExpanded = expandedOverviewEventIds.has(eventId);
+  const eventSummary = getRecentEventSummary(item);
 
   return `
     <article class="tracking-stage-event-item ${isExpanded ? "is-open" : ""}">
@@ -1018,7 +1055,7 @@ function renderRecentEventItem(item) {
         >
           <div class="tracking-stage-event-main">
             <span class="tracking-stage-event-kind">Evento</span>
-            <strong>${escapeHtml(item.title)}</strong>
+            <strong>${escapeHtml(eventSummary)}</strong>
             <div class="tracking-stage-event-meta">
               <span>${escapeHtml(formatDateTimeLabel(item.date))}</span>
               <span>${escapeHtml(item.clientVisible ? "Visible al cliente" : "Oculto al cliente")}</span>
@@ -1094,7 +1131,8 @@ function renderOrderSummary(order) {
     <div class="tracking-card-header">
       <strong>${escapeHtml(formatOrderLabel(order))}</strong>
       <p>${escapeHtml(getClientDisplayName(order))} · Tracking ${escapeHtml(order?.trackingNumber || "-")}</p>
-      <p>VIN ${escapeHtml(order?.vehicle?.vin || "Sin VIN")} · Llegada estimada ${escapeHtml(formatDateLabel(order?.expectedArrivalDate))}</p>
+      <p>VIN ${escapeHtml(order?.vehicle?.vin || "Sin VIN")} · Exterior ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
+      <p>Interior ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
       <p>Destino ${escapeHtml(order?.vehicle?.destination || "-")} · ${escapeHtml(`${stageMeta.code} ${stageMeta.label}`)}</p>
     </div>
   `;
@@ -1121,17 +1159,13 @@ function renderTrackingOverview(order) {
           <p><strong>Version:</strong> ${escapeHtml(order?.vehicle?.version || "Sin version")}</p>
           <p><strong>Ano:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
           <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-          <p><strong>Color:</strong> ${escapeHtml(order?.vehicle?.color || "-")}</p>
+          <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
+          <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
           <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
           <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
           <p><strong>Telefono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
           <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
-          <p><strong>Compra:</strong> ${escapeHtml(formatDateLabel(order?.purchaseDate || order?.createdAt))}</p>
-          <p><strong>Llegada estimada:</strong> ${escapeHtml(formatDateLabel(order?.expectedArrivalDate))}</p>
-          <p><strong>Media del pedido:</strong> ${escapeHtml((order?.media || []).length)} archivo(s)</p>
-          <p><strong>ID interno:</strong> ${escapeHtml(getInternalIdentifier(order) || "-")}</p>
         </div>
-        <p class="state-order-notes"><strong>Notas:</strong> ${escapeHtml(order?.notes || "Sin notas internas")}</p>
       </article>
 
       <article class="dashboard-card tracking-table-card tracking-timeline-card">
@@ -1326,13 +1360,6 @@ async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventI
     nextVisible ? "Evento visible para el cliente." : "Evento oculto para el cliente.",
     "success"
   );
-
-  if (nextVisible && publishConfirmed) {
-    openSuccessModal({
-      title: "Evento notificado",
-      message: "El evento fue notificado al cliente y le aparecera en su app.",
-    });
-  }
 }
 
 async function deleteUpdate(stateKey, updateIndex, eventId = "") {
@@ -1736,7 +1763,7 @@ async function loadTrackingPage() {
     searchConfigs[1].input.value = urlFilters.vin;
   }
 
-  if (urlFilters.client || urlFilters.internal) {
+  if (urlFilters.internal) {
     searchConfigs[2].input.value = urlFilters.client || urlFilters.internal;
   }
 

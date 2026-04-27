@@ -104,6 +104,30 @@ function getClientDisplayName(order) {
   return normalizeText(order?.client?.name || "Cliente sin asignar") || "Cliente sin asignar";
 }
 
+function getClientOrInternalSearchValues(order) {
+  return [...new Set([
+    getClientDisplayName(order),
+    getInternalIdentifier(order),
+  ].map((value) => normalizeText(value)).filter(Boolean))];
+}
+
+function getConfigSearchValues(config, order) {
+  if (typeof config?.getSearchValues === "function") {
+    return config.getSearchValues(order).map((value) => normalizeText(value)).filter(Boolean);
+  }
+
+  const value = normalizeText(typeof config?.getValue === "function" ? config.getValue(order) : "");
+  return value ? [value] : [];
+}
+
+function getConfigInputValue(config, order) {
+  if (typeof config?.getInputValue === "function") {
+    return normalizeText(config.getInputValue(order));
+  }
+
+  return getConfigSearchValues(config, order)[0] || "";
+}
+
 function formatOrderLabel(order) {
   return `${order?.vehicle?.brand || "Vehiculo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
 }
@@ -197,12 +221,15 @@ const searchConfigs = [
     },
   },
   {
-    key: "internal",
+    key: "clientOrInternal",
     input: document.getElementById("tracking-search-internal"),
     list: document.getElementById("tracking-search-internal-list"),
-    placeholder: "Escribe o selecciona identificador interno",
-    getValue(order) {
-      return getInternalIdentifier(order);
+    placeholder: "Escribe cliente o identificador interno",
+    getSearchValues(order) {
+      return getClientOrInternalSearchValues(order);
+    },
+    getInputValue(order) {
+      return getClientDisplayName(order) || getInternalIdentifier(order);
     },
   },
 ];
@@ -408,20 +435,16 @@ function populateSearchSelects() {
   const activeOrders = getActiveOrders();
 
   searchConfigs.forEach((config) => {
-    const values = [];
+    const values = new Set();
 
     activeOrders.forEach((order) => {
-      const rawValue = normalizeText(config.getValue(order));
-
-      if (!rawValue) {
-        return;
-      }
-
-      values.push(`<option value="${escapeHtml(rawValue)}"></option>`);
+      getConfigSearchValues(config, order).forEach((rawValue) => {
+        values.add(rawValue);
+      });
     });
 
     config.input.placeholder = config.placeholder;
-    config.list.innerHTML = values.join("");
+    config.list.innerHTML = [...values].map((value) => `<option value="${escapeHtml(value)}"></option>`).join("");
   });
 
   const selectedState = String(trackingStateFilter?.value || "");
@@ -453,7 +476,7 @@ function getFilteredOrders() {
         return true;
       }
 
-      return normalizeSearchValue(config.getValue(order)).includes(query);
+      return getConfigSearchValues(config, order).some((value) => normalizeSearchValue(value).includes(query));
     });
 
     if (!matchesSearch) {
@@ -489,7 +512,7 @@ function findExactMatch(matches) {
       return true;
     }
 
-    return normalizeSearchValue(config.getValue(order)) === query;
+    return getConfigSearchValues(config, order).some((value) => normalizeSearchValue(value) === query);
   })) || null;
 }
 
@@ -500,6 +523,7 @@ function updateUrlForOrder(order) {
     url.searchParams.delete("orderId");
     url.searchParams.delete("tracking");
     url.searchParams.delete("vin");
+    url.searchParams.delete("client");
     url.searchParams.delete("internal");
     window.history.replaceState({}, document.title, url.toString());
     return;
@@ -508,6 +532,7 @@ function updateUrlForOrder(order) {
   url.searchParams.set("orderId", getOrderIdentifier(order));
   url.searchParams.set("tracking", String(order?.trackingNumber || ""));
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
+  url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.set("internal", getInternalIdentifier(order));
   window.history.replaceState({}, document.title, url.toString());
 }
@@ -517,9 +542,9 @@ function applySelectedOrderToInputs(order) {
     return;
   }
 
-  searchConfigs[0].input.value = String(order?.trackingNumber || "");
-  searchConfigs[1].input.value = String(order?.vehicle?.vin || "");
-  searchConfigs[2].input.value = getInternalIdentifier(order);
+  searchConfigs.forEach((config) => {
+    config.input.value = getConfigInputValue(config, order);
+  });
 }
 
 function getUrlFilters() {
@@ -528,12 +553,13 @@ function getUrlFilters() {
     orderId: normalizeText(url.searchParams.get("orderId") || ""),
     tracking: normalizeSearchValue(url.searchParams.get("tracking") || ""),
     vin: normalizeSearchValue(url.searchParams.get("vin") || ""),
+    client: normalizeSearchValue(url.searchParams.get("client") || ""),
     internal: normalizeSearchValue(url.searchParams.get("internal") || ""),
   };
 }
 
 function resolveInitialOrderId(filters) {
-  if (!filters.orderId && !filters.tracking && !filters.vin && !filters.internal) {
+  if (!filters.orderId && !filters.tracking && !filters.vin && !filters.client && !filters.internal) {
     return "";
   }
 
@@ -547,6 +573,10 @@ function resolveInitialOrderId(filters) {
     }
 
     if (filters.vin && normalizeSearchValue(order?.vehicle?.vin) === filters.vin) {
+      return true;
+    }
+
+    if (filters.client && normalizeSearchValue(getClientDisplayName(order)) === filters.client) {
       return true;
     }
 
@@ -1727,8 +1757,8 @@ async function loadTrackingPage() {
     searchConfigs[1].input.value = urlFilters.vin;
   }
 
-  if (urlFilters.internal) {
-    searchConfigs[2].input.value = urlFilters.internal;
+  if (urlFilters.client || urlFilters.internal) {
+    searchConfigs[2].input.value = urlFilters.client || urlFilters.internal;
   }
 
   renderSearchResults(getFilteredOrders());

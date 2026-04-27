@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260414-scale75" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-responsive05" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
     <style>
       .global-loading-overlay {
@@ -55,8 +55,8 @@
                     </div>
                     <div class="tracking-search-stack">
                       <span>Buscar por cliente o identificador interno</span>
-                      <input id="tracking-search-internal" class="tracking-native-select" type="text" placeholder="Escribe cliente o identificador interno" list="tracking-search-internal-list" autocomplete="off" />
-                      <datalist id="tracking-search-internal-list"></datalist>
+                      <input id="tracking-search-client" class="tracking-native-select" type="text" placeholder="Escribe cliente o identificador interno" list="tracking-search-client-list" autocomplete="off" />
+                      <datalist id="tracking-search-client-list"></datalist>
                     </div>
                     <div class="tracking-search-stack">
                       <span>Filtrar por estado</span>
@@ -106,7 +106,7 @@
         <button id="tracking-success-close" class="primary-button" type="button" onclick="window.__closeTrackingSuccessModal?.(); return false;">Aceptar</button>
       </div>
     </div>
-    <script src="/admin-common.js?v=20260409-05"></script>
+    <script src="/admin-common.js?v=20260414-adminlayout06"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -625,6 +625,6 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260416-trackingevents08"></script>
+    <script src="/admin-tracking.js?v=20260416-trackingevents10"></script>
   </body>
 </html>

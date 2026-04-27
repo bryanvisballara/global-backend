@@ -319,13 +319,12 @@
       .map((order) => {
         const vehicle = order.vehicle || {};
         const client = order.client || {};
-        const mediaCount = Array.isArray(order.media) ? order.media.length : 0;
         const orderId = String(order._id || order.id || "").trim();
         const trackingValue = String(order.trackingNumber || "").trim();
         const vinValue = String(vehicle.vin || "").trim();
         const clientNameValue = String(client.name || "").trim();
         const internalIdentifierValue = String(vehicle.internalIdentifier || vehicle.description || "").trim();
-        const trackingEditorUrl = `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientNameValue)}&internal=${encodeURIComponent(internalIdentifierValue)}`;
+        const trackingEditorUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientNameValue)}&internal=${encodeURIComponent(internalIdentifierValue)}`;
 
         return `
           <a class="state-order-item state-order-link" href="${trackingEditorUrl}">
@@ -338,19 +337,14 @@
               <p><strong>Versión:</strong> ${escapeHtml(vehicle.version || "Sin versión")}</p>
               <p><strong>Año:</strong> ${escapeHtml(vehicle.year || "-")}</p>
               <p><strong>VIN:</strong> ${escapeHtml(vehicle.vin || "-")}</p>
-              <p><strong>Color:</strong> ${escapeHtml(vehicle.color || "-")}</p>
+              <p><strong>Exterior:</strong> ${escapeHtml(vehicle.exteriorColor || vehicle.color || "-")}</p>
+              <p><strong>Interior:</strong> ${escapeHtml(vehicle.interiorColor || "-")}</p>
               <p><strong>Cliente:</strong> ${escapeHtml(client.name || "Sin asignar")}</p>
               <p><strong>Email cliente:</strong> ${escapeHtml(client.email || "-")}</p>
               <p><strong>Teléfono:</strong> ${escapeHtml(client.phone || "-")}</p>
               <p><strong>Estado pedido:</strong> ${escapeHtml(order.status || "-")}</p>
-              <p><strong>Compra:</strong> ${escapeHtml(adminFormatDate(order.purchaseDate))}</p>
-              <p><strong>Llegada estimada:</strong> ${escapeHtml(adminFormatDate(order.expectedArrivalDate))}</p>
-              <p><strong>Media del pedido:</strong> ${escapeHtml(mediaCount)} archivo(s)</p>
-              <p><strong>ID interno:</strong> ${escapeHtml(vehicle.internalIdentifier || "-")}</p>
               <p><strong>Estado tracking actual:</strong> ${escapeHtml(renderCurrentStageLabel(order))}</p>
             </div>
-
-            <p class="state-order-notes"><strong>Notas:</strong> ${escapeHtml(order.notes || "Sin notas internas")}</p>
             <div class="order-steps-row">${renderOrderTrackingSummary(order)}</div>
           </a>
         `;

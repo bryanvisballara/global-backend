@@ -1588,6 +1588,13 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   background: rgba(216, 170, 82, 0.1);
 }
 
+.order-step-chip.is-active {
+  border-color: rgba(255, 214, 102, 0.56);
+  color: #fff6d6;
+  background: rgba(255, 214, 102, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 214, 102, 0.16);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(320px, 380px) repeat(3, minmax(0, 1fr));
