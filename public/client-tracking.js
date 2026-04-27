@@ -89,6 +89,10 @@ function getRole() {
   return localStorage.getItem("globalAppRole");
 }
 
+function hasAuthenticatedClientSession() {
+  return Boolean(getToken()) && getRole() === "client";
+}
+
 function fetchJson(path, options = {}) {
   const token = getToken();
 
@@ -784,7 +788,7 @@ async function loadTrackingPage() {
   const trackingQuery = params.get("tracking") || "";
   trackingInput.value = trackingQuery;
 
-  if (getToken() && getRole() === "client") {
+  if (hasAuthenticatedClientSession()) {
     syncNativePushToken();
   }
 
@@ -804,7 +808,14 @@ trackingForm.addEventListener("submit", (event) => {
 });
 
 window.addEventListener("globalimports:push-token", (event) => {
-  registerNativePushToken(event.detail || {}).catch(() => null);
+  if (!hasAuthenticatedClientSession()) {
+    console.info("[push][tracking] Native push token received without authenticated client session; skipping registration on public tracking page.");
+    return;
+  }
+
+  registerNativePushToken(event.detail || {}).catch((error) => {
+    console.warn("[push][tracking] Failed registering native push token on tracking page.", error);
+  });
 });
 
 loadTrackingPage().catch((error) => {
