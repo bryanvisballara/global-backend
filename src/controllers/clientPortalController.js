@@ -464,9 +464,11 @@ function buildNotifications(posts, orders, maintenanceItems) {
       .flatMap((step) =>
         (step.updates || [])
           .filter((update) => update.clientVisible)
-          .map((update) => ({
+          .map((update, updateIndex) => ({
             key: step.key,
             label: step.label,
+            eventId: String(update?.eventId || "").trim(),
+            updateIndex,
             notes: update.notes || "Tu orden tiene una nueva actualizacion.",
             date: update.updatedAt || update.createdAt || step.updatedAt || order.createdAt,
           }))
@@ -478,7 +480,9 @@ function buildNotifications(posts, orders, maintenanceItems) {
     }
 
     notifications.push({
-      id: `tracking-${order._id}-${stepWithUpdate.key}`,
+      id: stepWithUpdate.eventId
+        ? `tracking-${order._id}-${stepWithUpdate.key}-${stepWithUpdate.eventId}`
+        : `tracking-${order._id}-${stepWithUpdate.key}-${stepWithUpdate.updateIndex}-${new Date(stepWithUpdate.date || 0).getTime()}`,
       type: "tracking",
       title: `Tracking ${order.trackingNumber}`,
       message: `${stepWithUpdate.label}: ${stepWithUpdate.notes}`,
