@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Publicaciones</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/iconoglobal.jpg" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-responsive05" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+  </head>
+  <body class="admin-posts-page admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1>Publicaciones</h1>
+          <p class="dashboard-lead">Gestiona el feed tipo red social que verá el cliente.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="module-layout admin-posts-layout">
+              <form id="post-form" class="dashboard-form posts-composer-form">
+                <label><span>Título</span><input name="title" type="text" placeholder="Nuevo embarque disponible" required /></label>
+                <label><span>Texto</span><textarea name="body" rows="4" placeholder="Describe la publicación para el cliente" required></textarea></label>
+                <label><span>Formato</span><select name="format"><option value="carousel">Carrusel</option><option value="image">Imagen única</option><option value="video">Video</option></select></label>
+                <label id="post-video-url-group" hidden>
+                  <span>Enlace de video</span>
+                  <input id="post-video-url" name="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+                </label>
+                <label id="post-media-files-group"><span>Archivos multimedia</span><input id="media-files" name="mediaFiles" type="file" accept="image/*,video/*" multiple /></label>
+                <p class="field-help">Máximo 10 MB por archivo. Los videos deben durar 60 segundos o menos.</p>
+                <button id="publish-now-button" class="primary-button" type="submit">Publicar ahora</button>
+                <section id="schedule-panel" class="schedule-panel">
+                  <div class="form-row two-up">
+                    <label><span>Fecha</span><input id="schedule-date" name="scheduleDate" type="date" /></label>
+                    <label><span>Hora Colombia</span><input id="schedule-time" name="scheduleTime" type="time" /></label>
+                  </div>
+                  <button id="schedule-submit-button" class="primary-button" type="submit">Programar publicación</button>
+                </section>
+                <button id="view-published-button" class="secondary-button dashboard-secondary-action" type="button">Ver publicaciones montadas</button>
+                <p id="post-feedback" class="feedback" aria-live="polite"></p>
+              </form>
+              <div class="posts-right-panel">
+                <div class="posts-section-block">
+                  <h2 class="posts-section-heading">Publicaciones programadas</h2>
+                  <div id="scheduled-posts-list" class="dashboard-list"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <div id="posts-manager-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="posts-manager-modal"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="posts-manager-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="posts-manager-title">Publicaciones montadas</h2>
+            <p class="modal-copy">Selecciona una publicación para abrirla y editarla.</p>
+          </div>
+          <button id="close-posts-manager-button" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div id="published-posts-modal-list" class="dashboard-list modal-scroll-list"></div>
+      </section>
+    </div>
+    <div id="confirm-action-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="confirm-action-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">
+        <div class="admin-brand-mark">
+          <img src="/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header">
+          <div>
+            <h2 id="confirm-action-title">Confirmar acción</h2>
+            <p id="confirm-action-description" class="modal-copy">Revisa la acción antes de continuar.</p>
+          </div>
+        </header>
+        <div class="modal-actions-row">
+          <button id="confirm-action-cancel" class="secondary-button" type="button">Cancelar</button>
+          <button id="confirm-action-submit" class="primary-button" type="button">Confirmar</button>
+        </div>
+      </section>
+    </div>
+    <div id="success-action-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="success-action-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="success-action-title">
+        <div class="admin-brand-mark success">
+          <img src="/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header admin-success-header">
+          <div>
+            <h2 id="success-action-title">Publicación lista</h2>
+            <p id="success-action-description" class="modal-copy">La acción se completó correctamente.</p>
+          </div>
+        </header>
+        <div class="modal-actions-row single-action">
+          <button id="success-action-close" class="primary-button" type="button">Entendido</button>
+        </div>
+      </section>
+    </div>
+    <script src="/admin-common.js?v=20260414-adminlayout06"></script>
+    <script src="/admin-posts.js?v=20260415-01"></script>
+  </body>
+</html>

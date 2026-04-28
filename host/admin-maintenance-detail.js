@@ -118,7 +118,7 @@
       return "<span class=\"maint-phone-missing\">Sin teléfono</span>";
     }
 
-    return `<a class="maint-whatsapp-link" href="https://wa.me/${encodeURIComponent(normalizedPhone)}" target="_blank" rel="noopener noreferrer">${escapeHtml(phoneValue)}</a>`;
+    return `<a class="maint-whatsapp-link" href="https://wa.me/573016698126" target="_blank" rel="noopener noreferrer">${escapeHtml(phoneValue)}</a>`;
   }
 
   function toDateInputValue(dateValue) {
@@ -142,11 +142,17 @@
   }
 
   function buildTableHead() {
+    const headerRow = tableHead.querySelector("tr");
+    const cols = getTableColumns();
+
+    headerRow.innerHTML = cols.map((col) => `<th class="maint-th">${col}</th>`).join("");
+  }
+
+  function getTableColumns() {
     const isKm = config.type === "km";
     const isAppointment = config.type === "appointment";
-    const headerRow = tableHead.querySelector("tr");
 
-    const cols = [
+    return [
       "Cliente",
       "Teléfono",
       "Ubicación",
@@ -162,8 +168,6 @@
       "Hora programada",
       "Guardar",
     ];
-
-    headerRow.innerHTML = cols.map((col) => `<th class="maint-th">${col}</th>`).join("");
   }
 
   function buildStatusSelect(currentStatus, vehicleId) {
@@ -225,9 +229,20 @@
   function renderRows(vehicles) {
     const isKm = config.type === "km";
     const isAppointment = config.type === "appointment";
+    const columns = getTableColumns();
+
+    const buildCell = (label, content, className = "", extraAttributes = "") => {
+      const classes = ["maint-td"];
+
+      if (className) {
+        classes.push(className);
+      }
+
+      return `<td class="${classes.join(" ")}" data-label="${escapeHtml(label)}"${extraAttributes ? ` ${extraAttributes}` : ""}>${content}</td>`;
+    };
 
     if (!vehicles.length) {
-      tableBody.innerHTML = `<tr><td colspan="13" class="maint-td maint-td-empty">No hay pendientes en este grupo.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="${columns.length}" class="maint-td maint-td-empty">No hay pendientes en este grupo.</td></tr>`;
       return;
     }
 
@@ -255,23 +270,23 @@
 
       return `
         <tr class="maint-row" data-vehicle-id="${id}">
-          <td class="maint-td maint-td-name">${ownerName}</td>
-          <td class="maint-td maint-td-phone">${buildWhatsappLink(ownerPhoneRaw)}</td>
-          <td class="maint-td maint-td-city">${drivingCity}</td>
-          <td class="maint-td maint-td-vehicle">${vehicleTitle}</td>
-          <td class="maint-td"><span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "-")}</span></td>
-          <td class="maint-td">${escapeHtml(vehicle.year || "-")}</td>
-          <td class="maint-td">${col5}</td>
-          <td class="maint-td">${col6}</td>
-          <td class="maint-td maint-td-lastcontact" id="lastcontact-${id}">${lastContact}</td>
-          <td class="maint-td maint-td-status">${buildStatusSelect(vehicle.adminContactStatus, id)}</td>
-          <td class="maint-td maint-td-notes">${buildNotesInput(vehicle.adminContactNotes, id)}</td>
-          <td class="maint-td">${buildAppointmentDateInput(appointmentDateValue, id)}</td>
-          <td class="maint-td">${buildAppointmentTimeInput(appointmentTimeValue, id)}</td>
-          <td class="maint-td maint-td-action">
+          ${buildCell(columns[0], ownerName, "maint-td-name")}
+          ${buildCell(columns[1], buildWhatsappLink(ownerPhoneRaw), "maint-td-phone")}
+          ${buildCell(columns[2], drivingCity, "maint-td-city")}
+          ${buildCell(columns[3], vehicleTitle, "maint-td-vehicle")}
+          ${buildCell(columns[4], `<span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "-")}</span>`)}
+          ${buildCell(columns[5], escapeHtml(vehicle.year || "-"))}
+          ${buildCell(columns[6], col5)}
+          ${buildCell(columns[7], col6)}
+          ${buildCell(columns[8], lastContact, "maint-td-lastcontact", `id="lastcontact-${id}"`)}
+          ${buildCell(columns[9], buildStatusSelect(vehicle.adminContactStatus, id), "maint-td-status")}
+          ${buildCell(columns[10], buildNotesInput(vehicle.adminContactNotes, id), "maint-td-notes")}
+          ${buildCell(columns[11], buildAppointmentDateInput(appointmentDateValue, id))}
+          ${buildCell(columns[12], buildAppointmentTimeInput(appointmentTimeValue, id))}
+          ${buildCell(columns[13], `
             <button class="primary-button maint-save-btn" data-vehicle-id="${id}" type="button">Guardar</button>
             <p class="maint-row-feedback" id="row-feedback-${id}" aria-live="polite"></p>
-          </td>
+          `, "maint-td-action")}
         </tr>
       `;
     }).join("");

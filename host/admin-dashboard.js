@@ -101,27 +101,6 @@ function isStepConfirmed(value) {
   return false;
 }
 
-function getLatestTrackingUpdate(updates = []) {
-  if (!Array.isArray(updates) || !updates.length) {
-    return null;
-  }
-
-  return updates.reduce((latestUpdate, currentUpdate) => {
-    if (!latestUpdate) {
-      return currentUpdate;
-    }
-
-    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
-    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
-
-    return currentTime >= latestTime ? currentUpdate : latestUpdate;
-  }, null);
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
 function resolveDashboardApiBaseUrl() {
   const { protocol, hostname, port } = window.location;
 
@@ -220,6 +199,31 @@ async function loadDashboardSession() {
 
 function getFirstName(fullName) {
   return String(fullName || "Administrador").trim().split(/\s+/)[0] || "Administrador";
+}
+
+function isUsaAdministrativeRole(role) {
+  return ["adminUSA", "gerenteUSA"].includes(String(role || ""));
+}
+
+function getLatestTrackingUpdate(updates = []) {
+  if (!Array.isArray(updates) || !updates.length) {
+    return null;
+  }
+
+  return updates.reduce((latestUpdate, currentUpdate) => {
+    if (!latestUpdate) {
+      return currentUpdate;
+    }
+
+    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
+    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+
+    return currentTime >= latestTime ? currentUpdate : latestUpdate;
+  }, null);
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
 }
 
 function getOrderTrackingEvents(order) {
@@ -321,6 +325,9 @@ function getOrderTrackingSteps(order) {
       label: String(sourceStep?.label || template.label),
       confirmed: derivedConfirmed,
       inProgress: derivedInProgress,
+      updates,
+      updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
+      confirmedAt: sourceStep?.confirmedAt || null,
     };
   });
 
@@ -457,7 +464,7 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
       },
     ];
 
-    const trackingEvents = (order?.trackingSteps || [])
+    const trackingEvents = getOrderTrackingSteps(order)
       .filter((step) => step?.updatedAt || step?.confirmedAt)
       .map((step) => ({
         date: step.updatedAt || step.confirmedAt,
@@ -532,7 +539,7 @@ function renderStageDistribution(orders) {
     .map((stage, index) => {
       const count = countsByStage.get(stage.key) || 0;
       const label = stageLabelByKey[stage.key] || stage.label;
-      const targetUrl = `/app/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
+      const targetUrl = `/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
       return `
         <a class="stage-distribution-item stage-distribution-link${count > 0 ? " is-active" : ""}" href="${targetUrl}">
           <span>E${index + 1}</span>
@@ -566,6 +573,7 @@ if (true) {
   const adminFirstName = document.getElementById("admin-first-name");
   const adminNameTop = document.getElementById("admin-name-top");
   const clientsCount = document.getElementById("clients-count");
+  const deletionRequestsCount = document.getElementById("deletion-requests-count");
   const requestsCount = document.getElementById("requests-count");
   const ordersCount = document.getElementById("orders-count");
   const activeOrdersCount = document.getElementById("active-orders-count");
@@ -611,13 +619,45 @@ if (true) {
         adminNameTop.textContent = user?.name || "Administrador";
       }
 
-      const results = await Promise.allSettled([
-        fetchDashboardJson("/api/admin/clients"),
-        fetchDashboardJson("/api/admin/client-requests"),
-        fetchDashboardJson("/api/admin/orders"),
-        fetchDashboardJson("/api/admin/maintenance"),
-        fetchDashboardJson("/api/admin/posts"),
-      ]);
+      const adminRoleLabel = document.getElementById("admin-role-label");
+      if (adminRoleLabel && user?.role) {
+        const roleText = user.role === "manager"
+          ? "Gerente"
+          : user.role === "gerenteUSA"
+            ? "Gerente USA"
+            : user.role === "adminUSA"
+              ? "Administrador USA"
+              : user.role === "admin"
+                ? "Administrador"
+                : "Usuario";
+        adminRoleLabel.textContent = roleText;
+      }
+
+      const isUsaRole = isUsaAdministrativeRole(user?.role);
+      const canManageDeletionRequests = ["manager", "gerenteUSA"].includes(String(user?.role || ""));
+      document.querySelectorAll(".admin-latam-only").forEach((element) => {
+        element.style.display = isUsaRole ? "none" : "";
+      });
+
+      if (isUsaRole) {
+        setElementText(requestsCount, 0);
+        setElementText(maintenanceCount, 0);
+        setElementText(postsCount, 0);
+      }
+
+      if (!canManageDeletionRequests) {
+        setElementText(deletionRequestsCount, 0);
+      }
+
+      const dashboardRequests = [
+        { key: "clients", critical: true, promise: fetchDashboardJson("/api/admin/clients") },
+        { key: "requests", critical: false, promise: isUsaRole ? Promise.resolve({ requests: [] }) : fetchDashboardJson("/api/admin/client-requests") },
+        { key: "orders", critical: true, promise: fetchDashboardJson("/api/admin/orders") },
+        { key: "maintenance", critical: false, promise: isUsaRole ? Promise.resolve({ maintenance: [] }) : fetchDashboardJson("/api/admin/maintenance") },
+        { key: "posts", critical: false, promise: isUsaRole ? Promise.resolve({ posts: [] }) : fetchDashboardJson("/api/admin/posts") },
+      ];
+
+      const results = await Promise.allSettled(dashboardRequests.map((entry) => entry.promise));
 
       const clientsData = results[0].status === "fulfilled" ? results[0].value : {};
       const requestsData = results[1].status === "fulfilled" ? results[1].value : {};
@@ -630,10 +670,14 @@ if (true) {
       const orders = normalizeCollectionPayload(ordersData, ["orders"]);
       const maintenance = normalizeCollectionPayload(maintenanceData, ["maintenance"]);
       const posts = normalizeCollectionPayload(postsData, ["posts"]);
+      const deletionRequests = canManageDeletionRequests
+        ? orders.filter((order) => String(order?.deletionRequest?.status || "none").trim().toLowerCase() === "pending")
+        : [];
       const activeOrders = orders.filter((order) => order.status === "active");
       const completedOrders = orders.filter((order) => order.status === "completed");
 
       setElementText(clientsCount, clients.length);
+      setElementText(deletionRequestsCount, deletionRequests.length);
       setElementText(requestsCount, requests.length);
       setElementText(ordersCount, orders.length);
       setElementText(activeOrdersCount, activeOrders.length);
@@ -655,7 +699,7 @@ if (true) {
         })
       );
 
-      const rejected = results.find((entry) => entry.status === "rejected");
+      const rejected = results.find((entry, index) => entry.status === "rejected" && dashboardRequests[index].critical);
 
       if (rejected) {
         setDashboardError(rejected.reason?.message || "Algunos indicadores no se pudieron cargar.");

@@ -20,14 +20,14 @@ function resolveApiBaseUrl() {
 
 const trackingTemplates = [
   { key: "order-received", label: "Orden recibida" },
-  { key: "vehicle-search", label: "Busqueda del carro" },
+  { key: "vehicle-search", label: "Búsqueda del carro" },
   { key: "booking-and-shipping", label: "Booking y tracking naviera" },
   { key: "in-transit", label: "En tránsito" },
-  { key: "nationalization", label: "Proceso de nacionalizacion" },
+  { key: "nationalization", label: "Proceso de nacionalización" },
   { key: "port-exit", label: "Salida del puerto" },
   { key: "vehicle-preparation", label: "Alistamiento" },
   { key: "delivery", label: "Entrega" },
-  { key: "registration", label: "Matricula" },
+  { key: "registration", label: "Matrícula" },
 ];
 
 let loadingOverlay = null;
@@ -343,7 +343,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navItems = [
     { href: "/app/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false },
-    { href: "/app/admin-orders.html", label: "Creacion de pedidos", adminCreatorOnly: false, latamOnly: false },
+    { href: "/app/admin-orders.html", label: "Creación de pedidos", adminCreatorOnly: false, latamOnly: false },
     { href: "/app/admin-tracking.html", label: "Seguimiento de pedidos", adminCreatorOnly: false, latamOnly: false },
     { href: "/app/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false },
     { href: "/app/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false },
@@ -351,7 +351,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
     { href: "/app/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true },
     { href: "/app/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true },
     { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true },
-    { href: "/app/admin-admins.html", label: "Creacion de administradores", adminCreatorOnly: true, latamOnly: false },
+    { href: "/app/admin-admins.html", label: "Creación de administradores", adminCreatorOnly: true, latamOnly: false },
   ];
 
   const navMarkup = navItems

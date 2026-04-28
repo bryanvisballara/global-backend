@@ -174,14 +174,14 @@
 
         const fallbackStateTemplates = [
           { key: "order-received", label: "Orden recibida" },
-          { key: "vehicle-search", label: "Busqueda del carro" },
+          { key: "vehicle-search", label: "Búsqueda del carro" },
           { key: "booking-and-shipping", label: "Booking y tracking naviera" },
-          { key: "in-transit", label: "En transito" },
-          { key: "nationalization", label: "Proceso de nacionalizacion" },
+          { key: "in-transit", label: "En tránsito" },
+          { key: "nationalization", label: "Proceso de nacionalización" },
           { key: "port-exit", label: "Salida del puerto" },
           { key: "vehicle-preparation", label: "Alistamiento" },
           { key: "delivery", label: "Entrega" },
-          { key: "registration", label: "Matricula" },
+          { key: "registration", label: "Matrícula" },
         ];
 
         let bootstrapOrders = [];
@@ -223,7 +223,7 @@
         }
 
         function formatBootstrapOrderLabel(order) {
-          return `${order.vehicle?.brand || "Vehiculo"} ${order.vehicle?.model || ""}${order.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order.vehicle?.year || ""}`.trim();
+          return `${order.vehicle?.brand || "Vehículo"} ${order.vehicle?.model || ""}${order.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order.vehicle?.year || ""}`.trim();
         }
 
         function renderBootstrapResults(matches) {
@@ -318,7 +318,7 @@
                 <div class="tracking-state-copy">
                   <small>Estado ${index + 1}</small>
                   <strong>${escapeTrackingHtml(state.label)}</strong>
-                  <p>${escapeTrackingHtml(state.notes || "Sin informacion todavia.")}</p>
+                  <p>${escapeTrackingHtml(state.notes || "Sin información todavía.")}</p>
                 </div>
                 <button class="tracking-state-edit-button ${state.confirmed ? "is-confirmed" : ""}" type="button" data-bootstrap-state-toggle="${escapeTrackingHtml(state.key)}">${state.confirmed ? "Confirmado" : "Editar"}</button>
               </div>

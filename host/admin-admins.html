@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Creación de administradores</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260416-adminusers02" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+  </head>
+  <body class="admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="page-hero">
+          <h1>Creación de administradores</h1>
+          <p class="dashboard-lead">Solo los roles gerente (LATAM o USA) pueden crear nuevos usuarios administrativos.</p>
+        </section>
+
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="clients-dashboard-stack">
+              <section id="admin-manager-warning" class="dashboard-card clients-filter-card" hidden>
+                <p class="dashboard-lead">Tu cuenta no tiene permisos de gerente. Puedes ver los usuarios administrativos, pero no crear nuevos.</p>
+              </section>
+
+              <section id="admin-create-card" class="dashboard-card clients-filter-card">
+                <div class="card-heading">
+                  <h2>Nuevo administrador</h2>
+                </div>
+                <form id="admin-create-form" class="dashboard-form">
+                  <div class="form-row three-up">
+                    <label><span>Nombre</span><input id="admin-create-name" type="text" placeholder="Nombre completo" required /></label>
+                    <label><span>Email</span><input id="admin-create-email" type="email" placeholder="admin@globalimports.com" required /></label>
+                    <label><span>Contraseña</span><input id="admin-create-password" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" /></label>
+                  </div>
+                  <div class="modal-actions-row">
+                    <button id="admin-create-submit" class="primary-button" type="submit">Crear administrador</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="dashboard-card tracking-table-card clients-results-card" aria-label="Administradores registrados">
+                <div class="card-heading">
+                  <h2>Usuarios administrativos</h2>
+                  <span id="admin-users-count" class="section-tag">0 usuario(s)</span>
+                </div>
+                <div class="tracking-table-wrap">
+                  <table class="tracking-data-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Creado</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="admin-users-body">
+                      <tr>
+                        <td colspan="6"><div class="empty-state">Cargando usuarios administrativos...</div></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p id="admin-users-feedback" class="feedback" aria-live="polite"></p>
+              </section>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260416-adminlayout07"></script>
+    <script src="/admin-admins.js?v=20260416-adminusers03"></script>
+  </body>
+</html>

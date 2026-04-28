@@ -35,7 +35,7 @@
                 <label><span>Texto</span><textarea name="body" rows="4" placeholder="Describe la publicación para el cliente" required></textarea></label>
                 <label><span>Formato</span><select name="format"><option value="carousel">Carrusel</option><option value="image">Imagen única</option><option value="video">Video</option></select></label>
                 <label id="post-video-url-group" hidden>
-                  <span>Link de video</span>
+                  <span>Enlace de video</span>
                   <input id="post-video-url" name="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
                 </label>
                 <label id="post-media-files-group"><span>Archivos multimedia</span><input id="media-files" name="mediaFiles" type="file" accept="image/*,video/*" multiple /></label>
@@ -344,7 +344,7 @@
 
         viewPublishedButton?.addEventListener("click", async () => {
           try {
-            setInlineFeedback("Cargando publicaciones montadas...");
+            setInlineFeedback("Cargando publicaciones publicadas...");
             await loadPublishedPostsModal();
           } catch (error) {
             setInlineFeedback(error.message, "error");
@@ -450,7 +450,7 @@
             const hasValidLink = isInlineSupportedVideoUrl(inlineVideoUrl);
 
             if (!hasVideoFile && !hasValidLink) {
-              setInlineFeedback("Para video debes subir un archivo o pegar un link válido.", "error");
+              setInlineFeedback("Para video debes subir un archivo o pegar un enlace válido.", "error");
               return;
             }
 
@@ -458,13 +458,13 @@
               const onlyVideos = selectedVideoFiles.every((file) => String(file.type || "").startsWith("video/"));
 
               if (selectedVideoFiles.length !== 1 || !onlyVideos) {
-                setInlineFeedback("Video requiere exactamente un archivo de video cuando se sube desde dispositivo.", "error");
+                setInlineFeedback("El formato video requiere exactamente un archivo de video cuando se sube desde el dispositivo.", "error");
                 return;
               }
             }
 
             if (inlineVideoUrl && !hasValidLink && !hasVideoFile) {
-              setInlineFeedback("Ingresa un link válido de YouTube, Vimeo o URL de video.", "error");
+              setInlineFeedback("Ingresa un enlace válido de YouTube, Vimeo o una URL de video.", "error");
               return;
             }
 

@@ -1,5 +1,6 @@
+(() => {
 const {
-  attachLogout,
+  attachLogout: adminAttachLogout,
   fetchJson,
   formatDateTimeInBogota,
   loadAdminSession,
@@ -9,7 +10,7 @@ const {
 } = window.AdminApp;
 
 if (requireAdminAccess()) {
-  attachLogout();
+  adminAttachLogout();
 
   const postForm = document.getElementById("post-form");
   const postFeedback = document.getElementById("post-feedback");
@@ -84,7 +85,7 @@ if (requireAdminAccess()) {
   }
 
   function getEditPostUrl(postId) {
-    const editUrl = new URL("/app/admin-post-edit.html", window.location.origin);
+    const editUrl = new URL("/admin-post-edit.html", window.location.origin);
     editUrl.searchParams.set("postId", postId);
     return editUrl.toString();
   }
@@ -528,3 +529,4 @@ if (requireAdminAccess()) {
 
   window.__adminPostsInitialized = true;
 }
+})();

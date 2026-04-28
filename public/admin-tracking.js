@@ -129,7 +129,7 @@ function getConfigInputValue(config, order) {
 }
 
 function formatOrderLabel(order) {
-  return `${order?.vehicle?.brand || "Vehiculo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
 }
 
 function formatDateLabel(value) {
@@ -606,7 +606,7 @@ function renderSearchResults(matches) {
             <th>Cliente</th>
             <th>Destino</th>
             <th>Estado</th>
-            <th>Vehiculo</th>
+            <th>Vehículo</th>
             <th>Fecha</th>
           </tr>
         </thead>
@@ -636,7 +636,7 @@ function renderSearchResults(matches) {
                 <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
                 <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
                 <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
-                <td data-label="Vehiculo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+                <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
               </tr>
             `;
@@ -913,7 +913,7 @@ function renderStateUpdates(step) {
   const indexedUpdates = getIndexedUpdates(step);
 
   if (!indexedUpdates.length) {
-    return '<div class="tracking-state-history-empty">Todavia no hay actualizaciones en el historial de esta etapa.</div>';
+    return '<div class="tracking-state-history-empty">Todavía no hay actualizaciones en el historial de esta etapa.</div>';
   }
 
   return `
@@ -930,7 +930,7 @@ function renderStateUpdates(step) {
               ${renderDeleteButton(step.key, update.updateIndex, update.eventId)}
             </div>
           </div>
-          <p>${escapeHtml(update.notes || "Sin descripcion registrada.")}</p>
+          <p>${escapeHtml(update.notes || "Sin descripción registrada.")}</p>
           ${renderCategorizedMediaSections(update.media || [])}
         </article>
       `).join("")}
@@ -966,7 +966,7 @@ function buildRecentEvents(order) {
         stateLabel: event.stateLabel,
         date: event.updatedAt || event.createdAt || null,
         title: getUpdateStatusLabel(event),
-        description: event.notes || "Sin descripcion registrada.",
+        description: event.notes || "Sin descripción registrada.",
         clientVisible: event.clientVisible,
         media: event.media || [],
       });
@@ -1001,7 +1001,7 @@ function buildRecentEvents(order) {
           stateLabel: step.label,
           date: update.updatedAt || update.createdAt || null,
           title: getUpdateStatusLabel(update),
-          description: update.notes || "Sin descripcion registrada.",
+          description: update.notes || "Sin descripción registrada.",
           clientVisible: Boolean(update.clientVisible),
           media: Array.isArray(update.media) ? update.media : [],
         }))
@@ -1054,7 +1054,7 @@ function renderRecentEventItem(item) {
         </div>
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
-        <p>${escapeHtml(item.description || "Sin descripcion registrada.")}</p>
+        <p>${escapeHtml(item.description || "Sin descripción registrada.")}</p>
         ${renderCategorizedMediaSections(item.media || [])}
       </div>
     </article>
@@ -1139,13 +1139,13 @@ function renderTrackingOverview(order) {
           <span class="section-tag">Tracking ${escapeHtml(order?.trackingNumber || "-")}</span>
         </header>
         <div class="state-order-grid">
-          <p><strong>Version:</strong> ${escapeHtml(order?.vehicle?.version || "Sin version")}</p>
-          <p><strong>Ano:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
+          <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
+          <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
           <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
           <p><strong>Color:</strong> ${escapeHtml(order?.vehicle?.color || "-")}</p>
           <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
           <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-          <p><strong>Telefono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+          <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
           <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
           <p><strong>Compra:</strong> ${escapeHtml(formatDateLabel(order?.purchaseDate || order?.createdAt))}</p>
           <p><strong>Llegada estimada:</strong> ${escapeHtml(formatDateLabel(order?.expectedArrivalDate))}</p>
@@ -1215,7 +1215,7 @@ function renderStates() {
     const canEditState = canEditStateForRole(currentAdminRole, state.key);
     const draft = getStateDraft(state);
     const historyCount = Array.isArray(state?.updates) ? state.updates.length : 0;
-    const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavia";
+    const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavía";
     const editButtonText = state.confirmed ? "Completado" : state.inProgress ? "En curso" : "Editar";
     const stateMedia = getFlattenedStateMedia(state);
 
@@ -1225,7 +1225,7 @@ function renderStates() {
           <div class="tracking-state-copy">
             <small>Estado ${index + 1}</small>
             <strong>${escapeHtml(state.label)}</strong>
-            <p>${escapeHtml(updatedText)} · ${escapeHtml(`${historyCount} actualizacion(es)`)}</p>
+            <p>${escapeHtml(updatedText)} · ${escapeHtml(`${historyCount} actualización(es)`)}</p>
           </div>
           <button
             class="tracking-state-edit-button ${state.confirmed ? "is-confirmed" : ""}"
