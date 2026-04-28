@@ -63,17 +63,31 @@ html {
 }
 
 @font-face {
-  font-family: 'Nexa Heavy';
-  src: url('./assets/fonts/Nexa-Heavy.ttf') format('truetype');
+  font-family: "Nexa Admin Heavy";
+  src: url("/Nexa-Heavy%20(1).ttf") format("truetype");
   font-weight: 900;
   font-style: normal;
   font-display: swap;
 }
 
 h1, h2, h3, .title, .titulo, .order-vehicle-title, .client-popover-title, .posts-section-heading, .brand-fallback, .page-hero h1, .story-panel h1, .auth-copy h2 {
-  font-family: 'Nexa Heavy', 'Syne', Arial, sans-serif !important;
+  font-family: "Syne", Arial, sans-serif !important;
   font-weight: 900;
   letter-spacing: -0.04em;
+}
+
+body.admin-app-view h1,
+body.admin-app-view h2,
+body.admin-app-view h3,
+body.admin-app-view .posts-section-heading,
+body.admin-app-view .module-metric-inline strong,
+body.admin-app-view .admin-sidebar-brand strong,
+.admin-dashboard-stage h1,
+.admin-dashboard-stage h2,
+.admin-dashboard-stage h3,
+.admin-dashboard-stage .posts-section-heading,
+.admin-dashboard-stage .admin-sidebar-brand strong {
+  font-family: "Nexa Admin Heavy", "Syne", Arial, sans-serif !important;
 }
 
 body {
@@ -2851,6 +2865,15 @@ body.tracking-detail-mode #tracking-form {
   font-family: "Syne", sans-serif;
   letter-spacing: -0.03em;
   font-size: 1.5rem;
+}
+
+body.admin-app-view .page-hero h1,
+body.admin-app-view .card-heading h2,
+body.admin-app-view .tracking-table-card .card-heading h2,
+body.admin-app-view .module-metric-inline strong,
+body.admin-app-view .request-card h2,
+body.admin-app-view .request-card-top strong {
+  font-family: "Nexa Admin Heavy", "Syne", Arial, sans-serif !important;
 }
 
 .tracking-table-wrap {
