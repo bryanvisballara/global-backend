@@ -90,8 +90,54 @@ async function createAdministrativeUser(req, res) {
   }
 }
 
+async function deleteAdministrativeUser(req, res) {
+  try {
+    const requesterRole = String(req.user?.role || "");
+    const requesterId = String(req.user?._id || req.user?.id || "").trim();
+    const administrativeUserId = String(req.params.adminUserId || "").trim();
+    const rolesAllowedToDelete = requesterRole === "gerenteUSA" ? ["adminUSA"] : requesterRole === "manager" ? ["admin"] : [];
+
+    if (!rolesAllowedToDelete.length) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (!administrativeUserId) {
+      return res.status(400).json({ message: "Administrative user id is required" });
+    }
+
+    if (administrativeUserId === requesterId) {
+      return res.status(400).json({ message: "You cannot delete your own account" });
+    }
+
+    const user = await User.findById(administrativeUserId).select("_id role name email");
+
+    if (!user) {
+      return res.status(404).json({ message: "Administrative user not found" });
+    }
+
+    if (!rolesAllowedToDelete.includes(String(user.role || ""))) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    await User.deleteOne({ _id: user._id });
+
+    return res.status(200).json({
+      message: "Administrative user deleted successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error deleting administrative user" });
+  }
+}
+
 module.exports = {
   listUsers,
   listAdministrativeUsers,
   createAdministrativeUser,
+  deleteAdministrativeUser,
 };
