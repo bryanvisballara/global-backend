@@ -1,0 +1,160 @@
+html {
+  overflow-x: hidden;
+}
+
+body.admin-app-view {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1100px) {
+  html {
+    zoom: 1 !important;
+    transform: none !important;
+    width: 100% !important;
+    min-height: 100% !important;
+  }
+
+  body.admin-app-view,
+  body.admin-app-view .dashboard-shell,
+  body.admin-app-view .dashboard-stage,
+  body.admin-app-view .admin-dashboard-stage,
+  body.admin-app-view .admin-dashboard-layout,
+  body.admin-app-view .admin-dashboard-main {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  body.admin-app-view .dashboard-shell {
+    padding: 0 !important;
+  }
+
+  body.admin-app-view .dashboard-stage,
+  body.admin-app-view .admin-dashboard-stage {
+    min-height: 100dvh !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.admin-app-view .admin-dashboard-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    min-height: 100dvh !important;
+  }
+
+  body.admin-app-view .admin-dashboard-main {
+    min-height: 100dvh !important;
+    padding: 0 0 calc(20px + env(safe-area-inset-bottom)) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.admin-app-view.admin-sidebar-open {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    touch-action: auto !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .dashboard-shell,
+  body.admin-app-view.admin-sidebar-open .dashboard-stage,
+  body.admin-app-view.admin-sidebar-open .admin-dashboard-layout {
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .admin-dashboard-layout {
+    position: relative !important;
+    z-index: 141 !important;
+  }
+
+  body.admin-app-view .admin-dashboard-header {
+    padding: 16px 10px 0 !important;
+  }
+
+  body.admin-app-view .admin-dashboard-meta,
+  body.admin-app-view .admin-metrics-grid,
+  body.admin-app-view .dashboard-card,
+  body.admin-app-view .tracking-table-card,
+  body.admin-app-view .admin-events-card,
+  body.admin-app-view .admin-distribution-card,
+  body.admin-app-view .module-layout,
+  body.admin-app-view .page-hero,
+  body.admin-app-view .tracking-overview-stack,
+  body.admin-app-view .maint-grid,
+  body.admin-app-view .maint-detail-section,
+  body.admin-app-view .page-topbar {
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+  }
+
+  body.admin-app-view .page-topbar,
+  body.admin-app-view .page-hero {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  body.admin-app-view .admin-sidebar,
+  body.admin-app-view.admin-drawer-ready .admin-sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: auto !important;
+    pointer-events: auto !important;
+    z-index: 142 !important;
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom)) !important;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    transform: translateX(-100%) !important;
+  }
+
+  body.admin-app-view .admin-sidebar-nav {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  body.admin-app-view .admin-sidebar-backdrop,
+  body.admin-app-view.admin-drawer-ready .admin-sidebar-backdrop {
+    display: block !important;
+    z-index: 120 !important;
+    pointer-events: none !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .admin-sidebar-backdrop {
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .admin-dashboard-main {
+    position: relative !important;
+    z-index: 121 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .admin-sidebar,
+  body.admin-app-view.admin-sidebar-open .admin-sidebar * {
+    pointer-events: auto !important;
+  }
+
+  body.admin-app-view.admin-sidebar-open .admin-sidebar {
+    transform: translateX(0) !important;
+  }
+}

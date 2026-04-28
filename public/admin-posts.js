@@ -170,7 +170,7 @@ if (requireAdminAccess()) {
       const hasValidLink = isSupportedVideoUrl(videoUrl);
 
       if (!hasFiles && !hasValidLink) {
-        throw new Error("Para video debes subir un archivo o pegar un enlace válido.");
+        throw new Error("Para video debes subir un archivo o pegar un link válido.");
       }
 
       if (!hasFiles) {
@@ -184,7 +184,7 @@ if (requireAdminAccess()) {
       const videoFiles = selectedFiles.filter((file) => file.type.startsWith("video/"));
 
       if (selectedFiles.length !== 1 || videoFiles.length !== 1) {
-        throw new Error("El formato video requiere exactamente un archivo de video cuando se sube desde el dispositivo.");
+        throw new Error("Video requiere exactamente un archivo de video cuando se sube desde dispositivo.");
       }
 
       await Promise.all(

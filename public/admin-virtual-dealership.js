@@ -159,7 +159,7 @@
               <div>
                 <strong>${escapeHtml(vehicle.brand)} ${escapeHtml(vehicle.model)} ${escapeHtml(vehicle.version)}</strong>
                 <p>${escapeHtml(formatCurrency(vehicle.price, vehicle.currency || "COP"))}</p>
-                <p>${escapeHtml(vehicle.exteriorColor || "Sin color exterior")} · ${escapeHtml(vehicle.interiorColor || "Sin cojinería")}</p>
+                <p>${escapeHtml(vehicle.exteriorColor || "Sin color exterior")} · ${escapeHtml(vehicle.interiorColor || "Sin coginería")}</p>
                 <p>${escapeHtml(vehicle.mileage != null ? `${vehicle.mileage} km` : "Kilometraje N/D")} · ${escapeHtml(vehicle.engine || "Motor N/D")} · ${escapeHtml(vehicle.horsepower != null ? `${vehicle.horsepower} HP` : "Potencia N/D")}</p>
                 <p>${escapeHtml(normalizeStatusLabel(vehicle.status))} · ${escapeHtml(formatDateTimeInBogota(vehicle.createdAt))}</p>
               </div>

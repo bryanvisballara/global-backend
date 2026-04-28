@@ -12,6 +12,7 @@
 		A10000000000000000000012 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* WebViewContainer.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* Assets.xcassets */; };
 		A10000000000000000000014 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* AppDelegate.swift */; };
+		A10000000000000000000015 /* 0414.WAV in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* 0414.WAV */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +24,7 @@
 		A10000000000000000000024 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000025 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A10000000000000000000026 /* GlobalImportsApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GlobalImportsApp.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000027 /* 0414.WAV */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = 0414.WAV; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +53,7 @@
 				A10000000000000000000020 /* GlobalImportsApp.swift */,
 				A10000000000000000000021 /* ContentView.swift */,
 				A10000000000000000000022 /* WebViewContainer.swift */,
+				A10000000000000000000027 /* 0414.WAV */,
 				A10000000000000000000024 /* Assets.xcassets */,
 				A10000000000000000000026 /* GlobalImportsApp.entitlements */,
 				A10000000000000000000023 /* Info.plist */,
@@ -125,6 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000015 /* 0414.WAV in Resources */,
 				A10000000000000000000013 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -191,11 +195,12 @@
 		A10000000000000000000042 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = GlobalImportsApp/GlobalImportsApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 3NMQTW4447;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GlobalImportsApp/Info.plist;
@@ -217,11 +222,12 @@
 		A10000000000000000000043 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = GlobalImportsApp/GlobalImportsApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 3NMQTW4447;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GlobalImportsApp/Info.plist;

@@ -11,18 +11,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NSLog("[push][ios] App did finish launching")
         requestPushAuthorization(application: application)
         return true
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        print("[push][ios] APNs token registered: \(token)")
+        NSLog("[push][ios] APNs token registered: %@", token)
         NotificationCenter.default.post(name: .globalImportsPushTokenDidChange, object: token)
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("[push][ios] APNs registration failed: \(error.localizedDescription)")
+        NSLog("[push][ios] APNs registration failed: %@", error.localizedDescription)
     }
 
     func userNotificationCenter(
@@ -35,10 +36,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     private func requestPushAuthorization(application: UIApplication) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            print("[push][ios] Notification authorization granted=\(granted)")
+            NSLog("[push][ios] Notification authorization granted=%@", granted ? "true" : "false")
             guard granted else { return }
 
             DispatchQueue.main.async {
+                NSLog("[push][ios] Registering for remote notifications")
                 application.registerForRemoteNotifications()
             }
         }

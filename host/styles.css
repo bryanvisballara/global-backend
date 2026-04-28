@@ -224,6 +224,14 @@ body.login-page .device-stage {
   letter-spacing: -0.04em;
 }
 
+body.login-page .auth-copy #form-title {
+  font-family: "Nexa Admin Heavy", "Syne", Arial, sans-serif !important;
+  font-weight: 900 !important;
+  text-transform: none !important;
+  font-variant: normal !important;
+  font-feature-settings: "case" 0;
+}
+
 .story-panel h1 {
   font-size: clamp(2.3rem, 11vw, 4rem);
   line-height: 0.92;
@@ -300,7 +308,7 @@ body.login-page .auth-copy {
 body.login-page .auth-copy h2 {
   font-size: clamp(1.425rem, 5.25vw, 2.1rem);
   line-height: 0.96;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .auth-copy h2 {
@@ -4324,6 +4332,23 @@ a.popover-action {
   margin: 10px 0 0;
   font-family: "Syne", sans-serif;
   letter-spacing: -0.04em;
+}
+
+.client-hero h1,
+.client-section-head h2,
+.feed-card h3,
+.client-modal-header h2,
+.virtual-dealership-media-overlay h3,
+.sequoia-order-summary-head h3,
+.sequoia-config-subtitle,
+.sequoia-version-card strong,
+.order-action-card strong,
+.order-vehicle-title,
+.client-popover-title,
+body #virtual-dealership-video-title,
+body .tracking-search-page .page-hero h1 {
+  font-family: "Nexa Admin Heavy", "Syne", Arial, sans-serif !important;
+  font-weight: 900;
 }
 
 .client-hero h1 {

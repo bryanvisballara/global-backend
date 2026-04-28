@@ -3898,6 +3898,8 @@ function setActiveView(viewName, options = {}) {
 function openNotifications() {
   notificationsModal.hidden = false;
   document.body.classList.add("modal-open");
+
+  loadDashboard().catch(() => null);
 }
 
 function closeNotifications() {
@@ -3935,6 +3937,16 @@ async function loadDashboard() {
 
 window.addEventListener("globalimports:push-token", (event) => {
   registerNativePushToken(event.detail || {}).catch(() => null);
+});
+
+window.addEventListener("focus", () => {
+  loadDashboard().catch(() => null);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    loadDashboard().catch(() => null);
+  }
 });
 
 navButtons.forEach((button) => {

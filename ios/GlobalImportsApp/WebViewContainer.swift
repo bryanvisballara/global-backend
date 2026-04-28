@@ -45,6 +45,7 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
             guard let token = notification.object as? String else { return }
 
             Task { @MainActor [weak self] in
+                NSLog("[push][ios] Observed push token change; scheduling web injection")
                 self?.latestPushToken = token
                 self?.injectPushTokenIfNeeded()
             }
@@ -67,6 +68,7 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
             return
         }
 
+        NSLog("[webview][ios] Loading URL: %@ forceReload=%@", url.absoluteString, forceReload ? "true" : "false")
         loadError = nil
         startLoadingTimeoutWatchdog()
         webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
@@ -101,6 +103,8 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
 
     private func injectPushTokenIfNeeded() {
         guard !latestPushToken.isEmpty else { return }
+
+        NSLog("[push][ios] Injecting APNs token into WKWebView")
 
         let escapedToken = latestPushToken.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
@@ -580,21 +584,25 @@ extension WebViewStore {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        NSLog("[webview][ios] Started provisional navigation: %@", webView.url?.absoluteString ?? "about:blank")
         isLoading = true
         loadError = nil
         startLoadingTimeoutWatchdog()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        NSLog("[webview][ios] Finished navigation: %@", webView.url?.absoluteString ?? "about:blank")
         finishLoading()
         injectPushTokenIfNeeded()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        NSLog("[webview][ios] Navigation failed: %@", error.localizedDescription)
         finishLoading(withError: error.localizedDescription)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        NSLog("[webview][ios] Provisional navigation failed: %@", error.localizedDescription)
         finishLoading(withError: error.localizedDescription)
     }
 

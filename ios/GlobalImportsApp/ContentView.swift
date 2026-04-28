@@ -5,6 +5,30 @@ private let productionWebAppURL = "https://global-backend-bdbx.onrender.com/app/
 private let simulatorWebAppURL = "http://localhost:10000/app/index.html?v=\(webShellVersion)"
 private let deviceLocalWebAppURL = "http://192.168.1.95:10000/app/index.html?v=\(webShellVersion)"
 
+private var localDevelopmentWebAppURL: String {
+    #if targetEnvironment(simulator)
+    simulatorWebAppURL
+    #else
+    productionWebAppURL
+    #endif
+}
+
+private var releaseDefaultWebAppURL: String {
+    productionWebAppURL
+}
+
+private func isLocalDevelopmentHost(_ host: String?) -> Bool {
+    guard let host else { return false }
+
+    let normalizedHost = host.lowercased()
+
+    if normalizedHost == "localhost" || normalizedHost == "127.0.0.1" || normalizedHost == "::1" {
+        return true
+    }
+
+    return normalizedHost == "192.168.1.95"
+}
+
 struct ContentView: View {
     @AppStorage("webAppURL_v4") private var webAppURL = productionWebAppURL
     @AppStorage("webShellVersion") private var storedWebShellVersion = ""
@@ -80,6 +104,7 @@ struct ContentView: View {
                             draftURL = productionWebAppURL
                         }
 
+                        #if DEBUG
                         Button("Usar localhost del simulador") {
                             draftURL = simulatorWebAppURL
                         }
@@ -87,6 +112,7 @@ struct ContentView: View {
                         Button("Usar IP local del Mac / iPhone") {
                             draftURL = deviceLocalWebAppURL
                         }
+                        #endif
 
                     }
 
@@ -143,10 +169,14 @@ struct ContentView: View {
     }
 
     private func defaultWebAppURL() -> String {
+        #if DEBUG
         #if targetEnvironment(simulator)
         simulatorWebAppURL
         #else
-        deviceLocalWebAppURL
+        productionWebAppURL
+        #endif
+        #else
+        releaseDefaultWebAppURL
         #endif
     }
 
@@ -155,6 +185,13 @@ struct ContentView: View {
             return defaultWebAppURL()
         }
 
+        #if !DEBUG
+        if isLocalDevelopmentHost(components.host) {
+            return releaseDefaultWebAppURL
+        }
+
+        return candidate
+        #else
         #if targetEnvironment(simulator)
         if components.host == "192.168.1.95" {
             components.host = "localhost"
@@ -162,11 +199,11 @@ struct ContentView: View {
         }
         return candidate
         #else
-        if components.host == "localhost" || components.host == "127.0.0.1" || components.host == "::1" {
-            components.host = "192.168.1.95"
-            return components.string ?? deviceLocalWebAppURL
+        if isLocalDevelopmentHost(components.host) {
+            return releaseDefaultWebAppURL
         }
         return candidate
+        #endif
         #endif
     }
 
