@@ -43,6 +43,7 @@ const VIRTUAL_DEALERSHIP_BATCH_SIZE = 3;
 const PULL_REFRESH_THRESHOLD = 78;
 const TRACKING_HISTORY_MAX_ITEMS = 12;
 const TRACKING_PAGE_VERSION = "20260416-clientevents04";
+const CLIENT_IMAGE_CACHE_SW_URL = "/sw.js";
 
 function buildTrackingPageUrl(trackingNumber = "") {
   const trackingUrl = new URL("/client-tracking.html", window.location.origin);
@@ -53,6 +54,18 @@ function buildTrackingPageUrl(trackingNumber = "") {
   }
 
   return trackingUrl;
+}
+
+function registerClientImageCacheServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(CLIENT_IMAGE_CACHE_SW_URL).catch((error) => {
+      console.warn("No se pudo registrar el cache de imagenes del cliente.", error);
+    });
+  });
 }
 
 function installZoomGuards() {
@@ -313,1175 +326,245 @@ const SEQUOIA_DELIVERY_OPTIONS = {
   cali: { label: "Cali", fee: 5000000 },
 };
 
-const SEQUOIA_VERSION_CONFIG = {
-  sr5: {
-    name: "SR5",
-    price: 415000000,
-    specs: [
-      { label: "Potencia", value: "437 hp" },
-      { label: "Motor", value: "i-FORCE MAX 3.4L" },
-      { label: "Traccion", value: "4x4 Part-Time" },
-    ],
-    colors: [
-      {
-        key: "lunar-rock",
-        name: "Lunar Rock",
-        hex: "#7f8b80",
-        tint: "rgba(108, 123, 113, 0.2)",
-        images: [
-          "/sr5%20lunar%20rock/srlr1.png",
-          "/sr5%20lunar%20rock/srlr2.png",
-          "/sr5%20lunar%20rock/srlr3.png",
-          "/sr5%20lunar%20rock/srlr4.png",
-          "/sr5%20lunar%20rock/srlr5.png",
-          "/sr5%20lunar%20rock/srlr6.png",
-          "/sr5%20lunar%20rock/srlr7.png",
-          "/sr5%20lunar%20rock/srlr8.png",
-          "/sr5%20lunar%20rock/srlr9.png",
-          "/sr5%20lunar%20rock/srlr10.png",
-          "/sr5%20lunar%20rock/srlr11.png",
-          "/sr5%20lunar%20rock/srlr12.png",
-          "/sr5%20lunar%20rock/srlr13.png",
-          "/sr5%20lunar%20rock/slr14.png",
-          "/sr5%20lunar%20rock/srlr15.png",
-          "/sr5%20lunar%20rock/srlr16.png",
-          "/sr5%20lunar%20rock/srlr17.png",
-          "/sr5%20lunar%20rock/srlr18.png"
-        ]
-      },
-      {
-        key: "blueprint",
-        name: "Blueprint",
-        hex: "#2d4e84",
-        tint: "rgba(44, 77, 132, 0.2)",
-        images: [
-          "/sr5%20blueprint/sr5bp01.png",
-          "/sr5%20blueprint/sr5bp02.png",
-          "/sr5%20blueprint/sr5bp03.png",
-          "/sr5%20blueprint/sr5bp04.png",
-          "/sr5%20blueprint/sr5bp05.png",
-          "/sr5%20blueprint/sr5bp06.png",
-          "/sr5%20blueprint/sr5bp07.png",
-          "/sr5%20blueprint/sr5bp08.png",
-          "/sr5%20blueprint/sr5bp09.png",
-          "/sr5%20blueprint/sr5bp10.png",
-          "/sr5%20blueprint/sr5bp11.png",
-          "/sr5%20blueprint/sr5bp12.png",
-          "/sr5%20blueprint/sr5bp13.png",
-          "/sr5%20blueprint/sr5bp14.png",
-          "/sr5%20blueprint/sr5bp15.png",
-          "/sr5%20blueprint/sr5bp16.png",
-          "/sr5%20blueprint/sr5bp17.png",
-          "/sr5%20blueprint/sr5bp18.png"
-        ]
-      },
-      {
-        key: "celestial-silver-metallic",
-        name: "Celestial Silver Metallic",
-        hex: "#aeb3b8",
-        tint: "rgba(170, 178, 187, 0.2)",
-        images: [
-          "/sr5%20celestial%20silver%20metalic/sr5csm01.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm02.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm03.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm04.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm05.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm06.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm07.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm08.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm09.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm10.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm11.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm12.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm13.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm14.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm15.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm16.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm17.png",
-          "/sr5%20celestial%20silver%20metalic/sr5csm18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm01.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm02.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm03.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm04.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm05.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm06.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm07.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm08.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm09.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm10.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm11.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm12.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm13.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm14.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm15.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm16.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm17.png",
-          "/sr5%20magnetic%20gray%20metallic/sr5mgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/sr5%20midnight%20black%20metallic/sr5mbm01.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm02.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm03.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm04.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm05.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm06.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm07.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm08.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm09.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm10.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm11.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm12.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm13.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm14.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm15.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm16.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm17.png",
-          "/sr5%20midnight%20black%20metallic/sr5mbm18.png"
-        ]
-      },
-      {
-        key: "ice-cap",
-        name: "Ice Cap",
-        hex: "#dde0df",
-        tint: "rgba(215, 220, 220, 0.16)",
-        images: [
-          "/sr5%20ice%20cap/sr5ic01.png",
-          "/sr5%20ice%20cap/sr5ic02.png",
-          "/sr5%20ice%20cap/sr5ic03.png",
-          "/sr5%20ice%20cap/sr5ic04.png",
-          "/sr5%20ice%20cap/sr5ic05.png",
-          "/sr5%20ice%20cap/sr5ic06.png",
-          "/sr5%20ice%20cap/sr5ic07.png",
-          "/sr5%20ice%20cap/sr5ic08.png",
-          "/sr5%20ice%20cap/sr5ic09.png",
-          "/sr5%20ice%20cap/sr5ic10.png",
-          "/sr5%20ice%20cap/sr5ic11.png",
-          "/sr5%20ice%20cap/sr5ic12.png",
-          "/sr5%20ice%20cap/sr5ic13.png",
-          "/sr5%20ice%20cap/sr5ic14.png",
-          "/sr5%20ice%20cap/sr5ic15.png",
-          "/sr5%20ice%20cap/sr5ic16.png",
-          "/sr5%20ice%20cap/sr5ic17.png",
-          "/sr5%20ice%20cap/sr5ic18.png"
-        ]
-      },
-      {
-        key: "mudbath",
-        name: "Mudbath",
-        hex: "#8a7b6b",
-        tint: "rgba(138, 123, 107, 0.2)",
-        images: [
-          "/sr5%20mudbath/sr5mdb01.png",
-          "/sr5%20mudbath/sr5mdb02.png",
-          "/sr5%20mudbath/sr5mdb03.png",
-          "/sr5%20mudbath/sr5mdb04.png",
-          "/sr5%20mudbath/sr5mdb05.png",
-          "/sr5%20mudbath/sr5mdb06.png",
-          "/sr5%20mudbath/sr5mdb07.png",
-          "/sr5%20mudbath/sr5mdb08.png",
-          "/sr5%20mudbath/sr5mdb09.png",
-          "/sr5%20mudbath/sr5mdb10.png",
-          "/sr5%20mudbath/sr5mdb11.png",
-          "/sr5%20mudbath/sr5mdb12.png",
-          "/sr5%20mudbath/sr5mdb13.png",
-          "/sr5%20mudbath/sr5mdb14.png",
-          "/sr5%20mudbath/sr5mdb15.png",
-          "/sr5%20mudbath/sr5mdb16.png",
-          "/sr5%20mudbath/sr5mdb17.png",
-          "/sr5%20mudbath/sr5mdb18.png"
-        ]
-      },
-    ],
-  },
-  limited: {
-    name: "LIMITED",
-    price: 450000000,
-    specs: [
-      { label: "Potencia", value: "437 hp" },
-      { label: "Asientos", value: "Cuero + calefaccion" },
-      { label: "Audio", value: "JBL Premium" },
-    ],
-    colors: [
-      {
-        key: "lunar-rock",
-        name: "Lunar Rock",
-        hex: "#7f8b80",
-        tint: "rgba(108, 123, 113, 0.2)",
-        images: [
-          "/limited%20lunar%20rock/ltlr01.png",
-          "/limited%20lunar%20rock/ltlr02.png",
-          "/limited%20lunar%20rock/ltlr03.png",
-          "/limited%20lunar%20rock/ltlr04.png",
-          "/limited%20lunar%20rock/ltlr05.png",
-          "/limited%20lunar%20rock/ltlr06.png",
-          "/limited%20lunar%20rock/ltlr07.png",
-          "/limited%20lunar%20rock/ltlr08.png",
-          "/limited%20lunar%20rock/ltlr09.png",
-          "/limited%20lunar%20rock/ltlr10.png",
-          "/limited%20lunar%20rock/ltlr11.png",
-          "/limited%20lunar%20rock/ltlr12.png",
-          "/limited%20lunar%20rock/ltlr13.png",
-          "/limited%20lunar%20rock/ltlr14.png",
-          "/limited%20lunar%20rock/ltlr15.png",
-          "/limited%20lunar%20rock/ltlr16.png",
-          "/limited%20lunar%20rock/ltlr17.png",
-          "/limited%20lunar%20rock/ltlr18.png"
-        ]
-      },
-      {
-        key: "blueprint",
-        name: "Blueprint",
-        hex: "#2d4e84",
-        tint: "rgba(44, 77, 132, 0.2)",
-        images: [
-          "/limited%20blueprint/ltbp01.png",
-          "/limited%20blueprint/ltbp02.png",
-          "/limited%20blueprint/ltbp03.png",
-          "/limited%20blueprint/ltbp04.png",
-          "/limited%20blueprint/ltbp05.png",
-          "/limited%20blueprint/ltbp06.png",
-          "/limited%20blueprint/ltbp07.png",
-          "/limited%20blueprint/ltbp08.png",
-          "/limited%20blueprint/ltbp09.png",
-          "/limited%20blueprint/ltbp10.png",
-          "/limited%20blueprint/ltbp11.png",
-          "/limited%20blueprint/ltbp12.png",
-          "/limited%20blueprint/ltbp13.png",
-          "/limited%20blueprint/ltbp14.png",
-          "/limited%20blueprint/ltbp15.png",
-          "/limited%20blueprint/ltbp16.png",
-          "/limited%20blueprint/ltbp17.png",
-          "/limited%20blueprint/ltbp18.png"
-        ]
-      },
-      {
-        key: "celestial-silver-metallic",
-        name: "Celestial Silver Metallic",
-        hex: "#aeb3b8",
-        tint: "rgba(170, 178, 187, 0.2)",
-        images: [
-          "/limited%20celestial%20silver%20metallic/ltcsm01.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm02.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm03.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm04.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm05.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm06.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm07.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm08.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm09.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm10.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm11.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm12.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm13.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm14.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm15.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm16.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm17.png",
-          "/limited%20celestial%20silver%20metallic/ltcsm18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/limited%20magnetic%20gray%20metallic/ltmgm01.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm02.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm03.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm04.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm05.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm06.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm07.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm08.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm09.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm10.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm11.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm12.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm13.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm14.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm15.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm16.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm17.png",
-          "/limited%20magnetic%20gray%20metallic/ltmgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/limited%20midnight%20black%20metallic/ltmbm01.png",
-          "/limited%20midnight%20black%20metallic/ltmbm02.png",
-          "/limited%20midnight%20black%20metallic/ltmbm03.png",
-          "/limited%20midnight%20black%20metallic/ltmbm04.png",
-          "/limited%20midnight%20black%20metallic/ltmbm05.png",
-          "/limited%20midnight%20black%20metallic/ltmbm06.png",
-          "/limited%20midnight%20black%20metallic/ltmbm07.png",
-          "/limited%20midnight%20black%20metallic/ltmbm08.png",
-          "/limited%20midnight%20black%20metallic/ltmbm09.png",
-          "/limited%20midnight%20black%20metallic/ltmbm10.png",
-          "/limited%20midnight%20black%20metallic/ltmbm11.png",
-          "/limited%20midnight%20black%20metallic/ltmbm12.png",
-          "/limited%20midnight%20black%20metallic/ltmbm13.png",
-          "/limited%20midnight%20black%20metallic/ltmbm14.png",
-          "/limited%20midnight%20black%20metallic/ltmbm15.png",
-          "/limited%20midnight%20black%20metallic/ltmbm16.png",
-          "/limited%20midnight%20black%20metallic/ltmbm17.png",
-          "/limited%20midnight%20black%20metallic/ltmbm18.png"
-        ]
-      },
-      {
-        key: "ice-cap",
-        name: "Ice Cap",
-        hex: "#dde0df",
-        tint: "rgba(215, 220, 220, 0.16)",
-        images: [
-          "/limited%20ice%20cap/ltic01.png",
-          "/limited%20ice%20cap/ltic02.png",
-          "/limited%20ice%20cap/ltic03.png",
-          "/limited%20ice%20cap/ltic04.png",
-          "/limited%20ice%20cap/ltic05.png",
-          "/limited%20ice%20cap/ltic06.png",
-          "/limited%20ice%20cap/ltic07.png",
-          "/limited%20ice%20cap/ltic08.png",
-          "/limited%20ice%20cap/ltic09.png",
-          "/limited%20ice%20cap/ltic10.png",
-          "/limited%20ice%20cap/ltic11.png",
-          "/limited%20ice%20cap/ltic12.png",
-          "/limited%20ice%20cap/ltic13.png",
-          "/limited%20ice%20cap/ltic14.png",
-          "/limited%20ice%20cap/ltic15.png",
-          "/limited%20ice%20cap/ltic16.png",
-          "/limited%20ice%20cap/ltic17.png",
-          "/limited%20ice%20cap/ltic18.png"
-        ]
-      },
-      {
-        key: "wind-chill-pearl",
-        name: "Wind Chill Pearl",
-        hex: "#dfe3e8",
-        tint: "rgba(204, 211, 218, 0.16)",
-        images: [
-          "/limited%20wind%20chill%20pearl/ltwcp01.png",
-          "/limited%20wind%20chill%20pearl/ltwcp02.png",
-          "/limited%20wind%20chill%20pearl/ltwcp03.png",
-          "/limited%20wind%20chill%20pearl/ltwcp04.png",
-          "/limited%20wind%20chill%20pearl/ltwcp05.png",
-          "/limited%20wind%20chill%20pearl/ltwcp06.png",
-          "/limited%20wind%20chill%20pearl/ltwcp07.png",
-          "/limited%20wind%20chill%20pearl/ltwcp08.png",
-          "/limited%20wind%20chill%20pearl/ltwcp09.png",
-          "/limited%20wind%20chill%20pearl/ltwcp10.png",
-          "/limited%20wind%20chill%20pearl/ltwcp11.png",
-          "/limited%20wind%20chill%20pearl/ltwcp12.png",
-          "/limited%20wind%20chill%20pearl/ltwcp13.png",
-          "/limited%20wind%20chill%20pearl/ltwcp14.png",
-          "/limited%20wind%20chill%20pearl/ltwcp15.png",
-          "/limited%20wind%20chill%20pearl/ltwcp16.png",
-          "/limited%20wind%20chill%20pearl/ltwcp17.png",
-          "/limited%20wind%20chill%20pearl/ltwcp18.png"
-        ]
-      },
-      {
-        key: "mudbath",
-        name: "Mudbath",
-        hex: "#8a7b6b",
-        tint: "rgba(138, 123, 107, 0.2)",
-        images: [
-          "/limited%20mudbath/ltmdb01.png",
-          "/limited%20mudbath/ltmdb02.png",
-          "/limited%20mudbath/ltmdb03.png",
-          "/limited%20mudbath/ltmdb04.png",
-          "/limited%20mudbath/ltmdb05.png",
-          "/limited%20mudbath/ltmdb06.png",
-          "/limited%20mudbath/ltmdb07.png",
-          "/limited%20mudbath/ltmdb08.png",
-          "/limited%20mudbath/ltmdb09.png",
-          "/limited%20mudbath/ltmdb10.png",
-          "/limited%20mudbath/ltmdb11.png",
-          "/limited%20mudbath/ltmdb12.png",
-          "/limited%20mudbath/ltmdb13.png",
-          "/limited%20mudbath/ltmdb14.png",
-          "/limited%20mudbath/ltmdb15.png",
-          "/limited%20mudbath/ltmdb16.png",
-          "/limited%20mudbath/ltmdb17.png",
-          "/limited%20mudbath/ltmdb18.png"
-        ]
-      },
-    ],
-  },
-  platinum: {
-    name: "PLATINUM",
-    price: 520000000,
-    specs: [
-      { label: "Sunroof", value: "Panoramico" },
-      { label: "Pantalla", value: "14\" Multimedia" },
-      { label: "Suspension", value: "AVS Adaptativa" },
-    ],
-    colors: [
-      {
-        key: "lunar-rock",
-        name: "Lunar Rock",
-        hex: "#7f8b80",
-        tint: "rgba(108, 123, 113, 0.2)",
-        images: [
-          "/platinum%20lunar%20rock/ptlr01.png",
-          "/platinum%20lunar%20rock/ptlr02.png",
-          "/platinum%20lunar%20rock/ptlr03.png",
-          "/platinum%20lunar%20rock/ptlr04.png",
-          "/platinum%20lunar%20rock/ptlr05.png",
-          "/platinum%20lunar%20rock/ptlr06.png",
-          "/platinum%20lunar%20rock/ptlr07.png",
-          "/platinum%20lunar%20rock/ptlr08.png",
-          "/platinum%20lunar%20rock/ptlr09.png",
-          "/platinum%20lunar%20rock/ptlr10.png",
-          "/platinum%20lunar%20rock/ptlr11.png",
-          "/platinum%20lunar%20rock/ptlr12.png",
-          "/platinum%20lunar%20rock/ptlr13.png",
-          "/platinum%20lunar%20rock/ptlr14.png",
-          "/platinum%20lunar%20rock/ptlr15.png",
-          "/platinum%20lunar%20rock/ptlr16.png",
-          "/platinum%20lunar%20rock/ptlr17.png",
-          "/platinum%20lunar%20rock/ptlr18.png"
-        ]
-      },
-      {
-        key: "blueprint",
-        name: "Blueprint",
-        hex: "#2d4e84",
-        tint: "rgba(44, 77, 132, 0.2)",
-        images: [
-          "/platinum%20blueprint/ptbp01.png",
-          "/platinum%20blueprint/ptbp02.png",
-          "/platinum%20blueprint/ptbp03.png",
-          "/platinum%20blueprint/ptbp04.png",
-          "/platinum%20blueprint/ptbp05.png",
-          "/platinum%20blueprint/ptbp06.png",
-          "/platinum%20blueprint/ptbp07.png",
-          "/platinum%20blueprint/ptbp08.png",
-          "/platinum%20blueprint/ptbp09.png",
-          "/platinum%20blueprint/ptbp10.png",
-          "/platinum%20blueprint/ptbp11.png",
-          "/platinum%20blueprint/ptbp12.png",
-          "/platinum%20blueprint/ptbp13.png",
-          "/platinum%20blueprint/ptbp14.png",
-          "/platinum%20blueprint/ptbp15.png",
-          "/platinum%20blueprint/ptbp16.png",
-          "/platinum%20blueprint/ptbp17.png",
-          "/platinum%20blueprint/ptbp18.png"
-        ]
-      },
-      {
-        key: "celestial-silver-metallic",
-        name: "Celestial Silver Metallic",
-        hex: "#aeb3b8",
-        tint: "rgba(170, 178, 187, 0.2)",
-        images: [
-          "/platinum%20celestial%20silver%20metallic/ptcsm01.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm02.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm03.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm04.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm05.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm06.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm07.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm08.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm09.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm10.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm11.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm12.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm13.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm14.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm15.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm16.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm17.png",
-          "/platinum%20celestial%20silver%20metallic/ptcsm18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/platinum%20magnetic%20gray%20metallic/ptmgm01.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm02.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm03.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm04.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm05.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm06.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm07.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm08.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm09.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm10.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm11.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm12.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm13.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm14.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm15.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm16.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm17.png",
-          "/platinum%20magnetic%20gray%20metallic/ptmgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/platinum%20midnight%20black%20metallic/ptmbm01.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm02.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm03.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm04.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm05.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm06.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm07.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm08.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm09.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm10.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm11.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm12.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm13.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm14.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm15.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm16.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm17.png",
-          "/platinum%20midnight%20black%20metallic/ptmbm18.png"
-        ]
-      },
-      {
-        key: "wind-chill-pearl",
-        name: "Wind Chill Pearl",
-        hex: "#dfe3e8",
-        tint: "rgba(204, 211, 218, 0.16)",
-        images: [
-          "/platinum%20wind%20chill%20pearl/ptwcp01.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp02.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp03.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp04.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp05.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp06.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp07.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp08.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp09.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp10.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp11.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp12.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp13.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp14.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp15.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp16.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp17.png",
-          "/platinum%20wind%20chill%20pearl/ptwcp18.png"
-        ]
-      },
-      {
-        key: "mudbath",
-        name: "Mudbath",
-        hex: "#8a7b6b",
-        tint: "rgba(138, 123, 107, 0.2)",
-        images: [
-          "/platinum%20mudbath/ptmdb01.png",
-          "/platinum%20mudbath/ptmdb02.png",
-          "/platinum%20mudbath/ptmdb03.png",
-          "/platinum%20mudbath/ptmdb04.png",
-          "/platinum%20mudbath/ptmdb05.png",
-          "/platinum%20mudbath/ptmdb06.png",
-          "/platinum%20mudbath/ptmdb07.png",
-          "/platinum%20mudbath/ptmdb08.png",
-          "/platinum%20mudbath/ptmdb09.png",
-          "/platinum%20mudbath/ptmdb10.png",
-          "/platinum%20mudbath/ptmdb11.png",
-          "/platinum%20mudbath/ptmdb12.png",
-          "/platinum%20mudbath/ptmdb13.png",
-          "/platinum%20mudbath/ptmdb14.png",
-          "/platinum%20mudbath/ptmdb15.png",
-          "/platinum%20mudbath/ptmdb16.png",
-          "/platinum%20mudbath/ptmdb17.png",
-          "/platinum%20mudbath/ptmdb18.png"
-        ]
-      },
-    ],
-  },
-  "trd-pro": {
-    name: "TRD PRO",
-    price: 520000000,
-    specs: [
-      { label: "Suspension", value: "FOX Off-Road" },
-      { label: "Llantas", value: "TRD 18\"" },
-      { label: "Terreno", value: "Multi-Terrain Select" },
-    ],
-    colors: [
-      {
-        key: "wave-maker",
-        name: "Wave Maker",
-        hex: "#4f8aa2",
-        tint: "rgba(76, 134, 160, 0.2)",
-        images: [
-          "/trd%20wave%20maker/trdwm01.png",
-          "/trd%20wave%20maker/trdwm02.png",
-          "/trd%20wave%20maker/trdwm03.png",
-          "/trd%20wave%20maker/trdwm04.png",
-          "/trd%20wave%20maker/trdwm05.png",
-          "/trd%20wave%20maker/trdwm06.png",
-          "/trd%20wave%20maker/trdwm07.png",
-          "/trd%20wave%20maker/trdwm08.png",
-          "/trd%20wave%20maker/trdwm09.png",
-          "/trd%20wave%20maker/trdwm10.png",
-          "/trd%20wave%20maker/trdwm11.png",
-          "/trd%20wave%20maker/trdwm12.png",
-          "/trd%20wave%20maker/trdwm13.png",
-          "/trd%20wave%20maker/trdwm14.png",
-          "/trd%20wave%20maker/trdwm15.png",
-          "/trd%20wave%20maker/trdwm16.png",
-          "/trd%20wave%20maker/trdwm17.png",
-          "/trd%20wave%20maker/trdwm18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/trd%20magnetic%20gray%20metallic/trdmgm01.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm02.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm03.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm04.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm05.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm06.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm07.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm08.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm09.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm10.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm11.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm12.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm13.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm14.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm15.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm16.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm17.png",
-          "/trd%20magnetic%20gray%20metallic/trdmgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/trd%20midnight%20black%20metallic/trdmbm01.png",
-          "/trd%20midnight%20black%20metallic/trdmbm02.png",
-          "/trd%20midnight%20black%20metallic/trdmbm03.png",
-          "/trd%20midnight%20black%20metallic/trdmbm04.png",
-          "/trd%20midnight%20black%20metallic/trdmbm05.png",
-          "/trd%20midnight%20black%20metallic/trdmbm06.png",
-          "/trd%20midnight%20black%20metallic/trdmbm07.png",
-          "/trd%20midnight%20black%20metallic/trdmbm08.png",
-          "/trd%20midnight%20black%20metallic/trdmbm09.png",
-          "/trd%20midnight%20black%20metallic/trdmbm10.png",
-          "/trd%20midnight%20black%20metallic/trdmbm11.png",
-          "/trd%20midnight%20black%20metallic/trdmbm12.png",
-          "/trd%20midnight%20black%20metallic/trdmbm13.png",
-          "/trd%20midnight%20black%20metallic/trdmbm14.png",
-          "/trd%20midnight%20black%20metallic/trdmbm15.png",
-          "/trd%20midnight%20black%20metallic/trdmbm16.png",
-          "/trd%20midnight%20black%20metallic/trdmbm17.png",
-          "/trd%20midnight%20black%20metallic/trdmbm18.png"
-        ]
-      },
-    ],
-  },
-  capstone: {
-    name: "CAPSTONE",
-    price: 520000000,
-    specs: [
-      { label: "Interior", value: "Semi-anilina premium" },
-      { label: "Rines", value: "22\" cromados" },
-      { label: "Asistencias", value: "Toyota Safety Sense" },
-    ],
-    colors: [
-      {
-        key: "blueprint",
-        name: "Blueprint",
-        hex: "#2d4e84",
-        tint: "rgba(44, 77, 132, 0.2)",
-        images: [
-          "/capstone%20blueprint/cpbp01.png",
-          "/capstone%20blueprint/cpbp02.png",
-          "/capstone%20blueprint/cpbp03.png",
-          "/capstone%20blueprint/cpbp04.png",
-          "/capstone%20blueprint/cpbp05.png",
-          "/capstone%20blueprint/cpbp06.png",
-          "/capstone%20blueprint/cpbp07.png",
-          "/capstone%20blueprint/cpbp08.png",
-          "/capstone%20blueprint/cpbp09.png",
-          "/capstone%20blueprint/cpbp10.png",
-          "/capstone%20blueprint/cpbp11.png",
-          "/capstone%20blueprint/cpbp12.png",
-          "/capstone%20blueprint/cpbp13.png",
-          "/capstone%20blueprint/cpbp14.png",
-          "/capstone%20blueprint/cpbp15.png",
-          "/capstone%20blueprint/cpbp16.png",
-          "/capstone%20blueprint/cpbp17.png",
-          "/capstone%20blueprint/cpbp18.png"
-        ]
-      },
-      {
-        key: "celestial-silver-metallic",
-        name: "Celestial Silver Metallic",
-        hex: "#aeb3b8",
-        tint: "rgba(170, 178, 187, 0.2)",
-        images: [
-          "/capstone%20celestial%20silver%20metallic/cpcsm01.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm02.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm03.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm04.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm05.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm06.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm07.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm08.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm09.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm10.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm11.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm12.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm13.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm14.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm15.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm16.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm17.png",
-          "/capstone%20celestial%20silver%20metallic/cpcsm18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/capstone%20magnetic%20gray%20metallic/cpmgm01.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm02.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm03.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm04.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm05.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm06.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm07.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm08.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm09.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm10.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm11.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm12.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm13.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm14.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm15.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm16.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm17.png",
-          "/capstone%20magnetic%20gray%20metallic/cpmgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/capstone%20midnight%20black%20metallic/cpmbm01.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm02.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm03.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm04.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm05.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm06.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm07.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm08.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm09.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm10.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm11.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm12.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm13.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm14.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm15.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm16.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm17.png",
-          "/capstone%20midnight%20black%20metallic/cpmbm18.png"
-        ]
-      },
-      {
-        key: "wind-chill-pearl",
-        name: "Wind Chill Pearl",
-        hex: "#dfe3e8",
-        tint: "rgba(204, 211, 218, 0.16)",
-        images: [
-          "/capstone%20wind%20chill%20pearl/cpwcp01.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp02.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp03.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp04.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp05.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp06.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp07.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp08.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp09.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp10.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp11.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp12.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp13.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp14.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp15.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp16.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp17.png",
-          "/capstone%20wind%20chill%20pearl/cpwcp18.png"
-        ]
-      },
-    ],
-  },
-  "1794": {
-    name: "1794",
-    price: 520000000,
-    specs: [
-      { label: "Interior", value: "Saddle tan heritage" },
-      { label: "Acabados", value: "Madera natural" },
-      { label: "Confort", value: "Asientos ventilados" },
-    ],
-    colors: [
-      {
-        key: "blueprint",
-        name: "Blueprint",
-        hex: "#1f335f",
-        tint: "rgba(46, 66, 110, 0.22)",
-        images: [
-          "/1794%20blueprint/n1794bp01.png",
-          "/1794%20blueprint/n1794bp02.png",
-          "/1794%20blueprint/n1794bp03.png",
-          "/1794%20blueprint/n1794bp04.png",
-          "/1794%20blueprint/n1794bp05.png",
-          "/1794%20blueprint/n1794bp06.png",
-          "/1794%20blueprint/n1794bp07.png",
-          "/1794%20blueprint/n1794bp08.png",
-          "/1794%20blueprint/n1794bp09.png",
-          "/1794%20blueprint/n1794bp10.png",
-          "/1794%20blueprint/n1794bp11.png",
-          "/1794%20blueprint/n1794bp12.png",
-          "/1794%20blueprint/n1794bp13.png",
-          "/1794%20blueprint/n1794bp14.png",
-          "/1794%20blueprint/n1794bp15.png",
-          "/1794%20blueprint/n1794bp16.png",
-          "/1794%20blueprint/n1794bp17.png",
-          "/1794%20blueprint/n1794bp18.png"
-        ]
-      },
-      {
-        key: "celestial-silver-metallic",
-        name: "Celestial Silver Metallic",
-        hex: "#c6c8cc",
-        tint: "rgba(180, 184, 189, 0.2)",
-        images: [
-          "/1794%20celestial%20silver%20metallic/n1794csm01.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm02.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm03.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm04.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm05.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm06.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm07.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm08.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm09.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm10.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm11.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm12.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm13.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm14.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm15.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm16.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm17.png",
-          "/1794%20celestial%20silver%20metallic/n1794csm18.png"
-        ]
-      },
-      {
-        key: "lunar-rock",
-        name: "Lunar Rock",
-        hex: "#7e7b6f",
-        tint: "rgba(112, 108, 98, 0.2)",
-        images: [
-          "/1794%20lunar%20rock/n1794lr01.png",
-          "/1794%20lunar%20rock/n1794lr02.png",
-          "/1794%20lunar%20rock/n1794lr03.png",
-          "/1794%20lunar%20rock/n1794lr04.png",
-          "/1794%20lunar%20rock/n1794lr05.png",
-          "/1794%20lunar%20rock/n1794lr06.png",
-          "/1794%20lunar%20rock/n1794lr07.png",
-          "/1794%20lunar%20rock/n1794lr08.png",
-          "/1794%20lunar%20rock/n1794lr09.png",
-          "/1794%20lunar%20rock/n1794lr10.png",
-          "/1794%20lunar%20rock/n1794lr11.png",
-          "/1794%20lunar%20rock/n1794lr12.png",
-          "/1794%20lunar%20rock/n1794lr13.png",
-          "/1794%20lunar%20rock/n1794lr14.png",
-          "/1794%20lunar%20rock/n1794lr15.png",
-          "/1794%20lunar%20rock/n1794lr16.png",
-          "/1794%20lunar%20rock/n1794lr17.png",
-          "/1794%20lunar%20rock/n1794lr18.png"
-        ]
-      },
-      {
-        key: "magnetic-gray-metallic",
-        name: "Magnetic Gray Metallic",
-        hex: "#5f666e",
-        tint: "rgba(90, 98, 107, 0.2)",
-        images: [
-          "/1794%20magnetic%20gray%20metallic/n1794mgm01.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm02.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm03.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm04.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm05.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm06.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm07.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm08.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm09.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm10.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm11.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm12.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm13.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm14.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm15.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm16.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm17.png",
-          "/1794%20magnetic%20gray%20metallic/n1794mgm18.png"
-        ]
-      },
-      {
-        key: "midnight-black-metallic",
-        name: "Midnight Black Metallic",
-        hex: "#141516",
-        tint: "rgba(8, 8, 9, 0.2)",
-        images: [
-          "/1794%20midnight%20black%20metallic/n1794mbm01.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm02.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm03.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm04.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm05.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm06.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm07.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm08.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm09.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm10.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm11.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm12.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm13.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm14.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm15.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm16.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm17.png",
-          "/1794%20midnight%20black%20metallic/n1794mbm18.png"
-        ]
-      },
-      {
-        key: "mudbath",
-        name: "Mudbath",
-        hex: "#6f5f49",
-        tint: "rgba(111, 95, 73, 0.22)",
-        images: [
-          "/1794%20mudbath/n1794mdb01.png",
-          "/1794%20mudbath/n1794mdb02.png",
-          "/1794%20mudbath/n1794mdb03.png",
-          "/1794%20mudbath/n1794mdb04.png",
-          "/1794%20mudbath/n1794mdb05.png",
-          "/1794%20mudbath/n1794mdb06.png",
-          "/1794%20mudbath/n1794mdb07.png",
-          "/1794%20mudbath/n1794mdb08.png",
-          "/1794%20mudbath/n1794mdb09.png",
-          "/1794%20mudbath/n1794mdb10.png",
-          "/1794%20mudbath/n1794mdb11.png",
-          "/1794%20mudbath/n1794mdb12.png",
-          "/1794%20mudbath/n1794mdb13.png",
-          "/1794%20mudbath/n1794mdb14.png",
-          "/1794%20mudbath/n1794mdb15.png",
-          "/1794%20mudbath/n1794mdb16.png",
-          "/1794%20mudbath/n1794mdb17.png",
-          "/1794%20mudbath/n1794mdb18.png"
-        ]
-      },
-      {
-        key: "wind-chill-pearl",
-        name: "Wind Chill Pearl",
-        hex: "#dfe3e8",
-        tint: "rgba(204, 211, 218, 0.16)",
-        images: [
-          "/1794%20wind%20chill%20pearl/n1794wcp01.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp02.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp03.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp04.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp05.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp06.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp07.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp08.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp09.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp10.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp11.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp12.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp13.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp14.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp15.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp16.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp17.png",
-          "/1794%20wind%20chill%20pearl/n1794wcp18.png"
-        ]
-      },
-    ],
-  },
-};
+const DEFAULT_SEQUOIA_VERSION_ORDER = ["sr5", "limited", "platinum", "trd-pro", "capstone", "1794"];
+const SEQUOIA_CATALOG_URL = "/sequoia-catalog.json";
+const CLIENT_IMAGE_CONFIG_URL = "/client-image-config.json";
+const EMPTY_SEQUOIA_CATALOG = Object.freeze({
+  versionConfig: {},
+  versionOrder: DEFAULT_SEQUOIA_VERSION_ORDER,
+  interiorConfig: {},
+});
+const DEFAULT_CLIENT_IMAGE_DELIVERY_CONFIG = Object.freeze({
+  strategy: "origin",
+  cloudName: "",
+  deliveryBaseUrl: "",
+});
 
-const SEQUOIA_VERSION_ORDER = ["sr5", "limited", "platinum", "trd-pro", "capstone", "1794"];
+let sequoiaCatalog = EMPTY_SEQUOIA_CATALOG;
+let sequoiaCatalogPromise = null;
+let clientImageDeliveryConfig = DEFAULT_CLIENT_IMAGE_DELIVERY_CONFIG;
+let clientImageDeliveryConfigPromise = null;
 
-const SEQUOIA_INTERIOR_CONFIG = {
-  sr5: {
-    colors: [
+function normalizeClientAssetPath(assetPath = "") {
+  const normalizedValue = String(assetPath || "").trim();
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return normalizedValue.startsWith("/") ? normalizedValue : "/" + normalizedValue;
+}
+
+function resolveOriginClientAssetUrl(assetPath = "") {
+  const normalizedPath = normalizeClientAssetPath(assetPath);
+
+  if (!normalizedPath) {
+    return "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  return new URL(normalizedPath, window.location.origin).toString();
+}
+
+function resolveCdnBaseAssetUrl(assetPath = "") {
+  const normalizedPath = normalizeClientAssetPath(assetPath);
+  const baseUrl = String(clientImageDeliveryConfig.deliveryBaseUrl || "").trim().replace(/\/$/, "");
+
+  if (!normalizedPath) {
+    return "";
+  }
+
+  if (!baseUrl) {
+    return resolveOriginClientAssetUrl(normalizedPath);
+  }
+
+  return baseUrl + normalizedPath;
+}
+
+function resolveCloudinaryFetchUrl(assetPath = "") {
+  const cloudName = String(clientImageDeliveryConfig.cloudName || "").trim();
+  const originAssetUrl = resolveOriginClientAssetUrl(assetPath);
+
+  if (!cloudName || !originAssetUrl) {
+    return originAssetUrl;
+  }
+
+  return "https://res.cloudinary.com/" + cloudName + "/image/fetch/f_auto,q_auto,dpr_auto/" + encodeURIComponent(originAssetUrl);
+}
+
+function resolveClientAssetUrl(assetPath = "") {
+  const normalizedPath = normalizeClientAssetPath(assetPath);
+
+  if (!normalizedPath) {
+    return "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  switch (String(clientImageDeliveryConfig.strategy || "origin").trim().toLowerCase()) {
+    case "cloudinary-fetch":
+      return resolveCloudinaryFetchUrl(normalizedPath);
+    case "cdn-base":
+      return resolveCdnBaseAssetUrl(normalizedPath);
+    default:
+      return normalizedPath;
+  }
+}
+
+function mapSequoiaImageCollection(colors = []) {
+  if (!Array.isArray(colors)) {
+    return [];
+  }
+
+  return colors.map((color) => ({
+    ...color,
+    images: Array.isArray(color?.images) ? color.images.map((imagePath) => resolveClientAssetUrl(imagePath)) : [],
+  }));
+}
+
+function normalizeSequoiaCatalog(rawCatalog = {}) {
+  const rawVersionConfig = rawCatalog?.versionConfig && typeof rawCatalog.versionConfig === "object"
+    ? rawCatalog.versionConfig
+    : {};
+  const rawInteriorConfig = rawCatalog?.interiorConfig && typeof rawCatalog.interiorConfig === "object"
+    ? rawCatalog.interiorConfig
+    : {};
+
+  const versionConfig = Object.fromEntries(
+    Object.entries(rawVersionConfig).map(([versionKey, versionValue]) => [
+      versionKey,
       {
-        key: "tela-color-black",
-        name: "Tela Black",
-        hex: "#2a2a2c",
-        images: [
-          "/sr5%20tela/sr5tela01.webp",
-          "/sr5%20tela/sr5tela02.webp",
-          "/sr5%20tela/sr5tela03.webp",
-          "/sr5%20tela/sr5tela04.webp"
-        ]
+        ...versionValue,
+        colors: mapSequoiaImageCollection(versionValue?.colors || []),
       },
+    ])
+  );
+
+  const interiorConfig = Object.fromEntries(
+    Object.entries(rawInteriorConfig).map(([versionKey, versionValue]) => [
+      versionKey,
       {
-        key: "piel-black",
-        name: "Piel Black",
-        hex: "#101114",
-        images: [
-          "/sr5%20piel%20black/sr5piel01.webp",
-          "/sr5%20piel%20black/sr5piel02.webp",
-          "/sr5%20piel%20black/sr5piel03.webp",
-          "/sr5%20piel%20black/sr5piel04.webp"
-        ]
+        ...versionValue,
+        colors: mapSequoiaImageCollection(versionValue?.colors || []),
       },
-      {
-        key: "piel-boulder",
-        name: "Piel Boulder",
-        hex: "#8e8273",
-        images: [
-          "/sr5%20piel%20boulder/sr5pb01.webp",
-          "/sr5%20piel%20boulder/sr5pb02.webp",
-          "/sr5%20piel%20boulder/sr5pb03.webp",
-          "/sr5%20piel%20boulder/sr5pb04.webp"
-        ]
-      },
-    ],
-  },
-  limited: {
-    colors: [
-      {
-        key: "piel-black",
-        name: "Piel Black",
-        hex: "#101114",
-        images: [
-          "/limited%20piel%20black/ltpielb01.webp",
-          "/limited%20piel%20black/ltpielb02.webp",
-          "/limited%20piel%20black/ltpielb03.webp",
-          "/limited%20piel%20black/ltpielb04.webp"
-        ]
-      },
-      {
-        key: "piel-boulder",
-        name: "Piel Boulder",
-        hex: "#8e8273",
-        images: [
-          "/limited%20piel%20boulder/ltpielbo01.webp",
-          "/limited%20piel%20boulder/ltpielbo02.webp",
-          "/limited%20piel%20boulder/ltpielbo03.webp",
-          "/limited%20piel%20boulder/ltpielbo04.webp"
-        ]
-      },
-    ],
-  },
-  platinum: {
-    colors: [
-      {
-        key: "piel-black",
-        name: "Piel Black",
-        hex: "#101114",
-        images: [
-          "/platinum%20piel%20black/ptpielb01.webp",
-          "/platinum%20piel%20black/ptpielb02.webp",
-          "/platinum%20piel%20black/ptpielb03.webp",
-          "/platinum%20piel%20black/ptpielb04.webp"
-        ]
-      },
-    ],
-  },
-  "trd-pro": {
-    colors: [
-      {
-        key: "black-softex",
-        name: "Black Softex",
-        hex: "#141416",
-        images: [
-          "/trd%20Black%20Softex/trdbs01.webp",
-          "/trd%20Black%20Softex/trdbs02.webp",
-          "/trd%20Black%20Softex/trdbs03.webp",
-          "/trd%20Black%20Softex/trdbs04.webp"
-        ]
-      },
-      {
-        key: "cockpit-red-softex",
-        name: "Cockpit Red Softex",
-        hex: "#8d1f2d",
-        images: [
-          "/trd%20Cockpit%20Red%20Softex/trdcrs01.webp",
-          "/trd%20Cockpit%20Red%20Softex/trdcrs02.webp",
-          "/trd%20Cockpit%20Red%20Softex/trdcrs03.webp",
-          "/trd%20Cockpit%20Red%20Softex/trdcrs04.webp"
-        ]
-      },
-    ],
-  },
-  capstone: {
-    colors: [
-      {
-        key: "piel-premium-texturizada-shale",
-        name: "Piel Premium Texturizada Shale",
-        hex: "#8f8579",
-        images: [
-          "/capstone%20piel%20premium%20texturizada%20shale/cppts01.webp",
-          "/capstone%20piel%20premium%20texturizada%20shale/cppts02.webp",
-          "/capstone%20piel%20premium%20texturizada%20shale/cppts03.webp",
-          "/capstone%20piel%20premium%20texturizada%20shale/cppts04.webp"
-        ]
-      },
-    ],
-  },
-  "1794": {
-    colors: [
-      {
-        key: "piel-saddle-tan",
-        name: "Piel Saddle Tan",
-        hex: "#8a6a4a",
-        images: [
-          "/1794%20piel%20saddle%20tan/n1794pst01.webp",
-          "/1794%20piel%20saddle%20tan/n1794pst02.webp",
-          "/1794%20piel%20saddle%20tan/n1794pst03.webp",
-          "/1794%20piel%20saddle%20tan/n1794pst04.webp"
-        ]
-      },
-    ],
-  },
-};
+    ])
+  );
+
+  return {
+    versionConfig,
+    versionOrder: Array.isArray(rawCatalog?.versionOrder) && rawCatalog.versionOrder.length
+      ? rawCatalog.versionOrder
+      : DEFAULT_SEQUOIA_VERSION_ORDER,
+    interiorConfig,
+  };
+}
+
+function hasSequoiaCatalogLoaded() {
+  return Boolean(Object.keys(sequoiaCatalog?.versionConfig || {}).length);
+}
+
+async function loadClientImageDeliveryConfig() {
+  if (clientImageDeliveryConfigPromise) {
+    return clientImageDeliveryConfigPromise;
+  }
+
+  clientImageDeliveryConfigPromise = fetch(CLIENT_IMAGE_CONFIG_URL, { cache: "no-cache" })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error("No se pudo cargar la configuracion de imagenes del cliente.");
+      }
+
+      const parsedConfig = await response.json();
+      clientImageDeliveryConfig = {
+        ...DEFAULT_CLIENT_IMAGE_DELIVERY_CONFIG,
+        ...(parsedConfig || {}),
+      };
+      return clientImageDeliveryConfig;
+    })
+    .catch(() => {
+      clientImageDeliveryConfig = DEFAULT_CLIENT_IMAGE_DELIVERY_CONFIG;
+      return clientImageDeliveryConfig;
+    });
+
+  return clientImageDeliveryConfigPromise;
+}
+
+async function loadSequoiaCatalog() {
+  if (hasSequoiaCatalogLoaded()) {
+    return sequoiaCatalog;
+  }
+
+  if (sequoiaCatalogPromise) {
+    return sequoiaCatalogPromise;
+  }
+
+  sequoiaCatalogPromise = (async () => {
+    await loadClientImageDeliveryConfig();
+
+    const response = await fetch(SEQUOIA_CATALOG_URL, { cache: "force-cache" });
+
+    if (!response.ok) {
+      throw new Error("No se pudo cargar el catalogo Sequoia.");
+    }
+
+    const rawCatalog = await response.json();
+    sequoiaCatalog = normalizeSequoiaCatalog(rawCatalog);
+    return sequoiaCatalog;
+  })().catch((error) => {
+    sequoiaCatalogPromise = null;
+    throw error;
+  });
+
+  return sequoiaCatalogPromise;
+}
+
+function getSequoiaCatalog() {
+  return sequoiaCatalog || EMPTY_SEQUOIA_CATALOG;
+}
+
+function setSequoiaConfiguratorLoadingState(message = "") {
+  if (sequoiaConfigPrice) {
+    sequoiaConfigPrice.textContent = message || "";
+  }
+
+  if (sequoiaConfigSpecs) {
+    sequoiaConfigSpecs.innerHTML = message
+      ? '<article class="sequoia-spec-card"><strong>Cargando</strong><span>' + escapeHtml(message) + '</span></article>'
+      : "";
+  }
+}
+
+async function ensureSequoiaConfiguratorReady() {
+  if (hasSequoiaCatalogLoaded()) {
+    renderSequoiaConfigurator();
+    return sequoiaCatalog;
+  }
+
+  setSequoiaConfiguratorLoadingState("Cargando configurador...");
+
+  const catalog = await loadSequoiaCatalog();
+  const resolvedVersionConfig = catalog.versionConfig || {};
+  const fallbackVersionKey = catalog.versionOrder?.[0] || DEFAULT_SEQUOIA_VERSION_ORDER[0];
+
+  if (!resolvedVersionConfig[selectedSequoiaVersion]) {
+    selectedSequoiaVersion = fallbackVersionKey;
+  }
+
+  const activeVersionConfig = resolvedVersionConfig[selectedSequoiaVersion] || resolvedVersionConfig[fallbackVersionKey] || { colors: [] };
+  selectedSequoiaColor = activeVersionConfig.colors?.[0]?.key || selectedSequoiaColor;
+  selectedSequoiaInteriorColor = (catalog.interiorConfig?.[selectedSequoiaVersion]?.colors || [])[0]?.key || selectedSequoiaInteriorColor;
+  renderSequoiaConfigurator();
+  return catalog;
+}
 
 function fetchJson(path, options = {}) {
   return fetch(`${apiBaseUrl}${path}`, {
@@ -1523,6 +606,7 @@ async function registerNativePushToken(pushInfo) {
       platform: pushInfo.platform || "ios",
       provider: pushInfo.provider || "apns",
       appVersion: pushInfo.appVersion || "ios-webview",
+      bundleId: pushInfo.bundleId || "",
     }),
   });
 
@@ -1536,7 +620,9 @@ function syncNativePushToken() {
     return;
   }
 
-  registerNativePushToken(nativePushInfo).catch(() => null);
+  registerNativePushToken(nativePushInfo).catch((error) => {
+    console.warn("[push][client-portal] No se pudo registrar el token nativo.", error);
+  });
 }
 
 function setFeedback(element, message, type = "") {
@@ -3058,7 +2144,11 @@ function renderSequoiaOrderSummary() {
 }
 
 function getActiveSequoiaConfig() {
-  return SEQUOIA_VERSION_CONFIG[selectedSequoiaVersion] || SEQUOIA_VERSION_CONFIG.sr5;
+  const catalog = getSequoiaCatalog();
+  const versionConfig = catalog.versionConfig || {};
+  const fallbackVersionKey = catalog.versionOrder?.[0] || DEFAULT_SEQUOIA_VERSION_ORDER[0];
+
+  return versionConfig[selectedSequoiaVersion] || versionConfig[fallbackVersionKey] || { name: "Sequoia", price: 0, specs: [], colors: [] };
 }
 
 function getActiveSequoiaColor() {
@@ -3067,7 +2157,11 @@ function getActiveSequoiaColor() {
 }
 
 function getActiveSequoiaInteriorConfig() {
-  return SEQUOIA_INTERIOR_CONFIG[selectedSequoiaVersion] || SEQUOIA_INTERIOR_CONFIG.sr5 || { colors: [] };
+  const catalog = getSequoiaCatalog();
+  const interiorConfig = catalog.interiorConfig || {};
+  const fallbackVersionKey = catalog.versionOrder?.[0] || DEFAULT_SEQUOIA_VERSION_ORDER[0];
+
+  return interiorConfig[selectedSequoiaVersion] || interiorConfig[fallbackVersionKey] || { colors: [] };
 }
 
 function getActiveSequoiaInteriorColor() {
@@ -3199,8 +2293,14 @@ function showSequoiaVisionHint() {
 }
 
 function renderSequoiaConfigurator() {
+  const catalog = getSequoiaCatalog();
   const versionConfig = getActiveSequoiaConfig();
   const activeColor = getActiveSequoiaColor();
+
+  if (!catalog.versionOrder?.length || !versionConfig.colors?.length) {
+    setSequoiaConfiguratorLoadingState("Cargando configurador...");
+    return;
+  }
 
   if (sequoiaConfigTitle) {
     sequoiaConfigTitle.textContent = `Toyota Sequoia ${versionConfig.name}`;
@@ -3228,8 +2328,12 @@ function renderSequoiaConfigurator() {
   }
 
   if (sequoiaConfigVersions) {
-    sequoiaConfigVersions.innerHTML = SEQUOIA_VERSION_ORDER.map((versionKey) => {
-      const current = SEQUOIA_VERSION_CONFIG[versionKey];
+    sequoiaConfigVersions.innerHTML = catalog.versionOrder.map((versionKey) => {
+      const current = catalog.versionConfig?.[versionKey];
+
+      if (!current) {
+        return "";
+      }
 
       return `
         <button
@@ -3285,7 +2389,7 @@ function renderOrderActionCards(vehicleInfo) {
 
   orderActionCards.innerHTML = ORDER_ACTION_TEMPLATES.map((item) => {
     const cardTitle = item.title.replace("{vehicle}", vehicleTitle);
-    const imageUrl = vehicleImages?.[item.key] || item.image;
+    const imageUrl = resolveClientAssetUrl(vehicleImages?.[item.key] || item.image);
 
     return `
       <button
@@ -3377,7 +2481,6 @@ function bindOrderExperience() {
         selectedSequoiaImageIndex = 0;
         selectedSequoiaInteriorColor = "tela-color-black";
         selectedSequoiaInteriorImageIndex = 0;
-        renderSequoiaConfigurator();
         setActiveView("order-configurator", { direction: "forward" });
         return;
       }
@@ -3412,7 +2515,7 @@ function bindSequoiaConfigurator() {
     }
 
     const nextVersion = versionButton.dataset.sequoiaVersion;
-    const nextConfig = SEQUOIA_VERSION_CONFIG[nextVersion];
+    const nextConfig = getSequoiaCatalog().versionConfig?.[nextVersion];
 
     if (!nextConfig) {
       return;
@@ -3887,7 +2990,14 @@ function setActiveView(viewName, options = {}) {
   }
 
   if (nextViewName === "order-configurator") {
-    showSequoiaVisionHint();
+    ensureSequoiaConfiguratorReady()
+      .then(() => {
+        showSequoiaVisionHint();
+      })
+      .catch(() => {
+        setSequoiaConfiguratorLoadingState("No se pudo cargar el configurador.");
+        setFeedback(requestFeedback, "No se pudo cargar el configurador Sequoia. Intenta de nuevo.", "error");
+      });
   }
   if (nextViewName === "pago-separacion") {
     initPagoSeparacionView();
@@ -3938,7 +3048,9 @@ async function loadDashboard() {
 }
 
 window.addEventListener("globalimports:push-token", (event) => {
-  registerNativePushToken(event.detail || {}).catch(() => null);
+  registerNativePushToken(event.detail || {}).catch((error) => {
+    console.warn("[push][client-portal] No se pudo registrar el token nativo recibido por evento.", error);
+  });
 });
 
 window.addEventListener("focus", () => {
@@ -4550,6 +3662,7 @@ function initPagoExitosoView() {
 }
 
 setActiveView(getInitialViewFromUrl());
+registerClientImageCacheServiceWorker();
 
 loadDashboard().catch((error) => {
   renderEmptyState(feedContainer, error.message);
@@ -4559,9 +3672,11 @@ loadDashboard().catch((error) => {
   renderEmptyState(virtualDealershipClientList, error.message);
 });
 
-loadVirtualDealership().catch(() => {
-  // Keep dashboard usable if virtual dealership fetch fails during initial boot.
-});
+if (state.activeView === "virtual-dealership") {
+  loadVirtualDealership().catch(() => {
+    // Keep dashboard usable if virtual dealership fetch fails during initial boot.
+  });
+}
 
 setupInfiniteScroll();
 setupVirtualDealershipInfiniteScroll();
@@ -4576,4 +3691,3 @@ if (feedContainer) {
 }
 bindOrderExperience();
 bindSequoiaConfigurator();
-renderSequoiaConfigurator();
