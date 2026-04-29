@@ -108,12 +108,16 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
 
         let escapedToken = latestPushToken.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+                let bundleId = Bundle.main.bundleIdentifier ?? ""
+                let escapedBundleId = bundleId.replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
         window.__globalImportsNativePush = {
           token: \"\(escapedToken)\",
           platform: \"ios\",
           provider: \"apns\",
-          appVersion: \"1.0\"
+                    appVersion: \"1.0\",
+                    bundleId: \"\(escapedBundleId)\"
         };
         window.dispatchEvent(new CustomEvent('globalimports:push-token', { detail: window.__globalImportsNativePush }));
         """

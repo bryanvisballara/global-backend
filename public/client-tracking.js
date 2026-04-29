@@ -139,6 +139,7 @@ async function registerNativePushToken(pushInfo) {
       platform: pushInfo.platform || "ios",
       provider: pushInfo.provider || "apns",
       appVersion: pushInfo.appVersion || "ios-webview",
+      bundleId: pushInfo.bundleId || "",
     }),
   });
 

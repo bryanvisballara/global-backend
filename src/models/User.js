@@ -23,6 +23,10 @@ const pushDeviceSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    bundleId: {
+      type: String,
+      trim: true,
+    },
     lastRegisteredAt: {
       type: Date,
       default: Date.now,

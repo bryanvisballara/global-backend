@@ -227,20 +227,25 @@ function buildApnsJwt() {
   });
 }
 
-function sendApnsNotification(deviceToken, notification) {
+function getApnsTopic(device = {}) {
+  return String(device?.bundleId || process.env.APNS_BUNDLE_ID || "").trim();
+}
+
+function sendApnsNotification(device, notification) {
   return new Promise((resolve, reject) => {
     const host = process.env.APNS_USE_PRODUCTION === "true"
       ? "https://api.push.apple.com"
       : "https://api.sandbox.push.apple.com";
+    const topic = getApnsTopic(device);
     const client = http2.connect(host);
 
     client.on("error", reject);
 
     const request = client.request({
       ":method": "POST",
-      ":path": `/3/device/${deviceToken}`,
+      ":path": `/3/device/${device.token}`,
       authorization: `bearer ${buildApnsJwt()}`,
-      "apns-topic": process.env.APNS_BUNDLE_ID,
+      "apns-topic": topic,
       "content-type": "application/json",
     });
 
@@ -272,7 +277,7 @@ function sendApnsNotification(deviceToken, notification) {
         // Keep default reason.
       }
 
-      resolve({ ok: false, reason });
+      resolve({ ok: false, reason, statusCode, topic, host });
     });
     request.on("error", (error) => {
       client.close();
@@ -589,11 +594,17 @@ async function sendPublishedPostNotifications(post) {
             continue;
           }
 
-          const result = await sendApnsNotification(device.token, notification);
+          const result = await sendApnsNotification(device, notification);
 
           if (result.ok) {
             sent += 1;
-          } else if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
+          } else {
+            console.warn(
+              `[push][apns] Delivery rejected for topic=${String(result.topic || "unknown")} host=${String(result.host || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")}`
+            );
+          }
+
+          if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
             invalidTokens.push(device.token);
           }
 

@@ -1033,6 +1033,7 @@ async function registerClientPushDevice(req, res) {
     const platform = String(req.body.platform || "").trim().toLowerCase();
     const provider = String(req.body.provider || "").trim().toLowerCase();
     const appVersion = req.body.appVersion ? String(req.body.appVersion).trim() : undefined;
+    const bundleId = String(req.body?.bundleId || "").trim();
 
     if (!token || !platform || !provider) {
       return res.status(400).json({ message: "token, platform and provider are required" });
@@ -1062,6 +1063,7 @@ async function registerClientPushDevice(req, res) {
       platform,
       provider,
       appVersion,
+      bundleId,
       lastRegisteredAt: new Date(),
     };
 
