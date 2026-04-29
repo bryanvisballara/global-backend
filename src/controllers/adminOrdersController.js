@@ -1139,6 +1139,7 @@ async function createOrder(req, res) {
     const version = normalizeOptionalString(req.body.version);
     const trackingNumber = normalizeTrackingNumber(req.body.trackingNumber);
     const clientId = normalizeOptionalString(req.body.clientId);
+    const notes = normalizeOptionalString(req.body.notes);
     const purchaseDate = resolveOrderPurchaseDate(req.body.purchaseDate);
     const expectedArrivalDate = normalizeOptionalString(req.body.expectedArrivalDate);
     const parsedYear = Number.parseInt(String(req.body.year || "").trim(), 10);
@@ -1211,6 +1212,7 @@ async function createOrder(req, res) {
       },
       purchaseDate,
       expectedArrivalDate: expectedArrivalDate || undefined,
+      notes,
       media: normalizeMedia(uploadedMedia),
       trackingSteps,
     });
