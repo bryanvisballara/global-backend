@@ -1016,6 +1016,25 @@ async function trackingExists(trackingNumber) {
   return Boolean(latamOrder || usaOrder);
 }
 
+async function trackingExistsInOtherOrder(orderId, trackingNumber) {
+  const normalizedTrackingNumber = normalizeTrackingNumber(trackingNumber);
+
+  if (!normalizedTrackingNumber) {
+    return false;
+  }
+
+  const normalizedOrderId = String(orderId || "").trim();
+  const trackingQuery = {
+    trackingNumber: { $regex: `^${escapeRegex(normalizedTrackingNumber)}$`, $options: "i" },
+  };
+  const [latamOrder, usaOrder] = await Promise.all([
+    Order.findOne(trackingQuery).select("_id trackingNumber"),
+    OrderGlobalUS.findOne(trackingQuery).select("_id trackingNumber"),
+  ]);
+
+  return [latamOrder, usaOrder].some((order) => order && String(order._id || "") !== normalizedOrderId);
+}
+
 async function generateUniqueTrackingNumber() {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const candidate = `GI-${randomInt(100000, 100000000)}`;
@@ -1340,15 +1359,79 @@ async function updateOrder(req, res) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    if (vehicle) {
-      const normalizedVehicle = {
-        ...vehicle,
-      };
+    const sourceVehicle = vehicle && typeof vehicle === "object" ? vehicle : {};
+    const nextBrand = normalizeOptionalString(req.body.brand ?? sourceVehicle.brand);
+    const nextModel = normalizeOptionalString(req.body.model ?? sourceVehicle.model);
+    const nextVersion = normalizeOptionalString(req.body.version ?? sourceVehicle.version);
+    const nextVin = normalizeOptionalString(req.body.vin ?? sourceVehicle.vin);
+    const nextDestination = normalizeOptionalString(req.body.destination ?? sourceVehicle.destination);
+    const fallbackColor = normalizeOptionalString(req.body.color ?? sourceVehicle.color);
+    const nextExteriorColor = normalizeOptionalString(req.body.exteriorColor ?? sourceVehicle.exteriorColor) || fallbackColor;
+    const nextInteriorColor = normalizeOptionalString(req.body.interiorColor ?? sourceVehicle.interiorColor) || fallbackColor;
+    const nextInternalIdentifier = normalizeOptionalString(
+      req.body.internalIdentifier ?? req.body.description ?? sourceVehicle.internalIdentifier ?? sourceVehicle.description
+    );
+    const trackingNumberProvided = Object.prototype.hasOwnProperty.call(req.body, "trackingNumber");
+    const nextTrackingNumber = trackingNumberProvided
+      ? normalizeTrackingNumber(req.body.trackingNumber)
+      : normalizeTrackingNumber(order.trackingNumber);
+    const clientId = normalizeOptionalString(req.body.clientId);
+    const hasYearValue = Object.prototype.hasOwnProperty.call(req.body, "year") || Object.prototype.hasOwnProperty.call(sourceVehicle, "year");
+    const parsedYear = hasYearValue
+      ? Number.parseInt(String(req.body.year ?? sourceVehicle.year ?? "").trim(), 10)
+      : undefined;
 
-      if (normalizedVehicle.description && !normalizedVehicle.internalIdentifier) {
-        normalizedVehicle.internalIdentifier = normalizedVehicle.description;
+    if (hasYearValue && Number.isNaN(parsedYear)) {
+      return res.status(400).json({ message: "year must be a valid number" });
+    }
+
+    if (trackingNumberProvided && !nextTrackingNumber) {
+      return res.status(400).json({ message: "trackingNumber is required" });
+    }
+
+    if (
+      nextDestination &&
+      orderResult.region === "latam" &&
+      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto Miami"].includes(String(nextDestination).trim())
+    ) {
+      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla or Puerto Miami" });
+    }
+
+    if (trackingNumberProvided && normalizeTrackingNumber(order.trackingNumber) !== nextTrackingNumber) {
+      if (await trackingExistsInOtherOrder(order._id, nextTrackingNumber)) {
+        return res.status(409).json({ message: "Tracking number already exists" });
       }
 
+      order.trackingNumber = nextTrackingNumber;
+    }
+
+    if (clientId) {
+      const ClientModel = orderResult.region === "usa" ? ClientGlobalUS : Client;
+      const client = await ClientModel.findById(clientId);
+
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      order.client = client._id;
+    }
+
+    const normalizedVehicle = {
+      ...(nextBrand !== undefined ? { brand: nextBrand } : {}),
+      ...(nextModel !== undefined ? { model: nextModel } : {}),
+      ...(nextVersion !== undefined ? { version: nextVersion } : {}),
+      ...(hasYearValue ? { year: parsedYear } : {}),
+      ...(nextVin !== undefined ? { vin: nextVin } : {}),
+      ...(nextDestination !== undefined ? { destination: nextDestination } : {}),
+      ...(nextExteriorColor !== undefined ? { exteriorColor: nextExteriorColor } : {}),
+      ...(nextInteriorColor !== undefined ? { interiorColor: nextInteriorColor } : {}),
+      ...((nextExteriorColor !== undefined || nextInteriorColor !== undefined || fallbackColor !== undefined)
+        ? { color: nextExteriorColor || nextInteriorColor || fallbackColor }
+        : {}),
+      ...(nextInternalIdentifier !== undefined ? { internalIdentifier: nextInternalIdentifier } : {}),
+    };
+
+    if (Object.keys(normalizedVehicle).length) {
       order.vehicle = {
         ...order.vehicle.toObject(),
         ...normalizedVehicle,
