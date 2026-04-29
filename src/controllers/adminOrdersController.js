@@ -887,6 +887,28 @@ function hasTrackingUpdateChanges({ notes = "", media = [], requestedConfirmed =
   return false;
 }
 
+function arePreviousTrackingStepsConfirmed(steps = [], stepIndex = -1) {
+  if (!Array.isArray(steps) || stepIndex <= 0) {
+    return true;
+  }
+
+  return steps.slice(0, stepIndex).every((item) => Boolean(item?.confirmed));
+}
+
+function findNextIncompleteTrackingStepIndex(steps = [], fromIndex = -1) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return -1;
+  }
+
+  for (let index = Math.max(0, fromIndex + 1); index < steps.length; index += 1) {
+    if (!steps[index]?.confirmed) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
 function syncTrackingStepProgression(steps = [], preferredActiveIndex = -1) {
   if (!Array.isArray(steps) || !steps.length) {
     return steps;
@@ -894,7 +916,11 @@ function syncTrackingStepProgression(steps = [], preferredActiveIndex = -1) {
 
   let resolvedActiveIndex = preferredActiveIndex;
 
-  if (resolvedActiveIndex < 0 || steps[resolvedActiveIndex]?.confirmed) {
+  if (
+    resolvedActiveIndex < 0
+    || steps[resolvedActiveIndex]?.confirmed
+    || !arePreviousTrackingStepsConfirmed(steps, resolvedActiveIndex)
+  ) {
     resolvedActiveIndex = steps.findIndex((item) => !item.confirmed);
   }
 
@@ -1537,6 +1563,14 @@ async function updateTrackingState(req, res) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
+    if (requestedConfirmed && !arePreviousTrackingStepsConfirmed(order.trackingSteps, stepIndex)) {
+      return res.status(409).json({ message: "No puedes completar este estado hasta que el anterior este completado." });
+    }
+
+    if (requestedInProgress && !arePreviousTrackingStepsConfirmed(order.trackingSteps, stepIndex)) {
+      return res.status(409).json({ message: "No puedes poner este estado en curso hasta completar los estados anteriores." });
+    }
+
     hydrateTrackingStepMediaFromFlattenedState(step);
 
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
@@ -1638,7 +1672,13 @@ async function updateTrackingState(req, res) {
     refreshedStep.confirmed = requestedConfirmed;
     refreshedStep.inProgress = requestedConfirmed ? false : requestedInProgress;
 
-    syncTrackingStepProgression(order.trackingSteps, refreshedStep.inProgress ? refreshedStepIndex : -1);
+    const preferredActiveIndex = requestedConfirmed
+      ? findNextIncompleteTrackingStepIndex(order.trackingSteps, refreshedStepIndex)
+      : refreshedStep.inProgress
+        ? refreshedStepIndex
+        : -1;
+
+    syncTrackingStepProgression(order.trackingSteps, preferredActiveIndex);
 
     const latestUpdate = getLatestTrackingStepUpdate(refreshedStep);
     const progressionTimestamp = latestUpdate?.updatedAt || latestUpdate?.createdAt || new Date();

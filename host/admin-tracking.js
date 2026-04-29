@@ -256,6 +256,14 @@ function canEditStateForRole(role, stateKey) {
   return Boolean(String(role || "").trim()) && Boolean(String(stateKey || "").trim());
 }
 
+function canAdvanceTrackingState(states = [], stateIndex = -1) {
+  if (!Array.isArray(states) || stateIndex <= 0) {
+    return true;
+  }
+
+  return Boolean(states[stateIndex - 1]?.confirmed);
+}
+
 function getLatestUpdate(step) {
   return (Array.isArray(step?.updates) ? step.updates : []).reduce((latestUpdate, currentUpdate) => {
     if (!latestUpdate) {
@@ -1223,9 +1231,12 @@ function renderStates() {
 
   syncTrackingPageMode(selectedOrder);
 
-  trackingStatesList.innerHTML = getOrderTrackingSteps(selectedOrder).map((state, index) => {
+  const states = getOrderTrackingSteps(selectedOrder);
+
+  trackingStatesList.innerHTML = states.map((state, index) => {
     const isExpanded = expandedStateKey === state.key;
     const canEditState = canEditStateForRole(currentAdminRole, state.key);
+    const canAdvanceState = canAdvanceTrackingState(states, index);
     const draft = getStateDraft(state);
     const historyCount = Array.isArray(state?.updates) ? state.updates.length : 0;
     const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavía";
@@ -1248,9 +1259,10 @@ function renderStates() {
         </div>
         <div class="tracking-state-body" ${isExpanded ? "" : "hidden"}>
           <div class="tracking-state-switches">
-            <label class="dashboard-checkbox"><input type="checkbox" data-field="inProgress" ${draft.inProgress ? "checked" : ""} ${canEditState ? "" : "disabled"} /> Activar estado en curso</label>
-            <label class="dashboard-checkbox"><input type="checkbox" data-field="confirmed" ${draft.confirmed ? "checked" : ""} ${canEditState ? "" : "disabled"} /> Completar estado</label>
+            <label class="dashboard-checkbox"><input type="checkbox" data-field="inProgress" ${draft.inProgress ? "checked" : ""} ${canEditState && canAdvanceState && !state.confirmed ? "" : "disabled"} /> Activar estado en curso</label>
+            <label class="dashboard-checkbox"><input type="checkbox" data-field="confirmed" ${draft.confirmed ? "checked" : ""} ${canEditState && canAdvanceState ? "" : "disabled"} /> Completar estado</label>
           </div>
+          ${canAdvanceState ? "" : '<p class="tracking-state-helper-copy">Completa el estado anterior antes de avanzar este.</p>'}
           <p class="tracking-state-helper-copy">Cada guardado agrega una nueva entrada al historial. El cliente solo ve los eventos que publiques con el ojo.</p>
           <label>
             <span>Nueva actualizacion</span>
@@ -1429,9 +1441,16 @@ async function saveState(stateKey) {
   const confirmed = Boolean(confirmedField?.checked);
   const files = Array.from(attachmentsField?.files || []);
   const videoLinks = normalizeText(videoLinksField?.value || "");
+  const states = getOrderTrackingSteps(selectedOrder);
+  const stateIndex = states.findIndex((item) => item.key === stateKey);
 
   if (!notes && !files.length && !videoLinks && !inProgress && !confirmed) {
     adminSetFeedback(stateFeedback, "Agrega una nota, un adjunto o marca el estado para crear el evento.", "error");
+    return;
+  }
+
+  if ((confirmed || inProgress) && !canAdvanceTrackingState(states, stateIndex)) {
+    adminSetFeedback(stateFeedback, "Completa el estado anterior antes de avanzar este.", "error");
     return;
   }
 
@@ -1707,13 +1726,24 @@ trackingRoot.addEventListener("change", (event) => {
   if (stateField) {
     const stateCard = stateField.closest("[data-state-card]");
     const stateKey = String(stateCard?.dataset.stateCard || "");
+    const selectedOrder = getSelectedOrder();
 
-    if (!stateKey) {
+    if (!stateKey || !selectedOrder) {
       return;
     }
 
     const confirmedField = stateCard.querySelector('[data-field="confirmed"]');
     const inProgressField = stateCard.querySelector('[data-field="inProgress"]');
+    const states = getOrderTrackingSteps(selectedOrder);
+    const stateIndex = states.findIndex((item) => item.key === stateKey);
+    const canAdvanceState = canAdvanceTrackingState(states, stateIndex);
+
+    if ((stateField === confirmedField && confirmedField?.checked) || (stateField === inProgressField && inProgressField?.checked)) {
+      if (!canAdvanceState) {
+        stateField.checked = false;
+        adminSetFeedback(trackingFeedback, "Completa el estado anterior antes de avanzar este.", "error");
+      }
+    }
 
     if (stateField === confirmedField && confirmedField?.checked && inProgressField) {
       inProgressField.checked = false;
