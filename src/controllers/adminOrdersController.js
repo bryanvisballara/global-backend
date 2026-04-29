@@ -1536,6 +1536,7 @@ async function updateTrackingState(req, res) {
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
       preferCollectionOnly: true,
     });
+    order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
 
