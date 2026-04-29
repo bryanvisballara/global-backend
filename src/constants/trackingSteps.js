@@ -69,9 +69,10 @@ function normalizeTrackingStates(states = []) {
         }))
       : [];
     const hasCompletedUpdate = normalizedUpdates.some((update) => update.completed);
-    const confirmed = typeof sourceState.confirmed === "boolean"
-      ? sourceState.confirmed
-      : hasCompletedUpdate || legacyStatus === "active" || legacyStatus === "completed";
+    const confirmed = hasCompletedUpdate
+      || (typeof sourceState.confirmed === "boolean"
+        ? sourceState.confirmed
+        : legacyStatus === "active" || legacyStatus === "completed");
     const inProgress = confirmed
       ? false
       : typeof sourceState.inProgress === "boolean"
