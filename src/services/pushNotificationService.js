@@ -129,12 +129,18 @@ async function sendNotificationToDevices(devices = [], notification) {
           continue;
         }
 
-        const result = await sendApnsNotification(device.token, notification);
+        const result = await sendApnsNotification(device, notification);
 
         if (result.ok) {
           sent += 1;
         } else if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
           invalidTokens.push(device.token);
+          skipped += 1;
+        } else {
+          console.warn(
+            `[push] APNs rejected notification for token ${String(device.token || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")}`
+          );
+          skipped += 1;
         }
 
         continue;
