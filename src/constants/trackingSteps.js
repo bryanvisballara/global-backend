@@ -45,14 +45,44 @@ function normalizeTrackingStates(states = []) {
   return TRACKING_STATE_TEMPLATES.map((template, index) => {
     const sourceState = statesByKey.get(template.key) || states[index] || {};
     const legacyStatus = String(sourceState.status || "").toLowerCase();
+    const normalizedUpdates = Array.isArray(sourceState.updates)
+      ? sourceState.updates.map((update) => ({
+          notes: update?.notes ? String(update.notes).trim() : "",
+          media: Array.isArray(update?.media)
+            ? update.media
+                .filter((item) => item && item.url)
+                .map((item) => ({
+                  type: item.type || "image",
+                  category: item.category ? String(item.category).trim() : undefined,
+                  url: String(item.url).trim(),
+                  caption: item.caption ? String(item.caption).trim() : undefined,
+                  name: item.name ? String(item.name).trim() : undefined,
+                  clientVisible: typeof item.clientVisible === "boolean" ? item.clientVisible : true,
+                }))
+            : [],
+          clientVisible: Boolean(update?.clientVisible),
+          inProgress: Boolean(update?.completed ? false : update?.inProgress),
+          completed: Boolean(update?.completed),
+          eventId: update?.eventId ? String(update.eventId).trim() : "",
+          createdAt: update?.createdAt || null,
+          updatedAt: update?.updatedAt || update?.createdAt || null,
+        }))
+      : [];
+    const hasCompletedUpdate = normalizedUpdates.some((update) => update.completed);
     const confirmed = typeof sourceState.confirmed === "boolean"
       ? sourceState.confirmed
-      : legacyStatus === "active" || legacyStatus === "completed";
+      : hasCompletedUpdate || legacyStatus === "active" || legacyStatus === "completed";
+    const inProgress = confirmed
+      ? false
+      : typeof sourceState.inProgress === "boolean"
+        ? sourceState.inProgress
+        : normalizedUpdates.some((update) => update.inProgress);
 
     return {
       key: template.key,
       label: template.label,
       confirmed,
+      inProgress,
       clientVisible: typeof sourceState.clientVisible === "boolean" ? sourceState.clientVisible : true,
       notes: sourceState.notes ? String(sourceState.notes).trim() : "",
       media: Array.isArray(sourceState.media)
@@ -67,6 +97,7 @@ function normalizeTrackingStates(states = []) {
               clientVisible: typeof item.clientVisible === "boolean" ? item.clientVisible : true,
             }))
         : [],
+      updates: normalizedUpdates,
       updatedAt: sourceState.updatedAt || null,
       confirmedAt: confirmed ? sourceState.confirmedAt || sourceState.updatedAt || null : null,
     };
