@@ -354,15 +354,44 @@ const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const ORDER_DOCUMENT_TYPES = [
   { value: "FACTURA", label: "FACTURA" },
   { value: "BL", label: "BL" },
+  { value: "CEPD", label: "CEPD" },
   { value: "TITULO", label: "TÍTULO" },
   { value: "BOOKING", label: "BOOKING" },
   { value: "TRACKING", label: "TRACKING" },
+  { value: "REGISTRO DE IMPORTACION", label: "REGISTRO DE IMPORTACION" },
   { value: "FOTOS", label: "FOTOS" },
+  { value: "AES", label: "AES" },
   { value: "CONTRATO", label: "CONTRATO" },
+  { value: "SWIFT", label: "SWIFT" },
+  { value: "SOPORTE_DE_PAGO", label: "SOPORTE DE PAGO" },
+  { value: "PRE_APOSTILLA", label: "PRE-APOSTILLA" },
   { value: "OTRO", label: "OTRO" },
 ];
+const ORDER_DOCUMENT_TYPE_LABELS = new Map(
+  ORDER_DOCUMENT_TYPES.flatMap((option) => {
+    const normalizedValue = String(option.value || "").trim().toUpperCase();
+    const normalizedLabel = String(option.label || normalizedValue).trim().toUpperCase();
+
+    return [
+      [normalizedValue, option.label],
+      [normalizedLabel, option.label],
+      [normalizedLabel.replaceAll("-", "_"), option.label],
+      [normalizedLabel.replaceAll("-", " "), option.label],
+    ];
+  })
+);
 const LEGACY_TRACKING_TRANSITION_STORAGE_KEY = "globalAdminTrackingLegacyTransition";
 let useLegacyTrackingTransition = sessionStorage.getItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY) === "1";
+
+function getOrderDocumentTypeLabel(value) {
+  const normalizedValue = normalizeText(value || "OTRO").toUpperCase();
+
+  return ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue)
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", " "))
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", "-"))
+    || normalizedValue
+    || "OTRO";
+}
 
 function buildCreateOrderTrackingNumber() {
   const existingTrackings = new Set(
@@ -499,9 +528,13 @@ function renderCreateOrderClientOptions() {
     return;
   }
 
+  const sortedClients = [...createOrderClients].sort((left, right) => (
+    String(left?.name || "Cliente").localeCompare(String(right?.name || "Cliente"), "es", { sensitivity: "base" })
+  ));
+
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")} · ${escapeHtml(client.email || "Sin email")}</option>`),
+    ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")}</option>`),
   ].join("");
 
   if (createOrderClientSummary) {
@@ -1743,7 +1776,7 @@ function getOrderDocuments(order) {
     .filter((item) => item?.url && (item?.category === "document" || item?.type === "document"))
     .map((item) => ({
       documentId: String(item.documentId || "").trim(),
-      documentType: normalizeText(item.documentType || "OTRO") || "OTRO",
+      documentType: getOrderDocumentTypeLabel(item.documentType || "OTRO"),
       name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
       note: normalizeText(item.note || ""),
       url: String(item.url || ""),
