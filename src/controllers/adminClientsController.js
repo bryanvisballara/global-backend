@@ -77,9 +77,14 @@ async function createClient(req, res) {
       country,
       notes,
     } = req.body;
+    const normalizedName = String(name || "").trim();
 
-    if (!name) {
+    if (!normalizedName) {
       return res.status(400).json({ message: "Name is required" });
+    }
+
+    if (normalizedName.length < 2) {
+      return res.status(400).json({ message: "Name must be at least 2 characters" });
     }
 
     const normalizedEmail = String(email || "").toLowerCase().trim() || undefined;
@@ -93,7 +98,7 @@ async function createClient(req, res) {
     }
 
     const client = await ClientModel.create({
-      name: String(name).trim(),
+      name: normalizedName,
       email: normalizedEmail,
       phone: phone ? String(phone).trim() : undefined,
       identification: identification ? String(identification).trim() : undefined,
@@ -109,6 +114,24 @@ async function createClient(req, res) {
       client,
     });
   } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Client already exists" });
+    }
+
+    if (error?.name === "ValidationError") {
+      const validationMessage = Object.values(error.errors || {})
+        .map((fieldError) => fieldError?.message)
+        .find(Boolean);
+
+      return res.status(400).json({ message: validationMessage || "Invalid client data" });
+    }
+
+    console.error("Error creating client", {
+      role: req.user?.role || null,
+      email: String(req.body?.email || "").trim().toLowerCase() || null,
+      message: error?.message || error,
+    });
+
     return res.status(500).json({ message: "Error creating client" });
   }
 }
