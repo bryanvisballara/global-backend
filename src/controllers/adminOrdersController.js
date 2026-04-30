@@ -76,6 +76,35 @@ function normalizeRequesterEmail(requester) {
   return String(requester.email || "").trim().toLowerCase();
 }
 
+function normalizeRequesterId(requester) {
+  if (!requester || typeof requester !== "object") {
+    return String(requester || "").trim();
+  }
+
+  return String(requester._id || requester.id || "").trim();
+}
+
+function normalizeOrderCreatorId(order) {
+  const createdBy = order?.createdBy;
+
+  if (!createdBy) {
+    return "";
+  }
+
+  if (typeof createdBy === "object") {
+    return String(createdBy._id || createdBy.id || "").trim();
+  }
+
+  return String(createdBy).trim();
+}
+
+function isOrderCreatedByRequester(order, requester) {
+  const requesterId = normalizeRequesterId(requester);
+  const creatorId = normalizeOrderCreatorId(order);
+
+  return Boolean(requesterId) && Boolean(creatorId) && requesterId === creatorId;
+}
+
 function isUsaAdministrativeRole(role) {
   return USA_ADMIN_ROLES.has(String(role || ""));
 }
@@ -180,16 +209,19 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex) {
   return false;
 }
 
-function canFinalizeTrackingOrder(requester, currentIndex) {
-  if (currentIndex !== TRACKING_STATE_TEMPLATES.length - 1) {
-    return false;
-  }
+function canFinalizeTrackingOrder(requester, order, currentIndex, orderRegion = "latam") {
+  const normalizedRole = normalizeRequesterRole(requester);
+  const normalizedRegion = String(orderRegion || "latam").trim().toLowerCase();
 
   if (isAnthonyGlobalOwner(requester)) {
-    return true;
+    return currentIndex === TRACKING_STATE_TEMPLATES.length - 1 || (normalizedRegion === "usa" && currentIndex === 3);
   }
 
-  return ["admin", "manager"].includes(normalizeRequesterRole(requester));
+  if (normalizedRegion === "usa") {
+    return isUsaAdministrativeRole(normalizedRole) && currentIndex === 3 && isOrderCreatedByRequester(order, requester);
+  }
+
+  return currentIndex === TRACKING_STATE_TEMPLATES.length - 1 && ["admin", "manager"].includes(normalizedRole);
 }
 
 function resolveOrderModelForCreate(role) {
@@ -2615,39 +2647,63 @@ async function finalizeTrackingOrder(req, res) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
     }
 
-    if (!canFinalizeTrackingOrder(req.user, currentStepIndex)) {
+    if (!canFinalizeTrackingOrder(req.user, order, currentStepIndex, orderResult.region)) {
       return res.status(403).json({ message: "No tienes permisos para finalizar este pedido" });
     }
 
-    const finalStep = order.trackingSteps[currentStepIndex];
-    const finalStateMeta = TRACKING_STATE_TEMPLATES[currentStepIndex] || { key: finalStep.key, label: finalStep.label };
+    const finalizationStartIndex = currentStepIndex;
+    const finalStep = order.trackingSteps[order.trackingSteps.length - 1];
+    const originStateMeta = TRACKING_STATE_TEMPLATES[finalizationStartIndex] || {
+      key: order.trackingSteps[finalizationStartIndex]?.key,
+      label: order.trackingSteps[finalizationStartIndex]?.label,
+    };
     const now = new Date();
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, finalStep.key);
 
-    finalStep.confirmed = true;
-    finalStep.inProgress = false;
+    for (let stepIndex = finalizationStartIndex; stepIndex < order.trackingSteps.length; stepIndex += 1) {
+      const step = order.trackingSteps[stepIndex];
 
-    ensureTrackingStepLifecycleUpdate(finalStep, {
-      notes: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}.`,
-      clientVisible: true,
-      inProgress: false,
-      completed: true,
-      timestamp: now,
-    });
+      if (!step) {
+        continue;
+      }
 
-    await createTrackingEvent({
-      orderId: order._id,
-      orderRegion: orderResult.region,
-      stepKey: finalStep.key,
-      title: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}`,
-      location: String(req.body?.location || "").trim(),
-      notes: String(req.body?.notes || "").trim() || `La orden finalizo en ${finalStateMeta.label}.`,
-      media: [],
-      clientVisible: true,
-      inProgress: false,
-      completed: true,
-      timestamp: now,
-    });
+      const stepMeta = TRACKING_STATE_TEMPLATES[stepIndex] || { key: step.key, label: step.label };
+      const isOriginStep = stepIndex === finalizationStartIndex;
+      const eventTimestamp = new Date(now.getTime() + (stepIndex - finalizationStartIndex) * 1000);
+      const notes = isOriginStep
+        ? `Pedido finalizado en E${finalizationStartIndex + 1} — ${originStateMeta.label}.`
+        : `Etapa completada automaticamente al finalizar el pedido desde E${finalizationStartIndex + 1} — ${originStateMeta.label}.`;
+      const title = isOriginStep
+        ? `Pedido finalizado en E${finalizationStartIndex + 1} — ${originStateMeta.label}`
+        : `Etapa completada por finalizacion del pedido — E${stepIndex + 1} — ${stepMeta.label}`;
+
+      step.confirmed = true;
+      step.inProgress = false;
+
+      ensureTrackingStepLifecycleUpdate(step, {
+        notes,
+        clientVisible: true,
+        inProgress: false,
+        completed: true,
+        timestamp: eventTimestamp,
+      });
+
+      await createTrackingEvent({
+        orderId: order._id,
+        orderRegion: orderResult.region,
+        stepKey: step.key,
+        title,
+        location: isOriginStep ? String(req.body?.location || "").trim() : "",
+        notes: isOriginStep
+          ? String(req.body?.notes || "").trim() || `La orden finalizo en ${originStateMeta.label}.`
+          : notes,
+        media: [],
+        clientVisible: true,
+        inProgress: false,
+        completed: true,
+        timestamp: eventTimestamp,
+      });
+    }
 
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
       preferCollectionOnly: true,
@@ -2664,8 +2720,8 @@ async function finalizeTrackingOrder(req, res) {
 
     if (updatedFinalStep) {
       const publishedStep = buildTrackingStepSnapshot(updatedFinalStep, {
-        title: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}`,
-        notes: `La orden finalizo en ${finalStateMeta.label}.`,
+        title: `Pedido finalizado en E${finalizationStartIndex + 1} — ${originStateMeta.label}`,
+        notes: `La orden finalizo en ${originStateMeta.label}.`,
         media: [],
         clientVisible: true,
         inProgress: false,
