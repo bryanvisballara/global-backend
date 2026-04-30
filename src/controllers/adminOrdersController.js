@@ -485,6 +485,28 @@ async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
   };
 }
 
+function buildPublishedOrderDocumentStep(document) {
+  if (!document?.url) {
+    return null;
+  }
+
+  const documentName = String(document.name || document.caption || "Documento").trim() || "Documento";
+  const documentNote = String(document.note || "").trim();
+  const documentTimestamp = document.updatedAt || document.createdAt || new Date();
+
+  return {
+    key: "order-documents",
+    label: "Nuevo documento disponible",
+    notes: documentNote || `Se compartio ${documentName}.`,
+    media: [document],
+    clientVisible: true,
+    inProgress: false,
+    confirmed: false,
+    updatedAt: documentTimestamp,
+    confirmedAt: null,
+  };
+}
+
 async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
   if (!updatedStep) {
     return { sent: 0, failed: 0 };
@@ -737,7 +759,7 @@ function buildOrderDocumentMediaItems(uploadedMedia = [], options = {}) {
   return normalizeMedia(uploadedMedia).map((item) => ({
     ...item,
     documentId: item.documentId || randomUUID(),
-    type: "document",
+    type: item.type === "image" || item.type === "video" ? item.type : "document",
     category: "document",
     documentType,
     note,
@@ -1734,6 +1756,8 @@ async function toggleOrderDocumentVisibility(req, res) {
       return res.status(404).json({ message: "Documento no encontrado" });
     }
 
+    const previousClientVisible = Boolean(normalizedMedia[documentIndex]?.clientVisible);
+
     normalizedMedia[documentIndex] = {
       ...normalizedMedia[documentIndex],
       clientVisible: parseBooleanValue(req.body.clientVisible, false),
@@ -1747,8 +1771,26 @@ async function toggleOrderDocumentVisibility(req, res) {
       .populate("client", "name email phone")
       .populate("createdBy", "name email role");
 
+    const updatedDocument = normalizeMedia(updatedOrder?.media || []).find(
+      (item) => String(item?.documentId || "").trim() === String(req.params.documentId || "").trim()
+    ) || null;
+    const requestedClientVisible = Boolean(updatedDocument?.clientVisible);
+    let notificationSummary = {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+
+    if (requestedClientVisible && !previousClientVisible && updatedDocument) {
+      notificationSummary = await notifyPublishedTrackingStep(
+        updatedOrder,
+        null,
+        buildPublishedOrderDocumentStep(updatedDocument)
+      );
+    }
+
     return res.status(200).json({
       message: "Visibilidad del documento actualizada",
+      notificationSummary,
       order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
