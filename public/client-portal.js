@@ -509,7 +509,7 @@ async function loadSequoiaCatalog() {
   sequoiaCatalogPromise = (async () => {
     await loadClientImageDeliveryConfig();
 
-    const response = await fetch(SEQUOIA_CATALOG_URL, { cache: "force-cache" });
+    const response = await fetch(SEQUOIA_CATALOG_URL, { cache: "no-cache" });
 
     if (!response.ok) {
       throw new Error("No se pudo cargar el catalogo Sequoia.");
