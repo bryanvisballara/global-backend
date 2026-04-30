@@ -3437,6 +3437,26 @@ body.admin-uppercase-view *::placeholder {
   align-self: start;
 }
 
+body.host-windows-desktop .tracking-events-editor-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  gap: 20px;
+}
+
+body.host-windows-desktop .tracking-events-column-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.host-windows-desktop .tracking-events-column-side > * {
+  width: 100%;
+  max-width: 100%;
+}
+
+body.host-windows-desktop .tracking-events-column-side .tracking-new-event-grid,
+body.host-windows-desktop .tracking-events-column-side .tracking-document-upload-grid,
+body.host-windows-desktop .tracking-events-column-side .form-row.two-up {
+  grid-template-columns: 1fr;
+}
+
 .tracking-document-form {
   display: grid;
   gap: 14px;
@@ -3538,13 +3558,6 @@ body.admin-uppercase-view *::placeholder {
 
 .tracking-overview-card {
   border-color: rgba(255, 255, 255, 0.1);
-}
-
-@media (max-width: 1360px) {
-  .tracking-order-hero-grid,
-  .tracking-events-editor-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .tracking-table-card {

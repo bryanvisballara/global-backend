@@ -250,6 +250,15 @@ function normalizeToDateEnd(value) {
 adminAttachLogout();
 document.body.classList.add("tracking-search-page");
 
+function isWindowsDesktopEnvironment() {
+  const platform = String(navigator.userAgentData?.platform || navigator.platform || "").toLowerCase();
+  const userAgent = String(navigator.userAgent || "").toLowerCase();
+
+  return platform.includes("win") || userAgent.includes("windows");
+}
+
+document.body.classList.toggle("host-windows-desktop", isWindowsDesktopEnvironment());
+
 const trackingRoot = document.getElementById("tracking-form");
 const trackingFeedback = document.getElementById("tracking-feedback");
 const trackingOrderInput = document.getElementById("tracking-order-id");
@@ -1836,8 +1845,8 @@ function renderOrderDocumentUploadCard() {
           </label>
           <label>
             <span>Archivo(s) *</span>
-            <input name="mediaFiles" class="tracking-document-file-input" type="file" multiple required />
-            <small>Puedes seleccionar varios archivos a la vez.</small>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip" multiple required />
+            <small>Puedes seleccionar varios archivos a la vez, incluyendo ZIP.</small>
           </label>
         </div>
         <label>
