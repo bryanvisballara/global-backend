@@ -2714,25 +2714,27 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-events-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .tracking-events-table th,
 .tracking-events-table td {
-  padding: 14px 12px;
+  padding: 12px 10px;
   text-align: left;
   vertical-align: top;
   word-break: normal;
   overflow-wrap: normal;
+  font-size: 0.9rem;
 }
 
 .tracking-events-table thead th {
   color: rgba(244, 210, 143, 0.82);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   white-space: nowrap;
@@ -2748,7 +2750,7 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-events-table tbody tr td {
   border-bottom: 1px solid rgba(165, 170, 175, 0.16);
-  line-height: 1.7;
+  line-height: 1.55;
 }
 
 .tracking-events-table tbody tr:last-child td {
@@ -2757,11 +2759,11 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-event-title-placeholder {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: rgba(154, 158, 163, 0.18);
   color: rgba(219, 223, 228, 0.86);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
@@ -2777,11 +2779,11 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-event-more-button {
   border: 0;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 999px;
   background: rgba(244, 210, 143, 0.14);
   color: #f4d28f;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   white-space: nowrap;
