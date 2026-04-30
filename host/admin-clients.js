@@ -93,6 +93,10 @@ if (requireAdminAccess()) {
 
   window.__openClientCreateModal = openCreateModal;
 
+  function normalizeUppercaseInputValue(value) {
+    return String(value || "").toUpperCase().trim();
+  }
+
   function fillCountryFilter(clients) {
     const countries = [...new Set(clients
       .map((client) => String(client.country || "").trim())
@@ -241,14 +245,14 @@ if (requireAdminAccess()) {
       await fetchJson("/api/admin/clients", {
         method: "POST",
         body: JSON.stringify({
-          name: formData.get("name"),
-          email: formData.get("email"),
-          phone: formData.get("phone"),
-          identification: formData.get("identification"),
-          address: formData.get("address"),
-          city: formData.get("city"),
-          country: formData.get("country"),
-          notes: formData.get("notes"),
+          name: normalizeUppercaseInputValue(formData.get("name")),
+          email: normalizeUppercaseInputValue(formData.get("email")),
+          phone: normalizeUppercaseInputValue(formData.get("phone")),
+          identification: normalizeUppercaseInputValue(formData.get("identification")),
+          address: normalizeUppercaseInputValue(formData.get("address")),
+          city: normalizeUppercaseInputValue(formData.get("city")),
+          country: normalizeUppercaseInputValue(formData.get("country")),
+          notes: normalizeUppercaseInputValue(formData.get("notes")),
         }),
       });
 
@@ -258,6 +262,26 @@ if (requireAdminAccess()) {
       await loadClients();
     } catch (error) {
       setFeedback(clientFeedback, error.message, "error");
+    }
+  });
+
+  clientForm?.addEventListener("input", (event) => {
+    const field = event.target;
+
+    if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    if (!["text", "email", "textarea"].includes(field.type || (field instanceof HTMLTextAreaElement ? "textarea" : ""))) {
+      return;
+    }
+
+    const cursorStart = field.selectionStart;
+    const cursorEnd = field.selectionEnd;
+    field.value = String(field.value || "").toUpperCase();
+
+    if (typeof cursorStart === "number" && typeof cursorEnd === "number") {
+      field.setSelectionRange(cursorStart, cursorEnd);
     }
   });
 
