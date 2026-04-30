@@ -1697,6 +1697,60 @@ async function updateOrder(req, res) {
   }
 }
 
+async function updateOrderVehiclePricing(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order || orderResult.region !== "latam") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const parsePrice = (value, fieldName) => {
+      if (value === "" || value === null || value === undefined) {
+        return null;
+      }
+
+      const parsedValue = Number.parseFloat(String(value).replace(/,/g, "").trim());
+
+      if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        throw new Error(`${fieldName} must be a valid positive number`);
+      }
+
+      return parsedValue;
+    };
+
+    let purchasePrice = null;
+    let salePrice = null;
+
+    try {
+      purchasePrice = parsePrice(req.body.purchasePrice, "purchasePrice");
+      salePrice = parsePrice(req.body.salePrice, "salePrice");
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
+
+    order.vehicle = {
+      ...(order.vehicle?.toObject ? order.vehicle.toObject() : order.vehicle || {}),
+      purchasePrice,
+      salePrice,
+    };
+
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(200).json({
+      message: "Vehicle pricing updated successfully",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error updating vehicle pricing" });
+  }
+}
+
 async function uploadOrderDocuments(req, res) {
   try {
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
@@ -2554,5 +2608,6 @@ module.exports = {
   toggleTrackingEventVisibility,
   uploadOrderDocuments,
   updateOrder,
+  updateOrderVehiclePricing,
   updateTrackingState,
 };

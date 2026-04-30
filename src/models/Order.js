@@ -291,6 +291,16 @@ const orderSchema = new mongoose.Schema(
         trim: true,
         maxlength: 1000,
       },
+      purchasePrice: {
+        type: Number,
+        min: 0,
+        default: null,
+      },
+      salePrice: {
+        type: Number,
+        min: 0,
+        default: null,
+      },
     },
     purchaseDate: {
       type: Date,
