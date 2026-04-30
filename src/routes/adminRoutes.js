@@ -101,7 +101,7 @@ router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle)
 router.get("/posts", listPosts);
 router.get("/posts/:postId", getPost);
 router.post("/posts", upload.array("mediaFiles", 10), createPost);
-router.patch("/posts/:postId", updatePost);
+router.patch("/posts/:postId", upload.array("mediaFiles", 10), updatePost);
 router.delete("/posts/:postId", deletePost);
 
 router.get("/virtual-dealership", listVirtualDealershipVehicles);
@@ -110,7 +110,7 @@ router.post(
   upload.array("mediaFiles", 10),
   createVirtualDealershipVehicle
 );
-router.patch("/virtual-dealership/:vehicleId", updateVirtualDealershipVehicle);
+router.patch("/virtual-dealership/:vehicleId", upload.array("mediaFiles", 10), updateVirtualDealershipVehicle);
 router.delete("/virtual-dealership/:vehicleId", deleteVirtualDealershipVehicle);
 
 module.exports = router;

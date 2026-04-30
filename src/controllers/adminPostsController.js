@@ -49,6 +49,60 @@ function parseMediaUrls(rawValue, preferredFormat = "") {
     }));
 }
 
+function parseJsonArrayField(rawValue, fallback = []) {
+  if (!rawValue) {
+    return fallback;
+  }
+
+  if (Array.isArray(rawValue)) {
+    return rawValue;
+  }
+
+  try {
+    const parsedValue = JSON.parse(String(rawValue));
+    return Array.isArray(parsedValue) ? parsedValue : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function buildOrderedMediaCollection(existingMedia = [], uploadedMedia = [], rawOrder = []) {
+  const orderedTokens = parseJsonArrayField(rawOrder, []);
+  const existingByToken = new Map(
+    normalizeMedia(existingMedia).map((item, index) => [`existing:${index}`, item])
+  );
+  const uploadedByToken = new Map(
+    normalizeMedia(uploadedMedia).map((item, index) => [`new:${index}`, item])
+  );
+
+  if (!orderedTokens.length) {
+    return [...existingByToken.values(), ...uploadedByToken.values()];
+  }
+
+  const finalMedia = [];
+
+  orderedTokens.forEach((token) => {
+    const normalizedToken = String(token || "").trim();
+
+    if (existingByToken.has(normalizedToken)) {
+      finalMedia.push(existingByToken.get(normalizedToken));
+      existingByToken.delete(normalizedToken);
+      return;
+    }
+
+    if (uploadedByToken.has(normalizedToken)) {
+      finalMedia.push(uploadedByToken.get(normalizedToken));
+      uploadedByToken.delete(normalizedToken);
+    }
+  });
+
+  return [
+    ...finalMedia,
+    ...existingByToken.values(),
+    ...uploadedByToken.values(),
+  ];
+}
+
 function isSupportedVideoUrl(value) {
   if (!value) {
     return false;
@@ -251,11 +305,27 @@ async function getPost(req, res) {
 async function updatePost(req, res) {
   try {
     const { postId } = req.params;
-    const { title, body } = req.body;
+    const { title, body, format: requestedFormat } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({ message: "title and body are required" });
     }
+
+    const existingPost = await Post.findById(postId).populate("publishedBy", "name email role");
+
+    if (!existingPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const nextFormat = String(requestedFormat || existingPost.format || "").trim() || existingPost.format;
+    const uploadedMedia = await uploadFilesToCloudinary(req.files || []);
+    const rawExistingMedia = parseJsonArrayField(req.body.existingMedia, existingPost.media || []);
+    const hasMediaPayload = Object.prototype.hasOwnProperty.call(req.body || {}, "existingMedia") || uploadedMedia.length > 0;
+    const nextMedia = hasMediaPayload
+      ? buildOrderedMediaCollection(rawExistingMedia, uploadedMedia, req.body.mediaOrder)
+      : normalizeMedia(existingPost.media || []);
+
+    validateMediaByFormat(nextFormat, nextMedia);
 
     const post = await Post.findByIdAndUpdate(
       postId,
@@ -263,14 +333,12 @@ async function updatePost(req, res) {
         $set: {
           title: title.trim(),
           body: body.trim(),
+          format: nextFormat,
+          media: nextMedia,
         },
       },
       { new: true, runValidators: true }
     ).populate("publishedBy", "name email role");
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
 
     return res.status(200).json({
       message: "Post updated successfully",

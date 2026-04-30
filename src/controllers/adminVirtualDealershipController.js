@@ -10,6 +10,60 @@ function normalizeImages(images = []) {
     }));
 }
 
+function parseJsonArrayField(rawValue, fallback = []) {
+  if (!rawValue) {
+    return fallback;
+  }
+
+  if (Array.isArray(rawValue)) {
+    return rawValue;
+  }
+
+  try {
+    const parsedValue = JSON.parse(String(rawValue));
+    return Array.isArray(parsedValue) ? parsedValue : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function buildOrderedImageCollection(existingImages = [], uploadedImages = [], rawOrder = []) {
+  const orderedTokens = parseJsonArrayField(rawOrder, []);
+  const existingByToken = new Map(
+    normalizeImages(existingImages).map((item, index) => [`existing:${index}`, item])
+  );
+  const uploadedByToken = new Map(
+    normalizeImages(uploadedImages).map((item, index) => [`new:${index}`, item])
+  );
+
+  if (!orderedTokens.length) {
+    return [...existingByToken.values(), ...uploadedByToken.values()];
+  }
+
+  const finalImages = [];
+
+  orderedTokens.forEach((token) => {
+    const normalizedToken = String(token || "").trim();
+
+    if (existingByToken.has(normalizedToken)) {
+      finalImages.push(existingByToken.get(normalizedToken));
+      existingByToken.delete(normalizedToken);
+      return;
+    }
+
+    if (uploadedByToken.has(normalizedToken)) {
+      finalImages.push(uploadedByToken.get(normalizedToken));
+      uploadedByToken.delete(normalizedToken);
+    }
+  });
+
+  return [
+    ...finalImages,
+    ...existingByToken.values(),
+    ...uploadedByToken.values(),
+  ];
+}
+
 async function uploadVehicleFilesToCloudinary(files = []) {
   if (!files.length) {
     return [];
@@ -116,6 +170,12 @@ async function updateVirtualDealershipVehicle(req, res) {
     const { vehicleId } = req.params;
     const { status, isPublished, price, description, exteriorColor, interiorColor, mileage, engine, horsepower } = req.body;
 
+    const existingVehicle = await VirtualShowcaseVehicle.findById(vehicleId).populate("listedBy", "name email role");
+
+    if (!existingVehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    }
+
     const updatePayload = {};
 
     if (["available", "reserved", "sold"].includes(status)) {
@@ -154,15 +214,25 @@ async function updateVirtualDealershipVehicle(req, res) {
       updatePayload.horsepower = horsepower === "" ? undefined : Number(horsepower);
     }
 
+    const uploadedImages = await uploadVehicleFilesToCloudinary(req.files || []);
+    const hasImagePayload = Object.prototype.hasOwnProperty.call(req.body || {}, "existingImages") || uploadedImages.length > 0;
+
+    if (hasImagePayload) {
+      const rawExistingImages = parseJsonArrayField(req.body.existingImages, existingVehicle.images || []);
+      const nextImages = buildOrderedImageCollection(rawExistingImages, uploadedImages, req.body.imageOrder);
+
+      if (!nextImages.length) {
+        return res.status(400).json({ message: "Debes conservar o subir al menos una imagen para este vehículo." });
+      }
+
+      updatePayload.images = nextImages;
+    }
+
     const vehicle = await VirtualShowcaseVehicle.findByIdAndUpdate(
       vehicleId,
       { $set: updatePayload },
       { new: true, runValidators: true }
     ).populate("listedBy", "name email role");
-
-    if (!vehicle) {
-      return res.status(404).json({ message: "Vehicle not found" });
-    }
 
     return res.status(200).json({
       message: "Virtual dealership vehicle updated",
