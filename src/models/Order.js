@@ -7,6 +7,11 @@ const {
 
 const mediaItemSchema = new mongoose.Schema(
   {
+    documentId: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+    },
     type: {
       type: String,
       enum: ["image", "video", "document"],
@@ -32,9 +37,28 @@ const mediaItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: 280,
     },
+    documentType: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+    },
+    note: {
+      type: String,
+      trim: true,
+      maxlength: 600,
+      default: "",
+    },
     clientVisible: {
       type: Boolean,
       default: false,
+    },
+    createdAt: {
+      type: Date,
+      default: null,
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
     },
   },
   { _id: false }

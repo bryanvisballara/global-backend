@@ -82,6 +82,18 @@ const orderTrackingEventSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    title: {
+      type: String,
+      trim: true,
+      maxlength: 180,
+      default: "",
+    },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: 180,
+      default: "",
+    },
     media: {
       type: [mediaItemSchema],
       default: [],

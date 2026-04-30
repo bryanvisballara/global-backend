@@ -11,6 +11,7 @@ const { listDeletedAccounts } = require("../controllers/adminDeletedAccountsCont
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
   createOrder,
+  deleteOrderDocument,
   deleteTrackingUpdate,
   getOrder,
   listOrderDeletionRequests,
@@ -18,7 +19,10 @@ const {
   requestOrderDeletion,
   reviewOrderDeletionRequest,
   suggestTrackingNumber,
+  toggleOrderDocumentVisibility,
   toggleTrackingEventVisibility,
+  transitionTrackingState,
+  uploadOrderDocuments,
   updateOrder,
   updateTrackingState,
 } = require("../controllers/adminOrdersController");
@@ -67,9 +71,13 @@ router.get("/orders/deletion-requests", listOrderDeletionRequests);
 router.post("/orders", upload.array("mediaFiles", 10), createOrder);
 router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
+router.post("/orders/:orderId/documents", upload.array("mediaFiles", 10), uploadOrderDocuments);
+router.patch("/orders/:orderId/documents/:documentId/visibility", toggleOrderDocumentVisibility);
+router.delete("/orders/:orderId/documents/:documentId", deleteOrderDocument);
 router.post("/orders/:orderId/deletion-request", requestOrderDeletion);
 router.patch("/orders/:orderId/deletion-request", reviewOrderDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/visibility", toggleTrackingEventVisibility);
+router.patch("/orders/:orderId/tracking-transition", transitionTrackingState);
 router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.delete("/orders/:orderId/tracking-states/:stepKey/updates/:updateIndex", deleteTrackingUpdate);

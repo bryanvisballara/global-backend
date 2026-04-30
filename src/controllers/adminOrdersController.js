@@ -1,4 +1,4 @@
-const { randomInt } = require("crypto");
+const { randomInt, randomUUID } = require("crypto");
 const Client = require("../models/Client");
 const ClientGlobalUS = require("../models/ClientGlobalUS");
 const Maintenance = require("../models/Maintenance");
@@ -7,7 +7,7 @@ const OrderGlobalUS = require("../models/OrderGlobalUS");
 const OrderTrackingEvent = require("../models/OrderTrackingEvent");
 const User = require("../models/User");
 const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/cloudinary");
-const { normalizeTrackingStates } = require("../constants/trackingSteps");
+const { TRACKING_STATE_TEMPLATES, normalizeTrackingStates } = require("../constants/trackingSteps");
 const { addMonths } = require("../utils/date");
 const {
   ADMIN_NOTIFICATION_ROLES,
@@ -28,6 +28,7 @@ const {
 const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const ORDER_DOCUMENT_TYPES = new Set(["FACTURA", "BL", "TITULO", "BOOKING", "TRACKING", "FOTOS", "CONTRATO", "OTRO"]);
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
@@ -74,14 +75,75 @@ function canManageDeletionRequests(role) {
   return ["manager", "gerenteUSA"].includes(String(role || ""));
 }
 
-function canModifyTrackingStep(role, stepKey) {
-  const normalizedStepKey = String(stepKey || "");
+function resolveTrackingStepIndex(stepKey) {
+  return TRACKING_STATE_TEMPLATES.findIndex((step) => step.key === String(stepKey || "").trim());
+}
 
-  if (!normalizedStepKey) {
+function canModifyTrackingStep(requester, stepKey) {
+  const normalizedStepKey = String(stepKey || "");
+  const stepIndex = resolveTrackingStepIndex(normalizedStepKey);
+
+  if (!normalizedStepKey || stepIndex === -1) {
     return false;
   }
 
-  return true;
+  if (isAnthonyGlobalOwner(requester)) {
+    return true;
+  }
+
+  const requesterRole = normalizeRequesterRole(requester);
+
+  if (isUsaAdministrativeRole(requesterRole)) {
+    return stepIndex <= 3;
+  }
+
+  if (["admin", "manager"].includes(requesterRole)) {
+    return stepIndex >= 3;
+  }
+
+  return false;
+}
+
+function getCurrentTrackingStepIndex(steps = []) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return -1;
+  }
+
+  const explicitIndex = steps.findIndex((step) => Boolean(step?.inProgress) && !Boolean(step?.confirmed));
+
+  if (explicitIndex >= 0) {
+    return explicitIndex;
+  }
+
+  const firstPendingIndex = steps.findIndex((step) => !Boolean(step?.confirmed));
+
+  if (firstPendingIndex >= 0) {
+    return firstPendingIndex;
+  }
+
+  return steps.length - 1;
+}
+
+function canTransitionTrackingStep(requester, currentIndex, targetIndex) {
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= TRACKING_STATE_TEMPLATES.length) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner(requester)) {
+    return true;
+  }
+
+  const requesterRole = normalizeRequesterRole(requester);
+
+  if (isUsaAdministrativeRole(requesterRole)) {
+    return currentIndex <= 2 && targetIndex <= 3;
+  }
+
+  if (["admin", "manager"].includes(requesterRole)) {
+    return currentIndex >= 3 && targetIndex >= 3;
+  }
+
+  return false;
 }
 
 function resolveOrderModelForCreate(role) {
@@ -620,13 +682,65 @@ function normalizeMedia(media = []) {
   return media
     .filter((item) => item && item.url && item.type)
     .map((item) => ({
+      documentId: item.documentId ? String(item.documentId).trim() : undefined,
       type: item.type,
       category: item.category ? String(item.category).trim() : undefined,
       url: String(item.url).trim(),
       name: item.name ? String(item.name).trim() : undefined,
       caption: item.caption ? String(item.caption).trim() : undefined,
+      documentType: item.documentType ? String(item.documentType).trim().toUpperCase() : undefined,
+      note: item.note ? String(item.note).trim() : "",
       clientVisible: parseBooleanValue(item.clientVisible, true),
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || item.createdAt || null,
     }));
+}
+
+function normalizeOrderDocumentType(value, fallback = "OTRO") {
+  const normalizedValue = String(value || "").trim().toUpperCase();
+
+  if (ORDER_DOCUMENT_TYPES.has(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return fallback;
+}
+
+function normalizeOrderDocumentNote(value) {
+  return String(value || "").trim();
+}
+
+function isOrderDocumentMediaItem(item) {
+  return Boolean(item?.url) && (String(item?.category || "") === "document" || String(item?.type || "") === "document");
+}
+
+function getOrderDocumentMediaIndex(media = [], documentId = "") {
+  const normalizedDocumentId = String(documentId || "").trim();
+
+  if (!normalizedDocumentId) {
+    return -1;
+  }
+
+  return (Array.isArray(media) ? media : []).findIndex((item) => String(item?.documentId || "").trim() === normalizedDocumentId);
+}
+
+function buildOrderDocumentMediaItems(uploadedMedia = [], options = {}) {
+  const timestamp = options.timestamp || new Date();
+  const documentType = normalizeOrderDocumentType(options.documentType);
+  const note = normalizeOrderDocumentNote(options.note);
+  const clientVisible = parseBooleanValue(options.clientVisible, false);
+
+  return normalizeMedia(uploadedMedia).map((item) => ({
+    ...item,
+    documentId: item.documentId || randomUUID(),
+    type: "document",
+    category: "document",
+    documentType,
+    note,
+    clientVisible,
+    createdAt: item.createdAt || timestamp,
+    updatedAt: timestamp,
+  }));
 }
 
 function parseBooleanValue(value, fallback = false) {
@@ -866,7 +980,15 @@ function reconcileTrackingStepMedia(step, desiredMedia = []) {
   }));
 }
 
-function hasTrackingUpdateChanges({ notes = "", media = [], requestedConfirmed = false, requestedInProgress = false, step }) {
+function hasTrackingUpdateChanges({ title = "", location = "", notes = "", media = [], requestedConfirmed = false, requestedInProgress = false, step }) {
+  if (String(title || "").trim()) {
+    return true;
+  }
+
+  if (String(location || "").trim()) {
+    return true;
+  }
+
   const trimmedNotes = String(notes || "").trim();
 
   if (trimmedNotes) {
@@ -1479,6 +1601,120 @@ async function updateOrder(req, res) {
   }
 }
 
+async function uploadOrderDocuments(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const uploadedFiles = req.files || [];
+
+    if (!uploadedFiles.length) {
+      return res.status(400).json({ message: "Debes subir al menos un archivo" });
+    }
+
+    const uploadedMedia = await uploadFilesToCloudinary(uploadedFiles);
+    const documents = buildOrderDocumentMediaItems(uploadedMedia, {
+      documentType: req.body.documentType,
+      note: req.body.note,
+      clientVisible: req.body.clientVisible,
+      timestamp: new Date(),
+    });
+
+    order.media = normalizeMedia([...(Array.isArray(order.media) ? order.media : []), ...documents]);
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(200).json({
+      message: "Documentos cargados correctamente",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    if (error.message === "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.") {
+      return res.status(503).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: error.message || "Error uploading order documents" });
+  }
+}
+
+async function toggleOrderDocumentVisibility(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const normalizedMedia = normalizeMedia(order.media || []);
+    const documentIndex = getOrderDocumentMediaIndex(normalizedMedia, req.params.documentId);
+
+    if (documentIndex === -1 || !isOrderDocumentMediaItem(normalizedMedia[documentIndex])) {
+      return res.status(404).json({ message: "Documento no encontrado" });
+    }
+
+    normalizedMedia[documentIndex] = {
+      ...normalizedMedia[documentIndex],
+      clientVisible: parseBooleanValue(req.body.clientVisible, false),
+      updatedAt: new Date(),
+    };
+
+    order.media = normalizedMedia;
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(200).json({
+      message: "Visibilidad del documento actualizada",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error updating order document visibility" });
+  }
+}
+
+async function deleteOrderDocument(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const normalizedMedia = normalizeMedia(order.media || []);
+    const documentIndex = getOrderDocumentMediaIndex(normalizedMedia, req.params.documentId);
+
+    if (documentIndex === -1 || !isOrderDocumentMediaItem(normalizedMedia[documentIndex])) {
+      return res.status(404).json({ message: "Documento no encontrado" });
+    }
+
+    normalizedMedia.splice(documentIndex, 1);
+    order.media = normalizedMedia;
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(200).json({
+      message: "Documento eliminado correctamente",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error deleting order document" });
+  }
+}
+
 async function requestOrderDeletion(req, res) {
   try {
     const requesterRole = String(req.user?.role || "");
@@ -1635,6 +1871,8 @@ async function updateTrackingState(req, res) {
     const existingMedia = parseExistingMediaPayload(req.body.existingMedia);
     const uploadedFiles = req.files || [];
     const externalVideoMedia = parseTrackingVideoLinks(req.body.videoLinks);
+    const requestedTitle = String(req.body.title || "").trim();
+    const requestedLocation = String(req.body.location || "").trim();
     const requestedNotes = String(req.body.notes || "").trim();
     const requestedConfirmed = parseBooleanValue(req.body.confirmed, step.confirmed);
     const requestedInProgress = requestedConfirmed ? false : parseBooleanValue(req.body.inProgress, step.inProgress);
@@ -1646,7 +1884,7 @@ async function updateTrackingState(req, res) {
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
     const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
 
-    if (!canModifyTrackingStep(req.user?.role, stepKey)) {
+    if (!canModifyTrackingStep(req.user, stepKey)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
@@ -1672,6 +1910,8 @@ async function updateTrackingState(req, res) {
     );
     const isVisibilityOnlyUpdate = requestedVisibilityOnly || (
       !hasTrackingUpdateChanges({
+        title: requestedTitle,
+        location: requestedLocation,
         notes: requestedNotes,
         media: appendedMedia,
         requestedConfirmed,
@@ -1715,6 +1955,8 @@ async function updateTrackingState(req, res) {
     })) {
       const now = new Date();
       const newUpdate = {
+      title: requestedTitle,
+      location: requestedLocation,
         notes: requestedNotes,
         media: appendedMedia,
         clientVisible: updateShouldBeClientVisible,
@@ -1732,6 +1974,8 @@ async function updateTrackingState(req, res) {
         orderId: order._id,
         orderRegion: orderResult.region,
         stepKey,
+          title: requestedTitle,
+          location: requestedLocation,
         notes: requestedNotes,
         media: appendedMedia,
         clientVisible: updateShouldBeClientVisible,
@@ -1836,6 +2080,147 @@ async function updateTrackingState(req, res) {
     }
 
     return res.status(500).json({ message: "Error updating tracking state" });
+  }
+}
+
+async function transitionTrackingState(req, res) {
+  try {
+    const { orderId } = req.params;
+    const direction = String(req.body?.direction || "").trim().toLowerCase();
+
+    if (!["previous", "next"].includes(direction)) {
+      return res.status(400).json({ message: "Direccion de transicion invalida" });
+    }
+
+    const orderResult = await findOrderForRole(orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
+    order.trackingEventCollectionEnabled = true;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+    order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
+
+    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps);
+
+    if (currentStepIndex < 0) {
+      return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
+    }
+
+    const targetStepIndex = direction === "next" ? currentStepIndex + 1 : currentStepIndex - 1;
+
+    if (targetStepIndex < 0 || targetStepIndex >= order.trackingSteps.length) {
+      return res.status(409).json({ message: direction === "next" ? "El pedido ya esta en la ultima etapa" : "El pedido ya esta en la primera etapa" });
+    }
+
+    if (!canTransitionTrackingStep(req.user, currentStepIndex, targetStepIndex)) {
+      return res.status(403).json({ message: "No tienes permisos para mover este pedido entre etapas" });
+    }
+
+    const now = new Date();
+    const currentStep = order.trackingSteps[currentStepIndex];
+    const targetStep = order.trackingSteps[targetStepIndex];
+    const currentStateMeta = TRACKING_STATE_TEMPLATES[currentStepIndex] || { key: currentStep.key, label: currentStep.label };
+    const targetStateMeta = TRACKING_STATE_TEMPLATES[targetStepIndex] || { key: targetStep.key, label: targetStep.label };
+    const transitionTitle = direction === "next"
+      ? `Cambio de etapa a E${targetStepIndex + 1} — ${targetStateMeta.label}`
+      : `Retroceso de etapa a E${targetStepIndex + 1} — ${targetStateMeta.label}`;
+    const transitionNotes = String(req.body?.notes || "").trim()
+      || (direction === "next"
+        ? `La orden avanzo a ${targetStateMeta.label}.`
+        : `La orden regreso a ${targetStateMeta.label}.`);
+    const transitionLocation = String(req.body?.location || "").trim();
+    const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, targetStep.key);
+
+    if (direction === "next") {
+      currentStep.confirmed = true;
+      currentStep.inProgress = false;
+
+      const completionUpdate = ensureTrackingStepLifecycleUpdate(currentStep, {
+        notes: `Etapa completada al avanzar a E${targetStepIndex + 1}.`,
+        clientVisible: false,
+        inProgress: false,
+        completed: true,
+        timestamp: now,
+      });
+
+      if (completionUpdate && !completionUpdate.eventId) {
+        await createTrackingEvent({
+          orderId: order._id,
+          orderRegion: orderResult.region,
+          stepKey: currentStep.key,
+          title: `Etapa completada ${currentStateMeta.label}`,
+          notes: completionUpdate.notes,
+          clientVisible: false,
+          inProgress: false,
+          completed: true,
+          timestamp: completionUpdate.updatedAt || completionUpdate.createdAt || now,
+        });
+      }
+    } else {
+      currentStep.confirmed = false;
+      currentStep.inProgress = false;
+    }
+
+    targetStep.confirmed = false;
+    targetStep.inProgress = true;
+
+    await createTrackingEvent({
+      orderId: order._id,
+      orderRegion: orderResult.region,
+      stepKey: targetStep.key,
+      title: transitionTitle,
+      location: transitionLocation,
+      notes: transitionNotes,
+      media: [],
+      clientVisible: direction === "next",
+      inProgress: true,
+      completed: false,
+      timestamp: now,
+    });
+
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+    syncTrackingStepProgression(order.trackingSteps, targetStepIndex);
+    order.trackingSteps.forEach((step) => syncTrackingStepDerivedFields(step));
+
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
+    const updatedTargetStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === targetStep.key);
+    let notificationSummary = {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+
+    if (direction === "next" && updatedTargetStep) {
+      const publishedStep = buildTrackingStepSnapshot(updatedTargetStep, {
+        title: transitionTitle,
+        location: transitionLocation,
+        notes: transitionNotes,
+        media: [],
+        clientVisible: true,
+        inProgress: true,
+        completed: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+    }
+
+    return res.status(200).json({
+      message: "Tracking transition updated successfully",
+      notificationSummary,
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error updating tracking transition" });
   }
 }
 
@@ -1961,6 +2346,7 @@ async function deleteTrackingUpdate(req, res) {
 
 module.exports = {
   createOrder,
+  deleteOrderDocument,
   deleteTrackingUpdate,
   getOrder,
   listOrderDeletionRequests,
@@ -1968,7 +2354,10 @@ module.exports = {
   requestOrderDeletion,
   reviewOrderDeletionRequest,
   suggestTrackingNumber,
+  toggleOrderDocumentVisibility,
+  transitionTrackingState,
   toggleTrackingEventVisibility,
+  uploadOrderDocuments,
   updateOrder,
   updateTrackingState,
 };
