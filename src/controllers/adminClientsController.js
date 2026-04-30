@@ -6,6 +6,16 @@ const Maintenance = require("../models/Maintenance");
 const ClientMaintenanceVehicle = require("../models/ClientMaintenanceVehicle");
 
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const CLIENT_EMAIL_PLACEHOLDERS = new Set([
+  "cliente@correo.com",
+  "client@correo.com",
+  "correo@correo.com",
+]);
+const CLIENT_PHONE_PLACEHOLDERS = new Set([
+  "+57...",
+  "+1...",
+  "...",
+]);
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
@@ -35,11 +45,31 @@ function resolveClientModelByRole(role) {
   return isUsaAdministrativeRole(role) ? ClientGlobalUS : Client;
 }
 
+function normalizeOptionalClientEmail(value) {
+  const normalizedValue = String(value || "").toLowerCase().trim();
+
+  if (!normalizedValue || CLIENT_EMAIL_PLACEHOLDERS.has(normalizedValue)) {
+    return undefined;
+  }
+
+  return normalizedValue;
+}
+
+function normalizeOptionalClientPhone(value) {
+  const normalizedValue = String(value || "").trim();
+
+  if (!normalizedValue || CLIENT_PHONE_PLACEHOLDERS.has(normalizedValue)) {
+    return undefined;
+  }
+
+  return normalizedValue;
+}
+
 function normalizeClientPayload(payload = {}) {
   return {
     name: String(payload.name || "").trim(),
-    email: String(payload.email || "").toLowerCase().trim() || undefined,
-    phone: String(payload.phone || "").trim() || undefined,
+    email: normalizeOptionalClientEmail(payload.email),
+    phone: normalizeOptionalClientPhone(payload.phone),
     identification: String(payload.identification || "").trim() || undefined,
     address: String(payload.address || "").trim() || undefined,
     city: String(payload.city || "").trim() || undefined,
