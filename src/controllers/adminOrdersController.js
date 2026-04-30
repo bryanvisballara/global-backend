@@ -10,7 +10,7 @@ const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/
 const { TRACKING_STATE_TEMPLATES, normalizeTrackingStates } = require("../constants/trackingSteps");
 const { addMonths } = require("../utils/date");
 const {
-  ADMIN_NOTIFICATION_ROLES,
+  buildAdminNotificationUserQuery,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
 } = require("../services/pushNotificationService");
@@ -539,7 +539,7 @@ function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
     .slice(-1)[0] || null;
 }
 
-async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
+async function notifyPublishedTrackingStep(order, previousStep, publishedStep, orderRegion = "latam") {
   if (!publishedStep?.clientVisible) {
     return {
       clientPushSent: 0,
@@ -550,8 +550,8 @@ async function notifyPublishedTrackingStep(order, previousStep, publishedStep) {
   const clientPushResult = await sendTrackingUpdateNotifications(order, publishedStep, previousStep).catch(() => ({ sent: 0, skipped: 0 }));
 
   await sendTrackingUpdateEmails(order, previousStep, publishedStep).catch(() => null);
-  await sendTrackingUpdateAdminNotifications(order, publishedStep).catch(() => null);
-  await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep).catch(() => null);
+  await sendTrackingUpdateAdminNotifications(order, publishedStep, orderRegion).catch(() => null);
+  await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep, orderRegion).catch(() => null);
 
   return {
     clientPushSent: Number(clientPushResult?.sent || 0),
@@ -717,14 +717,13 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
   return { sent, failed };
 }
 
-async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep) {
+async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, orderRegion = "latam") {
   if (!updatedStep) {
     return { sent: 0, failed: 0 };
   }
 
   const admins = await User.find({
-    role: { $in: ADMIN_NOTIFICATION_ROLES },
-    isActive: true,
+    ...buildAdminNotificationUserQuery(orderRegion),
     email: { $exists: true, $ne: null },
   }).select("name email");
 
@@ -2081,7 +2080,8 @@ async function toggleOrderDocumentVisibility(req, res) {
       notificationSummary = await notifyPublishedTrackingStep(
         updatedOrder,
         null,
-        buildPublishedOrderDocumentStep(updatedDocument)
+        buildPublishedOrderDocumentStep(updatedDocument),
+        orderResult.region
       );
     }
 
@@ -2473,13 +2473,13 @@ async function updateTrackingState(req, res) {
     };
 
     if (clientPublishedStep?.clientVisible) {
-      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, clientPublishedStep);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, clientPublishedStep, orderResult.region);
     } else if (visibilityPublicationEvent && requestedClientVisible && !visibilityPreviouslyVisible && updatedStep) {
       const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(visibilityPublicationEvent));
-      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
     } else if (!(operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly)) {
-      await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep).catch(() => null);
-      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep).catch(() => null);
+      await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep, orderResult.region).catch(() => null);
+      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep, orderResult.region).catch(() => null);
     }
 
     return res.status(200).json({
@@ -2610,7 +2610,7 @@ async function transitionTrackingState(req, res) {
         updatedAt: now,
       });
 
-      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
     }
 
     return res.status(200).json({
@@ -2730,7 +2730,7 @@ async function finalizeTrackingOrder(req, res) {
         updatedAt: now,
       });
 
-      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
     }
 
     return res.status(200).json({
@@ -2794,7 +2794,7 @@ async function toggleTrackingEventVisibility(req, res) {
 
     if (requestedClientVisible && !previousClientVisible && updatedStep) {
       const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(targetEvent));
-      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
     }
 
     return res.status(200).json({

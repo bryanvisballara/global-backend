@@ -5,7 +5,10 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 
 const PUSH_SOUND_FILENAME = "0414.WAV";
+const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const ADMIN_NOTIFICATION_ROLES = ["manager", "admin", "gerenteUSA", "adminUSA"];
+const LATAM_ADMIN_NOTIFICATION_ROLES = ["manager", "admin"];
+const USA_ADMIN_NOTIFICATION_ROLES = ["gerenteUSA", "adminUSA"];
 const FIREBASE_MESSAGING_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 
 let firebaseAccessTokenCache = {
@@ -109,6 +112,25 @@ function getAdminTrackingNotificationPayload({ order, step }) {
       vin,
       stepKey: String(step?.key || ""),
     },
+  };
+}
+
+function buildAdminNotificationUserQuery(orderRegion = "latam") {
+  const normalizedRegion = String(orderRegion || "latam").trim().toLowerCase();
+
+  if (normalizedRegion === "usa") {
+    return {
+      isActive: true,
+      $or: [
+        { role: { $in: USA_ADMIN_NOTIFICATION_ROLES } },
+        { role: "manager", email: ANTHONY_GLOBAL_OWNER_EMAIL },
+      ],
+    };
+  }
+
+  return {
+    isActive: true,
+    role: { $in: LATAM_ADMIN_NOTIFICATION_ROLES },
   };
 }
 
@@ -710,10 +732,9 @@ async function sendTrackingUpdateNotifications(order, step, previousStep = null)
   return { sent: aggregateSent, skipped: aggregateSkipped };
 }
 
-async function sendTrackingUpdateAdminNotifications(order, step) {
+async function sendTrackingUpdateAdminNotifications(order, step, orderRegion = "latam") {
   const admins = await User.find({
-    role: { $in: ADMIN_NOTIFICATION_ROLES },
-    isActive: true,
+    ...buildAdminNotificationUserQuery(orderRegion),
     "pushDevices.0": { $exists: true },
   }).select("pushDevices");
 
@@ -734,6 +755,7 @@ async function sendTrackingUpdateAdminNotifications(order, step) {
 module.exports = {
   ADMIN_NOTIFICATION_ROLES,
   PUSH_SOUND_FILENAME,
+  buildAdminNotificationUserQuery,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
   sendPublishedPostNotifications,
