@@ -6,7 +6,7 @@
     <title>Global Imports | Dashboard</title>
     <meta
       name="description"
-      content="Dashboard administrativo de Global Imports con acceso a publicaciones, clientes, pedidos, seguimiento y mantenimientos."
+      content="Dashboard administrativo de Global Imports con acceso a clientes, pedidos, publicaciones y mantenimientos."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260414-scale75" />
+    <link rel="stylesheet" href="/styles.css?v=20260429-adminlight19" />
     <style>
       .global-loading-overlay {
         display: none !important;
@@ -37,8 +37,7 @@
 
             <nav class="admin-sidebar-nav">
               <a class="admin-nav-link active" href="/admin.html">Dashboard</a>
-              <a class="admin-nav-link" href="/admin-orders.html">Creacion de pedidos</a>
-              <a class="admin-nav-link" href="/admin-tracking.html">Seguimiento de pedidos</a>
+              <a class="admin-nav-link" href="/admin-tracking.html">Pedidos</a>
               <a class="admin-nav-link" href="/admin-clients.html">Clientes</a>
               <a class="admin-nav-link" href="/admin-deleted-accounts.html">Cuentas eliminadas</a>
               <a class="admin-nav-link admin-latam-only" href="/admin-client-requests.html">Solicitudes de compra</a>
@@ -138,7 +137,7 @@
               <div class="admin-panel-heading">
                 <div>
                   <h2>Ultimos eventos generales</h2>
-                  <p>Actividad reciente combinada de pedidos, publicaciones, solicitudes y mantenimientos.</p>
+                  <p>Actividad reciente de pedidos.</p>
                 </div>
               </div>
               <div class="tracking-table-wrap">
@@ -168,7 +167,7 @@
       </section>
     </main>
 
-    <script src="/admin-common.js?v=20260409-05"></script>
+    <script src="/admin-common.js?v=20260429-adminnav01"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -183,6 +182,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260409-13"></script>
+    <script src="/admin-dashboard.js?v=20260430-14"></script>
   </body>
 </html>

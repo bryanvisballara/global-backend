@@ -342,22 +342,22 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const isUsaRole = isUsaAdministrativeRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navItems = [
-    { href: "/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false },
-    { href: "/admin-orders.html", label: "Creación de pedidos", adminCreatorOnly: false, latamOnly: false },
-    { href: "/admin-tracking.html", label: "Seguimiento de pedidos", adminCreatorOnly: false, latamOnly: false },
-    { href: "/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false },
-    { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false },
-    { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminacion", adminCreatorOnly: true, latamOnly: false },
-    { href: "/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true },
-    { href: "/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true },
-    { href: "/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true },
-    { href: "/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true },
-    { href: "/admin-admins.html", label: "Creación de administradores", adminCreatorOnly: true, latamOnly: false },
+    { href: "/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
+    { href: "/admin-tracking.html", label: "Pedidos", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+    { href: "/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
+    { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
+    { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminacion", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
+    { href: "/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
+    { href: "/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
+    { href: "/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
+    { href: "/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
+    { href: "/admin-admins.html", label: "Creación de administradores", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
   ];
 
   const navMarkup = navItems
     .map((item) => {
-      const isActive = currentPath === item.href;
+      const activePaths = Array.isArray(item.activePaths) && item.activePaths.length ? item.activePaths : [item.href];
+      const isActive = activePaths.includes(currentPath);
       const classes = ["admin-nav-link"];
       const inlineStyles = [];
 

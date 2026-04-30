@@ -201,6 +201,12 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
         case "authenticate":
             authenticateWithBiometrics(requestId: requestId)
 
+        case "clear-session":
+            biometricSessionStore.clear()
+            var payload = biometricStatusPayload()
+            payload["ok"] = true
+            sendBiometricResponse(requestId: requestId, payload: payload)
+
         default:
             sendBiometricResponse(requestId: requestId, payload: [
                 "ok": false,
@@ -701,6 +707,16 @@ private final class BiometricSessionStore {
         guard status == errSecSuccess else {
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
         }
+    }
+
+    func clear() {
+        let baseQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+
+        SecItemDelete(baseQuery as CFDictionary)
     }
 
     func retrieveProtectedSession(with context: LAContext) throws -> ProtectedSession {

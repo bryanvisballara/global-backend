@@ -200,7 +200,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = GlobalImportsApp/GlobalImportsApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 3NMQTW4447;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GlobalImportsApp/Info.plist;
@@ -209,7 +209,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.globalimports.app.dev;
 				PRODUCT_NAME = "Global Imports";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -227,7 +227,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = GlobalImportsApp/GlobalImportsApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 3NMQTW4447;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GlobalImportsApp/Info.plist;
@@ -236,7 +236,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.globalimports.app.dev;
 				PRODUCT_NAME = "Global Imports";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

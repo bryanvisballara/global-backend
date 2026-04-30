@@ -1335,7 +1335,7 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 
 .admin-dashboard-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-top: 22px;
 }
@@ -1455,6 +1455,8 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   border-radius: 22px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.025);
+  justify-items: center;
+  text-align: center;
 }
 
 .stage-distribution-link {
@@ -2405,7 +2407,7 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-search-stack > span {
-  color: #f3ede0;
+  color: #111111;
   font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -3026,7 +3028,7 @@ body.admin-app-view .request-card-top strong {
 }
 
 .tracking-search-results-table {
-  min-width: 980px;
+  min-width: 1100px;
 }
 
 .tracking-order-row {
@@ -3034,11 +3036,90 @@ body.admin-app-view .request-card-top strong {
 }
 
 .tracking-order-row td {
+  vertical-align: middle;
   transition: background 140ms ease, color 140ms ease;
 }
 
 .tracking-order-row td strong {
   color: var(--text);
+}
+
+.tracking-order-link-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #111111;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tracking-order-link-button:hover,
+.tracking-order-link-button:focus-visible {
+  color: #805d16;
+}
+
+.tracking-order-link-button:focus-visible {
+  outline: 2px solid rgba(216, 170, 82, 0.36);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.tracking-order-actions-cell {
+  width: 120px;
+  text-align: center;
+}
+
+.tracking-order-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tracking-order-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(17, 17, 17, 0.1);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.tracking-order-action-button:hover,
+.tracking-order-action-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(17, 17, 17, 0.14);
+}
+
+.tracking-order-action-button:focus-visible {
+  outline: 2px solid rgba(216, 170, 82, 0.36);
+  outline-offset: 2px;
+}
+
+.tracking-order-action-button.is-danger {
+  color: #9f1d1d;
+}
+
+.tracking-order-action-button:disabled,
+.tracking-order-action-button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .tracking-order-row:hover td,
@@ -3051,17 +3132,17 @@ body.admin-app-view .request-card-top strong {
   outline-offset: -2px;
 }
 
-body.orders-creation-page .single-module-grid {
+.orders-creation-page .single-module-grid {
   width: 100%;
 }
 
-body.orders-creation-page .module-layout {
+.orders-creation-page .module-layout {
   grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
 
-body.orders-creation-page #order-form {
+.orders-creation-page #order-form {
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
@@ -5663,6 +5744,177 @@ body .tracking-search-page .page-hero h1 {
   margin-top: 4px;
 }
 
+.tracking-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.tracking-hero-copy {
+  min-width: 0;
+}
+
+.tracking-create-order-trigger {
+  flex: 0 0 auto;
+}
+
+#tracking-create-order-modal[hidden] {
+  display: none !important;
+}
+
+#tracking-create-order-modal:not([hidden]) {
+  display: grid !important;
+  place-items: center !important;
+  align-content: center !important;
+  justify-items: center !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  overflow: auto !important;
+  padding: 12px !important;
+}
+
+#tracking-create-order-modal .tracking-create-order-modal-card {
+  position: fixed !important;
+  inset: auto !important;
+  top: 50vh !important;
+  top: 50dvh !important;
+  left: 50vw !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  width: min(88vw, 1240px) !important;
+  max-width: calc(100vw - 40px) !important;
+  max-height: calc(100dvh - 40px) !important;
+  padding: 24px 26px !important;
+  overflow: auto !important;
+  z-index: 1;
+}
+
+.tracking-create-order-modal-card #order-tracking-number {
+  background: #f0f0f0 !important;
+  border-color: rgba(17, 17, 17, 0.16) !important;
+  color: #6a6a6a !important;
+  cursor: default;
+}
+
+.tracking-create-order-modal-card #order-tracking-number::placeholder {
+  color: #7a7a7a !important;
+}
+
+.tracking-create-order-modal-card label,
+.tracking-create-order-modal-card label span,
+.tracking-create-order-modal-card .field-helper {
+  color: #111111 !important;
+}
+
+.tracking-create-order-modal-card textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.tracking-create-order-header {
+  display: flex;
+  align-items: start;
+  justify-content: flex-start;
+  gap: 16px;
+  padding-right: 56px;
+}
+
+.tracking-create-order-close {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111111;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(17, 17, 17, 0.12);
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.tracking-create-order-close:hover,
+.tracking-create-order-close:focus-visible {
+  background: #ffffff;
+  transform: scale(1.04);
+  box-shadow: 0 12px 24px rgba(17, 17, 17, 0.16);
+}
+
+.tracking-create-order-close:focus-visible {
+  outline: 2px solid rgba(216, 170, 82, 0.42);
+  outline-offset: 2px;
+}
+
+.tracking-create-order-layout {
+  display: grid;
+}
+
+.tracking-create-order-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+@media (max-width: 860px) {
+  .tracking-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #tracking-create-order-modal:not([hidden]) {
+    padding: 8px !important;
+  }
+
+  #tracking-create-order-modal .tracking-create-order-modal-card {
+    box-sizing: border-box !important;
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    top: 50vh !important;
+    top: 50dvh !important;
+    left: 50vw !important;
+    transform: translate(-50%, -50%) !important;
+    padding: 18px !important;
+  }
+
+  .tracking-create-order-trigger {
+    width: 100%;
+  }
+
+  .tracking-create-order-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding-right: 44px;
+  }
+
+  .tracking-create-order-close {
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .tracking-create-order-actions {
+    flex-direction: column;
+  }
+}
+
 #order-edit-modal input[readonly] {
   opacity: 0.82;
 }
@@ -7677,4 +7929,382 @@ body.modal-open {
 .maint-appointment-time-input {
   font-size: 0.73rem;
   padding: 6px 8px;
+}
+
+body.admin-app-view {
+  --bg: #ffffff;
+  --bg-soft: #f5f5f5;
+  --card: #ffffff;
+  --card-strong: #ffffff;
+  --line: rgba(17, 17, 17, 0.12);
+  --line-strong: rgba(17, 17, 17, 0.18);
+  --text: #111111;
+  --muted: #505050;
+  --shadow: 0 18px 48px rgba(17, 17, 17, 0.08);
+  color-scheme: light;
+  background: #ffffff;
+  color: var(--text);
+}
+
+body.admin-app-view .dashboard-shell,
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-dashboard-main,
+body.admin-app-view .page-topbar,
+body.admin-app-view .page-hero,
+body.admin-app-view .dashboard-card,
+body.admin-app-view .metric-card,
+body.admin-app-view .nav-card,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .admin-badge,
+body.admin-app-view .admin-user-chip,
+body.admin-app-view .admin-sidebar-logo,
+body.admin-app-view .route-card,
+body.admin-app-view .info-box,
+body.admin-app-view .module-metric-inline,
+body.admin-app-view .list-item,
+body.admin-app-view .empty-state,
+body.admin-app-view .stage-distribution-item,
+body.admin-app-view .state-order-item,
+body.admin-app-view .posts-right-panel,
+body.admin-app-view .schedule-panel,
+body.admin-app-view .published-post-item,
+body.admin-app-view .edit-current-content-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-table-wrap,
+body.admin-app-view .maint-detail-table-wrap,
+body.admin-app-view .request-card,
+body.admin-app-view .maint-vehicle-card,
+body.admin-app-view .maint-calendar-day,
+body.admin-app-view .maint-modal-content,
+body.admin-app-view .tracking-summary-card,
+body.admin-app-view .clients-filter-card {
+  color: var(--text);
+}
+
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-dashboard-main,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .dashboard-card,
+body.admin-app-view .metric-card,
+body.admin-app-view .nav-card,
+body.admin-app-view .route-card,
+body.admin-app-view .info-box,
+body.admin-app-view .admin-badge,
+body.admin-app-view .admin-user-chip,
+body.admin-app-view .module-metric-inline,
+body.admin-app-view .list-item,
+body.admin-app-view .empty-state,
+body.admin-app-view .stage-distribution-item,
+body.admin-app-view .state-order-item,
+body.admin-app-view .posts-right-panel,
+body.admin-app-view .schedule-panel,
+body.admin-app-view .published-post-item,
+body.admin-app-view .edit-current-content-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-table-wrap,
+body.admin-app-view .maint-detail-table-wrap,
+body.admin-app-view .request-card,
+body.admin-app-view .maint-vehicle-card,
+body.admin-app-view .maint-calendar-day,
+body.admin-app-view .maint-modal-content,
+body.admin-app-view .tracking-summary-card,
+body.admin-app-view .clients-filter-card {
+  background: #ffffff;
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .admin-dashboard-main {
+  backdrop-filter: none;
+}
+
+body.admin-app-view .dashboard-sheen {
+  display: none;
+}
+
+body.admin-app-view .section-tag,
+body.admin-app-view .status-chip,
+body.admin-app-view .route-card span,
+body.admin-app-view .info-box span,
+body.admin-app-view .admin-meta-pill,
+body.admin-app-view .list-item span,
+body.admin-app-view .order-step-chip,
+body.admin-app-view .admin-brand-mark,
+body.admin-app-view .published-post-action,
+body.admin-app-view .request-card .section-tag {
+  background: #f4f4f4;
+  border-color: var(--line);
+  color: #111111;
+}
+
+body.admin-app-view .secondary-button,
+body.admin-app-view .compact-action-button,
+body.admin-app-view .published-post-action,
+body.admin-app-view .admin-sidebar-toggle,
+body.admin-app-view .dashboard-secondary-action {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.18);
+  color: #111111;
+}
+
+body.admin-app-view .secondary-button:hover,
+body.admin-app-view .compact-action-button:hover,
+body.admin-app-view .published-post-action:hover,
+body.admin-app-view .admin-sidebar-toggle:hover,
+body.admin-app-view .dashboard-secondary-action:hover {
+  background: #f4f4f4;
+}
+
+body.admin-app-view .primary-button {
+  color: #111111;
+}
+
+body.admin-app-view .nav-card span:last-child,
+body.admin-app-view .admin-panel-heading strong,
+body.admin-app-view .stage-distribution-item b,
+body.admin-app-view .tracking-generate-button,
+body.admin-app-view .published-post-action.danger,
+body.admin-app-view .admin-nav-link.active,
+body.admin-app-view .order-step-chip.is-confirmed,
+body.admin-app-view .order-step-chip.is-pending,
+body.admin-app-view .order-step-chip.is-active {
+  color: #111111;
+}
+
+body.admin-app-view .admin-nav-link:hover,
+body.admin-app-view .nav-card:hover,
+body.admin-app-view .stage-distribution-link:hover,
+body.admin-app-view .state-order-link:hover {
+  background: #f6f6f6;
+}
+
+body.admin-app-view .admin-nav-link.active {
+  background: #f1f1f1;
+  border-color: rgba(17, 17, 17, 0.2);
+}
+
+body.admin-app-view .admin-sidebar-logo,
+body.admin-app-view .admin-brand-mark img {
+  background: #ffffff;
+  border-color: var(--line);
+  filter: invert(1);
+}
+
+body.admin-app-view .dashboard-form input,
+body.admin-app-view .dashboard-form textarea,
+body.admin-app-view .dashboard-form select,
+body.admin-app-view .maint-status-select,
+body.admin-app-view .maint-notes-input,
+body.admin-app-view .maint-appointment-date-input,
+body.admin-app-view .maint-appointment-time-input,
+body.admin-app-view .maint-detail-search,
+body.admin-app-view .maint-detail-city-filter {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.14);
+  color: #111111;
+}
+
+body.admin-app-view .dashboard-form select,
+body.admin-app-view .maint-status-select,
+body.admin-app-view .maint-appointment-time-input,
+body.admin-app-view .maint-detail-city-filter {
+  color-scheme: light;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23111111' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 12px 12px;
+  padding-right: 46px;
+}
+
+body.admin-app-view .dashboard-form select option,
+body.admin-app-view .dashboard-form select optgroup,
+body.admin-app-view .maint-status-select option,
+body.admin-app-view .maint-status-select optgroup,
+body.admin-app-view .maint-appointment-time-input option,
+body.admin-app-view .maint-appointment-time-input optgroup,
+body.admin-app-view .maint-detail-city-filter option,
+body.admin-app-view .maint-detail-city-filter optgroup {
+  background: #ffffff;
+  color: #111111;
+}
+
+body.admin-app-view .tracking-data-table th {
+  color: var(--muted);
+  background: #f7f7f7;
+}
+
+body.admin-app-view .tracking-data-table td,
+body.admin-app-view .tracking-data-table td strong,
+body.admin-app-view .tracking-data-table td small,
+body.admin-app-view .maint-th,
+body.admin-app-view .maint-td,
+body.admin-app-view .maint-table th,
+body.admin-app-view .maint-table td {
+  color: #111111;
+}
+
+body.admin-app-view .tracking-data-table tr,
+body.admin-app-view .maint-table tr {
+  background: #ffffff;
+}
+
+body.admin-app-view .admin-sidebar-backdrop,
+body.admin-app-view #maint-modal-overlay {
+  background: rgba(17, 17, 17, 0.1);
+}
+
+body.admin-app-view .page-topbar a,
+body.admin-app-view .dashboard-card a,
+body.admin-app-view .admin-dashboard-main a,
+body.admin-app-view .admin-sidebar a {
+  color: #111111;
+}
+
+body.admin-app-view .client-modal-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-modal-card,
+body.admin-app-view .maint-modal-content {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.14) !important;
+  color: #111111 !important;
+  box-shadow: 0 24px 60px rgba(17, 17, 17, 0.12) !important;
+}
+
+body.admin-app-view .client-modal-overlay,
+body.admin-app-view .tracking-modal-backdrop,
+body.admin-app-view .maint-modal-overlay {
+  background: rgba(17, 17, 17, 0.1) !important;
+  backdrop-filter: blur(3px);
+}
+
+body.admin-app-view .client-modal-card h1,
+body.admin-app-view .client-modal-card h2,
+body.admin-app-view .client-modal-card h3,
+body.admin-app-view .client-modal-card p,
+body.admin-app-view .client-modal-card strong,
+body.admin-app-view .client-modal-card label,
+body.admin-app-view .admin-modal-card h1,
+body.admin-app-view .admin-modal-card h2,
+body.admin-app-view .admin-modal-card h3,
+body.admin-app-view .admin-modal-card p,
+body.admin-app-view .admin-modal-card strong,
+body.admin-app-view .admin-modal-card label,
+body.admin-app-view .tracking-modal-card h1,
+body.admin-app-view .tracking-modal-card h2,
+body.admin-app-view .tracking-modal-card h3,
+body.admin-app-view .tracking-modal-card p,
+body.admin-app-view .tracking-modal-card strong,
+body.admin-app-view .maint-modal-content h1,
+body.admin-app-view .maint-modal-content h2,
+body.admin-app-view .maint-modal-content h3,
+body.admin-app-view .maint-modal-content p,
+body.admin-app-view .maint-modal-content strong {
+  color: #111111 !important;
+}
+
+body.admin-app-view .maint-modal-close,
+body.admin-app-view .tracking-visibility-button,
+body.admin-app-view .tracking-visibility-button-inline,
+body.admin-app-view .popover-action,
+body.admin-app-view a.popover-action,
+body.admin-app-view .logout-action,
+body.admin-app-view .published-post-action.danger {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.16) !important;
+  color: #111111 !important;
+}
+
+body.admin-app-view .popover-action:hover,
+body.admin-app-view a.popover-action:hover,
+body.admin-app-view .logout-action:hover,
+body.admin-app-view .tracking-visibility-button:hover,
+body.admin-app-view .tracking-visibility-button-inline:hover,
+body.admin-app-view .maint-modal-close:hover {
+  background: #f3f3f3 !important;
+}
+
+body.admin-app-view .client-form-card input,
+body.admin-app-view .client-form-card textarea,
+body.admin-app-view .client-form-card select,
+body.admin-app-view .login-form input,
+body.admin-app-view .login-form select,
+body.admin-app-view .password-toggle {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.14) !important;
+  color: #111111 !important;
+}
+
+body.admin-app-view .login-form .auth-field-optional,
+body.admin-app-view .maint-calendar-day-count,
+body.admin-app-view .edit-current-content-value,
+body.admin-app-view .modal-copy,
+body.admin-app-view .field-help,
+body.admin-app-view .published-post-copy span,
+body.admin-app-view .client-form-card input::placeholder,
+body.admin-app-view .client-form-card textarea::placeholder,
+body.admin-app-view .dashboard-form input::placeholder,
+body.admin-app-view .dashboard-form textarea::placeholder,
+body.admin-app-view .maint-notes-input::placeholder,
+body.admin-app-view .maint-detail-search::placeholder {
+  color: #505050 !important;
+}
+
+body.admin-app-view .tracking-data-table th,
+body.admin-app-view .tracking-data-table td,
+body.admin-app-view .tracking-data-table td strong,
+body.admin-app-view .tracking-data-table td small,
+body.admin-app-view .tracking-data-table td::before,
+body.admin-app-view .maint-table th,
+body.admin-app-view .maint-table td,
+body.admin-app-view .maint-td::before {
+  color: #111111 !important;
+}
+
+body.admin-app-view .tracking-data-table tr,
+body.admin-app-view .tracking-data-table tbody tr,
+body.admin-app-view .maint-table tr,
+body.admin-app-view .maint-calendar-day {
+  background: #ffffff !important;
+}
+
+body.admin-app-view .tracking-data-table tbody tr:nth-child(even),
+body.admin-app-view .maint-table tbody tr:nth-child(even) {
+  background: #f3f3f3 !important;
+}
+
+body.admin-app-view .dashboard-tracking-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid rgba(17, 17, 17, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111 !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+body.admin-app-view .dashboard-tracking-link:hover {
+  background: #f3f3f3;
+}
+
+body.admin-app-view,
+body.admin-app-view *,
+body.admin-app-view *::placeholder {
+  text-transform: uppercase !important;
+}
+
+html:has(body.admin-app-view) {
+  background: #ffffff !important;
+}
+
+body.admin-app-view,
+body.admin-app-view .dashboard-shell,
+body.admin-app-view .dashboard-stage {
+  background: #ffffff !important;
 }

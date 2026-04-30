@@ -154,8 +154,6 @@ async function fetchDashboardJson(path, options = {}) {
   if (!response.ok) {
     const isAuthFailure =
       response.status === 401 ||
-      response.status === 403 ||
-      data.message === "Forbidden" ||
       data.message === "Authentication required" ||
       data.message === "Invalid or expired token" ||
       data.message === "Invalid token";
@@ -418,7 +416,7 @@ function renderGlobalEvents(events) {
   }
 
   if (!events.length) {
-    tableBody.innerHTML = '<tr><td colspan="7"><div class="empty-state">Sin eventos recientes por mostrar.</div></td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Sin eventos recientes por mostrar.</div></td></tr>';
     return;
   }
 
@@ -426,94 +424,57 @@ function renderGlobalEvents(events) {
     .map((event) => `
       <tr>
         <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(event.date))}</td>
-        <td data-label="Modulo">${escapeHtml(event.module)}</td>
+        <td data-label="Tracking">${event.detailUrl
+          ? `<a class="dashboard-tracking-link" href="${escapeHtml(event.detailUrl)}">${escapeHtml(event.trackingNumber || "-")}</a>`
+          : escapeHtml(event.trackingNumber || "-")}</td>
         <td data-label="Estado">${escapeHtml(event.status || "-")}</td>
         <td data-label="Vehículo">${escapeHtml(event.vehicle || "-")}</td>
         <td data-label="Cliente">${escapeHtml(event.clientName || "-")}</td>
-        <td data-label="Evento">${escapeHtml(event.title)}</td>
-        <td data-label="Detalle">${escapeHtml(event.detail)}</td>
+        <td data-label="Ejecutado por">${escapeHtml(event.executedBy || "-")}</td>
       </tr>
     `)
     .join("");
 }
 
 function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenance = [] }) {
-  const orderEvents = orders.flatMap((order) => {
-    const trackingCode = order?.trackingNumber ? `Tracking ${order.trackingNumber}` : "Pedido";
+  return orders.flatMap((order) => {
+    const orderId = String(order?._id || order?.id || "").trim();
+    const trackingNumber = order?.trackingNumber || "-";
+    const vinValue = String(order?.vehicle?.vin || "").trim();
     const vehicleLabel = `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}`.trim();
     const clientName = order?.client?.name || "-";
-    const currentStageDisplay = resolveStageDisplayFromOrder(order);
-    const baseEvents = [
-      {
-        date: order?.createdAt,
-        module: "Pedidos",
-        status: currentStageDisplay,
-        vehicle: vehicleLabel,
-        clientName,
-        title: "Pedido creado",
-        detail: `${trackingCode} · ${vehicleLabel}`,
-      },
-      {
-        date: order?.updatedAt,
-        module: "Pedidos",
-        status: currentStageDisplay,
-        vehicle: vehicleLabel,
-        clientName,
-        title: "Pedido actualizado",
-        detail: `${trackingCode} · Estado ${order?.status || "-"}`,
-      },
-    ];
+    const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
+    const trackingEvents = getOrderTrackingEvents(order);
 
-    const trackingEvents = getOrderTrackingSteps(order)
-      .filter((step) => step?.updatedAt || step?.confirmedAt)
-      .map((step) => ({
-        date: step.updatedAt || step.confirmedAt,
-        module: "Tracking",
-        status: resolveStageDisplayFromStep(step),
+    if (trackingEvents.length) {
+      return trackingEvents.map((event) => ({
+        date: event.updatedAt || event.createdAt,
+        trackingNumber,
+        detailUrl,
+        status: event.stateCode
+          ? `${event.stateCode}: ${event.stateLabel || "-"}`
+          : (event.stateLabel || "-"),
         vehicle: vehicleLabel,
         clientName,
-        title: `Cambio en ${step.label || "estado"}`,
-        detail: `${trackingCode}${step.confirmed ? " · Confirmado" : ""}`,
+        executedBy: order?.createdBy?.name || order?.createdBy?.email || "-",
       }));
+    }
 
-    return baseEvents.concat(trackingEvents);
-  });
-
-  const postEvents = posts.map((post) => ({
-    date: post?.publishedAt || post?.createdAt || post?.updatedAt,
-    module: "Publicaciones",
-    status: post?.status || "-",
-    vehicle: "-",
-    clientName: "-",
-    title: post?.status === "scheduled" ? "Publicación programada" : "Publicación registrada",
-    detail: post?.title || "Sin título",
-  }));
-
-  const requestEvents = requests.map((request) => ({
-    date: request?.updatedAt || request?.createdAt,
-    module: "Solicitudes de compra",
-    status: request?.status || "-",
-    vehicle: `${request?.vehicle?.brand || "Vehículo"} ${request?.vehicle?.model || ""}`.trim(),
-    clientName: request?.customerName || "-",
-    title: `Solicitud ${request?.status || "nueva"}`,
-    detail: `${request?.customerName || "Cliente"} · ${request?.vehicle?.brand || "Vehículo"} ${request?.vehicle?.model || ""}`.trim(),
-  }));
-
-  const maintenanceEvents = maintenance.map((item) => ({
-    date: item?.updatedAt || item?.createdAt || item?.dueDate,
-    module: "Mantenimientos",
-    status: item?.order ? resolveStageDisplayFromOrder(item.order) : "-",
-    vehicle: `${item?.order?.vehicle?.brand || "Vehículo"} ${item?.order?.vehicle?.model || ""}`.trim(),
-    clientName: item?.client?.name || item?.order?.client?.name || "-",
-    title: `Mantenimiento ${item?.status || "programado"}`,
-    detail: `${item?.order?.trackingNumber ? `Tracking ${item.order.trackingNumber}` : "Sin tracking"}${item?.client?.name ? ` · ${item.client.name}` : ""}`,
-  }));
-
-  return orderEvents
-    .concat(postEvents, requestEvents, maintenanceEvents)
+    return getOrderTrackingSteps(order)
+      .filter((step) => step?.updatedAt || step?.confirmedAt)
+      .map((step, index) => ({
+        date: step.updatedAt || step.confirmedAt,
+        trackingNumber,
+        detailUrl,
+        status: `E${index + 1}: ${resolveStageDisplayFromStep(step)}`,
+        vehicle: vehicleLabel,
+        clientName,
+        executedBy: order?.createdBy?.name || order?.createdBy?.email || "-",
+      }));
+  })
     .filter((event) => event && event.date)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 20);
+    .slice(0, 10);
 }
 
 function renderStageDistribution(orders) {

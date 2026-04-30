@@ -3,18 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Global Imports | Tracking</title>
+    <title>Global Imports | Pedidos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260414-scale75" />
+    <link rel="stylesheet" href="/styles.css?v=20260429-adminlight19" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
     <style>
       .global-loading-overlay {
         display: none !important;
       }
     </style>
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -28,9 +29,12 @@
             <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
           </div>
         </header>
-        <section class="page-hero">
-          <h1>Seguimiento de pedidos</h1>
-          <p class="dashboard-lead">Busca un pedido activo y administra sus nueve estados internos, sus adjuntos y su visibilidad hacia el cliente.</p>
+        <section class="page-hero tracking-hero">
+          <div class="tracking-hero-copy">
+            <h1>Pedidos</h1>
+            <p class="dashboard-lead">Busca un pedido activo y administra sus nueve estados internos, sus adjuntos y su visibilidad hacia el cliente.</p>
+          </div>
+          <button id="open-create-order-modal" class="primary-button tracking-create-order-trigger" type="button">Crear pedido</button>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
@@ -54,8 +58,8 @@
                     </div>
                     <div class="tracking-search-stack">
                       <span>Buscar por cliente o identificador interno</span>
-                      <input id="tracking-search-internal" class="tracking-native-select" type="text" placeholder="Escribe cliente o identificador interno" list="tracking-search-internal-list" autocomplete="off" />
-                      <datalist id="tracking-search-internal-list"></datalist>
+                      <input id="tracking-search-client" class="tracking-native-select" type="text" placeholder="Escribe cliente o identificador interno" list="tracking-search-client-list" autocomplete="off" />
+                      <datalist id="tracking-search-client-list"></datalist>
                     </div>
                     <div class="tracking-search-stack">
                       <span>Filtrar por estado</span>
@@ -105,7 +109,145 @@
         <button id="tracking-success-close" class="primary-button" type="button" onclick="window.__closeTrackingSuccessModal?.(); return false;">Aceptar</button>
       </div>
     </div>
-    <script src="/admin-common.js?v=20260409-05"></script>
+    <div id="tracking-create-order-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-create-order-modal onclick="window.__closeCreateOrderModal?.(); return false;"></div>
+      <section class="client-modal-card admin-modal-card tracking-create-order-modal-card orders-creation-page" role="dialog" aria-modal="true" aria-labelledby="tracking-create-order-title">
+        <header class="client-modal-header tracking-create-order-header">
+          <div>
+            <h2 id="tracking-create-order-title">Crear pedido</h2>
+            <p id="tracking-create-order-copy" class="modal-copy">Registra un pedido nuevo sin salir del módulo de seguimiento.</p>
+          </div>
+          <button class="tracking-create-order-close" type="button" aria-label="Cerrar modal" data-close-create-order-modal onclick="window.__closeCreateOrderModal?.(); return false;">&times;</button>
+        </header>
+        <div class="module-layout tracking-create-order-layout">
+          <form id="order-form" class="dashboard-form" data-mode="create" data-order-id="" enctype="multipart/form-data" novalidate onsubmit="event.preventDefault(); return window.__submitAdminOrder?.(event) ?? false;">
+            <div class="form-row two-up">
+              <label><span>Marca</span><input name="brand" type="text" placeholder="Toyota" required /></label>
+              <label><span>Modelo</span><input name="model" type="text" placeholder="4Runner" required /></label>
+            </div>
+            <div class="form-row two-up">
+              <label><span>Versión</span><input name="version" type="text" placeholder="SR5, Limited, AMG, GT Line..." required /></label>
+              <label><span>Año</span><input name="year" type="number" min="1900" placeholder="2024" required /></label>
+            </div>
+            <div class="form-row two-up">
+              <label>
+                <span>Tracking</span>
+                <div class="tracking-field-stack">
+                  <input id="order-tracking-number" name="trackingNumber" type="text" placeholder="GI-000123" readonly required />
+                  <button id="generate-tracking-button" class="link-button tracking-generate-button" type="button" onclick="window.__regenerateTrackingFromModal?.(); return false;">Regenerar tracking</button>
+                </div>
+              </label>
+              <label><span>VIN</span><input name="vin" type="text" placeholder="Ingresa el VIN (opcional)" /></label>
+            </div>
+            <div class="form-row three-up">
+              <label>
+                <span>Destino</span>
+                <select name="destination" required>
+                  <option value="">Selecciona destino</option>
+                  <option value="Puerto Santa Marta">Puerto Santa Marta</option>
+                  <option value="Puerto Cartagena">Puerto Cartagena</option>
+                  <option value="Puerto Barranquilla">Puerto Barranquilla</option>
+                  <option value="Puerto Miami">Puerto Miami</option>
+                </select>
+              </label>
+              <label>
+                <span>Color exterior</span>
+                <select name="exteriorColor" required>
+                  <option value="">Selecciona color exterior</option>
+                  <option value="Black">Black</option>
+                  <option value="Blue">Blue</option>
+                  <option value="Brown">Brown</option>
+                  <option value="Gray">Gray</option>
+                  <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
+                  <option value="Mudbath">Mudbath</option>
+                  <option value="Other">Other</option>
+                  <option value="Red">Red</option>
+                  <option value="Silver">Silver</option>
+                  <option value="White">White</option>
+                  <option value="Yellow">Yellow</option>
+                </select>
+              </label>
+              <label>
+                <span>Color interior</span>
+                <select name="interiorColor" required>
+                  <option value="">Selecciona color interior</option>
+                  <option value="Black">Black</option>
+                  <option value="Blue">Blue</option>
+                  <option value="Brown">Brown</option>
+                  <option value="Gray">Gray</option>
+                  <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
+                  <option value="Mudbath">Mudbath</option>
+                  <option value="Other">Other</option>
+                  <option value="Red">Red</option>
+                  <option value="Silver">Silver</option>
+                  <option value="White">White</option>
+                  <option value="Yellow">Yellow</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Cliente</span>
+              <select id="order-client-select" name="clientId" required>
+                <option value="">Cargando clientes...</option>
+              </select>
+              <small id="order-client-summary" class="field-helper">Selecciona uno de los clientes ya creados.</small>
+            </label>
+            <label>
+              <span>Observaciones</span>
+              <textarea name="notes" rows="4" placeholder="Escribe observaciones internas del pedido"></textarea>
+            </label>
+            <div class="tracking-create-order-actions">
+              <button class="secondary-button" type="button" data-close-create-order-modal onclick="window.__closeCreateOrderModal?.(); return false;">Cancelar</button>
+              <button id="tracking-create-order-submit" class="primary-button" type="submit">Crear pedido</button>
+            </div>
+            <p id="order-feedback" class="feedback" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </div>
+    <div id="order-delete-request-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-order-delete-request-modal onclick="window.__closeOrderDeleteRequestModal?.(); return false;"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="order-delete-request-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="order-delete-request-title">Solicitar eliminación</h2>
+            <p id="order-delete-request-copy" class="modal-copy">La solicitud será enviada a gerencia para aprobación antes de eliminar el pedido.</p>
+          </div>
+        </header>
+        <form id="order-delete-request-form" class="dashboard-form">
+          <label><span>Pedido</span><input id="order-delete-request-summary" type="text" readonly /></label>
+          <label>
+            <span>Motivo de la solicitud</span>
+            <textarea id="order-delete-request-reason" rows="4" placeholder="Explica por qué se debe eliminar este pedido" required></textarea>
+          </label>
+          <p id="order-delete-request-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button class="secondary-button" type="button" onclick="window.__closeOrderDeleteRequestModal?.(); return false;">Cancelar</button>
+            <button id="order-delete-request-submit" class="primary-button" type="submit">Solicitar eliminación</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <div id="order-success-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="order-success-modal" onclick="window.__closeOrderSuccessModal?.()"></div>
+      <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="order-success-title">
+        <div class="admin-brand-mark success">
+          <img src="/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header admin-success-header">
+          <div>
+            <h2 id="order-success-title">Pedido creado</h2>
+            <p id="order-success-description" class="modal-copy">El pedido se guardó correctamente.</p>
+          </div>
+        </header>
+        <div id="order-success-meta" class="modal-meta"></div>
+        <div class="modal-actions-row single-action">
+          <button id="order-success-close" class="primary-button" type="button" onclick="window.__closeOrderSuccessModal?.()">Entendido</button>
+        </div>
+      </section>
+    </div>
+    <script src="/admin-common.js?v=20260429-adminnav01"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -624,6 +766,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260416-trackingevents10"></script>
+    <script src="/admin-tracking.js?v=20260429-trackingevents21"></script>
+    <script src="/admin-orders.js?v=20260429-ordermanage09"></script>
   </body>
 </html>

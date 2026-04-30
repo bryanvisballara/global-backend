@@ -35,6 +35,12 @@ function resolveApiBaseUrl() {
   return "https://global-backend-bdbx.onrender.com";
 }
 
+function resolveAppPagePath(pageName = "") {
+  const normalizedPageName = String(pageName || "").trim().replace(/^\/+/, "");
+  const isEmbeddedAppPage = String(window.location.pathname || "").startsWith("/app/");
+  return `${isEmbeddedAppPage ? "/app" : ""}/${normalizedPageName}`;
+}
+
 function isDirectApiHostCandidate(hostname = "") {
   const normalizedHostname = String(hostname || "").trim().toLowerCase();
 
@@ -228,6 +234,14 @@ function clearAuthState() {
   localStorage.removeItem("globalAppRole");
   sessionStorage.removeItem("globalAppToken");
   sessionStorage.removeItem("globalAppRole");
+
+  postNativeBiometricMessage("clear-session").then((response) => {
+    biometricStatus.enrolledSession = Boolean(response?.enrolledSession);
+    updateBiometricButtonVisibility();
+  }).catch(() => {
+    biometricStatus.enrolledSession = false;
+    updateBiometricButtonVisibility();
+  });
 }
 
 function getBiometryLabel(type = "biometric") {
@@ -369,7 +383,7 @@ async function completeAuthenticatedSession({ token, role, user }) {
 
   if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
     window.setTimeout(() => {
-      window.location.href = "/admin.html";
+      window.location.href = resolveAppPagePath("admin.html");
     }, 250);
     return;
   }
@@ -382,7 +396,7 @@ async function completeAuthenticatedSession({ token, role, user }) {
   }
 
   window.setTimeout(() => {
-    window.location.href = "/client.html";
+    window.location.href = resolveAppPagePath("client.html");
   }, 250);
 }
 
@@ -456,11 +470,11 @@ async function redirectAuthenticatedUser() {
     sessionStorage.setItem("globalAppRole", resolvedRole);
 
     if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
-      window.location.replace("/admin.html");
+      window.location.replace(resolveAppPagePath("admin.html"));
       return;
     }
 
-    window.location.replace("/client.html");
+    window.location.replace(resolveAppPagePath("client.html"));
     return;
   } catch {
     clearAuthState();
@@ -833,7 +847,7 @@ if (verificationForm) {
       renderVerificationResendButton();
 
       window.setTimeout(() => {
-        window.location.href = "/client.html";
+        window.location.href = resolveAppPagePath("client.html");
       }, 300);
     } catch (error) {
       setVerificationFeedback(error.message, "error");

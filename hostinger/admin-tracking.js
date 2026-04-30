@@ -92,8 +92,55 @@ function normalizeSearchValue(value) {
   return normalizeText(value).toUpperCase();
 }
 
+function normalizeCollectionPayload(payload, keys = []) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (payload.data && typeof payload.data === "object") {
+    for (const key of keys) {
+      if (Array.isArray(payload.data[key])) {
+        return payload.data[key];
+      }
+    }
+  }
+
+  return [];
+}
+
 function getOrderIdentifier(order) {
   return String(order?._id || order?.id || "").trim();
+}
+
+function buildOrderDetailUrl(order) {
+  const orderId = getOrderIdentifier(order);
+  const trackingValue = String(order?.trackingNumber || "").trim();
+  const vinValue = String(order?.vehicle?.vin || "").trim();
+  const clientValue = String(getClientDisplayName(order) || "").trim();
+
+  return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
+}
+
+function isDeletionManagerRole(role) {
+  return ["manager", "gerenteUSA"].includes(String(role || "").trim());
+}
+
+function hasPendingDeletionRequest(order) {
+  return String(order?.deletionRequest?.status || "").trim().toLowerCase() === "pending";
 }
 
 function getInternalIdentifier(order) {
@@ -129,7 +176,7 @@ function getConfigInputValue(config, order) {
 }
 
 function formatOrderLabel(order) {
-  return `${order?.vehicle?.brand || "Vehiculo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
 }
 
 function formatDateLabel(value) {
@@ -200,6 +247,26 @@ const trackingSuccessModal = document.getElementById("tracking-success-modal");
 const trackingSuccessTitle = document.getElementById("tracking-success-title");
 const trackingSuccessMessage = document.getElementById("tracking-success-message");
 const trackingSuccessClose = document.getElementById("tracking-success-close");
+const orderSuccessModal = document.getElementById("order-success-modal");
+const createOrderModal = document.getElementById("tracking-create-order-modal");
+const createOrderModalCard = createOrderModal?.querySelector(".tracking-create-order-modal-card") || null;
+const openCreateOrderModalButton = document.getElementById("open-create-order-modal");
+const createOrderForm = document.getElementById("order-form");
+const createOrderTrackingInput = document.getElementById("order-tracking-number");
+const createOrderGenerateTrackingButton = document.getElementById("generate-tracking-button");
+const createOrderClientSelect = document.getElementById("order-client-select");
+const createOrderClientSummary = document.getElementById("order-client-summary");
+const createOrderModalTitle = document.getElementById("tracking-create-order-title");
+const createOrderModalCopy = document.getElementById("tracking-create-order-copy");
+const createOrderSubmitButton = document.getElementById("tracking-create-order-submit");
+const createOrderFeedback = document.getElementById("order-feedback");
+const orderDeleteRequestModal = document.getElementById("order-delete-request-modal");
+const orderDeleteRequestForm = document.getElementById("order-delete-request-form");
+const orderDeleteRequestSummary = document.getElementById("order-delete-request-summary");
+const orderDeleteRequestReason = document.getElementById("order-delete-request-reason");
+const orderDeleteRequestFeedback = document.getElementById("order-delete-request-feedback");
+let createOrderModalResizeHandlerBound = false;
+let pendingDeletionOrderId = "";
 
 const searchConfigs = [
   {
@@ -222,8 +289,8 @@ const searchConfigs = [
   },
   {
     key: "clientOrInternal",
-    input: document.getElementById("tracking-search-internal"),
-    list: document.getElementById("tracking-search-internal-list"),
+    input: document.getElementById("tracking-search-client"),
+    list: document.getElementById("tracking-search-client-list"),
     placeholder: "Escribe cliente o identificador interno",
     getSearchValues(order) {
       return getClientOrInternalSearchValues(order);
@@ -243,6 +310,159 @@ let initOverlayWatchdog = null;
 const expandedOverviewEventIds = new Set();
 const savingStates = new Set();
 const stateDrafts = new Map();
+let createOrderClients = [];
+
+function buildCreateOrderTrackingNumber() {
+  const existingTrackings = new Set(
+    orders.map((order) => normalizeSearchValue(order?.trackingNumber || "")).filter(Boolean)
+  );
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const candidate = `GI-${Math.floor(100000 + Math.random() * 99999999)}`;
+
+    if (!existingTrackings.has(normalizeSearchValue(candidate))) {
+      return candidate;
+    }
+  }
+
+  return `GI-${Math.floor(100000 + Math.random() * 99999999)}`;
+}
+
+function applyCreateOrderTrackingNumber() {
+  if (!createOrderTrackingInput) {
+    return;
+  }
+
+  createOrderTrackingInput.readOnly = true;
+  createOrderTrackingInput.value = buildCreateOrderTrackingNumber();
+  createOrderTrackingInput.placeholder = createOrderTrackingInput.value;
+}
+
+function regenerateTrackingFromModal(options = {}) {
+  applyCreateOrderTrackingNumber();
+
+  if (!options.silent) {
+    adminSetFeedback(trackingFeedback, "Tracking generado correctamente.", "success");
+  }
+
+  return false;
+}
+
+function getDocumentZoomFactor() {
+  const computedZoom = Number.parseFloat(window.getComputedStyle(document.documentElement).zoom || "");
+
+  if (Number.isFinite(computedZoom) && computedZoom > 0) {
+    return computedZoom;
+  }
+
+  const rootRect = document.documentElement.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+
+  if (rootRect.width > 0 && viewportWidth > 0) {
+    const inferredZoom = rootRect.width / viewportWidth;
+
+    if (Number.isFinite(inferredZoom) && inferredZoom > 0) {
+      return inferredZoom;
+    }
+  }
+
+  return 1;
+}
+
+function layoutCreateOrderModal() {
+  if (!createOrderModal || !createOrderModalCard || createOrderModal.hidden) {
+    return;
+  }
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const zoomFactor = getDocumentZoomFactor();
+  const isCompactViewport = viewportWidth <= 900;
+  const horizontalMargin = isCompactViewport ? 12 : 48;
+  const verticalMargin = isCompactViewport ? 12 : 36;
+  const visualModalWidth = Math.min(isCompactViewport ? viewportWidth - horizontalMargin * 2 : 1120, viewportWidth - horizontalMargin * 2);
+  const visualMaxHeight = Math.max(320, viewportHeight - verticalMargin * 2);
+  const cssViewportWidth = viewportWidth / zoomFactor;
+  const cssViewportHeight = viewportHeight / zoomFactor;
+  const cssModalWidth = Math.max(320 / zoomFactor, visualModalWidth / zoomFactor);
+  const cssMaxHeight = visualMaxHeight / zoomFactor;
+
+  createOrderModal.style.setProperty("display", "block", "important");
+  createOrderModal.style.setProperty("position", "fixed", "important");
+  createOrderModal.style.setProperty("top", "0", "important");
+  createOrderModal.style.setProperty("left", "0", "important");
+  createOrderModal.style.setProperty("right", "auto", "important");
+  createOrderModal.style.setProperty("bottom", "auto", "important");
+  createOrderModal.style.setProperty("width", `${cssViewportWidth}px`, "important");
+  createOrderModal.style.setProperty("height", `${cssViewportHeight}px`, "important");
+  createOrderModal.style.setProperty("min-height", `${cssViewportHeight}px`, "important");
+  createOrderModal.style.setProperty("padding", "0", "important");
+
+  createOrderModalCard.style.setProperty("position", "fixed", "important");
+  createOrderModalCard.style.setProperty("width", `${cssModalWidth}px`, "important");
+  createOrderModalCard.style.setProperty("max-width", `${cssModalWidth}px`, "important");
+  createOrderModalCard.style.setProperty("max-height", `${cssMaxHeight}px`, "important");
+  createOrderModalCard.style.setProperty("right", "auto", "important");
+  createOrderModalCard.style.setProperty("bottom", "auto", "important");
+  createOrderModalCard.style.setProperty("transform", "none", "important");
+  createOrderModalCard.style.setProperty("margin", "0", "important");
+  createOrderModalCard.style.setProperty("overflow", "auto", "important");
+  createOrderModalCard.style.setProperty("box-sizing", "border-box", "important");
+
+  const visualCardHeight = Math.min((createOrderModalCard.scrollHeight || 0) * zoomFactor, visualMaxHeight);
+  const cssCardHeight = visualCardHeight / zoomFactor;
+  const cssHorizontalMargin = horizontalMargin / zoomFactor;
+  const cssVerticalMargin = verticalMargin / zoomFactor;
+  const left = Math.max(cssHorizontalMargin, Math.round((cssViewportWidth - cssModalWidth) / 2));
+  const top = Math.max(cssVerticalMargin, Math.round((cssViewportHeight - cssCardHeight) / 2));
+
+  createOrderModalCard.style.setProperty("left", `${left}px`, "important");
+  createOrderModalCard.style.setProperty("top", `${top}px`, "important");
+}
+
+createOrderTrackingInput?.addEventListener("keydown", (event) => {
+  event.preventDefault();
+});
+
+createOrderTrackingInput?.addEventListener("paste", (event) => {
+  event.preventDefault();
+});
+
+createOrderGenerateTrackingButton?.addEventListener("click", () => {
+  regenerateTrackingFromModal();
+});
+
+function renderCreateOrderClientOptions() {
+  if (!createOrderClientSelect) {
+    return;
+  }
+
+  if (!createOrderClients.length) {
+    createOrderClientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
+
+    if (createOrderClientSummary) {
+      createOrderClientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+    }
+
+    return;
+  }
+
+  createOrderClientSelect.innerHTML = [
+    '<option value="">Selecciona cliente</option>',
+    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")} · ${escapeHtml(client.email || "Sin email")}</option>`),
+  ].join("");
+
+  if (createOrderClientSummary) {
+    createOrderClientSummary.textContent = `${createOrderClients.length} cliente(s) disponible(s).`;
+  }
+}
+
+async function loadCreateOrderModalData() {
+  const clientsData = await fetchTrackingPageJson("/api/admin/clients");
+  createOrderClients = normalizeCollectionPayload(clientsData, ["clients"]);
+  renderCreateOrderClientOptions();
+  applyCreateOrderTrackingNumber();
+}
 
 function syncTrackingPageMode(order) {
   document.body.classList.toggle("tracking-detail-mode", Boolean(order));
@@ -293,15 +513,18 @@ function getOrderTrackingEvents(order) {
   return (Array.isArray(order?.trackingEvents) ? order.trackingEvents : [])
     .map((event) => {
       const stateMeta = getTrackingTemplateMeta(event?.stateKey || event?.stepKey || "");
+      const parsedStateIndex = Number.isInteger(event?.stateIndex)
+        ? event.stateIndex
+        : Number.parseInt(String(event?.stateIndex || ""), 10);
       const parsedUpdateIndex = Number.isInteger(event?.updateIndex)
         ? event.updateIndex
         : Number.parseInt(String(event?.updateIndex || ""), 10);
 
       return {
-        eventId: String(event?.eventId || event?._id || ""),
+        eventId: String(event?.eventId || event?._id || `${stateMeta.key}-${parsedUpdateIndex}`),
         stateKey: stateMeta.key,
         stateLabel: String(event?.stateLabel || stateMeta.label || "Estado"),
-        stateIndex: Number.isInteger(event?.stateIndex) ? event.stateIndex : stateMeta.index,
+        stateIndex: Number.isNaN(parsedStateIndex) ? stateMeta.index : parsedStateIndex,
         stateCode: String(event?.stateCode || stateMeta.code || "-"),
         updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
         notes: normalizeText(event?.notes || ""),
@@ -365,21 +588,28 @@ function getOrderTrackingSteps(order) {
             updatedAt: update?.updatedAt || null,
           }))
         : []);
+    const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestUpdate({ updates });
     const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
+    const derivedConfirmed = hasEventUpdates
+      ? Boolean(latestUpdate?.completed)
+      : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
+    const derivedInProgress = hasEventUpdates
+      ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
+      : Boolean(
+          typeof sourceStep?.inProgress === "boolean"
+            ? sourceStep.inProgress && !derivedConfirmed
+            : latestUpdate?.completed
+              ? false
+              : latestUpdate?.inProgress
+        );
 
     return {
       key: template.key,
       label: String(sourceStep?.label || template.label),
       updates,
-      confirmed: Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed),
-      inProgress: Boolean(
-        typeof sourceStep?.inProgress === "boolean"
-          ? sourceStep.inProgress && !sourceStep.confirmed
-          : latestUpdate?.completed
-            ? false
-            : latestUpdate?.inProgress
-      ),
+      confirmed: derivedConfirmed,
+      inProgress: derivedInProgress,
       clientVisible: updates.some((item) => item.clientVisible),
       updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
       confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || null,
@@ -541,7 +771,7 @@ function updateUrlForOrder(order) {
   url.searchParams.set("tracking", String(order?.trackingNumber || ""));
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
-  url.searchParams.set("internal", getInternalIdentifier(order));
+  url.searchParams.delete("internal");
   window.history.replaceState({}, document.title, url.toString());
 }
 
@@ -614,8 +844,9 @@ function renderSearchResults(matches) {
             <th>Cliente</th>
             <th>Destino</th>
             <th>Estado</th>
-            <th>Vehiculo</th>
+            <th>Vehículo</th>
             <th>Fecha</th>
+            <th>Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -623,29 +854,38 @@ function renderSearchResults(matches) {
             const orderId = getOrderIdentifier(order);
             const trackingValue = String(order?.trackingNumber || "").trim();
             const vinValue = String(order?.vehicle?.vin || "").trim();
-            const internalValue = String(getInternalIdentifier(order) || "").trim();
-            const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&internal=${encodeURIComponent(internalValue)}`;
+            const detailUrl = buildOrderDetailUrl(order);
             const stageMeta = getCurrentStageMeta(order);
             const vehicleLabel = formatOrderLabel(order);
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
+            const pendingDeletion = hasPendingDeletionRequest(order);
+            const deleteLabel = pendingDeletion ? "Solicitud pendiente" : "Eliminar pedido";
 
             return `
               <tr
                 class="tracking-order-row ${orderId === selectedOrderId ? "selected" : ""}"
-                data-order-link="true"
+                data-order-row-select="true"
                 data-order-id="${escapeHtml(orderId)}"
-                data-href="${escapeHtml(detailUrl)}"
                 tabindex="0"
-                role="link"
-                aria-label="Abrir pedido ${escapeHtml(trackingValue || vehicleLabel || orderId)}"
+                aria-label="Seleccionar pedido ${escapeHtml(trackingValue || vehicleLabel || orderId)}"
               >
-                <td data-label="Tracking">${escapeHtml(trackingValue || "-")}</td>
+                <td data-label="Tracking">
+                  <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
+                    ${escapeHtml(trackingValue || "-")}
+                  </button>
+                </td>
                 <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
                 <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
                 <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
                 <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
-                <td data-label="Vehiculo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+                <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
+                <td data-label="Acción" class="tracking-order-actions-cell">
+                  <div class="tracking-order-actions">
+                    <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
+                    <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
+                  </div>
+                </td>
               </tr>
             `;
           }).join("")}
@@ -851,6 +1091,12 @@ function resolveTimelineStateVariant(state, index, states) {
     return "is-current";
   }
 
+  const explicitCurrentIndex = states.findIndex((item) => item?.inProgress && !item?.confirmed);
+
+  if (explicitCurrentIndex >= 0) {
+    return "is-pending";
+  }
+
   const firstPendingIndex = states.findIndex((item) => !item?.confirmed);
 
   if (firstPendingIndex === -1) {
@@ -897,11 +1143,31 @@ function getUpdateStatusLabel(update) {
   return "Actualizacion interna";
 }
 
+function getRecentEventSummary(item) {
+  const statusLabel = String(item?.title || "Evento").trim();
+  const description = String(item?.description || "").trim();
+  const attachmentCount = Array.isArray(item?.media) ? item.media.length : 0;
+  const attachmentLabel = attachmentCount === 1 ? "1 documento adjunto" : `${attachmentCount} documentos adjuntos`;
+  const summaryParts = [];
+
+  if (description) {
+    summaryParts.push(`${statusLabel}: ${description}`);
+  } else {
+    summaryParts.push(statusLabel);
+  }
+
+  if (attachmentCount > 0) {
+    summaryParts.push(attachmentLabel);
+  }
+
+  return summaryParts.join(" - ");
+}
+
 function renderStateUpdates(step) {
   const indexedUpdates = getIndexedUpdates(step);
 
   if (!indexedUpdates.length) {
-    return '<div class="tracking-state-history-empty">Todavia no hay actualizaciones en el historial de esta etapa.</div>';
+    return '<div class="tracking-state-history-empty">Todavía no hay actualizaciones en el historial de esta etapa.</div>';
   }
 
   return `
@@ -918,7 +1184,7 @@ function renderStateUpdates(step) {
               ${renderDeleteButton(step.key, update.updateIndex, update.eventId)}
             </div>
           </div>
-          <p>${escapeHtml(update.notes || "Sin descripcion registrada.")}</p>
+          <p>${escapeHtml(update.notes || "Sin descripción registrada.")}</p>
           ${renderCategorizedMediaSections(update.media || [])}
         </article>
       `).join("")}
@@ -954,7 +1220,7 @@ function buildRecentEvents(order) {
         stateLabel: event.stateLabel,
         date: event.updatedAt || event.createdAt || null,
         title: getUpdateStatusLabel(event),
-        description: event.notes || "Sin descripcion registrada.",
+        description: event.notes || "Sin descripción registrada.",
         clientVisible: event.clientVisible,
         media: event.media || [],
       });
@@ -989,7 +1255,7 @@ function buildRecentEvents(order) {
           stateLabel: step.label,
           date: update.updatedAt || update.createdAt || null,
           title: getUpdateStatusLabel(update),
-          description: update.notes || "Sin descripcion registrada.",
+          description: update.notes || "Sin descripción registrada.",
           clientVisible: Boolean(update.clientVisible),
           media: Array.isArray(update.media) ? update.media : [],
         }))
@@ -1014,6 +1280,7 @@ function buildRecentEvents(order) {
 function renderRecentEventItem(item) {
   const eventId = String(item.id || "");
   const isExpanded = expandedOverviewEventIds.has(eventId);
+  const eventSummary = getRecentEventSummary(item);
 
   return `
     <article class="tracking-stage-event-item ${isExpanded ? "is-open" : ""}">
@@ -1026,7 +1293,7 @@ function renderRecentEventItem(item) {
         >
           <div class="tracking-stage-event-main">
             <span class="tracking-stage-event-kind">Evento</span>
-            <strong>${escapeHtml(item.title)}</strong>
+            <strong>${escapeHtml(eventSummary)}</strong>
             <div class="tracking-stage-event-meta">
               <span>${escapeHtml(formatDateTimeLabel(item.date))}</span>
               <span>${escapeHtml(item.clientVisible ? "Visible al cliente" : "Oculto al cliente")}</span>
@@ -1041,7 +1308,7 @@ function renderRecentEventItem(item) {
         </div>
       </div>
       <div class="tracking-stage-event-body" ${isExpanded ? "" : "hidden"}>
-        <p>${escapeHtml(item.description || "Sin descripcion registrada.")}</p>
+        <p>${escapeHtml(item.description || "Sin descripción registrada.")}</p>
         ${renderCategorizedMediaSections(item.media || [])}
       </div>
     </article>
@@ -1102,7 +1369,8 @@ function renderOrderSummary(order) {
     <div class="tracking-card-header">
       <strong>${escapeHtml(formatOrderLabel(order))}</strong>
       <p>${escapeHtml(getClientDisplayName(order))} · Tracking ${escapeHtml(order?.trackingNumber || "-")}</p>
-      <p>VIN ${escapeHtml(order?.vehicle?.vin || "Sin VIN")} · Llegada estimada ${escapeHtml(formatDateLabel(order?.expectedArrivalDate))}</p>
+      <p>VIN ${escapeHtml(order?.vehicle?.vin || "Sin VIN")} · Exterior ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
+      <p>Interior ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
       <p>Destino ${escapeHtml(order?.vehicle?.destination || "-")} · ${escapeHtml(`${stageMeta.code} ${stageMeta.label}`)}</p>
     </div>
   `;
@@ -1126,20 +1394,16 @@ function renderTrackingOverview(order) {
           <span class="section-tag">Tracking ${escapeHtml(order?.trackingNumber || "-")}</span>
         </header>
         <div class="state-order-grid">
-          <p><strong>Version:</strong> ${escapeHtml(order?.vehicle?.version || "Sin version")}</p>
-          <p><strong>Ano:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
+          <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
+          <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
           <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-          <p><strong>Color:</strong> ${escapeHtml(order?.vehicle?.color || "-")}</p>
+          <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
+          <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
           <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
           <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-          <p><strong>Telefono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+          <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
           <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
-          <p><strong>Compra:</strong> ${escapeHtml(formatDateLabel(order?.purchaseDate || order?.createdAt))}</p>
-          <p><strong>Llegada estimada:</strong> ${escapeHtml(formatDateLabel(order?.expectedArrivalDate))}</p>
-          <p><strong>Media del pedido:</strong> ${escapeHtml((order?.media || []).length)} archivo(s)</p>
-          <p><strong>ID interno:</strong> ${escapeHtml(getInternalIdentifier(order) || "-")}</p>
         </div>
-        <p class="state-order-notes"><strong>Notas:</strong> ${escapeHtml(order?.notes || "Sin notas internas")}</p>
       </article>
 
       <article class="dashboard-card tracking-table-card tracking-timeline-card">
@@ -1205,7 +1469,7 @@ function renderStates() {
     const canAdvanceState = canAdvanceTrackingState(states, index);
     const draft = getStateDraft(state);
     const historyCount = Array.isArray(state?.updates) ? state.updates.length : 0;
-    const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavia";
+    const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavía";
     const editButtonText = state.confirmed ? "Completado" : state.inProgress ? "En curso" : "Editar";
     const stateMedia = getFlattenedStateMedia(state);
 
@@ -1215,7 +1479,7 @@ function renderStates() {
           <div class="tracking-state-copy">
             <small>Estado ${index + 1}</small>
             <strong>${escapeHtml(state.label)}</strong>
-            <p>${escapeHtml(updatedText)} · ${escapeHtml(`${historyCount} actualizacion(es)`)}</p>
+            <p>${escapeHtml(updatedText)} · ${escapeHtml(`${historyCount} actualización(es)`)}</p>
           </div>
           <button
             class="tracking-state-edit-button ${state.confirmed ? "is-confirmed" : ""}"
@@ -1522,9 +1786,292 @@ function closeSuccessModal() {
   document.body.classList.remove("modal-open");
 }
 
+function setCreateOrderModalMode(mode, order = null) {
+  if (!createOrderForm) {
+    return;
+  }
+
+  const normalizedMode = mode === "edit" ? "edit" : "create";
+  createOrderForm.dataset.mode = normalizedMode;
+  createOrderForm.dataset.orderId = normalizedMode === "edit" ? getOrderIdentifier(order) : "";
+
+  if (createOrderClientSelect) {
+    createOrderClientSelect.required = normalizedMode !== "edit";
+  }
+
+  if (createOrderModalTitle) {
+    createOrderModalTitle.textContent = normalizedMode === "edit" ? "Editar pedido" : "Crear pedido";
+  }
+
+  if (createOrderModalCopy) {
+    createOrderModalCopy.textContent = normalizedMode === "edit"
+      ? "Modifica los datos del pedido seleccionado sin salir del módulo de seguimiento."
+      : "Registra un pedido nuevo sin salir del módulo de seguimiento.";
+  }
+
+  if (createOrderSubmitButton) {
+    createOrderSubmitButton.textContent = normalizedMode === "edit" ? "Guardar cambios" : "Crear pedido";
+  }
+}
+
+function resolveCreateOrderFieldValue(field, value) {
+  const normalizedValue = normalizeText(value);
+
+  if (String(field?.tagName || "").toUpperCase() !== "SELECT") {
+    return normalizedValue;
+  }
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const expectedValue = normalizeSearchValue(normalizedValue);
+  const matchedOption = Array.from(field.options || []).find((option) => {
+    const optionValue = normalizeSearchValue(option.value || "");
+    const optionLabel = normalizeSearchValue(option.textContent || "");
+    return optionValue === expectedValue || optionLabel === expectedValue;
+  });
+
+  return matchedOption?.value || "";
+}
+
+function fillCreateOrderFormFromOrder(order) {
+  if (!createOrderForm || !order) {
+    return;
+  }
+
+  const setFieldValue = (name, value) => {
+    const field = createOrderForm.elements.namedItem(name);
+
+    if (field && "value" in field) {
+      field.value = resolveCreateOrderFieldValue(field, value);
+    }
+  };
+
+  setFieldValue("brand", String(order?.vehicle?.brand || ""));
+  setFieldValue("model", String(order?.vehicle?.model || ""));
+  setFieldValue("version", String(order?.vehicle?.version || ""));
+  setFieldValue("year", String(order?.vehicle?.year || ""));
+  setFieldValue("destination", String(order?.vehicle?.destination || ""));
+  setFieldValue("exteriorColor", String(order?.vehicle?.exteriorColor || order?.vehicle?.color || ""));
+  setFieldValue("interiorColor", String(order?.vehicle?.interiorColor || order?.vehicle?.color || ""));
+  setFieldValue("vin", String(order?.vehicle?.vin || ""));
+  setFieldValue("notes", String(order?.notes || ""));
+
+  if (createOrderTrackingInput) {
+    createOrderTrackingInput.readOnly = true;
+    createOrderTrackingInput.value = String(order?.trackingNumber || "");
+    createOrderTrackingInput.placeholder = createOrderTrackingInput.value;
+  }
+
+  if (createOrderClientSelect) {
+    createOrderClientSelect.value = String(order?.client?._id || order?.client?.id || order?.clientId || "");
+  }
+}
+
+function resetCreateOrderFormState() {
+  createOrderForm?.reset();
+  setCreateOrderModalMode("create");
+  renderCreateOrderClientOptions();
+  applyCreateOrderTrackingNumber();
+  adminSetFeedback(createOrderFeedback, "");
+}
+
+async function openEditOrderModal(orderId) {
+  const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+  if (!order || !createOrderModal) {
+    return;
+  }
+
+  try {
+    await loadCreateOrderModalData();
+    setCreateOrderModalMode("edit", order);
+    fillCreateOrderFormFromOrder(order);
+    adminSetFeedback(createOrderFeedback, "");
+  } catch (error) {
+    adminSetFeedback(trackingFeedback, error.message, "error");
+    return;
+  }
+
+  createOrderModal.hidden = false;
+  layoutCreateOrderModal();
+
+  if (!createOrderModalResizeHandlerBound) {
+    window.addEventListener("resize", layoutCreateOrderModal);
+    createOrderModalResizeHandlerBound = true;
+  }
+
+  document.body.classList.add("modal-open");
+}
+
+function openOrderDeleteRequestModal(orderId) {
+  const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+  if (!order || !orderDeleteRequestModal) {
+    return;
+  }
+
+  pendingDeletionOrderId = getOrderIdentifier(order);
+
+  if (orderDeleteRequestSummary) {
+    orderDeleteRequestSummary.value = `${order.trackingNumber || "Sin tracking"} · ${formatOrderLabel(order)}`;
+  }
+
+  if (orderDeleteRequestReason) {
+    orderDeleteRequestReason.value = "";
+  }
+
+  adminSetFeedback(orderDeleteRequestFeedback, "");
+  orderDeleteRequestModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeOrderDeleteRequestModal() {
+  if (!orderDeleteRequestModal) {
+    return;
+  }
+
+  orderDeleteRequestModal.hidden = true;
+  pendingDeletionOrderId = "";
+
+  if (orderDeleteRequestReason) {
+    orderDeleteRequestReason.value = "";
+  }
+
+  adminSetFeedback(orderDeleteRequestFeedback, "");
+
+  if ((!trackingSuccessModal || trackingSuccessModal.hidden) && (!orderSuccessModal || orderSuccessModal.hidden) && (!createOrderModal || createOrderModal.hidden)) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+async function handleDeleteOrderAction(orderId) {
+  const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+  if (!order) {
+    adminSetFeedback(trackingFeedback, "No se pudo identificar el pedido.", "error");
+    return;
+  }
+
+  if (hasPendingDeletionRequest(order)) {
+    adminSetFeedback(trackingFeedback, "Este pedido ya tiene una solicitud de eliminación pendiente.", "error");
+    return;
+  }
+
+  if (isDeletionManagerRole(currentAdminRole)) {
+    if (!window.confirm("¿Seguro que deseas eliminar este pedido?")) {
+      return;
+    }
+
+    try {
+      await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(order)}/deletion-request`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      await loadTrackingPage();
+      adminSetFeedback(trackingFeedback, "Pedido eliminado correctamente.", "success");
+    } catch (error) {
+      adminSetFeedback(trackingFeedback, error.message, "error");
+    }
+
+    return;
+  }
+
+  openOrderDeleteRequestModal(getOrderIdentifier(order));
+}
+
+async function submitOrderDeleteRequest(event) {
+  event?.preventDefault?.();
+
+  if (!pendingDeletionOrderId) {
+    adminSetFeedback(orderDeleteRequestFeedback, "No se encontró el pedido a eliminar.", "error");
+    return false;
+  }
+
+  const reason = normalizeText(orderDeleteRequestReason?.value || "");
+
+  if (!reason) {
+    adminSetFeedback(orderDeleteRequestFeedback, "Debes indicar el motivo de la solicitud.", "error");
+    return false;
+  }
+
+  adminSetFeedback(orderDeleteRequestFeedback, "Enviando solicitud...");
+
+  try {
+    await fetchTrackingPageJson(`/api/admin/orders/${pendingDeletionOrderId}/deletion-request`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+
+    closeOrderDeleteRequestModal();
+    await loadTrackingPage();
+    adminSetFeedback(trackingFeedback, "Solicitud de eliminación enviada correctamente.", "success");
+    return false;
+  } catch (error) {
+    adminSetFeedback(orderDeleteRequestFeedback, error.message, "error");
+    return false;
+  }
+}
+
+async function openCreateOrderModal() {
+  if (!createOrderModal) {
+    return;
+  }
+
+  try {
+    await loadCreateOrderModalData();
+    resetCreateOrderFormState();
+  } catch (error) {
+    if (createOrderClientSelect) {
+      createOrderClientSelect.innerHTML = '<option value="">Error cargando clientes</option>';
+    }
+
+    if (createOrderClientSummary) {
+      createOrderClientSummary.textContent = error.message;
+    }
+
+    adminSetFeedback(trackingFeedback, error.message, "error");
+  }
+
+  createOrderModal.hidden = false;
+  layoutCreateOrderModal();
+
+  if (!createOrderModalResizeHandlerBound) {
+    window.addEventListener("resize", layoutCreateOrderModal);
+    createOrderModalResizeHandlerBound = true;
+  }
+
+  document.body.classList.add("modal-open");
+}
+
+function closeCreateOrderModal() {
+  if (!createOrderModal) {
+    return;
+  }
+
+  createOrderModal.hidden = true;
+  createOrderModal.style.setProperty("display", "none", "important");
+  resetCreateOrderFormState();
+
+  if (createOrderModalResizeHandlerBound) {
+    window.removeEventListener("resize", layoutCreateOrderModal);
+    createOrderModalResizeHandlerBound = false;
+  }
+
+  if ((!trackingSuccessModal || trackingSuccessModal.hidden) && (!orderSuccessModal || orderSuccessModal.hidden)) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
 window.__closeTrackingSuccessModal = closeSuccessModal;
 window.__adminTrackingHandleSearch = () => handleSearchClick();
 window.__adminTrackingFallbackSearch = () => handleSearchClick();
+window.__openCreateOrderModal = openCreateOrderModal;
+window.__closeCreateOrderModal = closeCreateOrderModal;
+window.__closeOrderDeleteRequestModal = closeOrderDeleteRequestModal;
+window.__regenerateTrackingFromModal = regenerateTrackingFromModal;
 
 function forceClearLoadingState() {
   if (typeof adminResetLoadingOverlay === "function") {
@@ -1557,6 +2104,74 @@ trackingSuccessModal?.addEventListener("click", (event) => {
   }
 });
 
+openCreateOrderModalButton?.addEventListener("click", openCreateOrderModal);
+
+createOrderModal?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-create-order-modal")) {
+    closeCreateOrderModal();
+  }
+});
+
+orderDeleteRequestModal?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-order-delete-request-modal")) {
+    closeOrderDeleteRequestModal();
+  }
+});
+
+orderDeleteRequestForm?.addEventListener("submit", submitOrderDeleteRequest);
+
+window.addEventListener("admin-order-created", async (event) => {
+  const createdOrder = event?.detail?.order;
+  closeCreateOrderModal();
+
+  createOrderForm?.reset();
+  applyCreateOrderTrackingNumber();
+
+  try {
+    await loadTrackingPage();
+
+    if (createdOrder) {
+      searchConfigs[0].input.value = String(createdOrder?.trackingNumber || "").trim();
+      searchConfigs[1].input.value = "";
+      searchConfigs[2].input.value = "";
+      renderSearchResults(getFilteredOrders());
+
+      const createdOrderId = getOrderIdentifier(createdOrder);
+
+      if (createdOrderId) {
+        selectOrder(createdOrderId);
+      }
+    }
+
+    adminSetFeedback(trackingFeedback, "Pedido creado y listo para seguimiento.", "success");
+  } catch (error) {
+    adminSetFeedback(trackingFeedback, error.message, "error");
+  }
+});
+
+window.addEventListener("admin-order-updated", async (event) => {
+  const updatedOrder = event?.detail?.order;
+  const updatedOrderId = getOrderIdentifier(updatedOrder);
+
+  closeCreateOrderModal();
+
+  try {
+    await loadTrackingPage();
+
+    if (updatedOrderId) {
+      searchConfigs[0].input.value = String(updatedOrder?.trackingNumber || "").trim();
+      searchConfigs[1].input.value = "";
+      searchConfigs[2].input.value = "";
+      renderSearchResults(getFilteredOrders());
+      selectOrder(updatedOrderId);
+    }
+
+    adminSetFeedback(trackingFeedback, "Pedido actualizado correctamente.", "success");
+  } catch (error) {
+    adminSetFeedback(trackingFeedback, error.message, "error");
+  }
+});
+
 searchConfigs.forEach((config) => {
   config.input.addEventListener("input", () => {
     renderSearchResults(getFilteredOrders());
@@ -1581,16 +2196,35 @@ function handleTrackingPageClick(event) {
     return;
   }
 
-  const orderRow = event.target.closest("[data-order-link]");
+  const detailButton = event.target.closest("[data-order-detail-link]");
 
-  if (orderRow) {
-    const href = normalizeText(orderRow.dataset.href || "");
+  if (detailButton) {
+    const href = normalizeText(detailButton.dataset.orderDetailLink || "");
 
     if (href) {
       window.location.href = href;
-      return;
     }
 
+    return;
+  }
+
+  const editButton = event.target.closest("[data-order-edit]");
+
+  if (editButton) {
+    openEditOrderModal(String(editButton.dataset.orderEdit || ""));
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-order-delete]");
+
+  if (deleteButton) {
+    handleDeleteOrderAction(String(deleteButton.dataset.orderDelete || ""));
+    return;
+  }
+
+  const orderRow = event.target.closest("[data-order-row-select]");
+
+  if (orderRow) {
     selectOrder(String(orderRow.dataset.orderId || ""));
     adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
     return;
@@ -1664,15 +2298,15 @@ function handleTrackingPageClick(event) {
     return;
   }
 
-  const deleteButton = event.target.closest("[data-delete-update]");
+  const deleteUpdateButton = event.target.closest("[data-delete-update]");
 
-  if (!deleteButton) {
+  if (!deleteUpdateButton) {
     return;
   }
 
-  const stateKey = String(deleteButton.dataset.stateKey || "");
-  const updateIndex = Number.parseInt(String(deleteButton.dataset.updateIndex || ""), 10);
-  const eventId = String(deleteButton.dataset.eventId || "").trim();
+  const stateKey = String(deleteUpdateButton.dataset.stateKey || "");
+  const updateIndex = Number.parseInt(String(deleteUpdateButton.dataset.updateIndex || ""), 10);
+  const eventId = String(deleteUpdateButton.dataset.eventId || "").trim();
 
   if (!stateKey || Number.isNaN(updateIndex)) {
     return;
@@ -1771,7 +2405,7 @@ async function loadTrackingPage() {
     searchConfigs[1].input.value = urlFilters.vin;
   }
 
-  if (urlFilters.client || urlFilters.internal) {
+  if (urlFilters.internal) {
     searchConfigs[2].input.value = urlFilters.client || urlFilters.internal;
   }
 

@@ -2369,7 +2369,7 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-search-stack > span {
-  color: #f3ede0;
+  color: #111111;
   font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -7228,4 +7228,14 @@ body.modal-open {
 .maint-appointment-time-input {
   font-size: 0.73rem;
   padding: 6px 8px;
+}
+
+html:has(body.admin-app-view) {
+  background: #ffffff !important;
+}
+
+body.admin-app-view,
+body.admin-app-view .dashboard-shell,
+body.admin-app-view .dashboard-stage {
+  background: #ffffff !important;
 }

@@ -6,7 +6,7 @@
     <title>Global Imports | Dashboard</title>
     <meta
       name="description"
-      content="Dashboard administrativo de Global Imports con acceso a publicaciones, clientes, pedidos, seguimiento y mantenimientos."
+      content="Dashboard administrativo de Global Imports con acceso a clientes, pedidos, publicaciones y mantenimientos."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260414-responsive05" />
+    <link rel="stylesheet" href="/styles.css?v=20260429-adminlight19" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
     <style>
       .global-loading-overlay {
@@ -38,8 +38,7 @@
 
             <nav class="admin-sidebar-nav">
               <a class="admin-nav-link active" href="/admin.html">Dashboard</a>
-              <a class="admin-nav-link" href="/admin-orders.html">Creacion de pedidos</a>
-              <a class="admin-nav-link" href="/admin-tracking.html">Seguimiento de pedidos</a>
+              <a class="admin-nav-link" href="/admin-tracking.html">Pedidos</a>
               <a class="admin-nav-link" href="/admin-clients.html">Clientes</a>
               <a class="admin-nav-link" href="/admin-deleted-accounts.html">Cuentas eliminadas</a>
               <a class="admin-nav-link admin-admin-creator-only" href="/admin-order-deletion-requests.html" style="display:none">Solicitudes de eliminacion</a>
@@ -144,7 +143,7 @@
               <div class="admin-panel-heading">
                 <div>
                   <h2>Ultimos eventos generales</h2>
-                  <p>Actividad reciente combinada de pedidos, publicaciones, solicitudes y mantenimientos.</p>
+                  <p>Actividad reciente de pedidos.</p>
                 </div>
               </div>
               <div class="tracking-table-wrap">
@@ -152,17 +151,16 @@
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Modulo</th>
+                      <th>Tracking</th>
                       <th>Estado</th>
                       <th>Vehiculo</th>
                       <th>Cliente</th>
-                      <th>Evento</th>
-                      <th>Detalle</th>
+                      <th>Ejecutado por</th>
                     </tr>
                   </thead>
                   <tbody id="dashboard-global-events-body">
                     <tr>
-                      <td colspan="7"><div class="empty-state">Cargando eventos...</div></td>
+                      <td colspan="6"><div class="empty-state">Cargando eventos...</div></td>
                     </tr>
                   </tbody>
                 </table>
@@ -174,7 +172,7 @@
       </section>
     </main>
 
-    <script src="/admin-common.js?v=20260416-adminlayout07"></script>
+    <script src="/admin-common.js?v=20260429-adminnav01"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -189,6 +187,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260416-dashboard19"></script>
+    <script src="/admin-dashboard.js?v=20260430-dashboard22"></script>
   </body>
 </html>

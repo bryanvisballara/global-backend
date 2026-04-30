@@ -1,3 +1,4 @@
+(() => {
 const {
   attachLogout: adminAttachLogout,
   resetLoadingOverlay: adminResetLoadingOverlay,
@@ -21,6 +22,36 @@ function buildLegacyPurchaseDate() {
   const day = String(now.getDate()).padStart(2, "0");
 
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function normalizeCollectionPayload(payload, keys = []) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (payload.data && typeof payload.data === "object") {
+    for (const key of keys) {
+      if (Array.isArray(payload.data[key])) {
+        return payload.data[key];
+      }
+    }
+  }
+
+  return [];
 }
 
 async function fetchOrdersPageJson(path, options = {}) {
@@ -66,7 +97,6 @@ async function loadOrdersPageSession() {
 }
 
 if (true) {
-  document.body.classList.add("orders-creation-page");
   adminAttachLogout();
 
   const orderForm = document.getElementById("order-form");
@@ -80,9 +110,24 @@ if (true) {
   const successModal = document.getElementById("order-success-modal");
   const successDescription = document.getElementById("order-success-description");
   const successMeta = document.getElementById("order-success-meta");
+  const orderSubmitButton = document.getElementById("tracking-create-order-submit")
+    || orderForm?.querySelector('button[type="submit"]')
+    || null;
   let orders = [];
   let clients = [];
   let initOverlayWatchdog = null;
+
+  if (orderForm) {
+    orderForm.noValidate = true;
+  }
+
+  function getOrderFormMode() {
+    return orderForm?.dataset.mode === "edit" ? "edit" : "create";
+  }
+
+  function getEditingOrderId() {
+    return String(orderForm?.dataset.orderId || "").trim();
+  }
 
   function forceClearLoadingState() {
     if (typeof adminResetLoadingOverlay === "function") {
@@ -186,13 +231,16 @@ if (true) {
     document.body.classList.remove("modal-open");
   }
 
-  function showSuccessModal(order) {
+  function showSuccessModal(order, options = {}) {
     if (!successModal || !order) {
       return;
     }
 
+    const mode = options.mode === "edit" ? "edit" : "create";
     const vehicleLabel = `${order.vehicle?.brand || "Vehículo"} ${order.vehicle?.model || ""}${order.vehicle?.version ? ` ${order.vehicle.version}` : ""}`.trim();
-    successDescription.textContent = `Se guardó correctamente ${vehicleLabel}.`;
+    successDescription.textContent = mode === "edit"
+      ? `Se actualizó correctamente ${vehicleLabel}.`
+      : `Se guardó correctamente ${vehicleLabel}.`;
     successMeta.innerHTML = `
       <div class="info-box modal-info-box">
         <span>Cliente</span>
@@ -222,8 +270,8 @@ if (true) {
         fetchOrdersPageJson("/api/admin/orders"),
         fetchOrdersPageJson("/api/admin/clients"),
       ]);
-      orders = ordersData.orders || [];
-      clients = usersData.clients || [];
+      orders = normalizeCollectionPayload(ordersData, ["orders"]);
+      clients = normalizeCollectionPayload(usersData, ["clients"]);
       renderClientOptions();
       window.__fillRandomTracking({ silent: true });
     } finally {
@@ -270,6 +318,8 @@ if (true) {
   async function submitAdminOrder(event) {
     event?.preventDefault?.();
     const formData = new FormData(orderForm);
+    const formMode = getOrderFormMode();
+    const editingOrderId = getEditingOrderId();
     const trackingNumber = String(formData.get("trackingNumber") || "").trim().toUpperCase();
     const exteriorColor = String(formData.get("exteriorColor") || "").trim();
     const interiorColor = String(formData.get("interiorColor") || "").trim();
@@ -282,7 +332,7 @@ if (true) {
       ["destination", "El destino es obligatorio."],
       ["exteriorColor", "El color exterior es obligatorio."],
       ["interiorColor", "El color interior es obligatorio."],
-      ["clientId", "Debes seleccionar un cliente."],
+      ...(formMode === "edit" ? [] : [["clientId", "Debes seleccionar un cliente."]]),
     ];
 
     for (const [fieldName, message] of requiredFields) {
@@ -293,13 +343,55 @@ if (true) {
       }
     }
 
-    formData.set("trackingNumber", trackingNumber);
-    formData.set("purchaseDate", String(formData.get("purchaseDate") || "").trim() || buildLegacyPurchaseDate());
-    formData.set("color", exteriorColor || interiorColor);
+    if (orderSubmitButton) {
+      orderSubmitButton.disabled = true;
+    }
 
-    adminSetFeedback(orderFeedback, "Creando pedido...");
+    adminSetFeedback(orderFeedback, formMode === "edit" ? "Guardando cambios..." : "Creando pedido...");
 
     try {
+      if (formMode === "edit") {
+        if (!editingOrderId) {
+          throw new Error("No se encontró el pedido que se va a editar.");
+        }
+
+        const yearValue = Number.parseInt(String(formData.get("year") || "").trim(), 10);
+
+        if (Number.isNaN(yearValue)) {
+          throw new Error("El año es obligatorio.");
+        }
+
+        const payload = {
+          brand: String(formData.get("brand") || "").trim(),
+          model: String(formData.get("model") || "").trim(),
+          version: String(formData.get("version") || "").trim(),
+          year: yearValue,
+          trackingNumber,
+          vin: String(formData.get("vin") || "").trim(),
+          destination: String(formData.get("destination") || "").trim(),
+          exteriorColor,
+          interiorColor,
+          clientId: String(formData.get("clientId") || "").trim(),
+          notes: String(formData.get("notes") || "").trim(),
+        };
+
+        const data = await fetchOrdersPageJson(`/api/admin/orders/${editingOrderId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+
+        adminSetFeedback(orderFeedback, "Pedido actualizado correctamente.", "success");
+        await loadOrdersPage();
+        window.dispatchEvent(new CustomEvent("admin-order-updated", {
+          detail: { order: data.order },
+        }));
+        return false;
+      }
+
+      formData.set("trackingNumber", trackingNumber);
+      formData.set("purchaseDate", String(formData.get("purchaseDate") || "").trim() || buildLegacyPurchaseDate());
+      formData.set("color", exteriorColor || interiorColor);
+
       const data = await fetchOrdersPageJson("/api/admin/orders", {
         method: "POST",
         body: formData,
@@ -310,16 +402,39 @@ if (true) {
       renderMediaSummary([]);
       adminSetFeedback(orderFeedback, "Pedido creado correctamente.", "success");
       await loadOrdersPage();
-      showSuccessModal(data.order);
+      showSuccessModal(data.order, { mode: "create" });
+      window.dispatchEvent(new CustomEvent("admin-order-created", {
+        detail: { order: data.order },
+      }));
       return false;
     } catch (error) {
       adminSetFeedback(orderFeedback, error.message, "error");
       forceClearLoadingState();
       return false;
+    } finally {
+      if (orderSubmitButton) {
+        orderSubmitButton.disabled = false;
+      }
     }
   }
 
+  function triggerAdminOrderSubmit() {
+    return submitAdminOrder();
+  }
+
+  orderForm.addEventListener("invalid", (event) => {
+    const invalidField = event.target;
+
+    if (!(invalidField instanceof HTMLInputElement || invalidField instanceof HTMLSelectElement || invalidField instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    adminSetFeedback(orderFeedback, invalidField.validationMessage || "Revisa los campos obligatorios.", "error");
+  }, true);
+
   window.__submitAdminOrder = submitAdminOrder;
+  window.__triggerAdminOrderSubmit = triggerAdminOrderSubmit;
+  window.__loadOrderFormData = loadOrdersPage;
   orderForm.addEventListener("submit", submitAdminOrder);
 
   renderMediaSummary([]);
@@ -335,3 +450,5 @@ if (true) {
     adminSetFeedback(orderFeedback, error.message, "error");
   });
 }
+
+})();

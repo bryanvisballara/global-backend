@@ -7,14 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <link rel="stylesheet" href="/styles.css?v=20260429-adminlight19" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin-posts.html">Volver a publicaciones</a>
+          <a class="secondary-button back-link" href="/admin-posts.html">Volver a publicaciones</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -63,7 +64,7 @@
       <div class="client-modal-overlay" data-close-modal="success-action-modal" onclick="window.__closeAdminEditSuccessModal?.()"></div>
       <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="success-action-title">
         <div class="admin-brand-mark success">
-          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <img src="/logoblancoleon.png" alt="Global Imports" />
           <span>Global Imports</span>
         </div>
         <header class="client-modal-header admin-success-header">
@@ -409,7 +410,7 @@
           ?.addEventListener("click", forceCloseSuccessModal);
       })();
     </script>
-    <script src="/app/admin-common.js?v=20260409-05"></script>
-    <script src="/app/admin-post-edit.js?v=20260406-15"></script>
+    <script src="/admin-common.js?v=20260429-adminnav01"></script>
+    <script src="/admin-post-edit.js?v=20260406-15"></script>
   </body>
 </html>

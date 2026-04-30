@@ -160,8 +160,6 @@ async function fetchDashboardJson(path, options = {}) {
 
   const isTokenError =
     response.status === 401 ||
-    response.status === 403 ||
-    data.message === "Forbidden" ||
     data.message === "Authentication required" ||
     data.message === "Invalid or expired token" ||
     data.message === "Invalid token";
@@ -175,8 +173,6 @@ async function fetchDashboardJson(path, options = {}) {
   if (!response.ok) {
     const isAuthFailure =
       response.status === 401 ||
-      response.status === 403 ||
-      data.message === "Forbidden" ||
       data.message === "Authentication required" ||
       data.message === "Invalid or expired token" ||
       data.message === "Invalid token";
@@ -611,13 +607,27 @@ if (true) {
         adminNameTop.textContent = user?.name || "Administrador";
       }
 
-      const results = await Promise.allSettled([
-        fetchDashboardJson("/api/admin/clients"),
-        fetchDashboardJson("/api/admin/client-requests"),
-        fetchDashboardJson("/api/admin/orders"),
-        fetchDashboardJson("/api/admin/maintenance"),
-        fetchDashboardJson("/api/admin/posts"),
-      ]);
+      const isUsaRole = isUsaAdministrativeRole(user?.role);
+
+      document.querySelectorAll(".admin-latam-only").forEach((element) => {
+        element.style.display = isUsaRole ? "none" : "";
+      });
+
+      if (isUsaRole) {
+        setElementText(requestsCount, 0);
+        setElementText(maintenanceCount, 0);
+        setElementText(postsCount, 0);
+      }
+
+      const dashboardRequests = [
+        { key: "clients", critical: true, promise: fetchDashboardJson("/api/admin/clients") },
+        { key: "requests", critical: false, promise: isUsaRole ? Promise.resolve({ requests: [] }) : fetchDashboardJson("/api/admin/client-requests") },
+        { key: "orders", critical: true, promise: fetchDashboardJson("/api/admin/orders") },
+        { key: "maintenance", critical: false, promise: isUsaRole ? Promise.resolve({ maintenance: [] }) : fetchDashboardJson("/api/admin/maintenance") },
+        { key: "posts", critical: false, promise: isUsaRole ? Promise.resolve({ posts: [] }) : fetchDashboardJson("/api/admin/posts") },
+      ];
+
+      const results = await Promise.allSettled(dashboardRequests.map((entry) => entry.promise));
 
       const clientsData = results[0].status === "fulfilled" ? results[0].value : {};
       const requestsData = results[1].status === "fulfilled" ? results[1].value : {};
@@ -655,7 +665,7 @@ if (true) {
         })
       );
 
-      const rejected = results.find((entry) => entry.status === "rejected");
+      const rejected = results.find((entry, index) => entry.status === "rejected" && dashboardRequests[index].critical);
 
       if (rejected) {
         setDashboardError(rejected.reason?.message || "Algunos indicadores no se pudieron cargar.");
