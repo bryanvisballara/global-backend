@@ -620,6 +620,18 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
   return false;
 }
 
+function canFinalizeTrackingOrder(currentIndex) {
+  if (currentIndex !== adminTrackingTemplates.length - 1) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  return ["admin", "manager"].includes(currentAdminRole);
+}
+
 function canAdvanceTrackingState(states = [], stateIndex = -1) {
   if (!Array.isArray(states) || stateIndex <= 0) {
     return true;
@@ -869,6 +881,7 @@ function renderStageTransitionCardMarkup(order) {
   const currentStageMeta = getCurrentStageMeta(order);
   const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1);
   const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1);
+  const finalizeEnabled = canFinalizeTrackingOrder(currentStageMeta.index);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -883,6 +896,13 @@ function renderStageTransitionCardMarkup(order) {
         <span aria-hidden="true">→</span>
       </button>
     </div>
+    ${finalizeEnabled ? `
+    <div class="tracking-stage-transition-complete-row">
+      <button class="primary-button tracking-stage-transition-complete-button" type="button" data-finalize-order="true">
+        Finalizar pedido
+      </button>
+    </div>
+    ` : ""}
     <p>${escapeHtml(getTransitionHelperCopy(currentStageMeta))}</p>
     </article>
   `;
@@ -2517,6 +2537,31 @@ async function transitionSelectedOrder(direction) {
   );
 }
 
+async function finalizeSelectedOrder() {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder) {
+    throw new Error("Selecciona un pedido antes de finalizarlo.");
+  }
+
+  const currentStageMeta = getCurrentStageMeta(selectedOrder);
+
+  if (!canFinalizeTrackingOrder(currentStageMeta.index)) {
+    throw new Error("No tienes permisos para finalizar este pedido.");
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-finalize`, {
+    method: "PATCH",
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+
+  adminSetFeedback(trackingFeedback, "Pedido finalizado correctamente. E9 quedo completada.", "success");
+}
+
 function handleSearchClick() {
   const matches = getFilteredOrders();
   renderSearchResults(matches);
@@ -3131,6 +3176,15 @@ function handleTrackingPageClick(event) {
 
   if (transitionButton) {
     transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message, "error");
+    });
+    return;
+  }
+
+  const finalizeButton = event.target.closest("[data-finalize-order]");
+
+  if (finalizeButton) {
+    finalizeSelectedOrder().catch((error) => {
       adminSetFeedback(trackingFeedback, error.message, "error");
     });
     return;
