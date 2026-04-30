@@ -62,6 +62,7 @@ async function loadTrackingPageSession() {
   const user = data.user || {};
   currentAdminRole = String(user.role || "");
   currentAdminEmail = String(user.email || "").trim().toLowerCase();
+  currentAdminId = String(user._id || user.id || "").trim();
 
   if (user.role) {
     localStorage.setItem("globalAppRole", user.role);
@@ -343,6 +344,7 @@ let orders = [];
 let selectedOrderId = "";
 let currentAdminRole = "";
 let currentAdminEmail = "";
+let currentAdminId = "";
 let expandedStateKey = "";
 let expandedOverviewStateKey = "";
 let initOverlayWatchdog = null;
@@ -573,6 +575,29 @@ function isAnthonyGlobalOwner() {
   return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
 }
 
+function normalizeEntityId(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return String(value._id || value.id || "").trim();
+  }
+
+  return String(value).trim();
+}
+
+function isCurrentAdminOrderCreator(order) {
+  const creatorId = normalizeEntityId(order?.createdBy);
+  const creatorEmail = String(order?.createdBy?.email || "").trim().toLowerCase();
+
+  if (creatorId && currentAdminId) {
+    return creatorId === currentAdminId;
+  }
+
+  return Boolean(creatorEmail) && creatorEmail === currentAdminEmail;
+}
+
 function getTrackingStateIndex(stateKey) {
   return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
 }
@@ -620,16 +645,18 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
   return false;
 }
 
-function canFinalizeTrackingOrder(currentIndex) {
-  if (currentIndex !== adminTrackingTemplates.length - 1) {
-    return false;
-  }
+function canFinalizeTrackingOrder(order, currentIndex) {
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
 
   if (isAnthonyGlobalOwner()) {
-    return true;
+    return currentIndex === adminTrackingTemplates.length - 1 || (orderRegion === "usa" && currentIndex === 3);
   }
 
-  return ["admin", "manager"].includes(currentAdminRole);
+  if (orderRegion === "usa") {
+    return ["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentIndex === 3 && isCurrentAdminOrderCreator(order);
+  }
+
+  return currentIndex === adminTrackingTemplates.length - 1 && ["admin", "manager"].includes(currentAdminRole);
 }
 
 function canAdvanceTrackingState(states = [], stateIndex = -1) {
@@ -848,9 +875,19 @@ function getCurrentStageMeta(order) {
   };
 }
 
-function getTransitionHelperCopy(currentStageMeta) {
+function getTransitionHelperCopy(order, currentStageMeta) {
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
   if (isAnthonyGlobalOwner()) {
     return "Puedes avanzar o retroceder libremente. La etapa actual queda EN PROCESO.";
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && orderRegion === "usa" && currentStageMeta.index === 3) {
+    if (isCurrentAdminOrderCreator(order)) {
+      return "Llegaste a la etapa 4. Puedes finalizar este pedido para completar todas las etapas restantes.";
+    }
+
+    return "Los usuarios de USA solo pueden mover pedidos hasta la etapa 4. Solo el creador del pedido puede finalizarlo desde aqui.";
   }
 
   if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentStageMeta.index >= 3) {
@@ -881,7 +918,7 @@ function renderStageTransitionCardMarkup(order) {
   const currentStageMeta = getCurrentStageMeta(order);
   const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1);
   const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1);
-  const finalizeEnabled = canFinalizeTrackingOrder(currentStageMeta.index);
+  const finalizeEnabled = canFinalizeTrackingOrder(order, currentStageMeta.index);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -2546,7 +2583,7 @@ async function finalizeSelectedOrder() {
 
   const currentStageMeta = getCurrentStageMeta(selectedOrder);
 
-  if (!canFinalizeTrackingOrder(currentStageMeta.index)) {
+  if (!canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)) {
     throw new Error("No tienes permisos para finalizar este pedido.");
   }
 
@@ -2559,7 +2596,7 @@ async function finalizeSelectedOrder() {
   renderStates();
   renderSearchResults(getFilteredOrders());
 
-  adminSetFeedback(trackingFeedback, "Pedido finalizado correctamente. E9 quedo completada.", "success");
+  adminSetFeedback(trackingFeedback, "Pedido finalizado correctamente. Todas las etapas quedaron completadas.", "success");
 }
 
 function handleSearchClick() {
