@@ -332,6 +332,90 @@ body.login-page .auth-copy {
   max-width: 560px;
 }
 
+@media (min-width: 900px) {
+  body.login-page .brand-zone,
+  body.login-page .auth-panel,
+  body.login-page .auth-copy {
+    max-width: 920px;
+  }
+
+  body.login-page .device-stage {
+    padding-top: 72px;
+  }
+
+  body.login-page .brand-symbol {
+    width: 148px;
+    height: 148px;
+  }
+
+  body.login-page .brand-wordmark {
+    width: min(520px, 82vw);
+  }
+
+  body.login-page .auth-copy h2 {
+    font-size: clamp(2.7rem, 4vw, 4.1rem);
+  }
+
+  body.login-page .auth-copy p {
+    max-width: 780px;
+    font-size: 1.22rem;
+  }
+
+  body.login-page .login-form {
+    gap: 22px;
+    margin-top: 42px;
+  }
+
+  body.login-page .login-form span,
+  body.login-page .checkbox-line span,
+  body.login-page .link-button,
+  body.login-page .signup-prompt {
+    font-size: 1.14rem;
+  }
+
+  body.login-page .login-form input,
+  body.login-page .login-form select {
+    padding: 24px 26px;
+    font-size: 1.16rem;
+  }
+
+  body.login-page .password-field input {
+    padding-right: 76px;
+  }
+
+  body.login-page .password-toggle {
+    width: 42px;
+    height: 42px;
+    right: 20px;
+  }
+
+  body.login-page .password-toggle svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  body.login-page .login-submit-row {
+    grid-template-columns: minmax(0, 1fr) 78px;
+    gap: 14px;
+  }
+
+  body.login-page .login-submit-button,
+  body.login-page .biometric-login-button {
+    min-height: 78px;
+    font-size: 1.16rem;
+  }
+
+  body.login-page .biometric-login-button {
+    width: 78px;
+    min-width: 78px;
+  }
+
+  body.login-page .biometric-login-button svg {
+    width: 30px;
+    height: 30px;
+  }
+}
+
 body.login-page .auth-copy h2 {
   font-size: clamp(1.425rem, 5.25vw, 2.1rem);
   line-height: 0.96;
@@ -3227,6 +3311,10 @@ body.admin-uppercase-view *::placeholder {
   align-items: stretch;
 }
 
+.tracking-order-hero-grid > * {
+  min-width: 0;
+}
+
 .tracking-overview-header {
   display: grid;
   gap: 12px;
@@ -3295,10 +3383,19 @@ body.admin-uppercase-view *::placeholder {
   align-items: start;
 }
 
+.tracking-events-editor-grid > * {
+  min-width: 0;
+}
+
 .tracking-events-column {
   display: grid;
   gap: 18px;
   align-content: start;
+}
+
+.tracking-new-event-card,
+.tracking-document-upload-card {
+  min-width: 0;
 }
 
 .tracking-events-general-card,
@@ -3441,6 +3538,13 @@ body.admin-uppercase-view *::placeholder {
 
 .tracking-overview-card {
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 1360px) {
+  .tracking-order-hero-grid,
+  .tracking-events-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .tracking-table-card {
@@ -6518,6 +6622,25 @@ body .tracking-search-page .page-hero h1 {
 
 .tracking-order-accounting-action {
   margin-top: 18px;
+  justify-content: flex-start;
+}
+
+.tracking-accounting-button {
+  width: auto !important;
+  min-width: 180px;
+  max-width: 240px;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-color: rgba(216, 170, 82, 0.48) !important;
+  background: #f0c46a !important;
+  color: #111111 !important;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.tracking-accounting-button:hover {
+  background: #e0b24c !important;
 }
 
 .accounting-stack {

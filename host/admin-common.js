@@ -371,20 +371,20 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
       ],
     },
     {
+      title: "Contenido",
+      items: [
+        { href: "/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
+        { href: "/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
+        { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
+      ],
+    },
+    {
       title: "Control",
       items: [
         { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
         { href: "/admin-order-deletion-requests.html", label: "SOLICITUDES DE ELIMINACION", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
         { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
         { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
-      ],
-    },
-    {
-      title: "Contenido",
-      items: [
-        { href: "/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
-        { href: "/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
-        { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
       ],
     },
   ];

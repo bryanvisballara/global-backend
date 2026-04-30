@@ -1905,7 +1905,7 @@ function renderTrackingOverview(order) {
           </div>
           ${String(order?.orderRegion || "latam") === "latam" ? `
           <div class="tracking-new-event-actions tracking-order-accounting-action">
-            <a class="secondary-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>
+            <a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>
           </div>
           ` : ""}
         </article>
