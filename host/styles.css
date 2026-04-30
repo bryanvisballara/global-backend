@@ -2768,10 +2768,12 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-events-description-cell {
-  white-space: nowrap;
+  white-space: normal;
 }
 
+.tracking-event-description-text,
 .tracking-event-description-fallback {
+  display: inline-block;
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal;
@@ -2801,6 +2803,79 @@ body.tracking-detail-mode #tracking-form {
   white-space: normal;
   word-break: normal;
   overflow-wrap: normal;
+}
+
+.tracking-files-card {
+  display: grid;
+  gap: 22px;
+  padding: 28px;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.98), rgba(15, 15, 15, 0.96));
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.22);
+}
+
+.tracking-files-intro {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tracking-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.tracking-file-card {
+  position: relative;
+  display: grid;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(17, 17, 17, 0.98), rgba(22, 22, 22, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tracking-file-card.image img {
+  width: 100%;
+  aspect-ratio: 1.12;
+  object-fit: cover;
+  background: #101010;
+}
+
+.tracking-file-card.document {
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+}
+
+.tracking-file-download {
+  min-height: 88px;
+}
+
+.tracking-file-caption {
+  margin: 0;
+  padding: 16px 18px 20px;
+  color: rgba(243, 237, 224, 0.92);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tracking-file-card.document .tracking-file-caption {
+  padding: 0;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tracking-file-card .tracking-media-download-icon {
+  top: 14px;
+  right: 14px;
 }
 
 .tracking-state-detail-panel {

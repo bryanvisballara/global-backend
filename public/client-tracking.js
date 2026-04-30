@@ -19,17 +19,12 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260430-clientevents06";
+const TRACKING_PAGE_VERSION = "20260430-clientevents07";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
 const trackingFeedback = document.getElementById("tracking-page-feedback");
 const trackingNavButtons = Array.from(document.querySelectorAll("[data-nav-go]"));
-const trackingDescriptionModal = document.getElementById("tracking-description-modal");
-const trackingDescriptionOverlay = document.getElementById("tracking-description-overlay");
-const trackingDescriptionClose = document.getElementById("tracking-description-close");
-const trackingDescriptionTitle = document.getElementById("tracking-description-title");
-const trackingDescriptionBody = document.getElementById("tracking-description-body");
 let registeredPushToken = "";
 let activeTrackingOrder = null;
 
@@ -567,6 +562,32 @@ function buildTrackingEventRows(order) {
     });
 }
 
+function buildTrackingFiles(order) {
+  return getClientVisibleTrackingEvents(order)
+    .flatMap((event, eventIndex) => {
+      const matchedState = TRACKING_TIMELINE_STATES.find((item) => item.key === event.key);
+      const stageLabel = event.label || matchedState?.label || "Etapa";
+
+      return (Array.isArray(event.media) ? event.media : [])
+        .filter((item) => item?.url && item.type !== "video" && item.category !== "video")
+        .map((item, mediaIndex) => ({
+          key: `${event.key}-${event.updatedAt || event.createdAt || eventIndex}-${mediaIndex}`,
+          url: item.url,
+          type: item.type || (item.category === "document" ? "document" : "image"),
+          category: item.category || "",
+          name: String(item.name || "").trim(),
+          caption: String(item.caption || item.name || stageLabel || "Archivo").trim(),
+          stageLabel,
+          date: event.updatedAt || event.createdAt || null,
+        }));
+    })
+    .sort((left, right) => {
+      const leftTime = new Date(left.date || 0).getTime();
+      const rightTime = new Date(right.date || 0).getTime();
+      return rightTime - leftTime;
+    });
+}
+
 function renderTrackingTimeline(order) {
   const timelineStates = buildTimelineStates(buildTrackingStepsFromEvents(order));
   const statesMarkup = timelineStates
@@ -656,7 +677,7 @@ function renderTrackingEventsTable(order) {
                   <td>${event.title ? escapeHtml(event.title) : '<span class="tracking-event-title-placeholder">Próximamente</span>'}</td>
                   <td class="tracking-events-description-cell">
                     ${event.hasDescription
-                      ? `<button type="button" class="tracking-event-more-button" data-tracking-description-title="${escapeHtml(event.title || event.stage || "Descripción")}" data-tracking-description="${escapeHtml(event.description || "")}">Ver más</button>`
+                      ? `<span class="tracking-event-description-text">${escapeHtml(event.description || "")}</span>`
                       : '<span class="tracking-event-description-fallback">Sin descripción por ahora.</span>'}
                   </td>
                 </tr>
@@ -669,10 +690,83 @@ function renderTrackingEventsTable(order) {
   `;
 }
 
+function renderTrackingFilesSection(order) {
+  const files = buildTrackingFiles(order);
+
+  if (!files.length) {
+    return `
+      <section class="tracking-files-card">
+        <div class="tracking-events-head">
+          <p class="tracking-journey-kicker">Archivos</p>
+          <h2>Fotos y documentos</h2>
+          <p class="tracking-files-intro">Aquí verás los archivos que tu asesor comparta contigo durante el proceso.</p>
+        </div>
+        <p class="tracking-events-empty">Todavía no hay archivos visibles para este pedido.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="tracking-files-card">
+      <div class="tracking-events-head">
+        <p class="tracking-journey-kicker">Archivos</p>
+        <h2>Fotos y documentos</h2>
+        <p class="tracking-files-intro">Aquí verás los archivos que tu asesor comparta contigo durante el proceso.</p>
+      </div>
+      <div class="tracking-files-grid">
+        ${files
+          .map((item) => {
+            if (item.type === "document" || item.category === "document") {
+              const fileName = item.name || item.caption || "documento";
+              const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
+
+              return `
+                <article class="tracking-file-card document">
+                  <button
+                    class="tracking-document-download tracking-file-download"
+                    type="button"
+                    data-download-url="${escapeHtml(item.url)}"
+                    data-download-name="${escapeHtml(fileName)}"
+                    aria-label="Descargar ${escapeHtml(fileName)}"
+                  >
+                    <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
+                    <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
+                    <span class="tracking-document-cta">Descargar</span>
+                  </button>
+                  <p class="tracking-file-caption">${escapeHtml(item.caption || item.name || "Documento")}</p>
+                </article>
+              `;
+            }
+
+            return `
+              <article class="tracking-file-card image">
+                <button
+                  class="tracking-media-download-icon"
+                  type="button"
+                  data-download-url="${escapeHtml(item.url)}"
+                  data-download-name="${escapeHtml(item.name || item.caption || "imagen")}" 
+                  aria-label="Descargar imagen"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
+                  </svg>
+                </button>
+                <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
+                <p class="tracking-file-caption">${escapeHtml(item.caption || item.stageLabel || "Archivo")}</p>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderTrackingResult(order) {
   activeTrackingOrder = order;
   const timelineMarkup = renderTrackingTimeline(order);
   const eventsTableMarkup = renderTrackingEventsTable(order);
+  const filesSectionMarkup = renderTrackingFilesSection(order);
 
   const mediaMarkup = (order.media || [])
     .map((item) => {
@@ -694,28 +788,9 @@ function renderTrackingResult(order) {
       ${mediaMarkup ? `<div class="feed-media-strip">${mediaMarkup}</div>` : ""}
       ${timelineMarkup}
       ${eventsTableMarkup}
+      ${filesSectionMarkup}
     </section>
   `;
-}
-
-function openTrackingDescriptionModal(title, description) {
-  if (!trackingDescriptionModal || !trackingDescriptionBody || !trackingDescriptionTitle) {
-    return;
-  }
-
-  trackingDescriptionTitle.textContent = title || "Descripción";
-  trackingDescriptionBody.textContent = description || "Sin descripción por ahora.";
-  trackingDescriptionModal.hidden = false;
-  document.body.classList.add("modal-open");
-}
-
-function closeTrackingDescriptionModal() {
-  if (!trackingDescriptionModal) {
-    return;
-  }
-
-  trackingDescriptionModal.hidden = true;
-  document.body.classList.remove("modal-open");
 }
 
 trackingResults.addEventListener("click", (event) => {
@@ -747,19 +822,7 @@ trackingResults.addEventListener("click", (event) => {
     return;
   }
 
-  const descriptionButton = event.target.closest("[data-tracking-description]");
-
-  if (descriptionButton) {
-    openTrackingDescriptionModal(
-      descriptionButton.getAttribute("data-tracking-description-title") || "Descripción",
-      descriptionButton.getAttribute("data-tracking-description") || ""
-    );
-  }
-
 });
-
-trackingDescriptionOverlay?.addEventListener("click", closeTrackingDescriptionModal);
-trackingDescriptionClose?.addEventListener("click", closeTrackingDescriptionModal);
 
 trackingNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
