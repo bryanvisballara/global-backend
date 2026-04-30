@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260430-clientevents07";
+const TRACKING_PAGE_VERSION = "20260430-clientevents08";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
@@ -184,6 +184,25 @@ function formatDate(dateValue) {
     month: "short",
     day: "numeric",
   });
+}
+
+function getFileExtension(value) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+
+  if (!normalizedValue.includes(".")) {
+    return "";
+  }
+
+  return normalizedValue.split(".").pop() || "";
+}
+
+function isImageLikeDocument(item = {}) {
+  if (item?.type === "image") {
+    return true;
+  }
+
+  const extension = getFileExtension(item?.name || item?.caption || item?.url || "");
+  return ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension);
 }
 
 function buildEmbeddedVideoUrl(rawUrl) {
@@ -563,7 +582,7 @@ function buildTrackingEventRows(order) {
 }
 
 function buildTrackingFiles(order) {
-  return getClientVisibleTrackingEvents(order)
+  const eventFiles = getClientVisibleTrackingEvents(order)
     .flatMap((event, eventIndex) => {
       const matchedState = TRACKING_TIMELINE_STATES.find((item) => item.key === event.key);
       const stageLabel = event.label || matchedState?.label || "Etapa";
@@ -577,15 +596,82 @@ function buildTrackingFiles(order) {
           category: item.category || "",
           name: String(item.name || "").trim(),
           caption: String(item.caption || item.name || stageLabel || "Archivo").trim(),
+          note: "",
           stageLabel,
           date: event.updatedAt || event.createdAt || null,
         }));
-    })
+    });
+
+  const orderDocumentFiles = (Array.isArray(order?.media) ? order.media : [])
+    .filter((item) => item?.url && item?.clientVisible && item?.category === "document")
+    .map((item, index) => ({
+      key: `order-document-${String(item.documentId || index)}`,
+      url: item.url,
+      type: isImageLikeDocument(item) ? "image" : "document",
+      category: item.category || "document",
+      name: String(item.name || "").trim(),
+      caption: String(item.caption || item.name || item.documentType || "Archivo").trim(),
+      note: String(item.note || "").trim(),
+      stageLabel: "Documentos del pedido",
+      date: item.updatedAt || item.createdAt || null,
+    }));
+
+  return eventFiles
+    .concat(orderDocumentFiles)
     .sort((left, right) => {
       const leftTime = new Date(left.date || 0).getTime();
       const rightTime = new Date(right.date || 0).getTime();
       return rightTime - leftTime;
     });
+}
+
+function renderTrackingImageModal() {
+  return `
+    <div class="tracking-image-modal" data-tracking-image-modal hidden>
+      <div class="tracking-image-modal-backdrop" data-close-tracking-image-modal="true"></div>
+      <div class="tracking-image-modal-dialog" role="dialog" aria-modal="true" aria-label="Vista ampliada de imagen">
+        <button type="button" class="tracking-image-modal-close" data-close-tracking-image-modal="true" aria-label="Cerrar vista ampliada">&times;</button>
+        <img data-tracking-image-modal-src alt="Imagen ampliada del tracking" />
+        <p class="tracking-image-modal-note" data-tracking-image-modal-note></p>
+      </div>
+    </div>
+  `;
+}
+
+function openTrackingImageModal(url, note = "") {
+  const modal = trackingResults.querySelector("[data-tracking-image-modal]");
+  const imageElement = modal?.querySelector("[data-tracking-image-modal-src]");
+  const noteElement = modal?.querySelector("[data-tracking-image-modal-note]");
+
+  if (!modal || !imageElement) {
+    return;
+  }
+
+  imageElement.src = url;
+  noteElement.textContent = note || "";
+  modal.hidden = false;
+  document.body.classList.add("tracking-image-modal-open");
+}
+
+function closeTrackingImageModal() {
+  const modal = trackingResults.querySelector("[data-tracking-image-modal]");
+  const imageElement = modal?.querySelector("[data-tracking-image-modal-src]");
+  const noteElement = modal?.querySelector("[data-tracking-image-modal-note]");
+
+  if (!modal) {
+    return;
+  }
+
+  modal.hidden = true;
+  document.body.classList.remove("tracking-image-modal-open");
+
+  if (imageElement) {
+    imageElement.removeAttribute("src");
+  }
+
+  if (noteElement) {
+    noteElement.textContent = "";
+  }
 }
 
 function renderTrackingTimeline(order) {
@@ -716,7 +802,9 @@ function renderTrackingFilesSection(order) {
       <div class="tracking-files-grid">
         ${files
           .map((item) => {
-            if (item.type === "document" || item.category === "document") {
+            const footerText = item.note || item.caption || item.stageLabel || "Archivo";
+
+            if (item.type === "document") {
               const fileName = item.name || item.caption || "documento";
               const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
 
@@ -733,13 +821,25 @@ function renderTrackingFilesSection(order) {
                     <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
                     <span class="tracking-document-cta">Descargar</span>
                   </button>
-                  <p class="tracking-file-caption">${escapeHtml(item.caption || item.name || "Documento")}</p>
+                  <div class="tracking-file-meta">
+                    <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+                  </div>
                 </article>
               `;
             }
 
             return `
               <article class="tracking-file-card image">
+                <button
+                  class="tracking-file-image-button"
+                  type="button"
+                  data-open-tracking-image="true"
+                  data-image-url="${escapeHtml(item.url)}"
+                  data-image-note="${escapeHtml(footerText)}"
+                  aria-label="Ampliar imagen del tracking"
+                >
+                  <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
+                </button>
                 <button
                   class="tracking-media-download-icon"
                   type="button"
@@ -751,8 +851,9 @@ function renderTrackingFilesSection(order) {
                     <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
                   </svg>
                 </button>
-                <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
-                <p class="tracking-file-caption">${escapeHtml(item.caption || item.stageLabel || "Archivo")}</p>
+                <div class="tracking-file-meta">
+                  <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+                </div>
               </article>
             `;
           })
@@ -768,7 +869,8 @@ function renderTrackingResult(order) {
   const eventsTableMarkup = renderTrackingEventsTable(order);
   const filesSectionMarkup = renderTrackingFilesSection(order);
 
-  const mediaMarkup = (order.media || [])
+  const mediaMarkup = (Array.isArray(order?.media) ? order.media : [])
+    .filter((item) => item?.url && item?.category !== "document")
     .map((item) => {
       if (item.type === "video") {
         return `<div class="feed-media-card video">${renderVideoElement(item.url, "Video del pedido")}</div>`;
@@ -789,6 +891,7 @@ function renderTrackingResult(order) {
       ${timelineMarkup}
       ${eventsTableMarkup}
       ${filesSectionMarkup}
+      ${renderTrackingImageModal()}
     </section>
   `;
 }
@@ -822,6 +925,32 @@ trackingResults.addEventListener("click", (event) => {
     return;
   }
 
+  const imageCardButton = event.target.closest("[data-open-tracking-image]");
+
+  if (imageCardButton) {
+    const imageUrl = imageCardButton.getAttribute("data-image-url") || "";
+    const imageNote = imageCardButton.getAttribute("data-image-note") || "";
+
+    if (imageUrl) {
+      openTrackingImageModal(imageUrl, imageNote);
+    }
+
+    return;
+  }
+
+  const closeModalTrigger = event.target.closest("[data-close-tracking-image-modal]");
+
+  if (closeModalTrigger) {
+    closeTrackingImageModal();
+    return;
+  }
+
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeTrackingImageModal();
+  }
 });
 
 trackingNavButtons.forEach((button) => {

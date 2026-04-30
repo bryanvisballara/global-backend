@@ -2845,7 +2845,8 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-files-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 220px));
+  justify-content: center;
   gap: 20px;
 }
 
@@ -2863,37 +2864,116 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-file-card.image img {
   width: 100%;
-  aspect-ratio: 1.12;
+  aspect-ratio: 0.9;
   object-fit: cover;
   background: #101010;
 }
 
+.tracking-file-image-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
 .tracking-file-card.document {
   align-content: start;
-  gap: 14px;
-  padding: 16px;
+  gap: 0;
+  padding: 16px 16px 0;
 }
 
 .tracking-file-download {
   min-height: 88px;
 }
 
+.tracking-file-meta {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px 16px;
+  background: #000000;
+}
+
 .tracking-file-caption {
   margin: 0;
-  padding: 16px 18px 20px;
-  color: rgba(243, 237, 224, 0.92);
-  font-size: 0.9rem;
+  color: #ffffff;
+  font-size: 0.82rem;
   line-height: 1.4;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .tracking-file-card.document .tracking-file-caption {
-  padding: 0;
   text-align: left;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.tracking-image-modal-open {
+  overflow: hidden;
+}
+
+.tracking-image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.tracking-image-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.tracking-image-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 520px);
+  overflow: hidden;
+  border-radius: 24px;
+  background: #050505;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.42);
+}
+
+.tracking-image-modal-dialog img {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  background: #111111;
+}
+
+.tracking-image-modal-note {
+  margin: 0;
+  padding: 16px 18px 20px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.tracking-image-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 body.admin-uppercase-view,
@@ -8462,6 +8542,13 @@ body.admin-app-view .tracking-visibility-button:hover,
 body.admin-app-view .tracking-visibility-button-inline:hover,
 body.admin-app-view .maint-modal-close:hover {
   background: #f3f3f3 !important;
+}
+
+body.admin-app-view .tracking-visibility-button.is-visible,
+body.admin-app-view .tracking-visibility-button-inline.is-visible {
+  background: rgba(96, 211, 168, 0.16) !important;
+  border-color: rgba(96, 211, 168, 0.56) !important;
+  color: #2f9e6b !important;
 }
 
 body.admin-app-view .client-form-card input,

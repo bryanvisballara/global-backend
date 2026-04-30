@@ -624,7 +624,15 @@ function getOrderTrackingEvents(order) {
       const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
       const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
 
-      return rightTime - leftTime;
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      if (left.completed !== right.completed) {
+        return left.completed ? -1 : 1;
+      }
+
+      return right.stateIndex - left.stateIndex;
     });
 }
 
@@ -1738,14 +1746,12 @@ function renderOrderDocumentDeleteButton(documentId) {
   return `
     <button
       type="button"
-      class="tracking-document-delete-button"
+      class="tracking-event-delete-button"
       data-delete-order-document="true"
       data-document-id="${escapeHtml(documentId)}"
       title="Eliminar documento"
       aria-label="Eliminar documento"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 7h2v7h-2v-7Zm4 0h2v7h-2v-7ZM7 10h2v7H7v-7Zm-1 11a2 2 0 0 1-2-2V8h16v11a2 2 0 0 1-2 2H6Z"></path></svg>
-    </button>
+    >&times;</button>
   `;
 }
 
@@ -1765,7 +1771,7 @@ function renderOrderDocumentsTable(order) {
             <th>Archivo</th>
             <th>Nota</th>
             <th>Fecha</th>
-            <th>Cliente</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -1774,13 +1780,17 @@ function renderOrderDocumentsTable(order) {
               <td>${escapeHtml(document.documentType)}</td>
               <td>
                 <div class="tracking-document-link-cell">
-                  ${renderOrderDocumentDeleteButton(document.documentId)}
                   <a class="tracking-document-link" href="${escapeHtml(document.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(document.name)}</a>
                 </div>
               </td>
               <td>${escapeHtml(document.note || "-")}</td>
               <td>${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
-              <td class="admin-tracking-events-visibility-cell">${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}</td>
+              <td class="admin-tracking-events-actions-cell">
+                <div class="admin-tracking-event-actions">
+                  ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
+                  ${renderOrderDocumentDeleteButton(document.documentId)}
+                </div>
+              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -2290,6 +2300,23 @@ async function toggleOrderDocumentVisibility(documentId, nextVisible) {
   renderOrderSummary(getSelectedOrder());
   renderStates();
   renderSearchResults(getFilteredOrders());
+  const clientPushSent = Number(response?.notificationSummary?.clientPushSent || 0);
+  adminSetFeedback(
+    trackingFeedback,
+    nextVisible
+      ? clientPushSent > 0
+        ? "Documento visible para el cliente. Push enviado."
+        : "Documento visible para el cliente. No se encontro un dispositivo push activo para este cliente."
+      : "Documento oculto para el cliente.",
+    "success"
+  );
+
+  if (nextVisible && clientPushSent > 0) {
+    openSuccessModal({
+      title: "Documento notificado",
+      message: "El documento fue notificado al cliente y ya aparece en su app.",
+    });
+  }
 }
 
 async function deleteOrderDocument(documentId) {
