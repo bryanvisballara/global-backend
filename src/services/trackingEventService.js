@@ -170,7 +170,15 @@ function buildTrackingEventsCollection(events = []) {
       const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
       const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
 
-      return rightTime - leftTime;
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      if (left.completed !== right.completed) {
+        return left.completed ? -1 : 1;
+      }
+
+      return Number(right.stateIndex || 0) - Number(left.stateIndex || 0);
     });
 }
 
