@@ -204,7 +204,7 @@ if (requireAdminAccess()) {
 
   function normalizeVehicles(orders) {
     return (orders || [])
-      .filter((order) => order?.orderRegion === "latam" && order?.status !== "cancelled")
+      .filter((order) => order?.status !== "cancelled")
       .map((order) => {
         const currentStage = resolveCurrentStage(order);
         const plate = normalizeText(order?.vehicle?.plate);
@@ -262,8 +262,7 @@ if (requireAdminAccess()) {
         <td data-label="Placa">${escapeHtml(vehicle.plate || "—")}</td>
         <td data-label="Cliente">${escapeHtml(vehicle.clientName || "Sin cliente")}</td>
         <td data-label="Tracking" class="vehicle-tracking-cell">
-          <span class="vehicle-tracking-value">${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}</span>
-          <button class="vehicle-detail-button" type="button" data-open-vehicle-order="${escapeHtml(vehicle.id)}">Ver orden</button>
+          <button class="vehicle-tracking-link" type="button" data-open-vehicle-order="${escapeHtml(vehicle.id)}">${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}</button>
         </td>
         <td data-label="Etapa">${escapeHtml(vehicle.currentStage.display)}</td>
         <td data-label="Acciones" class="vehicles-actions-cell">
