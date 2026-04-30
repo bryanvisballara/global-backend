@@ -6316,6 +6316,116 @@ body .tracking-search-page .page-hero h1 {
   font-size: 0.8rem;
 }
 
+.vehicles-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vehicle-stat-card {
+  min-height: 112px;
+}
+
+.vehicles-filter-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1.4fr 1.2fr 1.4fr 0.9fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.vehicles-filter-grid label {
+  display: grid;
+  gap: 8px;
+}
+
+.vehicles-filter-grid label span,
+.vehicle-filter-meta-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.vehicles-filter-grid input,
+.vehicles-filter-grid select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 15px 16px;
+  color: #fff;
+  outline: none;
+}
+
+.vehicles-filter-grid input:focus,
+.vehicles-filter-grid select:focus {
+  border-color: rgba(216, 170, 82, 0.5);
+  box-shadow: 0 0 0 4px rgba(216, 170, 82, 0.12);
+}
+
+.vehicle-filter-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.vehicle-filter-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.vehicles-results-card td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.vehicle-id-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
+}
+
+.vehicles-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.vehicle-edit-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.vehicle-edit-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.vehicle-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vehicle-modal-summary {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.vehicle-modal-summary strong {
+  color: inherit;
+}
+
 .tracking-search-page .page-topbar {
   align-items: center;
 }
@@ -6938,8 +7048,14 @@ body.modal-open {
   }
 
   .clients-stats-grid,
+  .vehicles-stats-grid,
   .clients-filter-grid,
+  .vehicles-filter-grid,
   .clients-filter-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-pricing-grid {
     grid-template-columns: 1fr;
   }
 

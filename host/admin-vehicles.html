@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Vehiculos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight25" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1>Vehiculos</h1>
+          <p class="dashboard-lead">Consulta los vehículos creados al registrar pedidos LATAM y administra su precio de compra y venta.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="clients-dashboard-stack">
+              <section class="vehicles-stats-grid" aria-label="Resumen vehículos">
+                <article class="metric-card vehicle-stat-card">
+                  <span>Total</span>
+                  <strong id="vehicles-total-count">0</strong>
+                </article>
+                <article class="metric-card vehicle-stat-card">
+                  <span>Con placa</span>
+                  <strong id="vehicles-with-plate-count">0</strong>
+                </article>
+                <article class="metric-card vehicle-stat-card">
+                  <span>Sin placa</span>
+                  <strong id="vehicles-without-plate-count">0</strong>
+                </article>
+                <article class="metric-card vehicle-stat-card">
+                  <span>En Entrega o más (E8+)</span>
+                  <strong id="vehicles-stage-e8-count">0</strong>
+                </article>
+              </section>
+
+              <section class="dashboard-card clients-filter-card" aria-label="Filtros de vehículos">
+                <div class="vehicles-filter-grid">
+                  <label>
+                    <span>Búsqueda</span>
+                    <input id="vehicles-search-input" type="text" placeholder="VIN, placa, marca, modelo, color, cliente, código interno..." />
+                  </label>
+                  <label>
+                    <span>Cliente</span>
+                    <select id="vehicles-client-filter">
+                      <option value="">Todos</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Pedido (ID)</span>
+                    <input id="vehicles-order-id-filter" type="text" placeholder="ID" />
+                  </label>
+                  <label>
+                    <span>VIN</span>
+                    <input id="vehicles-vin-filter" type="text" placeholder="Exacto o parcial" />
+                  </label>
+                  <label>
+                    <span>Año</span>
+                    <input id="vehicles-year-filter" type="text" inputmode="numeric" placeholder="YYYY" />
+                  </label>
+                  <label>
+                    <span>Etapa</span>
+                    <select id="vehicles-stage-filter">
+                      <option value="">Todas</option>
+                    </select>
+                  </label>
+                  <div class="vehicle-filter-meta">
+                    <span class="vehicle-filter-meta-label">Acciones</span>
+                    <div class="clients-filter-actions">
+                      <button id="vehicles-clear-button" class="secondary-button" type="button">Limpiar</button>
+                      <button id="vehicles-filter-button" class="secondary-button" type="button">Filtrar</button>
+                    </div>
+                    <p class="vehicle-filter-note">Solo ves vehículos de pedidos cuya región es LATAM.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="dashboard-card tracking-table-card vehicles-results-card" aria-label="Resultados vehículos">
+                <div class="card-heading">
+                  <h2>Resultados</h2>
+                  <span id="vehicles-results-count" class="section-tag">0 vehículo(s)</span>
+                </div>
+                <div class="tracking-table-wrap">
+                  <table class="tracking-data-table">
+                    <thead>
+                      <tr>
+                        <th>VIN</th>
+                        <th>Vehículo</th>
+                        <th>Placa</th>
+                        <th>Cliente</th>
+                        <th>Pedido</th>
+                        <th>Etapa</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="vehicles-results-body">
+                      <tr>
+                        <td colspan="7"><div class="empty-state">Cargando vehículos...</div></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p id="vehicles-feedback" class="feedback" aria-live="polite"></p>
+              </section>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <div id="vehicle-pricing-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="vehicle-pricing-modal"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="vehicle-pricing-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="vehicle-pricing-title">Editar precios</h2>
+            <p class="modal-copy">Actualiza el precio de compra y el precio de venta del vehículo.</p>
+          </div>
+        </header>
+        <p id="vehicle-modal-summary" class="vehicle-modal-summary"></p>
+        <form id="vehicle-pricing-form" class="dashboard-form compact-modal-form">
+          <div class="vehicle-pricing-grid">
+            <label>
+              <span>Precio de compra</span>
+              <input id="vehicle-purchase-price" name="purchasePrice" type="number" min="0" step="0.01" placeholder="0" />
+            </label>
+            <label>
+              <span>Precio de venta</span>
+              <input id="vehicle-sale-price" name="salePrice" type="number" min="0" step="0.01" placeholder="0" />
+            </label>
+          </div>
+          <p id="vehicle-modal-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button id="vehicle-pricing-cancel" class="secondary-button" type="button">Cancelar</button>
+            <button id="vehicle-pricing-save" class="primary-button" type="submit">Guardar</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script src="/admin-common.js?v=20260430-adminnav02"></script>
+    <script src="/admin-vehicles.js?v=20260430-01"></script>
+  </body>
+</html>

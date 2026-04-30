@@ -166,8 +166,14 @@ function requireAdminAccess() {
   const latamOnlyPages = new Set([
     "/app/admin-client-requests.html",
     "/app/admin-maintenance.html",
+    "/app/admin-vehicles.html",
     "/app/admin-posts.html",
     "/app/admin-virtual-dealership.html",
+    "/admin-client-requests.html",
+    "/admin-maintenance.html",
+    "/admin-vehicles.html",
+    "/admin-posts.html",
+    "/admin-virtual-dealership.html",
   ]);
 
   if (currentRole && !isAdminPanelRole(currentRole)) {
@@ -344,6 +350,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const navItems = [
     { href: "/app/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin.html"] },
     { href: "/app/admin-tracking.html", label: "Pedidos", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-tracking.html", "/app/admin-orders.html"] },
+    { href: "/app/admin-vehicles.html", label: "Vehiculos", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-vehicles.html"] },
     { href: "/app/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-clients.html"] },
     { href: "/app/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-deleted-accounts.html"] },
     { href: "/app/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-client-requests.html"] },

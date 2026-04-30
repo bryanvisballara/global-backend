@@ -166,6 +166,7 @@ function requireAdminAccess() {
   const latamOnlyPages = new Set([
     "/admin-client-requests.html",
     "/admin-maintenance.html",
+    "/admin-vehicles.html",
     "/admin-posts.html",
     "/admin-virtual-dealership.html",
   ]);
@@ -344,6 +345,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const navItems = [
     { href: "/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
     { href: "/admin-tracking.html", label: "Pedidos", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+    { href: "/admin-vehicles.html", label: "Vehiculos", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
     { href: "/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
     { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
     { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminacion", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
