@@ -253,8 +253,11 @@ const trackingSuccessTitle = document.getElementById("tracking-success-title");
 const trackingSuccessMessage = document.getElementById("tracking-success-message");
 const trackingSuccessClose = document.getElementById("tracking-success-close");
 const trackingDeleteUpdateModal = document.getElementById("tracking-delete-update-modal");
+const trackingDeleteUpdateTitle = document.getElementById("tracking-delete-update-title");
 const trackingDeleteUpdateConfirm = document.getElementById("tracking-delete-update-confirm");
 const trackingDeleteUpdateFeedback = document.getElementById("tracking-delete-update-feedback");
+const trackingDeleteUpdateCopy = trackingDeleteUpdateModal?.querySelector(".tracking-delete-confirm-copy") || null;
+const trackingDeleteUpdateCancel = trackingDeleteUpdateModal?.querySelector(".tracking-modal-actions [data-close-delete-update-modal]") || null;
 const orderSuccessModal = document.getElementById("order-success-modal");
 const createOrderModal = document.getElementById("tracking-create-order-modal");
 const createOrderModalCard = createOrderModal?.querySelector(".tracking-create-order-modal-card") || null;
@@ -2060,7 +2063,15 @@ async function deleteUpdate(stateKey, updateIndex, eventId = "") {
   renderOrderSummary(getSelectedOrder());
   renderStates();
   renderSearchResults(getFilteredOrders());
-  adminSetFeedback(trackingFeedback, "Evento eliminado correctamente.", "success");
+  adminSetFeedback(
+    trackingFeedback,
+    response?.message || (response?.requestPending
+      ? "Solicitud de eliminación enviada correctamente."
+      : "Evento eliminado correctamente."),
+    "success"
+  );
+
+  return response;
 }
 
 async function saveState(stateKey) {
@@ -2474,7 +2485,27 @@ function openDeleteUpdateModal(stateKey, updateIndex, eventId = "") {
     return;
   }
 
+  const requiresApproval = !isAnthonyGlobalOwner();
   pendingTrackingDeleteAction = { stateKey, updateIndex, eventId };
+
+  if (trackingDeleteUpdateTitle) {
+    trackingDeleteUpdateTitle.textContent = requiresApproval ? "Solicitar eliminación" : "Borrar evento";
+  }
+
+  if (trackingDeleteUpdateCopy) {
+    trackingDeleteUpdateCopy.textContent = requiresApproval
+      ? "Esta acción enviará una solicitud de eliminación a Anthony. El evento seguirá visible hasta que él la apruebe."
+      : "Esta acción elimina el evento reciente de la orden. No se puede deshacer.";
+  }
+
+  if (trackingDeleteUpdateConfirm) {
+    trackingDeleteUpdateConfirm.textContent = requiresApproval ? "Solicitar permiso" : "Borrar";
+  }
+
+  if (trackingDeleteUpdateCancel) {
+    trackingDeleteUpdateCancel.textContent = "Cancelar";
+  }
+
   adminSetFeedback(trackingDeleteUpdateFeedback, "");
   trackingDeleteUpdateModal.hidden = false;
   document.body.classList.add("modal-open");
@@ -2502,11 +2533,16 @@ async function confirmDeleteUpdate() {
     return;
   }
 
+  const requiresApproval = !isAnthonyGlobalOwner();
+
   if (trackingDeleteUpdateConfirm) {
     trackingDeleteUpdateConfirm.disabled = true;
   }
 
-  adminSetFeedback(trackingDeleteUpdateFeedback, "Eliminando evento...");
+  adminSetFeedback(
+    trackingDeleteUpdateFeedback,
+    requiresApproval ? "Enviando solicitud..." : "Eliminando evento..."
+  );
 
   try {
     await deleteUpdate(

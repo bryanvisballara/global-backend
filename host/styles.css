@@ -2281,10 +2281,26 @@ body.loading-active {
   margin-top: 16px;
 }
 
+.request-note-box-secondary {
+  margin-top: 12px;
+}
+
 .request-note-box p {
   margin: 10px 0 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.request-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.request-card-actions .primary-button,
+.request-card-actions .secondary-button {
+  width: 100%;
 }
 
 .tracking-preview {
@@ -3450,6 +3466,18 @@ body.admin-app-view .request-card-top strong {
   line-height: 1.55;
 }
 
+.tracking-modal-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tracking-modal-actions .primary-button,
+.tracking-modal-actions .secondary-button {
+  width: 100%;
+  min-height: 52px;
+}
+
 .tracking-search-results,
 .tracking-states-list,
 .tracking-state-media-list,
@@ -4473,6 +4501,11 @@ body.modal-open {
 
   .tracking-hero {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .request-card-actions,
+  .tracking-modal-actions {
     grid-template-columns: 1fr;
   }
 
