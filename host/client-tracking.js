@@ -674,7 +674,7 @@ function renderTrackingEventsTable(order) {
                 <tr>
                   <td>${escapeHtml(event.date ? formatDate(event.date) : "Sin fecha")}</td>
                   <td>${escapeHtml(event.stage || "Etapa")}</td>
-                  <td>${event.title ? escapeHtml(event.title) : '<span class="tracking-event-title-placeholder">Próximamente</span>'}</td>
+                  <td>${event.title ? escapeHtml(event.title) : '<span class="tracking-event-title-placeholder">-</span>'}</td>
                   <td class="tracking-events-description-cell">
                     ${event.hasDescription
                       ? `<span class="tracking-event-description-text">${escapeHtml(event.description || "")}</span>`
