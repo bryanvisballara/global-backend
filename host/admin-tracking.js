@@ -76,6 +76,17 @@ async function loadTrackingPageSession() {
   document.getElementById("admin-name").textContent = user.name || "Administrador";
   document.getElementById("admin-email").textContent = user.email || "admin@globalimports.com";
 
+  const sidebarNameElement = document.getElementById("admin-name-sidebar");
+  const sidebarEmailElement = document.getElementById("admin-email-sidebar");
+
+  if (sidebarNameElement) {
+    sidebarNameElement.textContent = user.name || "Administrador";
+  }
+
+  if (sidebarEmailElement) {
+    sidebarEmailElement.textContent = user.email || "admin@globalimports.com";
+  }
+
   return user;
 }
 
@@ -248,6 +259,7 @@ const trackingDateToFilter = document.getElementById("tracking-search-date-to");
 const trackingOrderSummary = document.getElementById("tracking-order-summary");
 const trackingStatesList = document.getElementById("tracking-states-list");
 const trackingStageTransitionCard = document.getElementById("tracking-stage-transition-card");
+const trackingHeroActions = document.querySelector(".tracking-hero-actions");
 const trackingSuccessModal = document.getElementById("tracking-success-modal");
 const trackingSuccessTitle = document.getElementById("tracking-success-title");
 const trackingSuccessMessage = document.getElementById("tracking-success-message");
@@ -497,8 +509,12 @@ function syncTrackingPageMode(order) {
     openCreateOrderModalButton.hidden = Boolean(order);
   }
 
+  if (trackingHeroActions) {
+    trackingHeroActions.hidden = Boolean(order);
+  }
+
   if (trackingStageTransitionCard) {
-    trackingStageTransitionCard.hidden = !order;
+    trackingStageTransitionCard.hidden = true;
   }
 }
 
@@ -1881,7 +1897,6 @@ function renderTrackingOverview(order) {
             <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
             <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
             <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
-            <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
           </div>
         </article>
         ${renderStageTransitionCardMarkup(order)}

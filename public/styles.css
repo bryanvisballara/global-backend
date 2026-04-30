@@ -913,6 +913,9 @@ body.login-page .auth-copy h2 {
   display: block;
   margin-top: 6px;
   font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .secondary-button {
@@ -1255,10 +1258,13 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   margin-top: auto;
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .admin-badge-sidebar {
   min-width: auto;
+  width: 100%;
+  max-width: 100%;
   padding: 14px 16px;
   border-radius: 18px;
 }
