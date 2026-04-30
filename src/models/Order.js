@@ -281,6 +281,11 @@ const orderSchema = new mongoose.Schema(
         enum: ["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla"],
         trim: true,
       },
+      plate: {
+        type: String,
+        trim: true,
+        uppercase: true,
+      },
       internalIdentifier: {
         type: String,
         trim: true,

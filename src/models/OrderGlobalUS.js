@@ -280,6 +280,11 @@ const orderGlobalUSSchema = new mongoose.Schema(
         type: String,
         trim: true,
       },
+      plate: {
+        type: String,
+        trim: true,
+        uppercase: true,
+      },
       internalIdentifier: {
         type: String,
         trim: true,

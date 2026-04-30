@@ -1722,6 +1722,7 @@ async function updateOrderVehiclePricing(req, res) {
 
     let purchasePrice = null;
     let salePrice = null;
+    const plate = String(req.body.plate || "").trim().toUpperCase();
 
     try {
       purchasePrice = parsePrice(req.body.purchasePrice, "purchasePrice");
@@ -1732,6 +1733,7 @@ async function updateOrderVehiclePricing(req, res) {
 
     order.vehicle = {
       ...(order.vehicle?.toObject ? order.vehicle.toObject() : order.vehicle || {}),
+      plate,
       purchasePrice,
       salePrice,
     };
