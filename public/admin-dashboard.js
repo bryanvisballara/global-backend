@@ -297,20 +297,14 @@ function getOrderTrackingSteps(order) {
             updatedAt: update?.updatedAt || null,
           }))
         : []);
-    const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestTrackingUpdate(updates);
-    const derivedConfirmed = hasEventUpdates
-      ? Boolean(latestUpdate?.completed)
-      : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
-    const derivedInProgress = hasEventUpdates
-      ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
-      : Boolean(
-          typeof sourceStep?.inProgress === "boolean"
-            ? sourceStep.inProgress && !derivedConfirmed
-            : latestUpdate?.completed
-              ? false
-              : latestUpdate?.inProgress
-        );
+    const derivedConfirmed =
+      Boolean(sourceStep?.confirmed) ||
+      updates.some((update) => Boolean(update?.completed));
+    const derivedInProgress =
+      !derivedConfirmed &&
+      (Boolean(sourceStep?.inProgress) ||
+        updates.some((update) => Boolean(update?.inProgress) && !Boolean(update?.completed)));
 
     return {
       key: template.key,
