@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260416-clientevents04";
+const TRACKING_PAGE_VERSION = "20260430-clientevents05";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
@@ -521,20 +521,29 @@ function buildTimelineStates(visibleConfirmedStates = []) {
   });
 }
 
-function renderTruckIcon() {
-  return `
-    <img class="tracking-road-truck-image" src="/camionglobal.jpg" alt="Camion de seguimiento" loading="lazy" />
-  `;
+function buildTrackingEventRows(order) {
+  return getClientVisibleTrackingEvents(order)
+    .sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .map((event, index) => {
+      const matchedState = TRACKING_TIMELINE_STATES.find((item) => item.key === event.key);
+      const title = String(event.title || event.headline || "").trim();
+
+      return {
+        key: `${event.key}-${event.updatedAt || event.createdAt || index}`,
+        date: event.updatedAt || event.createdAt || null,
+        stage: event.label || matchedState?.label || "Etapa",
+        title,
+        description: String(event.notes || event.description || "Sin descripción por ahora.").trim(),
+      };
+    });
 }
 
-function renderTrackingTimeline(order, selectedStateKey = "") {
+function renderTrackingTimeline(order) {
   const timelineStates = buildTimelineStates(buildTrackingStepsFromEvents(order));
-  const completedCount = timelineStates.filter((state) => state.confirmed).length;
-  const maxIndex = timelineStates.length - 1;
-  const inProgressIndex = timelineStates.findIndex((state) => state.inProgress && !state.confirmed);
-  const activeIndex = inProgressIndex >= 0 ? inProgressIndex : Math.min(completedCount, maxIndex);
-  const progressPercent = maxIndex > 0 ? (activeIndex / maxIndex) * 100 : 0;
-
   const statesMarkup = timelineStates
     .map((state, index) => {
       let stateClass = "pending";
@@ -543,112 +552,98 @@ function renderTrackingTimeline(order, selectedStateKey = "") {
       if (state.confirmed) {
         stateClass = "completed";
         stateStatus = "Completado";
-      } else if (state.inProgress || index === activeIndex) {
+      } else if (state.inProgress) {
         stateClass = "current";
-        stateStatus = completedCount >= timelineStates.length ? "Completado" : "En curso";
+        stateStatus = "En curso";
       }
-
-      const selectedClass = state.key === selectedStateKey ? " is-selected" : "";
+      const connectorClass = state.confirmed
+        ? "is-completed"
+        : state.inProgress
+          ? "is-current"
+          : "is-pending";
 
       return `
-        <button class="tracking-road-state ${stateClass}${selectedClass}" type="button" data-timeline-state="${escapeHtml(state.key)}">
-          <small>Etapa ${index + 1}</small>
-          <strong>${escapeHtml(state.label)}</strong>
-          <span>${stateStatus}</span>
-        </button>
+        <article class="tracking-journey-step ${stateClass}">
+          <div class="tracking-journey-rail" aria-hidden="true">
+            ${index > 0 ? '<span class="tracking-journey-segment is-top"></span>' : '<span class="tracking-journey-segment is-top is-hidden"></span>'}
+            <span class="tracking-journey-dot ${stateClass}"></span>
+            ${index < timelineStates.length - 1 ? `<span class="tracking-journey-segment is-bottom ${connectorClass}"></span>` : '<span class="tracking-journey-segment is-bottom is-hidden"></span>'}
+          </div>
+          <div class="tracking-journey-copy">
+            <small>Etapa ${index + 1}</small>
+            <strong>${escapeHtml(state.label)}</strong>
+            <span>${stateStatus}</span>
+          </div>
+        </article>
       `;
     })
     .join("");
 
   return `
     <section class="tracking-roadmap" aria-label="Linea de tiempo del tracking">
-      <div class="tracking-road" role="presentation">
-        <div class="tracking-road-line"></div>
-        <div class="tracking-road-progress" style="width:${progressPercent.toFixed(2)}%"></div>
-        <div class="tracking-road-truck" style="left:${progressPercent.toFixed(2)}%">
-          ${renderTruckIcon()}
-        </div>
+      <div class="tracking-journey-head">
+        <p class="tracking-journey-kicker">Ruta del pedido</p>
+        <h2>Etapas del proceso</h2>
+        <p>Cada punto muestra si la etapa ya se completó, si está en curso o si sigue pendiente.</p>
       </div>
-      <div class="tracking-road-states">${statesMarkup}</div>
+      <div class="tracking-journey-list">${statesMarkup}</div>
     </section>
   `;
 }
 
-function renderSelectedStateDetail(order, stateKey) {
-  const detailPanel = trackingResults.querySelector("#tracking-state-detail-panel");
+function renderTrackingEventsTable(order) {
+  const eventRows = buildTrackingEventRows(order);
 
-  if (!detailPanel || !order) {
-    return;
-  }
-
-  const selectedTemplate = TRACKING_TIMELINE_STATES.find((item) => item.key === stateKey) || TRACKING_TIMELINE_STATES[0];
-  const selectedStep = buildTrackingStepsFromEvents(order).find((item) => item.key === selectedTemplate.key);
-
-  if (!selectedStep || !selectedStep.updates.length) {
-    detailPanel.innerHTML = `
-      <section class="tracking-state-detail-panel tracking-state-detail-summary-card">
-        <strong>${escapeHtml(selectedTemplate.label)}</strong>
-        <p>Este estado aun no tiene informacion visible.</p>
-      </section>
-    `;
-    bindTrackingCarousels(detailPanel);
-    return;
-  }
-
-  const visibleUpdates = [...selectedStep.updates].reverse();
-  const historyMarkup = visibleUpdates.map((update, index) => {
-    const updateDate = update.updatedAt || update.createdAt || null;
-    const updateStatus = update.completed
-      ? "Etapa completada"
-      : update.inProgress
-        ? "Estado en curso"
-        : "Actualizacion";
-
+  if (!eventRows.length) {
     return `
-      <article class="tracking-state-detail-panel tracking-state-event-card is-client-visible">
-        <div class="tracking-state-history-header">
-          <div>
-            <span class="tracking-state-event-count">Evento ${visibleUpdates.length - index}</span>
-            <strong>${escapeHtml(updateStatus)}</strong>
-            <p>${escapeHtml(updateDate ? formatDate(updateDate) : "Sin fecha")}</p>
-          </div>
+      <section class="tracking-events-card">
+        <div class="tracking-events-head">
+          <p class="tracking-journey-kicker">Historial</p>
+          <h2>Eventos del pedido</h2>
         </div>
-        <p>${escapeHtml(update.notes || "Sin observaciones por ahora.")}</p>
-        ${renderCategorizedMediaSections(update.media || [])}
-      </article>
-    `;
-  }).join("");
-
-  detailPanel.innerHTML = `
-    <section class="tracking-state-detail-stack">
-      <section class="tracking-state-detail-panel tracking-state-detail-summary-card">
-        <strong>${escapeHtml(selectedStep.label || selectedTemplate.label)}</strong>
-        <p>${escapeHtml(selectedStep.updatedAt ? `Actualizado ${formatDate(selectedStep.updatedAt)}` : "Esperando actualización")}</p>
+        <p class="tracking-events-empty">Todavía no hay eventos visibles para este pedido.</p>
       </section>
-      ${historyMarkup}
+    `;
+  }
+
+  return `
+    <section class="tracking-events-card">
+      <div class="tracking-events-head">
+        <p class="tracking-journey-kicker">Historial</p>
+        <h2>Eventos del pedido</h2>
+      </div>
+      <div class="tracking-events-table-wrap">
+        <table class="tracking-events-table" aria-label="Historial de eventos del pedido">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Etapa</th>
+              <th>Título</th>
+              <th>Descripción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${eventRows
+              .map((event) => `
+                <tr>
+                  <td>${escapeHtml(event.date ? formatDate(event.date) : "Sin fecha")}</td>
+                  <td>${escapeHtml(event.stage || "Etapa")}</td>
+                  <td>${event.title ? escapeHtml(event.title) : '<span class="tracking-event-title-placeholder">Próximamente</span>'}</td>
+                  <td>${escapeHtml(event.description || "Sin descripción por ahora.")}</td>
+                </tr>
+              `)
+              .join("")}
+          </tbody>
+        </table>
+      </div>
     </section>
   `;
-
-  bindTrackingCarousels(detailPanel);
-}
-
-function activateTimelineState(order, stateKey) {
-  trackingResults.querySelectorAll("[data-timeline-state]").forEach((button) => {
-    button.classList.toggle("is-selected", button.getAttribute("data-timeline-state") === stateKey);
-  });
-
-  renderSelectedStateDetail(order, stateKey);
 }
 
 function renderTrackingResult(order) {
   activeTrackingOrder = order;
-  const trackingSteps = buildTrackingStepsFromEvents(order);
-  const defaultStep = trackingSteps.find((item) => item.inProgress && !item.confirmed && item.updates.length)
-    || trackingSteps.find((item) => item.updates.length)
-    || trackingSteps[trackingSteps.length - 1]
-    || TRACKING_TIMELINE_STATES[0];
-  const defaultStateKey = defaultStep?.key || TRACKING_TIMELINE_STATES[0].key;
-  const timelineMarkup = renderTrackingTimeline(order, defaultStateKey);
+  const timelineMarkup = renderTrackingTimeline(order);
+  const eventsTableMarkup = renderTrackingEventsTable(order);
 
   const mediaMarkup = (order.media || [])
     .map((item) => {
@@ -669,11 +664,9 @@ function renderTrackingResult(order) {
       </div>
       ${mediaMarkup ? `<div class="feed-media-strip">${mediaMarkup}</div>` : ""}
       ${timelineMarkup}
-      <div id="tracking-state-detail-panel"></div>
+      ${eventsTableMarkup}
     </section>
   `;
-
-  activateTimelineState(order, defaultStateKey);
 }
 
 trackingResults.addEventListener("click", (event) => {
@@ -705,16 +698,6 @@ trackingResults.addEventListener("click", (event) => {
     return;
   }
 
-  const stateButton = event.target.closest("[data-timeline-state]");
-
-  if (!stateButton || !activeTrackingOrder) {
-    return;
-  }
-
-  const stateKey = stateButton.getAttribute("data-timeline-state");
-  if (stateKey) {
-    activateTimelineState(activeTrackingOrder, stateKey);
-  }
 });
 
 trackingNavButtons.forEach((button) => {

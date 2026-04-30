@@ -2521,91 +2521,108 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-roadmap {
   display: grid;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.tracking-road {
-  position: relative;
-  height: 42px;
-}
-
-.tracking-road-line,
-.tracking-road-progress {
-  position: absolute;
-  top: 20px;
-  left: 0;
-  height: 4px;
-  border-radius: 999px;
-}
-
-.tracking-road-line {
-  width: 100%;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.2) 0,
-      rgba(255, 255, 255, 0.2) 24px,
-      rgba(255, 255, 255, 0.06) 24px,
-      rgba(255, 255, 255, 0.06) 44px
-    );
-}
-
-.tracking-road-progress {
-  background: linear-gradient(90deg, rgba(216, 170, 82, 0.5), rgba(96, 211, 168, 0.62));
-  max-width: 100%;
-  transition: width 280ms ease;
-}
-
-.tracking-road-truck {
-  position: absolute;
-  top: -24px;
-  width: 99px;
-  height: 68px;
-  transform: translateX(-50%);
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
-  transition: left 280ms ease;
-}
-
-.tracking-road-truck-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.tracking-road-states {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  max-height: min(44vh, 320px);
-  overflow-y: auto;
-  padding-right: 4px;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(11, 17, 15, 0.96), rgba(17, 26, 23, 0.92));
 }
 
-.tracking-road-states::-webkit-scrollbar {
-  width: 8px;
+.tracking-journey-head {
+  display: grid;
+  gap: 8px;
 }
 
-.tracking-road-states::-webkit-scrollbar-thumb {
-  background: rgba(216, 170, 82, 0.3);
+.tracking-journey-head h2,
+.tracking-events-head h2 {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.tracking-journey-head p,
+.tracking-events-head p,
+.tracking-events-empty {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.tracking-journey-kicker {
+  color: rgba(244, 210, 143, 0.78) !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracking-journey-list {
+  display: grid;
+  gap: 0;
+}
+
+.tracking-journey-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.tracking-journey-rail {
+  display: grid;
+  grid-template-rows: 18px 28px minmax(18px, 1fr);
+  justify-items: center;
+}
+
+.tracking-journey-segment {
+  width: 3px;
+  height: 100%;
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.tracking-road-state {
+.tracking-journey-segment.is-hidden {
+  opacity: 0;
+}
+
+.tracking-journey-segment.is-completed {
+  background: rgba(96, 211, 168, 0.72);
+}
+
+.tracking-journey-segment.is-current {
+  background: rgba(244, 210, 143, 0.72);
+}
+
+.tracking-journey-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.02);
+}
+
+.tracking-journey-dot.completed {
+  border-color: rgba(96, 211, 168, 0.32);
+  background: #60d3a8;
+  box-shadow: 0 0 0 6px rgba(96, 211, 168, 0.12);
+}
+
+.tracking-journey-dot.current {
+  border-color: rgba(244, 210, 143, 0.32);
+  background: #f4d28f;
+  box-shadow: 0 0 0 6px rgba(244, 210, 143, 0.12);
+}
+
+.tracking-journey-copy {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  text-align: left;
-  cursor: pointer;
+  padding: 4px 0 18px;
 }
 
-.tracking-road-state small {
+.tracking-journey-copy small {
   color: rgba(244, 210, 143, 0.72);
   font-size: 0.68rem;
   font-weight: 800;
@@ -2613,39 +2630,93 @@ body.tracking-detail-mode #tracking-form {
   text-transform: uppercase;
 }
 
-.tracking-road-state strong {
-  font-size: 0.86rem;
+.tracking-journey-copy strong {
+  font-size: 0.98rem;
   line-height: 1.3;
 }
 
-.tracking-road-state span {
+.tracking-journey-copy span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.tracking-road-state.completed {
-  border-color: rgba(96, 211, 168, 0.38);
-  background: rgba(96, 211, 168, 0.08);
-}
-
-.tracking-road-state.completed span {
+.tracking-journey-step.completed .tracking-journey-copy span {
   color: #9ce8c9;
 }
 
-.tracking-road-state.current {
-  border-color: rgba(216, 170, 82, 0.48);
-  background: rgba(216, 170, 82, 0.1);
-}
-
-.tracking-road-state.current span {
+.tracking-journey-step.current .tracking-journey-copy span {
   color: #f4d28f;
 }
 
-.tracking-road-state.is-selected {
-  outline: 2px solid rgba(216, 170, 82, 0.42);
-  outline-offset: 0;
+.tracking-events-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 15, 16, 0.98), rgba(19, 21, 22, 0.95));
+}
+
+.tracking-events-head {
+  display: grid;
+  gap: 6px;
+}
+
+.tracking-events-table-wrap {
+  overflow-x: auto;
+}
+
+.tracking-events-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.tracking-events-table th,
+.tracking-events-table td {
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.tracking-events-table thead th {
+  color: rgba(244, 210, 143, 0.82);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tracking-events-table tbody tr:nth-child(odd) td {
+  background: rgba(138, 143, 148, 0.12);
+}
+
+.tracking-events-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tracking-events-table tbody tr td {
+  border-bottom: 1px solid rgba(165, 170, 175, 0.16);
+  line-height: 1.7;
+}
+
+.tracking-events-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tracking-event-title-placeholder {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(154, 158, 163, 0.18);
+  color: rgba(219, 223, 228, 0.86);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .tracking-state-detail-panel {
