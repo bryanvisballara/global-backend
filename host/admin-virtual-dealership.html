@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight33" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
   </head>
   <body class="admin-posts-page admin-app-view">
@@ -57,7 +57,8 @@
                 </div>
 
                 <label><span>Descripción</span><textarea name="description" rows="4" placeholder="Detalles del vehículo para la vitrina inmediata"></textarea></label>
-                <label><span>Imágenes (subir archivos)</span><input name="mediaFiles" type="file" accept="image/*" multiple required /></label>
+                <label><span>Imágenes (subir archivos)</span><input id="virtual-dealership-media-files" name="mediaFiles" type="file" accept="image/*" multiple required /></label>
+                <div id="virtual-dealership-media-preview" class="tracking-state-media-list admin-sortable-media-list" hidden></div>
                 <button class="primary-button" type="submit">Publicar en Concesionario Virtual</button>
                 <p id="virtual-dealership-feedback" class="feedback" aria-live="polite"></p>
               </form>
@@ -118,6 +119,8 @@
             <label><span>Potencia (caballaje)</span><input id="virtual-dealership-edit-horsepower" type="number" min="0" step="1" placeholder="437" /></label>
           </div>
           <label><span>Descripción</span><textarea id="virtual-dealership-edit-description" rows="4" placeholder="Detalles visibles en la vitrina"></textarea></label>
+          <label><span>Agregar imágenes</span><input id="virtual-dealership-edit-media-files" name="mediaFiles" type="file" accept="image/*" multiple /></label>
+          <div id="virtual-dealership-edit-media-preview" class="tracking-state-media-list admin-sortable-media-list" hidden></div>
           <p id="virtual-dealership-edit-feedback" class="feedback" aria-live="polite"></p>
           <div class="modal-actions-row">
             <button id="virtual-dealership-edit-cancel" class="secondary-button" type="button">Cancelar</button>
@@ -128,6 +131,6 @@
     </div>
 
     <script src="/admin-common.js?v=20260430-adminnav03"></script>
-    <script src="/admin-virtual-dealership.js?v=20260427-01"></script>
+    <script src="/admin-virtual-dealership.js?v=20260430-03"></script>
   </body>
 </html>

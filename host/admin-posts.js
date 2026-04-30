@@ -41,7 +41,8 @@ if (requireAdminAccess()) {
   let allPosts = [];
   let confirmResolver = null;
   let pendingSubmitAction = "publish";
-  let postMediaPreviewUrls = [];
+  let composerMediaItems = [];
+  let draggedComposerMediaId = "";
 
   function isSupportedVideoUrl(value) {
     if (!value) {
@@ -59,6 +60,10 @@ if (requireAdminAccess()) {
     } catch {
       return false;
     }
+  }
+
+  function isImageManagedFormat(format) {
+    return ["image", "carousel"].includes(String(format || "").trim().toLowerCase());
   }
 
   function syncVideoInputMode() {
@@ -134,11 +139,31 @@ if (requireAdminAccess()) {
       .replace(/'/g, "&#39;");
   }
 
-  function clearPostMediaPreview() {
-    postMediaPreviewUrls.forEach((objectUrl) => {
-      URL.revokeObjectURL(objectUrl);
+  function createComposerMediaItem(file) {
+    return {
+      id: `composer-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      file,
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith("video/") ? "video" : "image",
+      label: file.name || "Archivo",
+    };
+  }
+
+  function revokeComposerMediaItems(items = composerMediaItems) {
+    items.forEach((item) => {
+      if (item?.url) {
+        URL.revokeObjectURL(item.url);
+      }
     });
-    postMediaPreviewUrls = [];
+  }
+
+  function getComposerSelectedFiles() {
+    return composerMediaItems.map((item) => item.file).filter(Boolean);
+  }
+
+  function clearPostMediaPreview() {
+    revokeComposerMediaItems();
+    composerMediaItems = [];
 
     if (!postMediaPreview) {
       return;
@@ -148,39 +173,40 @@ if (requireAdminAccess()) {
     postMediaPreview.hidden = true;
   }
 
-  function renderPostMediaPreview(files = []) {
+  function renderPostMediaPreview() {
     if (!postMediaPreview) {
       return;
     }
 
-    clearPostMediaPreview();
-
-    const selectedFiles = Array.from(files || []);
+    const selectedFiles = getComposerSelectedFiles();
 
     if (!selectedFiles.length) {
+      postMediaPreview.innerHTML = "";
+      postMediaPreview.hidden = true;
       return;
     }
 
-    postMediaPreview.innerHTML = selectedFiles.map((file, index) => {
-      const objectUrl = URL.createObjectURL(file);
-      const label = escapeHtml(file.name || `Archivo ${index + 1}`);
+    postMediaPreview.innerHTML = composerMediaItems.map((item, index) => {
+      const label = escapeHtml(item.label || `Archivo ${index + 1}`);
 
-      postMediaPreviewUrls.push(objectUrl);
-
-      if (file.type.startsWith("video/")) {
+      if (item.type === "video") {
         return `
           <article class="tracking-media-card video">
-            <video controls playsinline preload="metadata" src="${escapeHtml(objectUrl)}"></video>
+            <video controls playsinline preload="metadata" src="${escapeHtml(item.url)}"></video>
             <strong>${label}</strong>
           </article>
         `;
       }
 
-      if (file.type.startsWith("image/")) {
+      if (item.type === "image") {
         return `
-          <article class="tracking-media-card image">
-            <img src="${escapeHtml(objectUrl)}" alt="${label}" loading="lazy" />
-            <strong>${label}</strong>
+          <article class="tracking-media-card image admin-sortable-media-card" draggable="true" data-composer-media-id="${escapeHtml(item.id)}">
+            <button class="admin-sortable-media-remove" type="button" data-remove-composer-media="${escapeHtml(item.id)}" aria-label="Eliminar imagen ${index + 1}">&times;</button>
+            <img src="${escapeHtml(item.url)}" alt="${label}" loading="lazy" />
+            <div class="admin-sortable-media-meta">
+              <strong>${label}</strong>
+              <small>Arrastra para cambiar el orden</small>
+            </div>
           </article>
         `;
       }
@@ -194,6 +220,41 @@ if (requireAdminAccess()) {
     }).join("");
 
     postMediaPreview.hidden = false;
+  }
+
+  function setComposerMediaFiles(files = []) {
+    revokeComposerMediaItems();
+    composerMediaItems = Array.from(files || []).map(createComposerMediaItem);
+    renderPostMediaPreview();
+  }
+
+  function removeComposerMediaItem(itemId) {
+    const itemIndex = composerMediaItems.findIndex((item) => item.id === itemId);
+
+    if (itemIndex === -1) {
+      return;
+    }
+
+    const [removedItem] = composerMediaItems.splice(itemIndex, 1);
+    revokeComposerMediaItems([removedItem]);
+    renderPostMediaPreview();
+  }
+
+  function moveComposerMediaItem(itemId, targetId) {
+    if (!itemId || !targetId || itemId === targetId) {
+      return;
+    }
+
+    const currentIndex = composerMediaItems.findIndex((item) => item.id === itemId);
+    const targetIndex = composerMediaItems.findIndex((item) => item.id === targetId);
+
+    if (currentIndex === -1 || targetIndex === -1) {
+      return;
+    }
+
+    const [movedItem] = composerMediaItems.splice(currentIndex, 1);
+    composerMediaItems.splice(targetIndex, 0, movedItem);
+    renderPostMediaPreview();
   }
 
   function findPostById(postId) {
@@ -354,12 +415,13 @@ if (requireAdminAccess()) {
         postForm.elements.format.value,
         videoUrlInput?.value || ""
       );
-      renderPostMediaPreview(selectedFiles);
+      setComposerMediaFiles(selectedFiles);
       setFeedback(
         postFeedback,
         `${selectedFiles.length} archivo${selectedFiles.length > 1 ? "s" : ""} cargado${selectedFiles.length > 1 ? "s" : ""} y listo${selectedFiles.length > 1 ? "s" : ""} para publicar.`,
         "success"
       );
+      mediaFilesInput.value = "";
     } catch (error) {
       clearPostMediaPreview();
       setFeedback(postFeedback, error.message, "error");
@@ -434,10 +496,16 @@ if (requireAdminAccess()) {
 
   async function submitPost(action) {
     const formData = new FormData(postForm);
+    formData.delete("mediaFiles");
     const format = formData.get("format");
     const videoUrl = String(formData.get("videoUrl") || "").trim();
+    const orderedFiles = getComposerSelectedFiles();
 
-    await validateFiles(mediaFilesInput.files, format, videoUrl);
+    await validateFiles(orderedFiles, format, videoUrl);
+
+    orderedFiles.forEach((file) => {
+      formData.append("mediaFiles", file);
+    });
 
     if (format === "video" && isSupportedVideoUrl(videoUrl)) {
       formData.append("mediaUrls", videoUrl);
@@ -466,6 +534,7 @@ if (requireAdminAccess()) {
 
     postForm.reset();
     syncVideoInputMode();
+    clearPostMediaPreview();
     setFeedback(
       postFeedback,
       action === "schedule" ? "Publicación programada correctamente." : "Publicación creada correctamente.",
@@ -533,9 +602,65 @@ if (requireAdminAccess()) {
     pendingSubmitAction = "publish";
   });
 
+  postMediaPreview?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-composer-media]");
+
+    if (!removeButton) {
+      return;
+    }
+
+    removeComposerMediaItem(String(removeButton.dataset.removeComposerMedia || ""));
+  });
+
+  postMediaPreview?.addEventListener("dragstart", (event) => {
+    const card = event.target.closest("[data-composer-media-id]");
+
+    if (!card) {
+      return;
+    }
+
+    draggedComposerMediaId = String(card.dataset.composerMediaId || "");
+    card.classList.add("is-dragging");
+    event.dataTransfer.effectAllowed = "move";
+  });
+
+  postMediaPreview?.addEventListener("dragover", (event) => {
+    if (!draggedComposerMediaId) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+
+  postMediaPreview?.addEventListener("drop", (event) => {
+    if (!draggedComposerMediaId) {
+      return;
+    }
+
+    event.preventDefault();
+    const targetCard = event.target.closest("[data-composer-media-id]");
+
+    if (!targetCard) {
+      return;
+    }
+
+    moveComposerMediaItem(draggedComposerMediaId, String(targetCard.dataset.composerMediaId || ""));
+  });
+
+  postMediaPreview?.addEventListener("dragend", () => {
+    draggedComposerMediaId = "";
+    postMediaPreview.querySelectorAll(".is-dragging").forEach((element) => {
+      element.classList.remove("is-dragging");
+    });
+  });
+
   formatSelect?.addEventListener("change", syncVideoInputMode);
   postForm.addEventListener("change", (event) => {
     if (event.target?.name === "format") {
+      if (!isImageManagedFormat(event.target.value)) {
+        clearPostMediaPreview();
+      }
       syncVideoInputMode();
     }
   });

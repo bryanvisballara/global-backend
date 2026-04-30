@@ -3875,6 +3875,15 @@ body.admin-app-view .request-card-top strong {
   color: var(--text);
 }
 
+.tracking-order-link-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .tracking-order-link-button {
   border: 0;
   padding: 0;
@@ -3897,6 +3906,36 @@ body.admin-app-view .request-card-top strong {
   outline: 2px solid rgba(216, 170, 82, 0.36);
   outline-offset: 3px;
   border-radius: 8px;
+}
+
+.tracking-order-region-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 1px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: #202229;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.14);
+}
+
+.tracking-order-region-badge.is-latam {
+  background: #202229;
+  color: #ffffff;
+}
+
+.tracking-order-region-badge.is-usa {
+  background: #202229;
+  color: #ffffff;
 }
 
 .tracking-order-actions-cell {
@@ -4415,6 +4454,94 @@ body.orders-creation-page #order-form {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.admin-media-manager {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+
+.admin-media-manager-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-media-manager-head strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.admin-media-manager-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-sortable-media-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 220px));
+  gap: 14px;
+  justify-content: flex-start;
+}
+
+.admin-sortable-media-card {
+  cursor: grab;
+  user-select: none;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.admin-sortable-media-card:hover {
+  border-color: rgba(216, 170, 82, 0.34);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.admin-sortable-media-card.is-dragging {
+  opacity: 0.56;
+  transform: scale(0.98);
+  border-color: rgba(216, 170, 82, 0.48);
+}
+
+.admin-sortable-media-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(5, 5, 5, 0.84);
+  color: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-sortable-media-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-sortable-media-meta strong {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.admin-sortable-media-meta span,
+.admin-sortable-media-meta small {
+  color: var(--muted);
+}
+
+.admin-sortable-media-meta small {
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
 .tracking-media-hidden-pill {
   position: absolute;
   top: 12px;
@@ -4470,6 +4597,26 @@ body.orders-creation-page #order-form {
   border-radius: 14px;
   background: #101010;
   object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .admin-media-manager {
+    padding: 14px;
+  }
+
+  .admin-sortable-media-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .admin-sortable-media-remove {
+    width: 32px;
+    height: 32px;
+  }
+
+  .admin-sortable-media-meta strong {
+    font-size: 0.84rem;
+  }
 }
 
 .tracking-media-card.document a {
@@ -6532,6 +6679,18 @@ body .tracking-search-page .page-hero h1 {
   width: 38px;
   height: 38px;
   border-radius: 12px;
+  border-color: rgba(17, 17, 17, 0.2);
+  background: #ffffff;
+  color: #111111;
+}
+
+.clients-row-actions .maintenance-action-icon:hover {
+  background: #f3f3f3;
+}
+
+.clients-row-actions .maintenance-action-icon.is-danger {
+  color: #d84f4f;
+  border-color: rgba(216, 79, 79, 0.34);
 }
 
 .client-related-order-item {

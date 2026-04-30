@@ -212,6 +212,24 @@ function formatDateLabel(value) {
   });
 }
 
+function shouldShowOrderRegionBadge() {
+  return ["adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || isAnthonyGlobalOwner();
+}
+
+function renderOrderRegionBadge(order) {
+  if (!shouldShowOrderRegionBadge()) {
+    return "";
+  }
+
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+  if (!["latam", "usa"].includes(orderRegion)) {
+    return "";
+  }
+
+  return `<span class="tracking-order-region-badge is-${escapeHtml(orderRegion)}">${escapeHtml(orderRegion.toUpperCase())}</span>`;
+}
+
 function formatDateTimeLabel(value) {
   if (!value) {
     return "Sin fecha";
@@ -353,6 +371,7 @@ const savingStates = new Set();
 const stateDrafts = new Map();
 let createOrderClients = [];
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const COMPLETED_TIMELINE_STAGE = { key: "completed", label: "Completado" };
 const ORDER_DOCUMENT_TYPES = [
   { value: "FACTURA", label: "FACTURA" },
   { value: "BL", label: "BL" },
@@ -875,6 +894,21 @@ function getCurrentStageMeta(order) {
   };
 }
 
+function getTimelineSteps(order) {
+  const steps = getOrderTrackingSteps(order);
+  const allTrackingStepsCompleted = steps.length > 0 && steps.every((step) => Boolean(step?.confirmed));
+
+  return [
+    ...steps,
+    {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      label: COMPLETED_TIMELINE_STAGE.label,
+      confirmed: allTrackingStepsCompleted || String(order?.status || "").trim().toLowerCase() === "completed",
+      inProgress: false,
+    },
+  ];
+}
+
 function getTransitionHelperCopy(order, currentStageMeta) {
   const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
 
@@ -940,7 +974,7 @@ function renderStageTransitionCardMarkup(order) {
       </button>
     </div>
     ` : ""}
-    <p>${escapeHtml(getTransitionHelperCopy(currentStageMeta))}</p>
+    <p>${escapeHtml(getTransitionHelperCopy(order, currentStageMeta))}</p>
     </article>
   `;
 }
@@ -1146,9 +1180,12 @@ function renderSearchResults(matches) {
                 aria-label="Seleccionar pedido ${escapeHtml(trackingValue || vehicleLabel || orderId)}"
               >
                 <td data-label="Tracking">
-                  <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
-                    ${escapeHtml(trackingValue || "-")}
-                  </button>
+                  <div class="tracking-order-link-stack">
+                    <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
+                      ${escapeHtml(trackingValue || "-")}
+                    </button>
+                    ${renderOrderRegionBadge(order)}
+                  </div>
                 </td>
                 <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
                 <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
@@ -1935,8 +1972,8 @@ function renderOrderDocumentUploadCard() {
           </label>
           <label>
             <span>Archivo(s) *</span>
-            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip" multiple required />
-            <small>Puedes seleccionar varios archivos a la vez, incluyendo ZIP.</small>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip" multiple required />
+            <small>Puedes seleccionar varias imagenes o documentos a la vez, incluyendo ZIP.</small>
           </label>
         </div>
         <label>
@@ -2016,11 +2053,13 @@ function renderTrackingOverview(order) {
           <h2>Timeline de etapas</h2>
         </div>
         <div class="tracking-timeline-grid">
-          ${states.map((state, index) => {
-            const variant = resolveTimelineStateVariant(state, index, states);
+          ${getTimelineSteps(order).map((state, index, timelineStates) => {
+            const variant = resolveTimelineStateVariant(state, index, timelineStates);
             const statusLabel = resolveTimelineStateStatusLabel(variant);
             const statusIcon = variant === "is-completed" ? "✅" : variant === "is-current" ? "⭐" : "◻";
-            const canEditState = canEditStateForRole(currentAdminRole, state.key);
+            const canEditState = state.key === COMPLETED_TIMELINE_STAGE.key
+              ? false
+              : canEditStateForRole(currentAdminRole, state.key);
 
             return `
               <button
