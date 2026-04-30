@@ -2932,6 +2932,10 @@ body.tracking-detail-mode #tracking-form {
   padding: 24px;
 }
 
+.tracking-image-modal[hidden] {
+  display: none !important;
+}
+
 .tracking-image-modal-backdrop {
   position: absolute;
   inset: 0;
