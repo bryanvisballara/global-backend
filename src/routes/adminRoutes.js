@@ -10,7 +10,9 @@ const { createClient, listClients } = require("../controllers/adminClientsContro
 const { listDeletedAccounts } = require("../controllers/adminDeletedAccountsController");
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
+  addOrderAccountingExpense,
   createOrder,
+  deleteOrderAccountingExpense,
   deleteOrderDocument,
   deleteTrackingUpdate,
   getOrder,
@@ -74,6 +76,8 @@ router.post("/orders", upload.array("mediaFiles", 10), createOrder);
 router.get("/orders/:orderId", getOrder);
 router.patch("/orders/:orderId", updateOrder);
 router.patch("/orders/:orderId/vehicle-pricing", requireLatamAdministrativeRole, updateOrderVehiclePricing);
+router.post("/orders/:orderId/accounting-expenses", requireLatamAdministrativeRole, upload.single("evidence"), addOrderAccountingExpense);
+router.delete("/orders/:orderId/accounting-expenses/:expenseId", requireLatamAdministrativeRole, deleteOrderAccountingExpense);
 router.post("/orders/:orderId/documents", upload.array("mediaFiles", 10), uploadOrderDocuments);
 router.patch("/orders/:orderId/documents/:documentId/visibility", toggleOrderDocumentVisibility);
 router.delete("/orders/:orderId/documents/:documentId", deleteOrderDocument);

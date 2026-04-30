@@ -222,6 +222,52 @@ const deletionRequestSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const orderExpenseSchema = new mongoose.Schema(
+  {
+    expenseId: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 80,
+    },
+    concept: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 80,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: "",
+    },
+    value: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    evidence: {
+      type: mediaItemSchema,
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 const orderGlobalUSSchema = new mongoose.Schema(
   {
     client: {
@@ -321,6 +367,10 @@ const orderGlobalUSSchema = new mongoose.Schema(
     },
     media: {
       type: [mediaItemSchema],
+      default: [],
+    },
+    expenses: {
+      type: [orderExpenseSchema],
       default: [],
     },
     trackingSteps: {

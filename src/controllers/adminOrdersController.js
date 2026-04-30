@@ -29,6 +29,15 @@ const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const ORDER_DOCUMENT_TYPES = new Set(["FACTURA", "BL", "TITULO", "BOOKING", "TRACKING", "FOTOS", "CONTRATO", "OTRO"]);
+const ORDER_EXPENSE_CONCEPTS = new Set([
+  "port-expense",
+  "taxes",
+  "nationalization",
+  "transport",
+  "fees",
+  "vehicle-payment",
+  "other",
+]);
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
@@ -799,6 +808,74 @@ function inferFileMediaType(file, result) {
   }
 
   return "document";
+}
+
+function buildOptimizedCloudinaryUrl(result, file) {
+  const secureUrl = String(result?.secure_url || "").trim();
+
+  if (!secureUrl) {
+    return "";
+  }
+
+  if (inferFileMediaType(file, result) !== "image") {
+    return secureUrl;
+  }
+
+  return secureUrl.includes("/upload/")
+    ? secureUrl.replace("/upload/", "/upload/f_auto,q_auto/")
+    : secureUrl;
+}
+
+function parseExpenseValue(value) {
+  const parsedValue = Number.parseFloat(String(value ?? "").replace(/,/g, "").trim());
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    throw new Error("value must be a valid positive number");
+  }
+
+  return parsedValue;
+}
+
+function validateAccountingEvidenceFile(file) {
+  if (!file) {
+    return;
+  }
+
+  const mimeType = String(file.mimetype || "").trim().toLowerCase();
+
+  if (mimeType.startsWith("image/") || mimeType === "application/pdf") {
+    return;
+  }
+
+  throw new Error("evidence must be an image or PDF file");
+}
+
+async function uploadAccountingEvidenceToCloudinary(file) {
+  if (!file) {
+    return null;
+  }
+
+  if (!isCloudinaryConfigured()) {
+    throw new Error("Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.");
+  }
+
+  const result = await uploadBufferToCloudinary(
+    file,
+    process.env.CLOUDINARY_ACCOUNTING_FOLDER || "global-app/accounting"
+  );
+  const timestamp = new Date();
+  const type = inferFileMediaType(file, result);
+
+  return {
+    documentId: randomUUID(),
+    type,
+    category: type === "image" ? "photo-single" : "document",
+    url: buildOptimizedCloudinaryUrl(result, file),
+    name: file.originalname,
+    caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : undefined,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
 }
 
 async function serializeOrder(order, orderRegion = "latam") {
@@ -1753,6 +1830,99 @@ async function updateOrderVehiclePricing(req, res) {
   }
 }
 
+async function addOrderAccountingExpense(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order || orderResult.region !== "latam") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const concept = String(req.body.concept || "").trim();
+    const description = String(req.body.description || "").trim();
+
+    if (!ORDER_EXPENSE_CONCEPTS.has(concept)) {
+      return res.status(400).json({ message: "concept is not valid" });
+    }
+
+    let value = 0;
+
+    try {
+      value = parseExpenseValue(req.body.value);
+      validateAccountingEvidenceFile(req.file);
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
+
+    const evidence = await uploadAccountingEvidenceToCloudinary(req.file);
+    const timestamp = new Date();
+    const normalizedExpenses = Array.isArray(order.expenses) ? [...order.expenses] : [];
+
+    normalizedExpenses.push({
+      expenseId: randomUUID(),
+      concept,
+      description,
+      value,
+      evidence,
+      createdBy: req.user?._id || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    order.expenses = normalizedExpenses;
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(201).json({
+      message: "Accounting expense created successfully",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    if (error.message === "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.") {
+      return res.status(503).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: error.message || "Error creating accounting expense" });
+  }
+}
+
+async function deleteOrderAccountingExpense(req, res) {
+  try {
+    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order || orderResult.region !== "latam") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const expenseId = String(req.params.expenseId || "").trim();
+    const expenses = Array.isArray(order.expenses) ? [...order.expenses] : [];
+    const nextExpenses = expenses.filter((expense) => String(expense?.expenseId || "") !== expenseId);
+
+    if (nextExpenses.length === expenses.length) {
+      return res.status(404).json({ message: "Accounting expense not found" });
+    }
+
+    order.expenses = nextExpenses;
+    await order.save();
+
+    const updatedOrder = await orderResult.orderModel.findById(order._id)
+      .populate("client", "name email phone")
+      .populate("createdBy", "name email role");
+
+    return res.status(200).json({
+      message: "Accounting expense deleted successfully",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error deleting accounting expense" });
+  }
+}
+
 async function uploadOrderDocuments(req, res) {
   try {
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
@@ -2595,7 +2765,9 @@ async function reviewTrackingEventDeletionRequest(req, res) {
 }
 
 module.exports = {
+  addOrderAccountingExpense,
   createOrder,
+  deleteOrderAccountingExpense,
   deleteOrderDocument,
   deleteTrackingUpdate,
   getOrder,
