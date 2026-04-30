@@ -28,7 +28,28 @@ const {
 const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
-const ORDER_DOCUMENT_TYPES = new Set(["FACTURA", "BL", "TITULO", "BOOKING", "TRACKING", "FOTOS", "CONTRATO", "OTRO"]);
+const ORDER_DOCUMENT_TYPES = new Set([
+  "FACTURA",
+  "BL",
+  "CEPD",
+  "TITULO",
+  "BOOKING",
+  "TRACKING",
+  "REGISTRO DE IMPORTACION",
+  "FOTOS",
+  "AES",
+  "CONTRATO",
+  "SWIFT",
+  "SOPORTE_DE_PAGO",
+  "PRE_APOSTILLA",
+  "OTRO",
+]);
+const ORDER_DOCUMENT_TYPE_ALIASES = new Map([
+  ["SOPORTE DE PAGO", "SOPORTE_DE_PAGO"],
+  ["PRE APOSTILLA", "PRE_APOSTILLA"],
+  ["PRE-APOSTILLA", "PRE_APOSTILLA"],
+  ["REGISTRO_DE_IMPORTACION", "REGISTRO DE IMPORTACION"],
+]);
 const ORDER_EXPENSE_CONCEPTS = new Set([
   "port-expense",
   "taxes",
@@ -736,6 +757,12 @@ function normalizeOrderDocumentType(value, fallback = "OTRO") {
 
   if (ORDER_DOCUMENT_TYPES.has(normalizedValue)) {
     return normalizedValue;
+  }
+
+  const aliasValue = ORDER_DOCUMENT_TYPE_ALIASES.get(normalizedValue);
+
+  if (aliasValue && ORDER_DOCUMENT_TYPES.has(aliasValue)) {
+    return aliasValue;
   }
 
   return fallback;
