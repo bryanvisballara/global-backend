@@ -2216,27 +2216,13 @@ async function transitionTrackingState(req, res) {
       currentStep.confirmed = true;
       currentStep.inProgress = false;
 
-      const completionUpdate = ensureTrackingStepLifecycleUpdate(currentStep, {
+      ensureTrackingStepLifecycleUpdate(currentStep, {
         notes: `Etapa completada al avanzar a E${targetStepIndex + 1}.`,
         clientVisible: false,
         inProgress: false,
         completed: true,
         timestamp: now,
       });
-
-      if (completionUpdate && !completionUpdate.eventId) {
-        await createTrackingEvent({
-          orderId: order._id,
-          orderRegion: orderResult.region,
-          stepKey: currentStep.key,
-          title: `Etapa completada ${currentStateMeta.label}`,
-          notes: completionUpdate.notes,
-          clientVisible: false,
-          inProgress: false,
-          completed: true,
-          timestamp: completionUpdate.updatedAt || completionUpdate.createdAt || now,
-        });
-      }
     } else {
       currentStep.confirmed = false;
       currentStep.inProgress = false;
