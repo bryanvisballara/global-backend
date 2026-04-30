@@ -20,13 +20,22 @@ function resolveApiBaseUrl() {
 
 const apiBaseUrl = resolveApiBaseUrl();
 const TRACKING_PAGE_VERSION = "20260430-clientevents08";
+const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
 const trackingFeedback = document.getElementById("tracking-page-feedback");
+const refreshIndicator = document.getElementById("feed-refresh-indicator");
+const refreshLabel = document.getElementById("feed-refresh-label");
 const trackingNavButtons = Array.from(document.querySelectorAll("[data-nav-go]"));
 let registeredPushToken = "";
 let activeTrackingOrder = null;
+let touchStartY = 0;
+let pullDistance = 0;
+let isPulling = false;
+let isRefreshingTracking = false;
+let wheelUpRefreshAccumulator = 0;
+let lastWheelRefreshAt = 0;
 
 function installZoomGuards() {
   document.documentElement.style.touchAction = "manipulation";
@@ -163,6 +172,144 @@ function setFeedback(message, type = "") {
 
   trackingFeedback.textContent = message;
   trackingFeedback.className = `feedback${type ? ` ${type}` : ""}`;
+}
+
+function updateRefreshIndicator() {
+  if (!refreshIndicator || !refreshLabel) {
+    return;
+  }
+
+  refreshIndicator.style.setProperty("--pull-distance", `${Math.min(pullDistance, 96)}px`);
+
+  if (isRefreshingTracking) {
+    refreshIndicator.classList.add("is-active", "is-refreshing");
+    refreshLabel.textContent = "Actualizando tracking...";
+    return;
+  }
+
+  refreshIndicator.classList.remove("is-refreshing");
+  refreshIndicator.classList.toggle("is-active", pullDistance > 8);
+  refreshLabel.textContent =
+    pullDistance >= PULL_REFRESH_THRESHOLD
+      ? "Suelta para actualizar"
+      : "Desliza hacia abajo para actualizar";
+}
+
+function isPullRefreshAvailable() {
+  return Boolean(refreshIndicator && refreshLabel && !document.body.classList.contains("modal-open"));
+}
+
+async function refreshTrackingPage() {
+  if (isRefreshingTracking) {
+    return;
+  }
+
+  isRefreshingTracking = true;
+  updateRefreshIndicator();
+
+  try {
+    await loadTrackingPage();
+  } finally {
+    isRefreshingTracking = false;
+    pullDistance = 0;
+    updateRefreshIndicator();
+  }
+}
+
+function handlePullStart(event) {
+  if (!isPullRefreshAvailable() || window.scrollY > 0 || isRefreshingTracking) {
+    isPulling = false;
+    return;
+  }
+
+  touchStartY = event.touches[0].clientY;
+  pullDistance = 0;
+  isPulling = true;
+  updateRefreshIndicator();
+}
+
+function handlePullMove(event) {
+  if (!isPulling) {
+    return;
+  }
+
+  const currentY = event.touches[0].clientY;
+  const deltaY = currentY - touchStartY;
+
+  if (deltaY <= 0) {
+    pullDistance = 0;
+    updateRefreshIndicator();
+    return;
+  }
+
+  pullDistance = Math.min(deltaY * 0.6, 110);
+  updateRefreshIndicator();
+
+  if (pullDistance > 0) {
+    event.preventDefault();
+  }
+}
+
+function handlePullEnd() {
+  if (!isPulling) {
+    return;
+  }
+
+  isPulling = false;
+
+  if (pullDistance >= PULL_REFRESH_THRESHOLD) {
+    refreshTrackingPage().catch((error) => {
+      isRefreshingTracking = false;
+      pullDistance = 0;
+      updateRefreshIndicator();
+      setFeedback(error.message || "No se pudo actualizar la guía.", "error");
+    });
+    return;
+  }
+
+  pullDistance = 0;
+  updateRefreshIndicator();
+}
+
+function handleWheelRefresh(event) {
+  if (!isPullRefreshAvailable() || isRefreshingTracking) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  if (window.scrollY > 2) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  const deltaY = Number(event.deltaY || 0);
+
+  if (deltaY >= 0) {
+    wheelUpRefreshAccumulator = 0;
+    return;
+  }
+
+  wheelUpRefreshAccumulator += Math.abs(deltaY);
+
+  if (wheelUpRefreshAccumulator < 120) {
+    return;
+  }
+
+  const now = Date.now();
+
+  if (now - lastWheelRefreshAt < 1200) {
+    return;
+  }
+
+  wheelUpRefreshAccumulator = 0;
+  lastWheelRefreshAt = now;
+
+  refreshTrackingPage().catch((error) => {
+    isRefreshingTracking = false;
+    pullDistance = 0;
+    updateRefreshIndicator();
+    setFeedback(error.message || "No se pudo actualizar la guía.", "error");
+  });
 }
 
 function escapeHtml(value) {
@@ -1084,6 +1231,11 @@ window.addEventListener("globalimports:push-token", (event) => {
     console.warn("[push][tracking] Failed registering native push token on tracking page.", error);
   });
 });
+
+window.addEventListener("touchstart", handlePullStart, { passive: true });
+window.addEventListener("touchmove", handlePullMove, { passive: false });
+window.addEventListener("touchend", handlePullEnd, { passive: true });
+window.addEventListener("wheel", handleWheelRefresh, { passive: true });
 
 loadTrackingPage().catch((error) => {
   setFeedback(error.message, "error");

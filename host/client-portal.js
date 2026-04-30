@@ -1050,6 +1050,10 @@ function syncFeedCopyClamp() {
 }
 
 function updateRefreshIndicator() {
+  if (!refreshIndicator || !refreshLabel) {
+    return;
+  }
+
   refreshIndicator.style.setProperty("--pull-distance", `${Math.min(pullDistance, 96)}px`);
 
   if (state.isRefreshingFeed) {
@@ -1065,6 +1069,18 @@ function updateRefreshIndicator() {
     pullDistance >= PULL_REFRESH_THRESHOLD
       ? "Suelta para actualizar"
       : "Desliza hacia abajo para actualizar";
+}
+
+function isPullRefreshAvailable() {
+  if (!refreshIndicator || !refreshLabel) {
+    return false;
+  }
+
+  if (document.body.classList.contains("modal-open")) {
+    return false;
+  }
+
+  return true;
 }
 
 async function loadFeedPage({ reset = false } = {}) {
@@ -1124,13 +1140,32 @@ async function refreshFeed() {
     return;
   }
 
+  if (state.activeView !== "home") {
+    state.isRefreshingFeed = true;
+    updateRefreshIndicator();
+
+    try {
+      await loadDashboard();
+
+      if (state.activeView === "virtual-dealership") {
+        await loadVirtualDealership();
+      }
+    } finally {
+      state.isRefreshingFeed = false;
+      pullDistance = 0;
+      updateRefreshIndicator();
+    }
+
+    return;
+  }
+
   state.isRefreshingFeed = true;
   updateRefreshIndicator();
   await loadFeedPage({ reset: true });
 }
 
 function handleWheelRefresh(event) {
-  if (state.activeView !== "home" || state.isRefreshingFeed || state.isFetchingFeed) {
+  if (!isPullRefreshAvailable() || state.isRefreshingFeed || state.isFetchingFeed) {
     wheelUpRefreshAccumulator = 0;
     return;
   }
@@ -1275,7 +1310,7 @@ feedContainer.addEventListener("click", (event) => {
 });
 
 function handlePullStart(event) {
-  if (state.activeView !== "home" || window.scrollY > 0 || state.isRefreshingFeed) {
+  if (!isPullRefreshAvailable() || window.scrollY > 0 || state.isRefreshingFeed) {
     isPulling = false;
     return;
   }
