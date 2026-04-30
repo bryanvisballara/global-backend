@@ -1287,6 +1287,11 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   gap: 18px;
 }
 
+.admin-dashboard-header > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .admin-dashboard-header h1 {
   margin: 14px 0 0;
   font-family: "Syne", sans-serif;
@@ -1298,12 +1303,12 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 .admin-dashboard-header-actions {
   display: grid;
   gap: 14px;
-  min-width: 240px;
+  min-width: 180px;
   justify-items: end;
 }
 
 .admin-user-chip {
-  min-width: 220px;
+  min-width: 180px;
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--line);
@@ -1341,7 +1346,7 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 
 .admin-dashboard-meta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-top: 22px;
 }
