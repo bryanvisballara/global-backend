@@ -82,6 +82,12 @@ function getAuthCookieOptions(req) {
 function clearAuthCookie(req, res) {
   const cookieOptions = getAuthCookieOptions(req);
 
+  res.clearCookie("globalAppToken", {
+    ...cookieOptions,
+    maxAge: undefined,
+    expires: new Date(0),
+  });
+
   res.clearCookie("token", {
     ...cookieOptions,
     maxAge: undefined,
@@ -209,7 +215,7 @@ async function verifyRegistrationCode(req, res) {
 
     const token = generateToken(user);
 
-    // No setear cookie, solo devolver token en body
+    res.cookie("globalAppToken", token, getAuthCookieOptions(req));
 
     return res.status(201).json({
       message: "User created successfully",
@@ -344,7 +350,8 @@ async function login(req, res) {
     }
 
     const token = generateToken(user);
-    // No setear cookie, solo devolver token en body
+
+  res.cookie("globalAppToken", token, getAuthCookieOptions(req));
 
     console.log("[LOGIN] Login exitoso para:", user.email);
     return res.status(200).json({
@@ -370,7 +377,7 @@ async function me(req, res) {
 }
 
 async function logout(req, res) {
-  // No limpiar cookies, frontend borra local/sessionStorage
+  clearAuthCookie(req, res);
 
   return res.status(200).json({
     message: "Logout successful",

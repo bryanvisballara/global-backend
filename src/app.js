@@ -77,28 +77,32 @@ app.use((req, res, next) => {
     return next();
   }
 
+  if (req.path.startsWith("/app/")) {
+    return next();
+  }
+
   const cookieHeader = req.headers.cookie || "";
   const authCookie = cookieHeader
     .split(";")
     .map((item) => item.trim())
-    .find((item) => item.startsWith("globalAppToken="));
+    .find((item) => item.startsWith("globalAppToken=") || item.startsWith("token="));
 
   if (!authCookie) {
-    return res.redirect("/index.html");
+    return res.redirect(req.path.startsWith("/app/") ? "/app/index.html" : "/index.html");
   }
 
-  const token = authCookie.slice("globalAppToken=".length);
+  const token = authCookie.includes("=") ? authCookie.slice(authCookie.indexOf("=") + 1) : "";
 
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
     if (!["admin", "manager", "adminUSA", "gerenteUSA"].includes(decodedToken.role)) {
-      return res.redirect("/index.html");
+      return res.redirect(req.path.startsWith("/app/") ? "/app/index.html" : "/index.html");
     }
 
     return next();
   } catch (error) {
-    return res.redirect("/index.html");
+    return res.redirect(req.path.startsWith("/app/") ? "/app/index.html" : "/index.html");
   }
 });
 
