@@ -202,8 +202,12 @@ function buildStepEventMap(events = []) {
   return stepEventMap;
 }
 
-function buildCollectionTrackingSteps(events = []) {
-  return mergeTrackingStepsWithEvents(buildTrackingStates(), buildStepEventMap(events), true);
+function buildCollectionTrackingSteps(events = [], sourceTrackingSteps = []) {
+  const baseSteps = Array.isArray(sourceTrackingSteps) && sourceTrackingSteps.length
+    ? sourceTrackingSteps
+    : buildTrackingStates();
+
+  return mergeTrackingStepsWithEvents(baseSteps, buildStepEventMap(events), true);
 }
 
 function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = new Map(), preferCollectionOnly = false) {
@@ -284,7 +288,7 @@ async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, ord
   const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
 
   if (options.preferCollectionOnly) {
-    return buildCollectionTrackingSteps(normalizedEvents);
+    return buildCollectionTrackingSteps(normalizedEvents, sourceTrackingSteps);
   }
 
   return mergeTrackingStepsWithEvents(
@@ -310,7 +314,7 @@ async function hydrateOrderTracking(order, orderRegion, options = {}) {
   const preferCollectionOnly = Boolean(options.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
   plainOrder.trackingSteps = preferCollectionOnly
-    ? buildCollectionTrackingSteps(normalizedEvents)
+    ? buildCollectionTrackingSteps(normalizedEvents, plainOrder.trackingSteps || [])
     : mergeTrackingStepsWithEvents(
         plainOrder.trackingSteps || [],
         buildStepEventMap(normalizedEvents),
@@ -355,7 +359,7 @@ async function hydrateOrdersTracking(orderEntries = []) {
     const preferCollectionOnly = Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
     plainOrder.trackingSteps = preferCollectionOnly
-      ? buildCollectionTrackingSteps(orderEvents)
+      ? buildCollectionTrackingSteps(orderEvents, plainOrder.trackingSteps || [])
       : mergeTrackingStepsWithEvents(
           plainOrder.trackingSteps || [],
           buildStepEventMap(orderEvents),
