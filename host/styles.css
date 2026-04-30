@@ -1335,7 +1335,7 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 
 .admin-dashboard-meta {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 22px;
 }
@@ -1455,8 +1455,6 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   border-radius: 22px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.025);
-  justify-items: center;
-  text-align: center;
 }
 
 .stage-distribution-link {
@@ -1722,42 +1720,6 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   padding: 14px 16px;
   color: #fff;
   outline: none;
-}
-
-.login-form select,
-.dashboard-form select,
-.client-form-card select,
-.clients-filter-grid select,
-.tracking-native-select,
-.virtual-dealership-video-select,
-.maint-status-select {
-  color-scheme: dark;
-  -webkit-appearance: none;
-  appearance: none;
-  background-color: #111214;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23f7f7f4' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
-  background-size: 12px 12px;
-  padding-right: 46px;
-}
-
-.login-form select option,
-.login-form select optgroup,
-.dashboard-form select option,
-.dashboard-form select optgroup,
-.client-form-card select option,
-.client-form-card select optgroup,
-.clients-filter-grid select option,
-.clients-filter-grid select optgroup,
-.tracking-native-select option,
-.tracking-native-select optgroup,
-.virtual-dealership-video-select option,
-.virtual-dealership-video-select optgroup,
-.maint-status-select option,
-.maint-status-select optgroup {
-  background: #111214;
-  color: #f7f7f4;
 }
 
 .dashboard-form textarea {
@@ -2330,6 +2292,55 @@ body.loading-active {
   gap: 14px;
 }
 
+.tracking-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.tracking-hero-actions {
+  display: grid;
+  gap: 14px;
+  justify-items: end;
+  min-width: min(100%, 420px);
+}
+
+.tracking-stage-transition-card {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.tracking-stage-transition-card strong {
+  color: #111111;
+  font-size: 1.05rem;
+}
+
+.tracking-stage-transition-card p {
+  margin: 0;
+  color: #677281;
+  line-height: 1.45;
+}
+
+.tracking-stage-transition-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tracking-stage-transition-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 body.tracking-search-page:not(.tracking-detail-mode) .single-module-grid {
   width: 100%;
   max-width: none;
@@ -2439,13 +2450,9 @@ body.tracking-detail-mode #tracking-form {
   border: 1px solid rgba(216, 170, 82, 0.18);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23f7f7f4' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat;
-  background-position: center, right 16px center;
-  background-size: auto, 12px 12px;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   color: var(--text);
-  padding: 14px 46px 14px 18px;
+  padding: 14px 18px;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
@@ -2873,6 +2880,33 @@ body.tracking-detail-mode #tracking-form {
   letter-spacing: 0;
 }
 
+body.admin-uppercase-view,
+body.admin-uppercase-view button,
+body.admin-uppercase-view a,
+body.admin-uppercase-view p,
+body.admin-uppercase-view span,
+body.admin-uppercase-view strong,
+body.admin-uppercase-view small,
+body.admin-uppercase-view h1,
+body.admin-uppercase-view h2,
+body.admin-uppercase-view h3,
+body.admin-uppercase-view h4,
+body.admin-uppercase-view h5,
+body.admin-uppercase-view h6,
+body.admin-uppercase-view label,
+body.admin-uppercase-view th,
+body.admin-uppercase-view td,
+body.admin-uppercase-view input,
+body.admin-uppercase-view textarea,
+body.admin-uppercase-view select,
+body.admin-uppercase-view option,
+body.admin-uppercase-view .feedback,
+body.admin-uppercase-view .modal-copy,
+body.admin-uppercase-view .field-helper,
+body.admin-uppercase-view *::placeholder {
+  text-transform: uppercase !important;
+}
+
 .tracking-file-card .tracking-media-download-icon {
   top: 14px;
   right: 14px;
@@ -2986,6 +3020,225 @@ body.tracking-detail-mode #tracking-form {
   gap: 16px;
 }
 
+.tracking-order-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.tracking-overview-header {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-overview-header h3 {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.tracking-overview-tracking {
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.tracking-overview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+  margin-top: 18px;
+}
+
+.tracking-overview-grid p {
+  font-size: 1.03rem;
+  line-height: 1.5;
+}
+
+.tracking-overview-grid strong {
+  font-size: 1.02rem;
+}
+
+.tracking-stage-transition-card-inline {
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  padding: 24px;
+}
+
+.tracking-stage-transition-card-inline strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.tracking-stage-transition-card-inline p {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.tracking-stage-transition-card-inline .tracking-stage-transition-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tracking-stage-transition-card-inline .tracking-stage-transition-button {
+  justify-content: center;
+  min-height: 52px;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.tracking-events-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tracking-events-column {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.tracking-events-general-card,
+.tracking-order-documents-card {
+  height: 100%;
+}
+
+.tracking-new-event-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-new-event-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-new-event-form label > span {
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.tracking-native-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.tracking-new-event-grid {
+  margin: 0;
+}
+
+.tracking-new-event-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tracking-document-upload-card {
+  align-self: start;
+}
+
+.tracking-document-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-document-upload-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.2fr);
+  gap: 14px;
+}
+
+.tracking-document-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-document-form label > span {
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.tracking-document-form small {
+  color: #66717f;
+  font-size: 0.82rem;
+}
+
+.tracking-document-file-input {
+  width: 100%;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.tracking-document-link-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tracking-document-link {
+  color: #1a2430;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  word-break: break-word;
+}
+
+.tracking-document-delete-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: #df3b4b;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.tracking-document-delete-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.admin-tracking-events-table {
+  min-width: 940px;
+}
+
+.admin-tracking-documents-table {
+  min-width: 940px;
+}
+
+.admin-tracking-events-table td {
+  color: #5b6571;
+}
+
+.admin-tracking-documents-table td {
+  color: #5b6571;
+}
+
+.admin-tracking-events-table td:nth-child(3),
+.admin-tracking-events-table td:nth-child(5) {
+  color: #18202a;
+}
+
+.admin-tracking-documents-table td:nth-child(2),
+.admin-tracking-documents-table td:nth-child(3) {
+  color: #18202a;
+}
+
+.admin-tracking-events-visibility-cell {
+  text-align: right !important;
+}
+
 .tracking-overview-card {
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -3040,7 +3293,7 @@ body.tracking-detail-mode #tracking-form {
 .tracking-timeline-status {
   font-size: 0.86rem;
   letter-spacing: 0.02em;
-  color: rgba(244, 247, 244, 0.86);
+  color: #111111;
 }
 
 .tracking-timeline-item.is-completed {
@@ -3151,6 +3404,50 @@ body.admin-app-view .request-card-top strong {
 .tracking-visibility-button:hover {
   transform: translateY(-1px);
   border-color: rgba(216, 170, 82, 0.45);
+}
+
+.admin-tracking-events-actions-cell {
+  width: 112px;
+}
+
+.admin-tracking-event-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tracking-event-delete-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 120, 120, 0.28);
+  background: rgba(255, 94, 94, 0.08);
+  color: #ffb0b0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+
+.tracking-event-delete-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 120, 120, 0.52);
+  background: rgba(255, 94, 94, 0.14);
+  color: #ffd1d1;
+}
+
+.tracking-delete-update-card {
+  max-width: 440px;
+}
+
+.tracking-delete-confirm-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .tracking-search-results,
@@ -3320,17 +3617,17 @@ body.admin-app-view .request-card-top strong {
   outline-offset: -2px;
 }
 
-.orders-creation-page .single-module-grid {
+body.orders-creation-page .single-module-grid {
   width: 100%;
 }
 
-.orders-creation-page .module-layout {
+body.orders-creation-page .module-layout {
   grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
 
-.orders-creation-page #order-form {
+body.orders-creation-page #order-form {
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
@@ -4174,6 +4471,41 @@ body.modal-open {
     grid-template-columns: 1fr 1fr;
   }
 
+  .tracking-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-hero-actions {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .tracking-stage-transition-card {
+    width: 100%;
+  }
+
+  .tracking-events-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-order-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tracking-overview-header h3 {
+    font-size: 1.6rem;
+  }
+
+  .tracking-document-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
   .tracking-filter-button,
   .tracking-clear-button {
     width: 100%;
@@ -4389,11 +4721,13 @@ body.modal-open {
   max-width: none;
   margin: 0;
   padding: calc(10px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom));
+  overflow-x: clip;
 }
 
 .client-stage {
   position: relative;
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
   min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 18px 20px calc(108px + env(safe-area-inset-bottom));
   border-radius: 0;
@@ -4419,6 +4753,8 @@ body.modal-open {
 .client-bottom-nav {
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 100%;
 }
 
 .client-header {
@@ -4979,7 +5315,7 @@ body .tracking-search-page .page-hero h1 {
 
 .sequoia-config-carousel-card {
   padding: 0;
-  margin-inline: -16px;
+  margin-inline: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -5068,14 +5404,6 @@ body .tracking-search-page .page-hero h1 {
   letter-spacing: 0.12em;
   font-size: 0.72rem;
   font-weight: 700;
-}
-
-.sequoia-config-subtitle-note {
-  color: rgba(247, 247, 244, 0.76);
-  font-size: 0.84em;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: none;
 }
 
 .sequoia-config-color-name {
@@ -5820,319 +6148,6 @@ body .tracking-search-page .page-hero h1 {
   font-size: 0.8rem;
 }
 
-.admin-users-actions-cell {
-  width: 92px;
-}
-
-.admin-user-delete-button {
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(236, 109, 92, 0.3);
-  border-radius: 999px;
-  background: rgba(236, 109, 92, 0.12);
-  color: #ffd4ce;
-  font-size: 0.95rem;
-  font-weight: 800;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.admin-user-delete-button:hover {
-  background: rgba(236, 109, 92, 0.2);
-  border-color: rgba(236, 109, 92, 0.45);
-}
-
-.admin-user-delete-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.admin-user-delete-placeholder {
-  color: var(--muted);
-}
-
-.order-actions-cell {
-  width: 190px;
-}
-
-.order-actions-stack {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.order-edit-button {
-  min-width: 88px;
-  padding: 10px 14px;
-  border: 1px solid rgba(244, 234, 211, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #f4ead3;
-  font-size: 0.86rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.order-edit-button:hover {
-  background: rgba(244, 234, 211, 0.12);
-  border-color: rgba(244, 234, 211, 0.3);
-}
-
-.order-delete-button {
-  min-width: 88px;
-  padding: 10px 14px;
-  border: 1px solid rgba(236, 109, 92, 0.24);
-  border-radius: 999px;
-  background: rgba(236, 109, 92, 0.08);
-  color: #ffd4ce;
-  font-size: 0.86rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.order-delete-button:hover {
-  background: rgba(236, 109, 92, 0.16);
-  border-color: rgba(236, 109, 92, 0.36);
-}
-
-.order-delete-button:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
-
-.order-request-status {
-  display: block;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.order-request-status.pending {
-  color: #f7c891;
-}
-
-.order-request-status.rejected {
-  color: #ffb8ad;
-}
-
-.order-vin-missing {
-  color: #f7c891;
-  font-weight: 700;
-}
-
-.orders-creation-page .tracking-data-table td {
-  vertical-align: middle;
-}
-
-.orders-creation-page .tracking-data-table td strong {
-  display: block;
-}
-
-.orders-creation-page .tracking-data-table td small {
-  display: block;
-  margin-top: 4px;
-}
-
-.tracking-hero {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.tracking-hero-copy {
-  min-width: 0;
-}
-
-.tracking-create-order-trigger {
-  flex: 0 0 auto;
-}
-
-#tracking-create-order-modal[hidden] {
-  display: none !important;
-}
-
-#tracking-create-order-modal:not([hidden]) {
-  display: grid !important;
-  place-items: center !important;
-  align-content: center !important;
-  justify-items: center !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
-  overflow: auto !important;
-  padding: 12px !important;
-}
-
-#tracking-create-order-modal .tracking-create-order-modal-card {
-  position: fixed !important;
-  inset: auto !important;
-  top: 50vh !important;
-  top: 50dvh !important;
-  left: 50vw !important;
-  right: auto !important;
-  bottom: auto !important;
-  transform: translate(-50%, -50%) !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-  width: min(88vw, 1240px) !important;
-  max-width: calc(100vw - 40px) !important;
-  max-height: calc(100dvh - 40px) !important;
-  padding: 24px 26px !important;
-  overflow: auto !important;
-  z-index: 1;
-}
-
-.tracking-create-order-modal-card #order-tracking-number {
-  background: #f0f0f0 !important;
-  border-color: rgba(17, 17, 17, 0.16) !important;
-  color: #6a6a6a !important;
-  cursor: default;
-}
-
-.tracking-create-order-modal-card #order-tracking-number::placeholder {
-  color: #7a7a7a !important;
-}
-
-.tracking-create-order-modal-card label,
-.tracking-create-order-modal-card label span,
-.tracking-create-order-modal-card .field-helper {
-  color: #111111 !important;
-}
-
-.tracking-create-order-modal-card textarea {
-  min-height: 108px;
-  resize: vertical;
-}
-
-.tracking-create-order-header {
-  display: flex;
-  align-items: start;
-  justify-content: flex-start;
-  gap: 16px;
-  padding-right: 56px;
-}
-
-.tracking-create-order-close {
-  position: absolute;
-  top: 20px;
-  right: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid rgba(17, 17, 17, 0.14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #111111;
-  font-size: 1.45rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(17, 17, 17, 0.12);
-  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-}
-
-.tracking-create-order-close:hover,
-.tracking-create-order-close:focus-visible {
-  background: #ffffff;
-  transform: scale(1.04);
-  box-shadow: 0 12px 24px rgba(17, 17, 17, 0.16);
-}
-
-.tracking-create-order-close:focus-visible {
-  outline: 2px solid rgba(216, 170, 82, 0.42);
-  outline-offset: 2px;
-}
-
-.tracking-create-order-layout {
-  display: grid;
-}
-
-.tracking-create-order-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-@media (max-width: 860px) {
-  .tracking-hero {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #tracking-create-order-modal:not([hidden]) {
-    padding: 8px !important;
-  }
-
-  #tracking-create-order-modal .tracking-create-order-modal-card {
-    box-sizing: border-box !important;
-    width: calc(100vw - 16px) !important;
-    max-width: calc(100vw - 16px) !important;
-    max-height: calc(100dvh - 16px) !important;
-    top: 50vh !important;
-    top: 50dvh !important;
-    left: 50vw !important;
-    transform: translate(-50%, -50%) !important;
-    padding: 18px !important;
-  }
-
-  .tracking-create-order-trigger {
-    width: 100%;
-  }
-
-  .tracking-create-order-header {
-    flex-direction: column;
-    align-items: stretch;
-    padding-right: 44px;
-  }
-
-  .tracking-create-order-close {
-    top: 14px;
-    right: 14px;
-    width: 34px;
-    height: 34px;
-  }
-
-  .tracking-create-order-actions {
-    flex-direction: column;
-  }
-}
-
-#order-edit-modal input[readonly] {
-  opacity: 0.82;
-}
-
-#order-delete-request-modal textarea,
-#order-delete-request-modal input[readonly] {
-  width: 100%;
-}
-
-.request-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.request-card-actions .secondary-button,
-.request-card-actions .primary-button {
-  min-width: 140px;
-}
-
-.request-card-actions .secondary-button.is-danger {
-  border-color: rgba(236, 109, 92, 0.28);
-  color: #ffd4ce;
-}
-
-.request-card-actions .secondary-button.is-danger:hover {
-  background: rgba(236, 109, 92, 0.14);
-}
-
 .tracking-search-page .page-topbar {
   align-items: center;
 }
@@ -6576,6 +6591,8 @@ body .tracking-search-page .page-hero h1 {
   bottom: 0;
   left: 0;
   z-index: 15;
+  width: 100%;
+  max-width: 100vw;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
@@ -6778,7 +6795,7 @@ body.modal-open {
   }
 
   .sequoia-config-carousel-card {
-    margin-inline: -20px;
+    margin-inline: 0;
   }
 
   .sequoia-config-specs {
@@ -8484,7 +8501,7 @@ body.admin-app-view .dashboard-tracking-link:hover {
 body.admin-app-view,
 body.admin-app-view *,
 body.admin-app-view *::placeholder {
-  text-transform: uppercase !important;
+  scrollbar-color: rgba(17, 17, 17, 0.28) #f5f5f5;
 }
 
 html:has(body.admin-app-view) {

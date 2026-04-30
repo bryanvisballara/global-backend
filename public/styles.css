@@ -2292,6 +2292,55 @@ body.loading-active {
   gap: 14px;
 }
 
+.tracking-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.tracking-hero-actions {
+  display: grid;
+  gap: 14px;
+  justify-items: end;
+  min-width: min(100%, 420px);
+}
+
+.tracking-stage-transition-card {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.tracking-stage-transition-card strong {
+  color: #111111;
+  font-size: 1.05rem;
+}
+
+.tracking-stage-transition-card p {
+  margin: 0;
+  color: #677281;
+  line-height: 1.45;
+}
+
+.tracking-stage-transition-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tracking-stage-transition-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 body.tracking-search-page:not(.tracking-detail-mode) .single-module-grid {
   width: 100%;
   max-width: none;
@@ -2831,6 +2880,33 @@ body.tracking-detail-mode #tracking-form {
   letter-spacing: 0;
 }
 
+body.admin-uppercase-view,
+body.admin-uppercase-view button,
+body.admin-uppercase-view a,
+body.admin-uppercase-view p,
+body.admin-uppercase-view span,
+body.admin-uppercase-view strong,
+body.admin-uppercase-view small,
+body.admin-uppercase-view h1,
+body.admin-uppercase-view h2,
+body.admin-uppercase-view h3,
+body.admin-uppercase-view h4,
+body.admin-uppercase-view h5,
+body.admin-uppercase-view h6,
+body.admin-uppercase-view label,
+body.admin-uppercase-view th,
+body.admin-uppercase-view td,
+body.admin-uppercase-view input,
+body.admin-uppercase-view textarea,
+body.admin-uppercase-view select,
+body.admin-uppercase-view option,
+body.admin-uppercase-view .feedback,
+body.admin-uppercase-view .modal-copy,
+body.admin-uppercase-view .field-helper,
+body.admin-uppercase-view *::placeholder {
+  text-transform: uppercase !important;
+}
+
 .tracking-file-card .tracking-media-download-icon {
   top: 14px;
   right: 14px;
@@ -2944,6 +3020,225 @@ body.tracking-detail-mode #tracking-form {
   gap: 16px;
 }
 
+.tracking-order-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.tracking-overview-header {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-overview-header h3 {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.tracking-overview-tracking {
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.tracking-overview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+  margin-top: 18px;
+}
+
+.tracking-overview-grid p {
+  font-size: 1.03rem;
+  line-height: 1.5;
+}
+
+.tracking-overview-grid strong {
+  font-size: 1.02rem;
+}
+
+.tracking-stage-transition-card-inline {
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  padding: 24px;
+}
+
+.tracking-stage-transition-card-inline strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.tracking-stage-transition-card-inline p {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.tracking-stage-transition-card-inline .tracking-stage-transition-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tracking-stage-transition-card-inline .tracking-stage-transition-button {
+  justify-content: center;
+  min-height: 52px;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.tracking-events-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tracking-events-column {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.tracking-events-general-card,
+.tracking-order-documents-card {
+  height: 100%;
+}
+
+.tracking-new-event-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-new-event-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-new-event-form label > span {
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.tracking-native-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.tracking-new-event-grid {
+  margin: 0;
+}
+
+.tracking-new-event-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tracking-document-upload-card {
+  align-self: start;
+}
+
+.tracking-document-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-document-upload-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.2fr);
+  gap: 14px;
+}
+
+.tracking-document-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-document-form label > span {
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.tracking-document-form small {
+  color: #66717f;
+  font-size: 0.82rem;
+}
+
+.tracking-document-file-input {
+  width: 100%;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.tracking-document-link-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tracking-document-link {
+  color: #1a2430;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  word-break: break-word;
+}
+
+.tracking-document-delete-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: #df3b4b;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.tracking-document-delete-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.admin-tracking-events-table {
+  min-width: 940px;
+}
+
+.admin-tracking-documents-table {
+  min-width: 940px;
+}
+
+.admin-tracking-events-table td {
+  color: #5b6571;
+}
+
+.admin-tracking-documents-table td {
+  color: #5b6571;
+}
+
+.admin-tracking-events-table td:nth-child(3),
+.admin-tracking-events-table td:nth-child(5) {
+  color: #18202a;
+}
+
+.admin-tracking-documents-table td:nth-child(2),
+.admin-tracking-documents-table td:nth-child(3) {
+  color: #18202a;
+}
+
+.admin-tracking-events-visibility-cell {
+  text-align: right !important;
+}
+
 .tracking-overview-card {
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -2998,7 +3293,7 @@ body.tracking-detail-mode #tracking-form {
 .tracking-timeline-status {
   font-size: 0.86rem;
   letter-spacing: 0.02em;
-  color: rgba(244, 247, 244, 0.86);
+  color: #111111;
 }
 
 .tracking-timeline-item.is-completed {
@@ -3109,6 +3404,50 @@ body.admin-app-view .request-card-top strong {
 .tracking-visibility-button:hover {
   transform: translateY(-1px);
   border-color: rgba(216, 170, 82, 0.45);
+}
+
+.admin-tracking-events-actions-cell {
+  width: 112px;
+}
+
+.admin-tracking-event-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tracking-event-delete-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 120, 120, 0.28);
+  background: rgba(255, 94, 94, 0.08);
+  color: #ffb0b0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+
+.tracking-event-delete-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 120, 120, 0.52);
+  background: rgba(255, 94, 94, 0.14);
+  color: #ffd1d1;
+}
+
+.tracking-delete-update-card {
+  max-width: 440px;
+}
+
+.tracking-delete-confirm-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .tracking-search-results,
@@ -3786,6 +4125,41 @@ body.modal-open {
     width: 100%;
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .tracking-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-hero-actions {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .tracking-stage-transition-card {
+    width: 100%;
+  }
+
+  .tracking-events-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-order-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tracking-overview-header h3 {
+    font-size: 1.6rem;
+  }
+
+  .tracking-document-upload-grid {
+    grid-template-columns: 1fr;
   }
 
   .tracking-filter-button,
@@ -7416,6 +7790,374 @@ body.modal-open {
 .maint-appointment-time-input {
   font-size: 0.73rem;
   padding: 6px 8px;
+}
+
+body.admin-app-view {
+  --bg: #ffffff;
+  --bg-soft: #f5f5f5;
+  --card: #ffffff;
+  --card-strong: #ffffff;
+  --line: rgba(17, 17, 17, 0.12);
+  --line-strong: rgba(17, 17, 17, 0.18);
+  --text: #111111;
+  --muted: #505050;
+  --shadow: 0 18px 48px rgba(17, 17, 17, 0.08);
+  color-scheme: light;
+  background: #ffffff;
+  color: var(--text);
+}
+
+body.admin-app-view .dashboard-shell,
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-dashboard-main,
+body.admin-app-view .page-topbar,
+body.admin-app-view .page-hero,
+body.admin-app-view .dashboard-card,
+body.admin-app-view .metric-card,
+body.admin-app-view .nav-card,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .admin-badge,
+body.admin-app-view .admin-user-chip,
+body.admin-app-view .admin-sidebar-logo,
+body.admin-app-view .route-card,
+body.admin-app-view .info-box,
+body.admin-app-view .module-metric-inline,
+body.admin-app-view .list-item,
+body.admin-app-view .empty-state,
+body.admin-app-view .stage-distribution-item,
+body.admin-app-view .state-order-item,
+body.admin-app-view .posts-right-panel,
+body.admin-app-view .schedule-panel,
+body.admin-app-view .published-post-item,
+body.admin-app-view .edit-current-content-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-table-wrap,
+body.admin-app-view .maint-detail-table-wrap,
+body.admin-app-view .request-card,
+body.admin-app-view .maint-vehicle-card,
+body.admin-app-view .maint-calendar-day,
+body.admin-app-view .maint-modal-content,
+body.admin-app-view .tracking-summary-card,
+body.admin-app-view .clients-filter-card {
+  color: var(--text);
+}
+
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-dashboard-main,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .dashboard-card,
+body.admin-app-view .metric-card,
+body.admin-app-view .nav-card,
+body.admin-app-view .route-card,
+body.admin-app-view .info-box,
+body.admin-app-view .admin-badge,
+body.admin-app-view .admin-user-chip,
+body.admin-app-view .module-metric-inline,
+body.admin-app-view .list-item,
+body.admin-app-view .empty-state,
+body.admin-app-view .stage-distribution-item,
+body.admin-app-view .state-order-item,
+body.admin-app-view .posts-right-panel,
+body.admin-app-view .schedule-panel,
+body.admin-app-view .published-post-item,
+body.admin-app-view .edit-current-content-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-table-wrap,
+body.admin-app-view .maint-detail-table-wrap,
+body.admin-app-view .request-card,
+body.admin-app-view .maint-vehicle-card,
+body.admin-app-view .maint-calendar-day,
+body.admin-app-view .maint-modal-content,
+body.admin-app-view .tracking-summary-card,
+body.admin-app-view .clients-filter-card {
+  background: #ffffff;
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+body.admin-app-view .dashboard-stage,
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .admin-dashboard-main {
+  backdrop-filter: none;
+}
+
+body.admin-app-view .dashboard-sheen {
+  display: none;
+}
+
+body.admin-app-view .section-tag,
+body.admin-app-view .status-chip,
+body.admin-app-view .route-card span,
+body.admin-app-view .info-box span,
+body.admin-app-view .admin-meta-pill,
+body.admin-app-view .list-item span,
+body.admin-app-view .order-step-chip,
+body.admin-app-view .admin-brand-mark,
+body.admin-app-view .published-post-action,
+body.admin-app-view .request-card .section-tag {
+  background: #f4f4f4;
+  border-color: var(--line);
+  color: #111111;
+}
+
+body.admin-app-view .secondary-button,
+body.admin-app-view .compact-action-button,
+body.admin-app-view .published-post-action,
+body.admin-app-view .admin-sidebar-toggle,
+body.admin-app-view .dashboard-secondary-action {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.18);
+  color: #111111;
+}
+
+body.admin-app-view .secondary-button:hover,
+body.admin-app-view .compact-action-button:hover,
+body.admin-app-view .published-post-action:hover,
+body.admin-app-view .admin-sidebar-toggle:hover,
+body.admin-app-view .dashboard-secondary-action:hover {
+  background: #f4f4f4;
+}
+
+body.admin-app-view .primary-button {
+  color: #111111;
+}
+
+body.admin-app-view .nav-card span:last-child,
+body.admin-app-view .admin-panel-heading strong,
+body.admin-app-view .stage-distribution-item b,
+body.admin-app-view .tracking-generate-button,
+body.admin-app-view .published-post-action.danger,
+body.admin-app-view .admin-nav-link.active,
+body.admin-app-view .order-step-chip.is-confirmed,
+body.admin-app-view .order-step-chip.is-pending,
+body.admin-app-view .order-step-chip.is-active {
+  color: #111111;
+}
+
+body.admin-app-view .admin-nav-link:hover,
+body.admin-app-view .nav-card:hover,
+body.admin-app-view .stage-distribution-link:hover,
+body.admin-app-view .state-order-link:hover {
+  background: #f6f6f6;
+}
+
+body.admin-app-view .admin-nav-link.active {
+  background: #f1f1f1;
+  border-color: rgba(17, 17, 17, 0.2);
+}
+
+body.admin-app-view .admin-sidebar-logo,
+body.admin-app-view .admin-brand-mark img {
+  background: #ffffff;
+  border-color: var(--line);
+  filter: invert(1);
+}
+
+body.admin-app-view .dashboard-form input,
+body.admin-app-view .dashboard-form textarea,
+body.admin-app-view .dashboard-form select,
+body.admin-app-view .maint-status-select,
+body.admin-app-view .maint-notes-input,
+body.admin-app-view .maint-appointment-date-input,
+body.admin-app-view .maint-appointment-time-input,
+body.admin-app-view .maint-detail-search,
+body.admin-app-view .maint-detail-city-filter {
+  background: #ffffff;
+  border-color: rgba(17, 17, 17, 0.14);
+  color: #111111;
+}
+
+body.admin-app-view .dashboard-form select,
+body.admin-app-view .maint-status-select,
+body.admin-app-view .maint-appointment-time-input,
+body.admin-app-view .maint-detail-city-filter {
+  color-scheme: light;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23111111' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 12px 12px;
+  padding-right: 46px;
+}
+
+body.admin-app-view .dashboard-form select option,
+body.admin-app-view .dashboard-form select optgroup,
+body.admin-app-view .maint-status-select option,
+body.admin-app-view .maint-status-select optgroup,
+body.admin-app-view .maint-appointment-time-input option,
+body.admin-app-view .maint-appointment-time-input optgroup,
+body.admin-app-view .maint-detail-city-filter option,
+body.admin-app-view .maint-detail-city-filter optgroup {
+  background: #ffffff;
+  color: #111111;
+}
+
+body.admin-app-view .tracking-data-table th {
+  color: var(--muted);
+  background: #f7f7f7;
+}
+
+body.admin-app-view .tracking-data-table td,
+body.admin-app-view .tracking-data-table td strong,
+body.admin-app-view .tracking-data-table td small,
+body.admin-app-view .maint-th,
+body.admin-app-view .maint-td,
+body.admin-app-view .maint-table th,
+body.admin-app-view .maint-table td {
+  color: #111111;
+}
+
+body.admin-app-view .tracking-data-table tr,
+body.admin-app-view .maint-table tr {
+  background: #ffffff;
+}
+
+body.admin-app-view .admin-sidebar-backdrop,
+body.admin-app-view #maint-modal-overlay {
+  background: rgba(17, 17, 17, 0.1);
+}
+
+body.admin-app-view .page-topbar a,
+body.admin-app-view .dashboard-card a,
+body.admin-app-view .admin-dashboard-main a,
+body.admin-app-view .admin-sidebar a {
+  color: #111111;
+}
+
+body.admin-app-view .client-modal-card,
+body.admin-app-view .admin-modal-card,
+body.admin-app-view .tracking-modal-card,
+body.admin-app-view .maint-modal-content {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.14) !important;
+  color: #111111 !important;
+  box-shadow: 0 24px 60px rgba(17, 17, 17, 0.12) !important;
+}
+
+body.admin-app-view .client-modal-overlay,
+body.admin-app-view .tracking-modal-backdrop,
+body.admin-app-view .maint-modal-overlay {
+  background: rgba(17, 17, 17, 0.1) !important;
+  backdrop-filter: blur(3px);
+}
+
+body.admin-app-view .client-modal-card h1,
+body.admin-app-view .client-modal-card h2,
+body.admin-app-view .client-modal-card h3,
+body.admin-app-view .client-modal-card p,
+body.admin-app-view .client-modal-card strong,
+body.admin-app-view .client-modal-card label,
+body.admin-app-view .admin-modal-card h1,
+body.admin-app-view .admin-modal-card h2,
+body.admin-app-view .admin-modal-card h3,
+body.admin-app-view .admin-modal-card p,
+body.admin-app-view .admin-modal-card strong,
+body.admin-app-view .admin-modal-card label,
+body.admin-app-view .tracking-modal-card h1,
+body.admin-app-view .tracking-modal-card h2,
+body.admin-app-view .tracking-modal-card h3,
+body.admin-app-view .tracking-modal-card p,
+body.admin-app-view .tracking-modal-card strong,
+body.admin-app-view .maint-modal-content h1,
+body.admin-app-view .maint-modal-content h2,
+body.admin-app-view .maint-modal-content h3,
+body.admin-app-view .maint-modal-content p,
+body.admin-app-view .maint-modal-content strong {
+  color: #111111 !important;
+}
+
+body.admin-app-view .maint-modal-close,
+body.admin-app-view .tracking-visibility-button,
+body.admin-app-view .tracking-visibility-button-inline,
+body.admin-app-view .popover-action,
+body.admin-app-view a.popover-action,
+body.admin-app-view .logout-action,
+body.admin-app-view .published-post-action.danger {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.16) !important;
+  color: #111111 !important;
+}
+
+body.admin-app-view .popover-action:hover,
+body.admin-app-view a.popover-action:hover,
+body.admin-app-view .logout-action:hover,
+body.admin-app-view .tracking-visibility-button:hover,
+body.admin-app-view .tracking-visibility-button-inline:hover,
+body.admin-app-view .maint-modal-close:hover {
+  background: #f3f3f3 !important;
+}
+
+body.admin-app-view .client-form-card input,
+body.admin-app-view .client-form-card textarea,
+body.admin-app-view .client-form-card select,
+body.admin-app-view .login-form input,
+body.admin-app-view .login-form select,
+body.admin-app-view .password-toggle {
+  background: #ffffff !important;
+  border-color: rgba(17, 17, 17, 0.14) !important;
+  color: #111111 !important;
+}
+
+body.admin-app-view .login-form .auth-field-optional,
+body.admin-app-view .maint-calendar-day-count,
+body.admin-app-view .edit-current-content-value,
+body.admin-app-view .modal-copy,
+body.admin-app-view .field-help,
+body.admin-app-view .published-post-copy span,
+body.admin-app-view .client-form-card input::placeholder,
+body.admin-app-view .client-form-card textarea::placeholder,
+body.admin-app-view .dashboard-form input::placeholder,
+body.admin-app-view .dashboard-form textarea::placeholder,
+body.admin-app-view .maint-notes-input::placeholder,
+body.admin-app-view .maint-detail-search::placeholder {
+  color: #505050 !important;
+}
+
+body.admin-app-view .tracking-data-table th,
+body.admin-app-view .tracking-data-table td,
+body.admin-app-view .tracking-data-table td strong,
+body.admin-app-view .tracking-data-table td small,
+body.admin-app-view .tracking-data-table td::before,
+body.admin-app-view .maint-table th,
+body.admin-app-view .maint-table td,
+body.admin-app-view .maint-td::before {
+  color: #111111 !important;
+}
+
+body.admin-app-view .tracking-data-table tr,
+body.admin-app-view .tracking-data-table tbody tr,
+body.admin-app-view .maint-table tr,
+body.admin-app-view .maint-calendar-day {
+  background: #ffffff !important;
+}
+
+body.admin-app-view .tracking-data-table tbody tr:nth-child(even),
+body.admin-app-view .maint-table tbody tr:nth-child(even) {
+  background: #f3f3f3 !important;
+}
+
+body.admin-app-view .dashboard-tracking-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid rgba(17, 17, 17, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111 !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+body.admin-app-view .dashboard-tracking-link:hover {
+  background: #f3f3f3;
+}
+
+body.admin-app-view,
+body.admin-app-view *,
+body.admin-app-view *::placeholder {
+  scrollbar-color: rgba(17, 17, 17, 0.28) #f5f5f5;
 }
 
 html:has(body.admin-app-view) {

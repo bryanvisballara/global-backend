@@ -48,7 +48,10 @@ async function fetchTrackingPageJson(path, options = {}) {
       adminRedirectToLogin();
     }
 
-    throw new Error(data.message || "Request failed");
+    const error = new Error(data.message || "Request failed");
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
@@ -58,6 +61,7 @@ async function loadTrackingPageSession() {
   const data = await fetchTrackingPageJson("/api/auth/me");
   const user = data.user || {};
   currentAdminRole = String(user.role || "");
+  currentAdminEmail = String(user.email || "").trim().toLowerCase();
 
   if (user.role) {
     localStorage.setItem("globalAppRole", user.role);
@@ -243,10 +247,14 @@ const trackingDateFromFilter = document.getElementById("tracking-search-date-fro
 const trackingDateToFilter = document.getElementById("tracking-search-date-to");
 const trackingOrderSummary = document.getElementById("tracking-order-summary");
 const trackingStatesList = document.getElementById("tracking-states-list");
+const trackingStageTransitionCard = document.getElementById("tracking-stage-transition-card");
 const trackingSuccessModal = document.getElementById("tracking-success-modal");
 const trackingSuccessTitle = document.getElementById("tracking-success-title");
 const trackingSuccessMessage = document.getElementById("tracking-success-message");
 const trackingSuccessClose = document.getElementById("tracking-success-close");
+const trackingDeleteUpdateModal = document.getElementById("tracking-delete-update-modal");
+const trackingDeleteUpdateConfirm = document.getElementById("tracking-delete-update-confirm");
+const trackingDeleteUpdateFeedback = document.getElementById("tracking-delete-update-feedback");
 const orderSuccessModal = document.getElementById("order-success-modal");
 const createOrderModal = document.getElementById("tracking-create-order-modal");
 const createOrderModalCard = createOrderModal?.querySelector(".tracking-create-order-modal-card") || null;
@@ -267,6 +275,7 @@ const orderDeleteRequestReason = document.getElementById("order-delete-request-r
 const orderDeleteRequestFeedback = document.getElementById("order-delete-request-feedback");
 let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
+let pendingTrackingDeleteAction = null;
 
 const searchConfigs = [
   {
@@ -304,6 +313,7 @@ const searchConfigs = [
 let orders = [];
 let selectedOrderId = "";
 let currentAdminRole = "";
+let currentAdminEmail = "";
 let expandedStateKey = "";
 let expandedOverviewStateKey = "";
 let initOverlayWatchdog = null;
@@ -311,6 +321,19 @@ const expandedOverviewEventIds = new Set();
 const savingStates = new Set();
 const stateDrafts = new Map();
 let createOrderClients = [];
+const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const ORDER_DOCUMENT_TYPES = [
+  { value: "FACTURA", label: "FACTURA" },
+  { value: "BL", label: "BL" },
+  { value: "TITULO", label: "TÍTULO" },
+  { value: "BOOKING", label: "BOOKING" },
+  { value: "TRACKING", label: "TRACKING" },
+  { value: "FOTOS", label: "FOTOS" },
+  { value: "CONTRATO", label: "CONTRATO" },
+  { value: "OTRO", label: "OTRO" },
+];
+const LEGACY_TRACKING_TRANSITION_STORAGE_KEY = "globalAdminTrackingLegacyTransition";
+let useLegacyTrackingTransition = sessionStorage.getItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY) === "1";
 
 function buildCreateOrderTrackingNumber() {
   const existingTrackings = new Set(
@@ -466,14 +489,69 @@ async function loadCreateOrderModalData() {
 
 function syncTrackingPageMode(order) {
   document.body.classList.toggle("tracking-detail-mode", Boolean(order));
+
+  if (openCreateOrderModalButton) {
+    openCreateOrderModalButton.hidden = Boolean(order);
+  }
+
+  if (trackingStageTransitionCard) {
+    trackingStageTransitionCard.hidden = !order;
+  }
 }
 
 function getActiveOrders() {
   return orders.filter((order) => order?.status === "active");
 }
 
+function isAnthonyGlobalOwner() {
+  return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+}
+
+function getTrackingStateIndex(stateKey) {
+  return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
+}
+
 function canEditStateForRole(role, stateKey) {
-  return Boolean(String(role || "").trim()) && Boolean(String(stateKey || "").trim());
+  const normalizedRole = String(role || "").trim();
+  const stateIndex = getTrackingStateIndex(stateKey);
+
+  if (!normalizedRole || stateIndex === -1) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+    return stateIndex <= 3;
+  }
+
+  if (["admin", "manager"].includes(normalizedRole)) {
+    return stateIndex >= 3;
+  }
+
+  return false;
+}
+
+function canTransitionTrackingState(currentIndex, targetIndex) {
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole)) {
+    return currentIndex <= 2 && targetIndex <= 3;
+  }
+
+  if (["admin", "manager"].includes(currentAdminRole)) {
+    return currentIndex >= 3 && targetIndex >= 3;
+  }
+
+  return false;
 }
 
 function canAdvanceTrackingState(states = [], stateIndex = -1) {
@@ -527,6 +605,8 @@ function getOrderTrackingEvents(order) {
         stateIndex: Number.isNaN(parsedStateIndex) ? stateMeta.index : parsedStateIndex,
         stateCode: String(event?.stateCode || stateMeta.code || "-"),
         updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
+        title: normalizeText(event?.title || ""),
+        location: normalizeText(event?.location || ""),
         notes: normalizeText(event?.notes || ""),
         media: Array.isArray(event?.media) ? event.media.filter((item) => item?.url) : [],
         clientVisible: Boolean(event?.clientVisible),
@@ -566,6 +646,8 @@ function getOrderTrackingSteps(order) {
       .sort((left, right) => left.updateIndex - right.updateIndex)
       .map((event) => ({
         eventId: event.eventId,
+        title: event.title,
+        location: event.location,
         notes: event.notes,
         media: event.media,
         clientVisible: event.clientVisible,
@@ -591,17 +673,26 @@ function getOrderTrackingSteps(order) {
     const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestUpdate({ updates });
     const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
-    const derivedConfirmed = hasEventUpdates
-      ? Boolean(latestUpdate?.completed)
-      : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
-    const derivedInProgress = hasEventUpdates
-      ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
+    const hasExplicitReopenState = typeof sourceStep?.confirmed === "boolean"
+      && sourceStep.confirmed === false
+      && Boolean(
+        (typeof sourceStep?.inProgress === "boolean" && sourceStep.inProgress)
+        || latestUpdate?.inProgress
+      );
+    const derivedConfirmed = hasExplicitReopenState
+      ? false
       : Boolean(
-          typeof sourceStep?.inProgress === "boolean"
-            ? sourceStep.inProgress && !derivedConfirmed
-            : latestUpdate?.completed
-              ? false
-              : latestUpdate?.inProgress
+          (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
+          || lastCompletedUpdate
+          || latestUpdate?.completed
+        );
+    const derivedInProgress = derivedConfirmed
+      ? false
+      : Boolean(
+          hasExplicitReopenState
+          || (typeof sourceStep?.inProgress === "boolean"
+            ? sourceStep.inProgress
+            : latestUpdate?.inProgress)
         );
 
     return {
@@ -660,13 +751,67 @@ function getCurrentStageMeta(order) {
   const stageIndex = adminTrackingTemplates.findIndex((stage) => stage.key === currentStageKey);
 
   if (stageIndex === -1) {
-    return { code: "-", label: "Sin etapa" };
+    return { key: "", index: -1, code: "-", label: "Sin etapa" };
   }
 
   return {
+    key: currentStageKey,
+    index: stageIndex,
     code: getStateCode(stageIndex),
     label: String(adminTrackingTemplates[stageIndex]?.label || "Estado"),
   };
+}
+
+function getTransitionHelperCopy(currentStageMeta) {
+  if (isAnthonyGlobalOwner()) {
+    return "Puedes avanzar o retroceder libremente. La etapa actual queda EN PROCESO.";
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentStageMeta.index >= 3) {
+    return "Los usuarios de USA solo pueden mover pedidos hasta la etapa 4. Desde aqui la transicion queda bloqueada.";
+  }
+
+  if (["admin", "manager"].includes(currentAdminRole) && currentStageMeta.index >= 0 && currentStageMeta.index < 3) {
+    return "Las primeras 3 etapas solo las puede modificar gerencia LATAM. La etapa actual queda EN PROCESO.";
+  }
+
+  return "Solo se permite avanzar a la siguiente o retroceder a la anterior. La etapa actual queda EN PROCESO.";
+}
+
+function renderStageTransitionCard(order) {
+  if (!trackingStageTransitionCard) {
+    return;
+  }
+
+  trackingStageTransitionCard.hidden = true;
+  trackingStageTransitionCard.innerHTML = "";
+}
+
+function renderStageTransitionCardMarkup(order) {
+  if (!order) {
+    return "";
+  }
+
+  const currentStageMeta = getCurrentStageMeta(order);
+  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1);
+  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1);
+
+  return `
+    <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
+    <strong>Transición de etapa</strong>
+    <div class="tracking-stage-transition-actions">
+      <button class="secondary-button tracking-stage-transition-button" type="button" data-transition-direction="previous" ${previousEnabled ? "" : "disabled"}>
+        <span aria-hidden="true">←</span>
+        <span>Anterior</span>
+      </button>
+      <button class="secondary-button tracking-stage-transition-button" type="button" data-transition-direction="next" ${nextEnabled ? "" : "disabled"}>
+        <span>Siguiente</span>
+        <span aria-hidden="true">→</span>
+      </button>
+    </div>
+    <p>${escapeHtml(getTransitionHelperCopy(currentStageMeta))}</p>
+    </article>
+  `;
 }
 
 function populateSearchSelects() {
@@ -971,6 +1116,21 @@ function renderDeleteButton(stateKey, updateIndex, eventId = "") {
   `;
 }
 
+function renderDeleteEventTableButton(stateKey, updateIndex, eventId = "") {
+  return `
+    <button
+      type="button"
+      class="tracking-event-delete-button"
+      data-delete-update="true"
+      data-state-key="${escapeHtml(stateKey)}"
+      data-update-index="${updateIndex}"
+      data-event-id="${escapeHtml(eventId)}"
+      title="Borrar evento"
+      aria-label="Borrar evento"
+    >&times;</button>
+  `;
+}
+
 function renderMediaItems(media = []) {
   if (!media.length) {
     return "";
@@ -1147,28 +1307,43 @@ function renderCategorizedMediaSections(media = []) {
   `;
 }
 
+function resolveTimelineProgression(states = []) {
+  let completedUntil = -1;
+
+  for (let index = 0; index < states.length; index += 1) {
+    if (!states[index]?.confirmed) {
+      break;
+    }
+
+    completedUntil = index;
+  }
+
+  if (!states.length) {
+    return { completedUntil: -1, currentIndex: -1 };
+  }
+
+  if (completedUntil >= states.length - 1) {
+    return { completedUntil, currentIndex: -1 };
+  }
+
+  return {
+    completedUntil,
+    currentIndex: completedUntil + 1,
+  };
+}
+
 function resolveTimelineStateVariant(state, index, states) {
-  if (state?.confirmed) {
+  const progression = resolveTimelineProgression(states);
+
+  if (index <= progression.completedUntil) {
     return "is-completed";
   }
 
-  if (state?.inProgress) {
+  if (index === progression.currentIndex) {
     return "is-current";
   }
 
-  const explicitCurrentIndex = states.findIndex((item) => item?.inProgress && !item?.confirmed);
-
-  if (explicitCurrentIndex >= 0) {
-    return "is-pending";
-  }
-
-  const firstPendingIndex = states.findIndex((item) => !item?.confirmed);
-
-  if (firstPendingIndex === -1) {
-    return "is-pending";
-  }
-
-  return index === firstPendingIndex ? "is-current" : "is-pending";
+  return "is-pending";
 }
 
 function resolveTimelineStateStatusLabel(variant) {
@@ -1422,7 +1597,233 @@ function renderRecentEvents(order) {
   `;
 }
 
+function buildAdminEventTableRows(order) {
+  return getOrderTrackingEvents(order).map((event) => ({
+    eventId: event.eventId,
+    stateKey: event.stateKey,
+    updateIndex: event.updateIndex,
+    date: event.updatedAt || event.createdAt || null,
+    stage: event.stateCode || "-",
+    title: event.title || getUpdateStatusLabel(event),
+    location: event.location || "-",
+    description: event.notes || "-",
+    clientVisible: Boolean(event.clientVisible),
+  }));
+}
+
+function renderAdminEventsTable(order) {
+  const rows = buildAdminEventTableRows(order);
+
+  if (!rows.length) {
+    return '<div class="empty-state">No hay eventos recientes registrados para esta orden.</div>';
+  }
+
+  return `
+    <div class="tracking-table-wrap">
+      <table class="tracking-data-table admin-tracking-events-table" aria-label="Eventos recientes del pedido">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Etapa</th>
+            <th>Título</th>
+            <th>Ubicación</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(formatDateTimeLabel(row.date))}</td>
+              <td>${escapeHtml(row.stage)}</td>
+              <td>${escapeHtml(row.title)}</td>
+              <td>${escapeHtml(row.location)}</td>
+              <td>${escapeHtml(row.description)}</td>
+              <td class="admin-tracking-events-actions-cell">
+                <div class="admin-tracking-event-actions">
+                  ${renderVisibilityButton(row.stateKey, row.updateIndex, !row.clientVisible, row.clientVisible, row.eventId)}
+                  ${renderDeleteEventTableButton(row.stateKey, row.updateIndex, row.eventId)}
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderNewEventCard(order) {
+  const currentStageMeta = getCurrentStageMeta(order);
+  const stageOptions = adminTrackingTemplates
+    .filter((template) => canEditStateForRole(currentAdminRole, template.key))
+    .map((template) => {
+      const templateIndex = getTrackingStateIndex(template.key);
+      const isSelected = template.key === currentStageMeta.key;
+      return `<option value="${escapeHtml(template.key)}" ${isSelected ? "selected" : ""}>${escapeHtml(`E${templateIndex + 1} — ${template.label}`)}</option>`;
+    })
+    .join("");
+
+  return `
+    <article class="dashboard-card tracking-table-card tracking-new-event-card">
+      <div class="card-heading compact">
+        <h2>Nuevo evento</h2>
+      </div>
+      <form class="tracking-new-event-form" data-new-event-form>
+        <label>
+          <span>Título *</span>
+          <input name="title" class="tracking-native-select" type="text" placeholder="Ej: E3 — Booking confirmado / Tracking iniciado" required />
+        </label>
+        <label>
+          <span>Descripción</span>
+          <textarea name="description" rows="4" class="tracking-native-select tracking-native-textarea"></textarea>
+        </label>
+        <div class="form-row two-up tracking-new-event-grid">
+          <label>
+            <span>Etapa relacionada</span>
+            <select name="stageKey" class="tracking-native-select">${stageOptions}</select>
+          </label>
+          <label>
+            <span>Ubicación</span>
+            <input name="location" class="tracking-native-select" type="text" placeholder="Ej: Puerto de Miami, Bodega Panamá, etc." />
+          </label>
+        </div>
+        <div class="tracking-new-event-actions">
+          <button class="primary-button" type="submit">+ Registrar</button>
+        </div>
+        <p class="feedback" data-new-event-feedback aria-live="polite"></p>
+      </form>
+    </article>
+  `;
+}
+
+function getOrderDocuments(order) {
+  return (Array.isArray(order?.media) ? order.media : [])
+    .filter((item) => item?.url && (item?.category === "document" || item?.type === "document"))
+    .map((item) => ({
+      documentId: String(item.documentId || "").trim(),
+      documentType: normalizeText(item.documentType || "OTRO") || "OTRO",
+      name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
+      note: normalizeText(item.note || ""),
+      url: String(item.url || ""),
+      clientVisible: Boolean(item.clientVisible),
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || item.createdAt || null,
+    }))
+    .sort((left, right) => new Date(right.updatedAt || right.createdAt || 0).getTime() - new Date(left.updatedAt || left.createdAt || 0).getTime());
+}
+
+function renderOrderDocumentVisibilityButton(documentId, nextVisible, isVisible) {
+  return `
+    <button
+      type="button"
+      class="tracking-visibility-button ${isVisible ? "is-visible" : "is-hidden"}"
+      data-toggle-order-document-visibility="true"
+      data-document-id="${escapeHtml(documentId)}"
+      data-next-visible="${nextVisible ? "true" : "false"}"
+      title="${isVisible ? "Ocultar al cliente" : "Mostrar al cliente"}"
+      aria-label="${isVisible ? "Ocultar al cliente" : "Mostrar al cliente"}"
+    >
+      ${isVisible
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.6 4.3-10.9 6-.2.3-.2.7 0 1 1.3 1.7 5.4 6 10.9 6s9.6-4.3 10.9-6c.2-.3.2-.7 0-1C21.6 9.3 17.5 5 12 5Zm0 11a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"></path></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2.7 1.3-1.4 1.4 3 3C2.6 7 1.4 8.4.6 9.5c-.2.3-.2.7 0 1 1.3 1.7 5.4 6 10.9 6 2 0 3.8-.5 5.4-1.3l3 3 1.4-1.4L2.7 1.3Zm8.8 8.8 3 3a2.4 2.4 0 0 1-3-3Zm7.9 2.8a15.5 15.5 0 0 0-3.8-3.5l1.5 1.5c.6.5 1.2 1.1 1.7 1.7-.8 1-2.1 2.4-3.8 3.4l1.5 1.5c2-1.3 3.4-3.1 4.2-4.1.2-.3.2-.7 0-1ZM12 6.5c.8 0 1.5.1 2.1.3L15.7 8c-1-.7-2.3-1.1-3.7-1.1-1 0-1.9.2-2.7.6l1.3 1.3c.4-.2.9-.3 1.4-.3Z"></path></svg>'}
+    </button>
+  `;
+}
+
+function renderOrderDocumentDeleteButton(documentId) {
+  return `
+    <button
+      type="button"
+      class="tracking-document-delete-button"
+      data-delete-order-document="true"
+      data-document-id="${escapeHtml(documentId)}"
+      title="Eliminar documento"
+      aria-label="Eliminar documento"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 7h2v7h-2v-7Zm4 0h2v7h-2v-7ZM7 10h2v7H7v-7Zm-1 11a2 2 0 0 1-2-2V8h16v11a2 2 0 0 1-2 2H6Z"></path></svg>
+    </button>
+  `;
+}
+
+function renderOrderDocumentsTable(order) {
+  const documents = getOrderDocuments(order);
+
+  if (!documents.length) {
+    return '<div class="empty-state">No hay documentos cargados para esta orden.</div>';
+  }
+
+  return `
+    <div class="tracking-table-wrap">
+      <table class="tracking-data-table admin-tracking-documents-table" aria-label="Documentos del pedido">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Archivo</th>
+            <th>Nota</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${documents.map((document) => `
+            <tr>
+              <td>${escapeHtml(document.documentType)}</td>
+              <td>
+                <div class="tracking-document-link-cell">
+                  ${renderOrderDocumentDeleteButton(document.documentId)}
+                  <a class="tracking-document-link" href="${escapeHtml(document.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(document.name)}</a>
+                </div>
+              </td>
+              <td>${escapeHtml(document.note || "-")}</td>
+              <td>${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
+              <td class="admin-tracking-events-visibility-cell">${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderOrderDocumentUploadCard() {
+  return `
+    <article class="dashboard-card tracking-table-card tracking-document-upload-card">
+      <div class="card-heading compact">
+        <h2>Subir documento(s)</h2>
+      </div>
+      <form class="tracking-document-form" data-order-document-form>
+        <div class="tracking-document-upload-grid">
+          <label>
+            <span>Tipo</span>
+            <select name="documentType" class="tracking-native-select">
+              ${ORDER_DOCUMENT_TYPES.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Archivo(s) *</span>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" multiple required />
+            <small>Puedes seleccionar varios archivos a la vez.</small>
+          </label>
+        </div>
+        <label>
+          <span>Notas</span>
+          <input name="note" class="tracking-native-select" type="text" placeholder="Agrega una nota corta para identificar el documento" />
+        </label>
+        <div class="tracking-new-event-actions">
+          <button class="primary-button" type="submit">Guardar</button>
+        </div>
+        <p class="feedback" data-order-document-feedback aria-live="polite"></p>
+      </form>
+    </article>
+  `;
+}
+
 function renderOrderSummary(order) {
+  if (!trackingOrderSummary) {
+    return;
+  }
+
   if (!order) {
     trackingOrderSummary.innerHTML = "";
     return;
@@ -1444,32 +1845,34 @@ function renderOrderSummary(order) {
 function renderTrackingOverview(order) {
   if (!order) {
     adminRenderEmptyState(trackingPreview, "Selecciona un pedido para ver sus eventos recientes.");
+    renderStageTransitionCard(null);
     return;
   }
 
   const states = getOrderTrackingSteps(order);
-  const hasVisibleStage = states.some((state) => state.key === expandedOverviewStateKey);
-  const resolvedExpandedOverviewStateKey = hasVisibleStage ? expandedOverviewStateKey : "";
 
   trackingPreview.innerHTML = `
     <div class="tracking-overview-stack">
-      <article class="state-order-item tracking-overview-card">
-        <header class="state-order-header">
-          <h3>${escapeHtml(formatOrderLabel(order))}</h3>
-          <span class="section-tag">Tracking ${escapeHtml(order?.trackingNumber || "-")}</span>
-        </header>
-        <div class="state-order-grid">
-          <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
-          <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
-          <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-          <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
-          <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
-          <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
-          <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-          <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
-          <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
-        </div>
-      </article>
+      <div class="tracking-order-hero-grid">
+        <article class="state-order-item tracking-overview-card">
+          <header class="state-order-header tracking-overview-header">
+            <h3>${escapeHtml(formatOrderLabel(order))}</h3>
+            <strong class="tracking-overview-tracking">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+          </header>
+          <div class="state-order-grid tracking-overview-grid">
+            <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
+            <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
+            <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
+            <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
+            <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
+            <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
+            <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
+            <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+            <p><strong>Estado pedido:</strong> ${escapeHtml(order?.status || "-")}</p>
+          </div>
+        </article>
+        ${renderStageTransitionCardMarkup(order)}
+      </div>
 
       <article class="dashboard-card tracking-table-card tracking-timeline-card">
         <div class="card-heading">
@@ -1499,100 +1902,44 @@ function renderTrackingOverview(order) {
       </article>
 
       <article class="dashboard-card tracking-table-card">
-        <div class="card-heading">
-          <h2>Eventos recientes</h2>
-        </div>
-        <div class="tracking-stage-events-stack">
-          ${buildRecentEvents(order).length
-            ? buildRecentEvents(order)
-                .map((stageGroup) => renderRecentEventStage(stageGroup, stageGroup.stateKey === resolvedExpandedOverviewStateKey))
-                .join("")
-            : '<div class="empty-state">No hay eventos registrados para esta orden.</div>'}
+        <div class="tracking-events-editor-grid">
+          <div class="tracking-events-column tracking-events-column-main">
+            <article class="dashboard-card tracking-table-card tracking-events-general-card">
+              <div class="card-heading compact">
+                <h2>Eventos recientes</h2>
+              </div>
+              ${renderAdminEventsTable(order)}
+            </article>
+            <article class="dashboard-card tracking-table-card tracking-order-documents-card">
+              <div class="card-heading compact">
+                <h2>Documentos</h2>
+              </div>
+              ${renderOrderDocumentsTable(order)}
+            </article>
+          </div>
+          <div class="tracking-events-column tracking-events-column-side">
+            ${renderNewEventCard(order)}
+            ${renderOrderDocumentUploadCard()}
+          </div>
         </div>
       </article>
     </div>
   `;
+
+  renderStageTransitionCard(order);
 }
 
 function renderStates() {
   const selectedOrder = getSelectedOrder();
 
-  trackingStatesList.querySelectorAll("[data-upload-preview]").forEach((previewElement) => {
-    releaseUploadPreviewUrls(previewElement);
-  });
-
   if (!selectedOrder) {
     syncTrackingPageMode(null);
-    trackingStatesList.innerHTML = "";
+    renderStageTransitionCard(null);
     adminRenderEmptyState(trackingPreview, "Busca un pedido y selecciona uno para gestionar sus eventos.");
     return;
   }
 
   syncTrackingPageMode(selectedOrder);
-
-  const states = getOrderTrackingSteps(selectedOrder);
-
-  trackingStatesList.innerHTML = states.map((state, index) => {
-    const isExpanded = expandedStateKey === state.key;
-    const canEditState = canEditStateForRole(currentAdminRole, state.key);
-    const canAdvanceState = canAdvanceTrackingState(states, index);
-    const draft = getStateDraft(state);
-    const historyCount = Array.isArray(state?.updates) ? state.updates.length : 0;
-    const updatedText = state.updatedAt ? `Actualizado ${formatDateLabel(state.updatedAt)}` : "Sin actualizaciones todavía";
-    const editButtonText = state.confirmed ? "Completado" : state.inProgress ? "En curso" : "Editar";
-    const stateMedia = getFlattenedStateMedia(state);
-
-    return `
-      <article class="tracking-state-card ${state.confirmed ? "is-confirmed" : ""} ${state.inProgress ? "is-in-progress" : ""} ${isExpanded ? "is-open" : ""}" data-state-card="${escapeHtml(state.key)}">
-        <div class="tracking-state-header">
-          <div class="tracking-state-copy">
-            <small>Estado ${index + 1}</small>
-            <strong>${escapeHtml(state.label)}</strong>
-            <p>${escapeHtml(updatedText)} · ${escapeHtml(`${historyCount} actualización(es)`)}</p>
-          </div>
-          <button
-            class="tracking-state-edit-button ${state.confirmed ? "is-confirmed" : ""}"
-            type="button"
-            ${canEditState ? `data-edit-state-key="${escapeHtml(state.key)}"` : "disabled"}
-          >${canEditState ? editButtonText : "Bloqueado"}</button>
-        </div>
-        <div class="tracking-state-body" ${isExpanded ? "" : "hidden"}>
-          <div class="tracking-state-switches">
-            <label class="dashboard-checkbox"><input type="checkbox" data-field="inProgress" ${draft.inProgress ? "checked" : ""} ${canEditState && canAdvanceState && !state.confirmed ? "" : "disabled"} /> Activar estado en curso</label>
-            <label class="dashboard-checkbox"><input type="checkbox" data-field="confirmed" ${draft.confirmed ? "checked" : ""} ${canEditState && canAdvanceState ? "" : "disabled"} /> Completar estado</label>
-          </div>
-          ${canAdvanceState ? "" : '<p class="tracking-state-helper-copy">Completa el estado anterior antes de avanzar este.</p>'}
-          <p class="tracking-state-helper-copy">Cada guardado agrega una nueva entrada al historial. El cliente solo ve los eventos que publiques con el ojo.</p>
-          <label>
-            <span>Nueva actualizacion</span>
-            <textarea rows="4" data-field="notes" placeholder="Describe lo ocurrido en esta actualizacion" ${canEditState ? "" : "disabled"}>${escapeHtml(draft.notes)}</textarea>
-          </label>
-          <div class="tracking-state-upload-grid two-up">
-            <label>
-              <span>Adjuntos</span>
-              <input type="file" data-field="attachments" multiple accept="image/*,video/*,.pdf,application/pdf" ${canEditState ? "" : "disabled"} />
-            </label>
-            <label>
-              <span>Video por link</span>
-              <textarea rows="4" data-field="videoLinks" placeholder="Pega uno o varios links, separados por salto de linea" ${canEditState ? "" : "disabled"}>${escapeHtml(draft.videoLinks)}</textarea>
-            </label>
-          </div>
-          <div class="tracking-state-media-list" data-upload-preview="${escapeHtml(state.key)}" hidden></div>
-          <div class="tracking-state-actions">
-            <button class="primary-button" type="button" data-save-state-key="${escapeHtml(state.key)}" ${canEditState ? "" : "disabled"}>Agregar evento</button>
-            <p class="feedback" data-state-feedback="${escapeHtml(state.key)}"></p>
-          </div>
-          <section class="tracking-state-history-block">
-            <div class="card-heading compact">
-              <h3>Historial de esta etapa</h3>
-            </div>
-            ${renderStateUpdates(state)}
-          </section>
-          ${renderCategorizedMediaSections(stateMedia)}
-        </div>
-      </article>
-    `;
-  }).join("");
 
   renderTrackingOverview(selectedOrder);
 }
@@ -1604,7 +1951,9 @@ function selectOrder(orderId) {
   expandedOverviewEventIds.clear();
   clearStateDrafts();
   trackingOrderInput.value = selectedOrderId;
-  trackingEditorFields.hidden = !selectedOrderId;
+  if (trackingEditorFields) {
+    trackingEditorFields.hidden = !selectedOrderId;
+  }
 
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
@@ -1634,7 +1983,9 @@ function clearSearchFilters() {
 
   selectedOrderId = "";
   trackingOrderInput.value = "";
-  trackingEditorFields.hidden = true;
+  if (trackingEditorFields) {
+    trackingEditorFields.hidden = true;
+  }
   expandedStateKey = "";
   expandedOverviewStateKey = "";
   expandedOverviewEventIds.clear();
@@ -1723,9 +2074,9 @@ async function saveState(stateKey) {
   }
 
   const selectedOrder = getSelectedOrder();
-  const stateCard = trackingStatesList.querySelector(`[data-state-card="${stateKey}"]`);
-  const stateFeedback = trackingStatesList.querySelector(`[data-state-feedback="${stateKey}"]`);
-  const saveButton = trackingStatesList.querySelector(`[data-save-state-key="${stateKey}"]`);
+  const stateCard = trackingStatesList?.querySelector(`[data-state-card="${stateKey}"]`) || null;
+  const stateFeedback = trackingStatesList?.querySelector(`[data-state-feedback="${stateKey}"]`) || null;
+  const saveButton = trackingStatesList?.querySelector(`[data-save-state-key="${stateKey}"]`) || null;
 
   if (!selectedOrder || !stateCard || !stateFeedback) {
     return;
@@ -1801,6 +2152,266 @@ async function saveState(stateKey) {
   }
 }
 
+async function submitNewTrackingEventForm(form) {
+  const selectedOrder = getSelectedOrder();
+  const feedbackElement = form.querySelector("[data-new-event-feedback]");
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  if (!selectedOrder) {
+    adminSetFeedback(feedbackElement, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const formData = new FormData(form);
+  const title = normalizeText(formData.get("title") || "");
+  const description = normalizeText(formData.get("description") || "");
+  const stageKey = normalizeText(formData.get("stageKey") || "");
+  const location = normalizeText(formData.get("location") || "");
+
+  if (!title) {
+    adminSetFeedback(feedbackElement, "El título es obligatorio.", "error");
+    return;
+  }
+
+  if (!canEditStateForRole(currentAdminRole, stageKey)) {
+    adminSetFeedback(feedbackElement, "No tienes permisos para registrar eventos en esta etapa.", "error");
+    return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+
+  adminSetFeedback(feedbackElement, "Registrando evento...");
+
+  try {
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-states/${stageKey}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        operation: "add-update",
+        forceCreateUpdate: true,
+        title,
+        location,
+        notes: description,
+        clientVisible: false,
+        confirmed: false,
+        inProgress: false,
+      }),
+    });
+
+    orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+    expandedOverviewStateKey = stageKey;
+    renderOrderSummary(getSelectedOrder());
+    renderStates();
+    renderSearchResults(getFilteredOrders());
+    adminSetFeedback(trackingFeedback, "Evento registrado correctamente.", "success");
+  } catch (error) {
+    adminSetFeedback(feedbackElement, error.message, "error");
+    return;
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
+async function submitOrderDocumentForm(form) {
+  const selectedOrder = getSelectedOrder();
+  const feedbackElement = form.querySelector("[data-order-document-feedback]");
+  const submitButton = form.querySelector('button[type="submit"]');
+  const fileField = form.querySelector('input[name="mediaFiles"]');
+
+  if (!selectedOrder) {
+    adminSetFeedback(feedbackElement, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const files = Array.from(fileField?.files || []);
+
+  if (!files.length) {
+    adminSetFeedback(feedbackElement, "Debes seleccionar al menos un archivo.", "error");
+    return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+
+  adminSetFeedback(feedbackElement, "Subiendo documentos...");
+
+  try {
+    const formData = new FormData(form);
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents`, {
+      method: "POST",
+      body: formData,
+    });
+
+    orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+    form.reset();
+    renderOrderSummary(getSelectedOrder());
+    renderStates();
+    renderSearchResults(getFilteredOrders());
+    adminSetFeedback(trackingFeedback, "Documento(s) cargado(s) correctamente.", "success");
+  } catch (error) {
+    adminSetFeedback(feedbackElement, error.message, "error");
+    return;
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
+async function toggleOrderDocumentVisibility(documentId, nextVisible) {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !documentId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents/${encodeURIComponent(documentId)}/visibility`, {
+    method: "PATCH",
+    body: JSON.stringify({ clientVisible: nextVisible }),
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+}
+
+async function deleteOrderDocument(documentId) {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !documentId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents/${encodeURIComponent(documentId)}`, {
+    method: "DELETE",
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Documento eliminado correctamente.", "success");
+}
+
+async function transitionSelectedOrder(direction) {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const runLegacyTransition = async () => {
+    const states = getOrderTrackingSteps(selectedOrder);
+    const currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+
+    if (currentStepIndex < 0) {
+      throw new Error("No se pudo determinar la etapa actual del pedido.");
+    }
+
+    const targetStepIndex = direction === "next" ? currentStepIndex + 1 : currentStepIndex - 1;
+
+    if (targetStepIndex < 0 || targetStepIndex >= states.length) {
+      throw new Error(direction === "next" ? "El pedido ya esta en la ultima etapa." : "El pedido ya esta en la primera etapa.");
+    }
+
+    const currentStep = states[currentStepIndex] || null;
+    const targetStep = states[targetStepIndex] || null;
+
+    if (direction === "next") {
+      if (!currentStep?.key || !targetStep?.key) {
+        throw new Error("No se pudo resolver la transición de etapa.");
+      }
+
+      const completePayload = new FormData();
+      completePayload.append("operation", "add-update");
+      completePayload.append("confirmed", "true");
+      completePayload.append("inProgress", "false");
+
+      await fetchTrackingPageJson(
+        `/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-states/${currentStep.key}`,
+        {
+          method: "PATCH",
+          body: completePayload,
+        }
+      );
+
+      const activatePayload = new FormData();
+      activatePayload.append("operation", "add-update");
+      activatePayload.append("forceCreateUpdate", "true");
+      activatePayload.append("confirmed", "false");
+      activatePayload.append("inProgress", "true");
+      activatePayload.append("clientVisible", "true");
+      activatePayload.append("title", `Cambio de etapa a ${getStateCode(targetStepIndex)} - ${targetStep.label || "Estado"}`);
+      activatePayload.append("notes", `La orden avanzo a ${targetStep.label || "la siguiente etapa"}.`);
+
+      return fetchTrackingPageJson(
+        `/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-states/${targetStep.key}`,
+        {
+          method: "PATCH",
+          body: activatePayload,
+        }
+      );
+    }
+
+    if (!targetStep?.key) {
+      throw new Error("No se pudo resolver la etapa a actualizar.");
+    }
+
+    const fallbackPayload = new FormData();
+    fallbackPayload.append("operation", "add-update");
+    fallbackPayload.append("confirmed", "false");
+    fallbackPayload.append("inProgress", "true");
+
+    return fetchTrackingPageJson(
+      `/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-states/${targetStep.key}`,
+      {
+        method: "PATCH",
+        body: fallbackPayload,
+      }
+    );
+  };
+
+  let response;
+
+  try {
+    response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-transition`, {
+      method: "PATCH",
+      body: JSON.stringify({ direction }),
+    });
+    useLegacyTrackingTransition = false;
+    sessionStorage.removeItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY);
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw error;
+    }
+
+    useLegacyTrackingTransition = true;
+    sessionStorage.setItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY, "1");
+    response = await runLegacyTransition();
+  }
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+
+  adminSetFeedback(
+    trackingFeedback,
+    direction === "next"
+      ? "Etapa actualizada y cliente notificado por push/correo."
+      : "Transición aplicada correctamente.",
+    "success"
+  );
+}
+
 function handleSearchClick() {
   const matches = getFilteredOrders();
   renderSearchResults(matches);
@@ -1808,7 +2419,9 @@ function handleSearchClick() {
   if (!matches.length) {
     selectedOrderId = "";
     trackingOrderInput.value = "";
-    trackingEditorFields.hidden = true;
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
     updateUrlForOrder(null);
     renderOrderSummary(null);
     renderStates();
@@ -1854,6 +2467,61 @@ function closeSuccessModal() {
 
   trackingSuccessModal.hidden = true;
   document.body.classList.remove("modal-open");
+}
+
+function openDeleteUpdateModal(stateKey, updateIndex, eventId = "") {
+  if (!trackingDeleteUpdateModal) {
+    return;
+  }
+
+  pendingTrackingDeleteAction = { stateKey, updateIndex, eventId };
+  adminSetFeedback(trackingDeleteUpdateFeedback, "");
+  trackingDeleteUpdateModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeDeleteUpdateModal() {
+  if (!trackingDeleteUpdateModal) {
+    return;
+  }
+
+  trackingDeleteUpdateModal.hidden = true;
+  pendingTrackingDeleteAction = null;
+  adminSetFeedback(trackingDeleteUpdateFeedback, "");
+
+  if ((!trackingSuccessModal || trackingSuccessModal.hidden)
+    && (!orderSuccessModal || orderSuccessModal.hidden)
+    && (!createOrderModal || createOrderModal.hidden)
+    && (!orderDeleteRequestModal || orderDeleteRequestModal.hidden)) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+async function confirmDeleteUpdate() {
+  if (!pendingTrackingDeleteAction) {
+    return;
+  }
+
+  if (trackingDeleteUpdateConfirm) {
+    trackingDeleteUpdateConfirm.disabled = true;
+  }
+
+  adminSetFeedback(trackingDeleteUpdateFeedback, "Eliminando evento...");
+
+  try {
+    await deleteUpdate(
+      pendingTrackingDeleteAction.stateKey,
+      pendingTrackingDeleteAction.updateIndex,
+      pendingTrackingDeleteAction.eventId
+    );
+    closeDeleteUpdateModal();
+  } catch (error) {
+    adminSetFeedback(trackingDeleteUpdateFeedback, error.message || "No se pudo borrar el evento.", "error");
+  } finally {
+    if (trackingDeleteUpdateConfirm) {
+      trackingDeleteUpdateConfirm.disabled = false;
+    }
+  }
 }
 
 function setCreateOrderModalMode(mode, order = null) {
@@ -2174,6 +2842,18 @@ trackingSuccessModal?.addEventListener("click", (event) => {
   }
 });
 
+trackingDeleteUpdateModal?.addEventListener("click", (event) => {
+  if (event.target.hasAttribute("data-close-delete-update-modal")) {
+    closeDeleteUpdateModal();
+  }
+});
+
+trackingDeleteUpdateConfirm?.addEventListener("click", () => {
+  confirmDeleteUpdate().catch((error) => {
+    adminSetFeedback(trackingDeleteUpdateFeedback, error.message || "No se pudo borrar el evento.", "error");
+  });
+});
+
 openCreateOrderModalButton?.addEventListener("click", openCreateOrderModal);
 
 createOrderModal?.addEventListener("click", (event) => {
@@ -2317,6 +2997,15 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  const transitionButton = event.target.closest("[data-transition-direction]");
+
+  if (transitionButton) {
+    transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message, "error");
+    });
+    return;
+  }
+
   const overviewEventToggle = event.target.closest("[data-overview-event-toggle]");
 
   if (overviewEventToggle) {
@@ -2368,6 +3057,29 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  const orderDocumentVisibilityButton = event.target.closest("[data-toggle-order-document-visibility]");
+
+  if (orderDocumentVisibilityButton) {
+    const documentId = String(orderDocumentVisibilityButton.dataset.documentId || "").trim();
+    const nextVisible = String(orderDocumentVisibilityButton.dataset.nextVisible || "") === "true";
+
+    toggleOrderDocumentVisibility(documentId, nextVisible).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar la visibilidad del documento.", "error");
+    });
+    return;
+  }
+
+  const deleteOrderDocumentButton = event.target.closest("[data-delete-order-document]");
+
+  if (deleteOrderDocumentButton) {
+    const documentId = String(deleteOrderDocumentButton.dataset.documentId || "").trim();
+
+    deleteOrderDocument(documentId).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo eliminar el documento.", "error");
+    });
+    return;
+  }
+
   const deleteUpdateButton = event.target.closest("[data-delete-update]");
 
   if (!deleteUpdateButton) {
@@ -2382,13 +3094,37 @@ function handleTrackingPageClick(event) {
     return;
   }
 
-  deleteUpdate(stateKey, updateIndex, eventId).catch((error) => {
-    adminSetFeedback(trackingFeedback, error.message || "No se pudo borrar el evento.", "error");
-  });
+  openDeleteUpdateModal(stateKey, updateIndex, eventId);
 }
 
 trackingRoot.addEventListener("click", handleTrackingPageClick);
 trackingPreview.addEventListener("click", handleTrackingPageClick);
+trackingStageTransitionCard?.addEventListener("click", handleTrackingPageClick);
+
+trackingPreview.addEventListener("submit", (event) => {
+  const newEventForm = event.target.closest("[data-new-event-form]");
+
+  if (newEventForm) {
+    event.preventDefault();
+    submitNewTrackingEventForm(newEventForm).catch((error) => {
+      const feedbackElement = newEventForm.querySelector("[data-new-event-feedback]");
+      adminSetFeedback(feedbackElement, error.message, "error");
+    });
+    return;
+  }
+
+  const orderDocumentForm = event.target.closest("[data-order-document-form]");
+
+  if (!orderDocumentForm) {
+    return;
+  }
+
+  event.preventDefault();
+  submitOrderDocumentForm(orderDocumentForm).catch((error) => {
+    const feedbackElement = orderDocumentForm.querySelector("[data-order-document-feedback]");
+    adminSetFeedback(feedbackElement, error.message, "error");
+  });
+});
 
 trackingRoot.addEventListener("change", (event) => {
   const attachmentsField = event.target.closest('[data-field="attachments"]');
@@ -2492,7 +3228,9 @@ async function loadTrackingPage() {
   if (initialOrderId) {
     selectOrder(initialOrderId);
   } else {
-    trackingEditorFields.hidden = true;
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
     renderOrderSummary(null);
     renderStates();
   }
@@ -2509,7 +3247,9 @@ window.addEventListener("load", forceClearLoadingState);
 loadTrackingPage().catch((error) => {
   stopInitOverlayWatchdog();
   forceClearLoadingState();
-  trackingEditorFields.hidden = true;
+  if (trackingEditorFields) {
+    trackingEditorFields.hidden = true;
+  }
   searchConfigs.forEach((config) => {
     config.input.value = "";
     config.input.placeholder = error.message;

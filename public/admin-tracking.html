@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260429-adminlight19" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight25" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
     <style>
       .global-loading-overlay {
@@ -15,7 +15,7 @@
       }
     </style>
   </head>
-  <body class="admin-app-view">
+  <body class="admin-app-view admin-uppercase-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -34,7 +34,10 @@
             <h1>Pedidos</h1>
             <p class="dashboard-lead">Busca un pedido activo y administra sus nueve estados internos, sus adjuntos y su visibilidad hacia el cliente.</p>
           </div>
-          <button id="open-create-order-modal" class="primary-button tracking-create-order-trigger" type="button">Crear pedido</button>
+          <div class="tracking-hero-actions">
+            <button id="open-create-order-modal" class="primary-button tracking-create-order-trigger" type="button">Crear pedido</button>
+            <article id="tracking-stage-transition-card" class="tracking-stage-transition-card" hidden></article>
+          </div>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
@@ -85,15 +88,6 @@
                 </section>
 
                 <input id="tracking-order-id" name="orderId" type="hidden" required />
-
-                <section id="tracking-editor-fields" class="tracking-editor-fields" hidden>
-                  <div class="tracking-selector-copy compact">
-                    <strong>Estados del pedido seleccionado</strong>
-                    <p>Cada estado puede confirmarse, ocultarse al cliente y almacenar documentos, fotos o videos.</p>
-                  </div>
-                  <div id="tracking-order-summary" class="tracking-order-summary"></div>
-                  <div id="tracking-states-list" class="tracking-states-list"></div>
-                </section>
               </section>
               <div id="tracking-preview" class="tracking-preview"></div>
             </div>
@@ -107,6 +101,18 @@
         <strong id="tracking-success-title">Estado guardado</strong>
         <p id="tracking-success-message">La información del estado fue actualizada correctamente.</p>
         <button id="tracking-success-close" class="primary-button" type="button" onclick="window.__closeTrackingSuccessModal?.(); return false;">Aceptar</button>
+      </div>
+    </div>
+    <div id="tracking-delete-update-modal" class="tracking-modal" hidden>
+      <div class="tracking-modal-backdrop" data-close-delete-update-modal></div>
+      <div class="tracking-modal-card tracking-delete-update-card" role="dialog" aria-modal="true" aria-labelledby="tracking-delete-update-title">
+        <strong id="tracking-delete-update-title">Borrar evento</strong>
+        <p class="tracking-delete-confirm-copy">Esta acción elimina el evento reciente de la orden. No se puede deshacer.</p>
+        <p id="tracking-delete-update-feedback" class="feedback" aria-live="polite"></p>
+        <div class="tracking-modal-actions">
+          <button class="secondary-button" type="button" data-close-delete-update-modal>Cancelar</button>
+          <button id="tracking-delete-update-confirm" class="primary-button" type="button">Borrar</button>
+        </div>
       </div>
     </div>
     <div id="tracking-create-order-modal" class="client-modal" hidden>
@@ -391,19 +397,13 @@
         }
 
         function renderBootstrapStates(order) {
-          const editor = document.getElementById("tracking-editor-fields");
-          const summary = document.getElementById("tracking-order-summary");
-          const statesList = document.getElementById("tracking-states-list");
           const preview = document.getElementById("tracking-preview");
 
-          if (!editor || !summary || !statesList || !preview) {
+          if (!preview) {
             return;
           }
 
           if (!order) {
-            editor.hidden = true;
-            summary.innerHTML = "";
-            statesList.innerHTML = "";
             preview.innerHTML = '<div class="empty-state">Busca un pedido y selecciónalo para trabajar sus estados.</div>';
             return;
           }
@@ -766,7 +766,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260430-trackingevents22"></script>
-    <script src="/admin-orders.js?v=20260429-ordermanage09"></script>
+    <script src="/admin-tracking.js?v=20260430-trackingevents25"></script>
+    <script src="/admin-orders.js?v=20260429-ordermanage11"></script>
   </body>
 </html>
