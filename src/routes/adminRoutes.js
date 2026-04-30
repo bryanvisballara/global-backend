@@ -17,6 +17,7 @@ const {
   listOrderDeletionRequests,
   listOrders,
   requestOrderDeletion,
+  reviewTrackingEventDeletionRequest,
   reviewOrderDeletionRequest,
   suggestTrackingNumber,
   toggleOrderDocumentVisibility,
@@ -76,6 +77,7 @@ router.patch("/orders/:orderId/documents/:documentId/visibility", toggleOrderDoc
 router.delete("/orders/:orderId/documents/:documentId", deleteOrderDocument);
 router.post("/orders/:orderId/deletion-request", requestOrderDeletion);
 router.patch("/orders/:orderId/deletion-request", reviewOrderDeletionRequest);
+router.patch("/orders/:orderId/tracking-events/:eventId/deletion-request", reviewTrackingEventDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/visibility", toggleTrackingEventVisibility);
 router.patch("/orders/:orderId/tracking-transition", transitionTrackingState);
 router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);

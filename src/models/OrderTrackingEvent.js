@@ -36,6 +36,55 @@ const mediaItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const deletionRequestSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+    },
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    requestedByRole: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    requestedAt: {
+      type: Date,
+      default: null,
+    },
+    reason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reviewedByRole: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+  },
+  { _id: false }
+);
+
 const orderTrackingEventSchema = new mongoose.Schema(
   {
     orderId: {
@@ -109,6 +158,10 @@ const orderTrackingEventSchema = new mongoose.Schema(
     completed: {
       type: Boolean,
       default: false,
+    },
+    deletionRequest: {
+      type: deletionRequestSchema,
+      default: () => ({ status: "none" }),
     },
     createdAt: {
       type: Date,

@@ -75,6 +75,10 @@ function canManageDeletionRequests(role) {
   return ["manager", "gerenteUSA"].includes(String(role || ""));
 }
 
+function canManageTrackingEventDeletionRequests(requester) {
+  return isAnthonyGlobalOwner(requester);
+}
+
 function resolveTrackingStepIndex(stepKey) {
   return TRACKING_STATE_TEMPLATES.findIndex((step) => step.key === String(stepKey || "").trim());
 }
@@ -1444,8 +1448,78 @@ async function listOrderDeletionRequests(req, res) {
         return rightTime - leftTime;
       });
 
+    let pendingTrackingEventRequests = [];
+
+    if (canManageTrackingEventDeletionRequests(req.user)) {
+      const trackingEventRequests = await OrderTrackingEvent.find({ "deletionRequest.status": "pending" })
+        .populate("deletionRequest.requestedBy", "name email role")
+        .populate("deletionRequest.reviewedBy", "name email role")
+        .sort({ "deletionRequest.requestedAt": -1, updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      const latamOrderIds = [...new Set(
+        trackingEventRequests
+          .filter((event) => event?.orderRegion === "latam" && event?.orderId)
+          .map((event) => String(event.orderId))
+      )];
+      const usaOrderIds = [...new Set(
+        trackingEventRequests
+          .filter((event) => event?.orderRegion === "usa" && event?.orderId)
+          .map((event) => String(event.orderId))
+      )];
+
+      const [latamOrders, usaOrders] = await Promise.all([
+        latamOrderIds.length
+          ? Order.find({ _id: { $in: latamOrderIds } })
+              .populate("client", "name email phone")
+              .lean()
+          : Promise.resolve([]),
+        usaOrderIds.length
+          ? OrderGlobalUS.find({ _id: { $in: usaOrderIds } })
+              .populate("client", "name email phone")
+              .lean()
+          : Promise.resolve([]),
+      ]);
+
+      const orderLookup = new Map(
+        latamOrders.concat(usaOrders).map((order) => [String(order._id), order])
+      );
+
+      pendingTrackingEventRequests = trackingEventRequests
+        .map((event) => {
+          const relatedOrder = orderLookup.get(String(event.orderId || "")) || null;
+
+          if (!relatedOrder) {
+            return null;
+          }
+
+          return {
+            type: "tracking-event",
+            eventId: String(event._id || ""),
+            orderId: String(relatedOrder._id || ""),
+            orderRegion: event.orderRegion,
+            trackingNumber: relatedOrder.trackingNumber || "",
+            status: relatedOrder.status || "active",
+            createdAt: relatedOrder.createdAt || null,
+            vehicle: relatedOrder.vehicle || {},
+            client: relatedOrder.client || null,
+            stepKey: event.stepKey || "",
+            stateCode: event.stateCode || "-",
+            stateLabel: event.stateLabel || "Estado",
+            eventTitle: event.title || "Evento sin título",
+            eventLocation: event.location || "",
+            eventNotes: event.notes || "",
+            eventCreatedAt: event.createdAt || null,
+            eventUpdatedAt: event.updatedAt || event.createdAt || null,
+            deletionRequest: event.deletionRequest || { status: "none" },
+          };
+        })
+        .filter(Boolean);
+    }
+
     return res.status(200).json({
       orders: pendingOrders,
+      trackingEventRequests: pendingTrackingEventRequests,
     });
   } catch (error) {
     console.error("Error fetching deletion requests", error);
@@ -2313,10 +2387,6 @@ async function deleteTrackingUpdate(req, res) {
       return res.status(404).json({ message: "Tracking state not found" });
     }
 
-    if (!canModifyTrackingStep(req.user?.role, stepKey)) {
-      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
-    }
-
     const step = order.trackingSteps[stepIndex];
     const stepEvents = await fetchTrackingStepEvents(order._id, orderResult.region, stepKey);
     const targetEvent = resolveTrackingEventByReference(stepEvents, {
@@ -2326,6 +2396,34 @@ async function deleteTrackingUpdate(req, res) {
 
     if (!targetEvent) {
       return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    if (!canManageTrackingEventDeletionRequests(req.user)) {
+      if (String(targetEvent.deletionRequest?.status || "none") === "pending") {
+        return res.status(409).json({ message: "Este evento ya tiene una solicitud de eliminación pendiente." });
+      }
+
+      targetEvent.deletionRequest = {
+        status: "pending",
+        requestedBy: req.user?._id || null,
+        requestedByRole: String(req.user?.role || "").trim(),
+        requestedAt: new Date(),
+        reason: "Solicitud de eliminación enviada desde el módulo de tracking.",
+        reviewedBy: null,
+        reviewedByRole: "",
+        reviewedAt: null,
+        rejectionReason: "",
+      };
+      targetEvent.updatedAt = new Date();
+      await targetEvent.save();
+
+      const updatedOrder = await persistTrackingOrderState(orderResult, order);
+
+      return res.status(202).json({
+        message: "Solicitud de eliminación enviada a Anthony para aprobación.",
+        requestPending: true,
+        order: await serializeOrder(updatedOrder, orderResult.region),
+      });
     }
 
     await targetEvent.deleteOne();
@@ -2344,6 +2442,74 @@ async function deleteTrackingUpdate(req, res) {
   }
 }
 
+async function reviewTrackingEventDeletionRequest(req, res) {
+  try {
+    if (!canManageTrackingEventDeletionRequests(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para revisar solicitudes de eliminación de eventos" });
+    }
+
+    const { orderId, eventId } = req.params;
+    const action = String(req.body.action || "").trim().toLowerCase();
+    const rejectionReason = String(req.body.rejectionReason || "").trim();
+    const orderResult = await findOrderForRole(orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const targetEvent = await OrderTrackingEvent.findOne({
+      _id: String(eventId || "").trim(),
+      orderId: order._id,
+      orderRegion: orderResult.region,
+    });
+
+    if (!targetEvent) {
+      return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    if (String(targetEvent.deletionRequest?.status || "none") !== "pending") {
+      return res.status(400).json({ message: "Este evento no tiene una solicitud pendiente" });
+    }
+
+    if (action === "approve") {
+      await targetEvent.deleteOne();
+
+      order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+        preferCollectionOnly: true,
+      });
+
+      const updatedOrder = await persistTrackingOrderState(orderResult, order);
+
+      return res.status(200).json({
+        message: "Evento eliminado correctamente",
+        order: await serializeOrder(updatedOrder, orderResult.region),
+      });
+    }
+
+    if (action !== "reject") {
+      return res.status(400).json({ message: "Acción no válida" });
+    }
+
+    targetEvent.deletionRequest = {
+      ...(targetEvent.deletionRequest?.toObject?.() || targetEvent.deletionRequest || {}),
+      status: "rejected",
+      reviewedBy: req.user?._id || null,
+      reviewedByRole: String(req.user?.role || "").trim(),
+      reviewedAt: new Date(),
+      rejectionReason,
+    };
+    targetEvent.updatedAt = new Date();
+    await targetEvent.save();
+
+    return res.status(200).json({
+      message: "Solicitud rechazada correctamente",
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error reviewing tracking event deletion request" });
+  }
+}
+
 module.exports = {
   createOrder,
   deleteOrderDocument,
@@ -2352,6 +2518,7 @@ module.exports = {
   listOrderDeletionRequests,
   listOrders,
   requestOrderDeletion,
+  reviewTrackingEventDeletionRequest,
   reviewOrderDeletionRequest,
   suggestTrackingNumber,
   toggleOrderDocumentVisibility,
