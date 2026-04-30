@@ -24,6 +24,7 @@ const fallbackTrackingTemplates = [
 const stageTemplates = Array.isArray(trackingTemplates) && trackingTemplates.length
   ? trackingTemplates
   : fallbackTrackingTemplates;
+const completedStageCard = { key: "completed", label: "Completado" };
 
 const stageLabelByKey = {
   "order-received": "Orden recibida",
@@ -354,6 +355,14 @@ function resolveCurrentStageKey(order) {
   return stageTemplates[firstPendingIndex]?.key || null;
 }
 
+function resolveDistributionStageKey(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return completedStageCard.key;
+  }
+
+  return resolveCurrentStageKey(order);
+}
+
 function resolveStageDisplayFromOrder(order) {
   const stageKey = resolveCurrentStageKey(order);
 
@@ -478,10 +487,11 @@ function renderStageDistribution(orders) {
     return;
   }
 
-  const countsByStage = new Map(stageTemplates.map((stage) => [stage.key, 0]));
+  const distributionStages = [...stageTemplates, completedStageCard];
+  const countsByStage = new Map(distributionStages.map((stage) => [stage.key, 0]));
 
   orders.forEach((order) => {
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveDistributionStageKey(order);
 
     if (!currentStageKey || !countsByStage.has(currentStageKey)) {
       return;
@@ -490,7 +500,7 @@ function renderStageDistribution(orders) {
     countsByStage.set(currentStageKey, countsByStage.get(currentStageKey) + 1);
   });
 
-  stageGrid.innerHTML = stageTemplates
+  stageGrid.innerHTML = distributionStages
     .map((stage, index) => {
       const count = countsByStage.get(stage.key) || 0;
       const label = stageLabelByKey[stage.key] || stage.label;
@@ -641,7 +651,7 @@ if (true) {
       setElementText(postsCount, posts.length);
 
       if (distributionCaption) {
-        distributionCaption.textContent = `${orders.length} vehículos distribuidos entre los 9 estados del tracking.`;
+        distributionCaption.textContent = `${orders.length} vehículos distribuidos entre los 10 estados del tracking.`;
       }
 
       renderStageDistribution(orders);

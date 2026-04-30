@@ -25,6 +25,7 @@
   const stageTemplates = Array.isArray(trackingTemplates) && trackingTemplates.length
     ? trackingTemplates
     : fallbackTrackingTemplates;
+  const completedStageCard = { key: "completed", label: "Completado" };
 
   const ordersList = document.getElementById("state-orders-list");
   const feedback = document.getElementById("state-feedback");
@@ -181,6 +182,10 @@
   }
 
   function getStageByKey(stageKey) {
+    if (stageKey === completedStageCard.key) {
+      return completedStageCard;
+    }
+
     return stageTemplates.find((stage) => stage.key === stageKey) || null;
   }
 
@@ -281,7 +286,19 @@
     return stageTemplates[firstPendingIndex]?.key || null;
   }
 
+  function resolveStateBucketKey(order) {
+    if (String(order?.status || "").trim().toLowerCase() === "completed") {
+      return completedStageCard.key;
+    }
+
+    return resolveCurrentStageKey(order);
+  }
+
   function renderCurrentStageLabel(order) {
+    if (resolveStateBucketKey(order) === completedStageCard.key) {
+      return "E10: Completado";
+    }
+
     const currentStageKey = resolveCurrentStageKey(order);
     const currentStageIndex = stageTemplates.findIndex((stage) => stage.key === currentStageKey);
 
@@ -296,6 +313,9 @@
   function renderOrderTrackingSummary(order) {
     const steps = getOrderTrackingSteps(order);
     const currentStageKey = resolveCurrentStageKey(order);
+    const completedStateChip = resolveStateBucketKey(order) === completedStageCard.key
+      ? `<span class="order-step-chip is-confirmed">E10 ${escapeHtml(completedStageCard.label)}</span>`
+      : "";
 
     return steps
       .map((step, index) => {
@@ -306,7 +326,7 @@
             : "is-pending";
         return `<span class="order-step-chip ${statusClass}">E${index + 1} ${escapeHtml(step?.label || "Estado")}</span>`;
       })
-      .join("");
+      .join("") + completedStateChip;
   }
 
   function renderOrders(orders) {
@@ -370,8 +390,12 @@
       }
 
       stateKeyChip.textContent = selectedStage.label;
-      statePageTitle.textContent = `Vehículos en estado: ${selectedStage.label}`;
-      statePageLead.textContent = "Listado de vehículos filtrados por su estado actual en tracking.";
+      statePageTitle.textContent = selectedStateKey === completedStageCard.key
+        ? `Pedidos en estado: ${selectedStage.label}`
+        : `Vehículos en estado: ${selectedStage.label}`;
+      statePageLead.textContent = selectedStateKey === completedStageCard.key
+        ? "Listado de pedidos finalizados para LATAM y USA."
+        : "Listado de vehículos filtrados por su estado actual en tracking.";
       stateLabelSummary.textContent = selectedStage.label;
 
       if (typeof adminFetchJson !== "function") {
@@ -380,7 +404,7 @@
 
       const ordersData = await adminFetchJson("/api/admin/orders", { loadingMessage: false });
       const orders = normalizeCollectionPayload(ordersData, ["orders"]);
-      const filteredOrders = orders.filter((order) => resolveCurrentStageKey(order) === selectedStateKey);
+      const filteredOrders = orders.filter((order) => resolveStateBucketKey(order) === selectedStateKey);
 
       stateTotalCount.textContent = String(filteredOrders.length);
       renderOrders(filteredOrders);
