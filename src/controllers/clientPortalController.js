@@ -517,6 +517,24 @@ function buildNotifications(posts, orders, maintenanceItems) {
     .slice(0, 8);
 }
 
+function filterNotificationsSince(notifications, sinceDate) {
+  const normalizedSinceDate = sinceDate ? new Date(sinceDate) : null;
+
+  if (!normalizedSinceDate || Number.isNaN(normalizedSinceDate.getTime())) {
+    return notifications || [];
+  }
+
+  return (notifications || []).filter((item) => {
+    const notificationDate = new Date(item?.date || 0);
+
+    if (Number.isNaN(notificationDate.getTime())) {
+      return false;
+    }
+
+    return notificationDate.getTime() >= normalizedSinceDate.getTime();
+  });
+}
+
 function filterDismissedNotifications(notifications, dismissedNotifications = []) {
   const dismissedSet = new Set((dismissedNotifications || []).map((item) => String(item)));
 
@@ -884,7 +902,10 @@ async function getClientDashboard(req, res) {
 
     const sanitizedOrders = orders.map((order) => sanitizeOrderForClient(order));
     const notifications = filterDismissedNotifications(
-      buildNotifications(notificationPosts, orders, maintenance),
+      filterNotificationsSince(
+        buildNotifications(notificationPosts, orders, maintenance),
+        req.user.createdAt
+      ),
       req.user.dismissedNotifications
     );
 
