@@ -34,6 +34,16 @@ let loadingOverlay = null;
 let loadingLabel = null;
 let activeLoadingRequests = 0;
 
+function enableAdminUppercaseView() {
+  if (!document.body) {
+    return;
+  }
+
+  document.body.classList.add("admin-app-view", "admin-uppercase-view");
+}
+
+enableAdminUppercaseView();
+
 function ensureLoadingOverlay() {
   if (loadingOverlay) {
     return;
@@ -216,6 +226,13 @@ function applyManagerNavigationVisibility(role = getCurrentRole()) {
       element.hidden = hideLatamOnlyItems;
     }
   });
+
+  document.querySelectorAll(".admin-sidebar-section").forEach((section) => {
+    const hasVisibleLinks = Array.from(section.querySelectorAll(".admin-nav-link"))
+      .some((link) => link.style.display !== "none");
+
+    section.hidden = !hasVisibleLinks;
+  });
 }
 
 function attachLogout(buttonId = "logout-button") {
@@ -347,23 +364,40 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
   const isUsaRole = isUsaAdministrativeRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
-  const navItems = [
-    { href: "/app/admin.html", label: "Dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin.html"] },
-    { href: "/app/admin-tracking.html", label: "Pedidos", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-tracking.html", "/app/admin-orders.html"] },
-    { href: "/app/admin-vehicles.html", label: "Vehiculos", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-vehicles.html"] },
-    { href: "/app/admin-clients.html", label: "Clientes", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-clients.html"] },
-    { href: "/app/admin-deleted-accounts.html", label: "Cuentas eliminadas", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-deleted-accounts.html"] },
-    { href: "/app/admin-client-requests.html", label: "Solicitudes de compra", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-client-requests.html"] },
-    { href: "/app/admin-maintenance.html", label: "Mantenimientos", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-maintenance.html"] },
-    { href: "/app/admin-posts.html", label: "Publicaciones", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-posts.html", "/app/admin-post-edit.html"] },
-    { href: "/app/admin-virtual-dealership.html", label: "Concesionario virtual", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-virtual-dealership.html"] },
-    { href: "/app/admin-admins.html", label: "Creación de administradores", adminCreatorOnly: true, latamOnly: false, activePaths: ["/app/admin-admins.html"] },
+  const navSections = [
+    {
+      title: "Gestion",
+      items: [
+        { href: "/app/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin.html"] },
+        { href: "/app/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-tracking.html", "/app/admin-orders.html"] },
+        { href: "/app/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-vehicles.html"] },
+        { href: "/app/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-clients.html"] },
+      ],
+    },
+    {
+      title: "Control",
+      items: [
+        { href: "/app/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-deleted-accounts.html"] },
+        { href: "/app/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-client-requests.html"] },
+        { href: "/app/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-maintenance.html"] },
+      ],
+    },
+    {
+      title: "Contenido",
+      items: [
+        { href: "/app/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-posts.html", "/app/admin-post-edit.html"] },
+        { href: "/app/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-virtual-dealership.html"] },
+        { href: "/app/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/app/admin-admins.html"] },
+      ],
+    },
   ];
 
-  const navMarkup = navItems
-    .filter((item) => !item.adminCreatorOnly || canCreateAdministrativeUsers(currentRole))
-    .filter((item) => !item.latamOnly || !isUsaRole)
-    .map((item) => {
+  const navMarkup = navSections
+    .map((section) => {
+      const linksMarkup = section.items
+        .filter((item) => !item.adminCreatorOnly || canCreateAdministrativeUsers(currentRole))
+        .filter((item) => !item.latamOnly || !isUsaRole)
+        .map((item) => {
       const activePaths = Array.isArray(item.activePaths) && item.activePaths.length ? item.activePaths : [item.href];
       const isActive = activePaths.includes(currentPath);
       const classes = ["admin-nav-link"];
@@ -381,6 +415,15 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
       }
 
       return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
+        })
+        .join("");
+
+      return `
+        <div class="admin-sidebar-section">
+          <p class="admin-sidebar-section-label">${section.title}</p>
+          ${linksMarkup}
+        </div>
+      `;
     })
     .join("");
 

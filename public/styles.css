@@ -36,6 +36,7 @@ body {
 }
 
 html {
+  font-size: 115%;
   zoom: 1;
 }
 
@@ -88,6 +89,33 @@ body.admin-app-view .admin-sidebar-brand strong,
 .admin-dashboard-stage .posts-section-heading,
 .admin-dashboard-stage .admin-sidebar-brand strong {
   font-family: "Nexa Admin Heavy", "Syne", Arial, sans-serif !important;
+}
+
+body.admin-app-view,
+body.admin-app-view a,
+body.admin-app-view button,
+body.admin-app-view input,
+body.admin-app-view select,
+body.admin-app-view textarea,
+body.admin-app-view option,
+body.admin-app-view label,
+body.admin-app-view p,
+body.admin-app-view span,
+body.admin-app-view small,
+body.admin-app-view strong,
+body.admin-app-view th,
+body.admin-app-view td,
+body.admin-app-view li,
+body.admin-app-view .feedback,
+body.admin-app-view .empty-state,
+body.admin-app-view .modal-copy,
+body.admin-app-view .vehicle-filter-note {
+  text-transform: uppercase;
+}
+
+body.admin-app-view input::placeholder,
+body.admin-app-view textarea::placeholder {
+  text-transform: uppercase;
 }
 
 body {
@@ -1229,6 +1257,25 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   gap: 10px;
 }
 
+.admin-sidebar-section {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-sidebar-section + .admin-sidebar-section {
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar-section-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .admin-nav-link {
   display: flex;
   align-items: center;
@@ -1238,7 +1285,10 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
   border: 1px solid transparent;
   color: var(--text);
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.94rem;
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
@@ -4205,6 +4255,15 @@ body.modal-open {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .admin-sidebar-section {
+    align-content: start;
+  }
+
+  .admin-sidebar-section + .admin-sidebar-section {
+    padding-top: 0;
+    border-top: 0;
+  }
+
   .admin-dashboard-header,
   .admin-panel-heading {
     display: grid;
@@ -4219,11 +4278,14 @@ body.modal-open {
     justify-content: flex-start;
   }
 
-  .admin-dashboard-meta,
   .stage-distribution-grid,
   .admin-shortcuts-grid,
   .state-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .state-order-grid {
@@ -4402,6 +4464,11 @@ body.modal-open {
 
   .admin-sidebar-footer {
     gap: 8px;
+  }
+
+  .admin-sidebar-section + .admin-sidebar-section {
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .admin-sidebar-nav,
@@ -6036,6 +6103,19 @@ body .tracking-search-page .page-hero h1 {
   font-size: 0.8rem;
 }
 
+.vehicle-tracking-cell {
+  min-width: 220px;
+}
+
+.vehicle-tracking-value {
+  display: block;
+  font-size: 1.22rem;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
 .vehicle-id-badge {
   display: inline-flex;
   align-items: center;
@@ -6045,6 +6125,20 @@ body .tracking-search-page .page-hero h1 {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
   font-size: 0.86rem;
+}
+
+.vehicle-detail-button {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .vehicles-actions-cell {
@@ -8240,6 +8334,10 @@ body.admin-app-view .admin-brand-mark img {
 body.admin-app-view .dashboard-form input,
 body.admin-app-view .dashboard-form textarea,
 body.admin-app-view .dashboard-form select,
+body.admin-app-view .clients-filter-grid input,
+body.admin-app-view .clients-filter-grid select,
+body.admin-app-view .vehicles-filter-grid input,
+body.admin-app-view .vehicles-filter-grid select,
 body.admin-app-view .maint-status-select,
 body.admin-app-view .maint-notes-input,
 body.admin-app-view .maint-appointment-date-input,
@@ -8247,11 +8345,14 @@ body.admin-app-view .maint-appointment-time-input,
 body.admin-app-view .maint-detail-search,
 body.admin-app-view .maint-detail-city-filter {
   background: #ffffff;
-  border-color: rgba(17, 17, 17, 0.14);
+  border-color: rgba(17, 17, 17, 0.18);
   color: #111111;
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.02);
 }
 
 body.admin-app-view .dashboard-form select,
+body.admin-app-view .clients-filter-grid select,
+body.admin-app-view .vehicles-filter-grid select,
 body.admin-app-view .maint-status-select,
 body.admin-app-view .maint-appointment-time-input,
 body.admin-app-view .maint-detail-city-filter {
@@ -8266,6 +8367,10 @@ body.admin-app-view .maint-detail-city-filter {
 
 body.admin-app-view .dashboard-form select option,
 body.admin-app-view .dashboard-form select optgroup,
+body.admin-app-view .clients-filter-grid select option,
+body.admin-app-view .clients-filter-grid select optgroup,
+body.admin-app-view .vehicles-filter-grid select option,
+body.admin-app-view .vehicles-filter-grid select optgroup,
 body.admin-app-view .maint-status-select option,
 body.admin-app-view .maint-status-select optgroup,
 body.admin-app-view .maint-appointment-time-input option,
@@ -8276,9 +8381,28 @@ body.admin-app-view .maint-detail-city-filter optgroup {
   color: #111111;
 }
 
+body.admin-app-view .dashboard-form input::placeholder,
+body.admin-app-view .dashboard-form textarea::placeholder,
+body.admin-app-view .clients-filter-grid input::placeholder,
+body.admin-app-view .vehicles-filter-grid input::placeholder {
+  color: rgba(17, 17, 17, 0.44);
+}
+
+body.admin-app-view .dashboard-form input:focus,
+body.admin-app-view .dashboard-form textarea:focus,
+body.admin-app-view .dashboard-form select:focus,
+body.admin-app-view .clients-filter-grid input:focus,
+body.admin-app-view .clients-filter-grid select:focus,
+body.admin-app-view .vehicles-filter-grid input:focus,
+body.admin-app-view .vehicles-filter-grid select:focus {
+  border-color: rgba(17, 17, 17, 0.32);
+  box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.06);
+}
+
 body.admin-app-view .tracking-data-table th {
   color: var(--muted);
   background: #f7f7f7;
+  font-size: 0.96rem;
 }
 
 body.admin-app-view .tracking-data-table td,
@@ -8289,6 +8413,10 @@ body.admin-app-view .maint-td,
 body.admin-app-view .maint-table th,
 body.admin-app-view .maint-table td {
   color: #111111;
+}
+
+body.admin-app-view .tracking-data-table td {
+  font-size: 1rem;
 }
 
 body.admin-app-view .tracking-data-table tr,
@@ -8413,6 +8541,23 @@ body.admin-app-view .maint-table th,
 body.admin-app-view .maint-table td,
 body.admin-app-view .maint-td::before {
   color: #111111 !important;
+}
+
+body.admin-app-view table,
+body.admin-app-view thead,
+body.admin-app-view tbody,
+body.admin-app-view tfoot,
+body.admin-app-view tr,
+body.admin-app-view th,
+body.admin-app-view td,
+body.admin-app-view td strong,
+body.admin-app-view td small,
+body.admin-app-view td span,
+body.admin-app-view td a,
+body.admin-app-view td button,
+body.admin-app-view td::before,
+body.admin-app-view th::before {
+  text-transform: uppercase !important;
 }
 
 body.admin-app-view .tracking-data-table tr,

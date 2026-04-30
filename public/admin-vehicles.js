@@ -22,6 +22,7 @@ if (requireAdminAccess()) {
   const vehiclePricingForm = document.getElementById("vehicle-pricing-form");
   const vehiclePricingCancel = document.getElementById("vehicle-pricing-cancel");
   const vehiclePricingSave = document.getElementById("vehicle-pricing-save");
+  const vehiclePlateInput = document.getElementById("vehicle-plate");
   const vehiclePurchasePriceInput = document.getElementById("vehicle-purchase-price");
   const vehicleSalePriceInput = document.getElementById("vehicle-sale-price");
   const vehicleModalSummary = document.getElementById("vehicle-modal-summary");
@@ -105,8 +106,9 @@ if (requireAdminAccess()) {
     vehiclesResultsBody.innerHTML = `<tr><td colspan="7"><div class="empty-state">${escapeHtml(message)}</div></td></tr>`;
   }
 
-  function fillClientFilter(vehicles) {
-    const clientNames = [...new Set(vehicles.map((vehicle) => vehicle.clientName).filter(Boolean))]
+  function fillClientFilter(clients) {
+    const selectedClient = normalizeText(vehiclesClientFilter.value);
+    const clientNames = [...new Set((clients || []).map((client) => normalizeText(client?.name)).filter(Boolean))]
       .sort((left, right) => left.localeCompare(right, "es"));
 
     vehiclesClientFilter.innerHTML = '<option value="">Todos</option>';
@@ -116,6 +118,10 @@ if (requireAdminAccess()) {
       option.textContent = clientName;
       vehiclesClientFilter.appendChild(option);
     });
+
+    if (selectedClient && clientNames.includes(selectedClient)) {
+      vehiclesClientFilter.value = selectedClient;
+    }
   }
 
   function fillStageFilter() {
@@ -182,6 +188,20 @@ if (requireAdminAccess()) {
     }).format(numericValue);
   }
 
+  function getOrderIdentifier(order) {
+    return normalizeText(order?._id || order?.id);
+  }
+
+  function buildOrderDetailUrl(order) {
+    const orderId = getOrderIdentifier(order);
+    const trackingValue = normalizeText(order?.trackingNumber);
+    const vinValue = normalizeText(order?.vehicle?.vin);
+    const clientValue = normalizeText(order?.client?.name);
+    const internalIdentifierValue = normalizeText(order?.vehicle?.internalIdentifier || order?.vehicle?.description);
+
+    return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}&internal=${encodeURIComponent(internalIdentifierValue)}`;
+  }
+
   function normalizeVehicles(orders) {
     return (orders || [])
       .filter((order) => order?.orderRegion === "latam" && order?.status !== "cancelled")
@@ -195,6 +215,7 @@ if (requireAdminAccess()) {
           plate,
           clientName: normalizeText(order?.client?.name),
           vehicleLabel: formatVehicleLabel(order),
+          trackingNumber: normalizeText(order?.trackingNumber),
           orderIdentifier: normalizeText(order?.vehicle?.internalIdentifier || order?.trackingNumber || order?._id),
           brand: normalizeText(order?.vehicle?.brand),
           model: normalizeText(order?.vehicle?.model),
@@ -240,7 +261,10 @@ if (requireAdminAccess()) {
         </td>
         <td data-label="Placa">${escapeHtml(vehicle.plate || "—")}</td>
         <td data-label="Cliente">${escapeHtml(vehicle.clientName || "Sin cliente")}</td>
-        <td data-label="Pedido"><span class="vehicle-id-badge">${escapeHtml(vehicle.orderIdentifier || "Sin ID")}</span></td>
+        <td data-label="Tracking" class="vehicle-tracking-cell">
+          <span class="vehicle-tracking-value">${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}</span>
+          <button class="vehicle-detail-button" type="button" data-open-vehicle-order="${escapeHtml(vehicle.id)}">Ver orden</button>
+        </td>
         <td data-label="Etapa">${escapeHtml(vehicle.currentStage.display)}</td>
         <td data-label="Acciones" class="vehicles-actions-cell">
           <button class="compact-action-button vehicle-edit-action" type="button" data-edit-vehicle-pricing="${escapeHtml(vehicle.id)}" aria-label="Editar precios del vehículo">
@@ -286,6 +310,7 @@ if (requireAdminAccess()) {
         const searchable = [
           vehicle.vin,
           vehicle.plate,
+          vehicle.trackingNumber,
           vehicle.brand,
           vehicle.model,
           vehicle.version,
@@ -314,11 +339,13 @@ if (requireAdminAccess()) {
     }
 
     selectedVehicleId = vehicle.id;
+    vehiclePlateInput.value = vehicle.plate ?? "";
     vehiclePurchasePriceInput.value = vehicle.purchasePrice ?? "";
     vehicleSalePriceInput.value = vehicle.salePrice ?? "";
     vehicleModalSummary.innerHTML = `
       <strong>${escapeHtml(vehicle.vehicleLabel)}</strong><br />
-      Cliente: ${escapeHtml(vehicle.clientName || "Sin cliente")} · Pedido: ${escapeHtml(vehicle.orderIdentifier || "Sin ID")}<br />
+      Cliente: ${escapeHtml(vehicle.clientName || "Sin cliente")} · Tracking: ${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}<br />
+      Placa actual: ${escapeHtml(vehicle.plate || "Sin placa")}<br />
       Compra actual: ${escapeHtml(formatCurrency(vehicle.purchasePrice))} · Venta actual: ${escapeHtml(formatCurrency(vehicle.salePrice))}
     `;
     setFeedback(vehicleModalFeedback, "");
@@ -341,9 +368,13 @@ if (requireAdminAccess()) {
   async function loadVehiclesPage() {
     try {
       await loadAdminSession();
-      const ordersData = await fetchJson("/api/admin/orders");
+      const [ordersData, clientsData] = await Promise.all([
+        fetchJson("/api/admin/orders"),
+        fetchJson("/api/admin/clients"),
+      ]);
+
       allVehicles = normalizeVehicles(ordersData.orders || []);
-      fillClientFilter(allVehicles);
+      fillClientFilter(clientsData.clients || []);
       fillStageFilter();
       applyFilters();
     } finally {
@@ -366,6 +397,7 @@ if (requireAdminAccess()) {
       const result = await fetchJson(`/api/admin/orders/${encodeURIComponent(selectedVehicleId)}/vehicle-pricing`, {
         method: "PATCH",
         body: JSON.stringify({
+          plate: normalizeText(vehiclePlateInput.value),
           purchasePrice: normalizeText(vehiclePurchasePriceInput.value),
           salePrice: normalizeText(vehicleSalePriceInput.value),
         }),
@@ -388,6 +420,18 @@ if (requireAdminAccess()) {
   });
 
   vehiclesResultsBody?.addEventListener("click", (event) => {
+    const detailButton = event.target.closest("[data-open-vehicle-order]");
+
+    if (detailButton) {
+      const vehicle = allVehicles.find((item) => item.id === (detailButton.getAttribute("data-open-vehicle-order") || ""));
+
+      if (vehicle?.order) {
+        window.location.href = buildOrderDetailUrl(vehicle.order);
+      }
+
+      return;
+    }
+
     const button = event.target.closest("[data-edit-vehicle-pricing]");
 
     if (!button) {

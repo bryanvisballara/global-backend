@@ -103,7 +103,7 @@
                         <th>Vehículo</th>
                         <th>Placa</th>
                         <th>Cliente</th>
-                        <th>Pedido</th>
+                        <th>Tracking</th>
                         <th>Etapa</th>
                         <th>Acciones</th>
                       </tr>
@@ -129,12 +129,16 @@
         <header class="client-modal-header">
           <div>
             <h2 id="vehicle-pricing-title">Editar precios</h2>
-            <p class="modal-copy">Actualiza el precio de compra y el precio de venta del vehículo.</p>
+            <p class="modal-copy">Actualiza la placa, el precio de compra y el precio de venta del vehículo.</p>
           </div>
         </header>
         <p id="vehicle-modal-summary" class="vehicle-modal-summary"></p>
         <form id="vehicle-pricing-form" class="dashboard-form compact-modal-form">
           <div class="vehicle-pricing-grid">
+            <label>
+              <span>Placa</span>
+              <input id="vehicle-plate" name="plate" type="text" maxlength="24" placeholder="ABC123" />
+            </label>
             <label>
               <span>Precio de compra</span>
               <input id="vehicle-purchase-price" name="purchasePrice" type="number" min="0" step="0.01" placeholder="0" />
@@ -154,6 +158,6 @@
     </div>
 
     <script src="/admin-common.js?v=20260430-adminnav02"></script>
-    <script src="/admin-vehicles.js?v=20260430-01"></script>
+    <script src="/admin-vehicles.js?v=20260430-02"></script>
   </body>
 </html>
