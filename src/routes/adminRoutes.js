@@ -6,7 +6,7 @@ const {
   createAdministrativeUser,
   deleteAdministrativeUser,
 } = require("../controllers/adminUsersController");
-const { createClient, listClients } = require("../controllers/adminClientsController");
+const { createClient, deleteClient, listClients, updateClient } = require("../controllers/adminClientsController");
 const { listDeletedAccounts } = require("../controllers/adminDeletedAccountsController");
 const { listClientRequests } = require("../controllers/adminClientRequestsController");
 const {
@@ -64,6 +64,8 @@ router.post("/users/admins", requireRole("manager", "gerenteUSA"), createAdminis
 router.delete("/users/admins/:adminUserId", requireRole("manager", "gerenteUSA"), deleteAdministrativeUser);
 router.delete("/admins/:adminUserId", requireRole("manager", "gerenteUSA"), deleteAdministrativeUser);
 router.get("/clients", listClients);
+router.patch("/clients/:clientId", updateClient);
+router.delete("/clients/:clientId", deleteClient);
 router.get("/deleted-accounts", listDeletedAccounts);
 router.post("/clients", createClient);
 router.post("/users/clients", createClient);
