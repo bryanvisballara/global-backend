@@ -494,6 +494,9 @@ function getClientVisibleTrackingEvents(order) {
 function buildTrackingStepsFromEvents(order) {
   const events = getClientVisibleTrackingEvents(order);
   const eventsByStepKey = new Map();
+  const sourceStepsByKey = new Map(
+    (Array.isArray(order?.trackingSteps) ? order.trackingSteps : []).map((step) => [String(step?.key || "").trim(), step])
+  );
 
   events.forEach((event) => {
     if (!eventsByStepKey.has(event.key)) {
@@ -504,6 +507,7 @@ function buildTrackingStepsFromEvents(order) {
   });
 
   return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
+    const sourceStep = sourceStepsByKey.get(stateTemplate.key) || null;
     const stepEvents = (eventsByStepKey.get(stateTemplate.key) || []).sort((left, right) => {
       const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
       const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
@@ -513,11 +517,13 @@ function buildTrackingStepsFromEvents(order) {
 
     return {
       key: stateTemplate.key,
-      label: latestEvent?.label || stateTemplate.label,
-      clientVisible: stepEvents.length > 0,
-      confirmed: stepEvents.some((event) => event.completed),
-      inProgress: stepEvents.some((event) => event.inProgress),
-      updatedAt: latestEvent?.updatedAt || latestEvent?.createdAt || null,
+      label: String(sourceStep?.label || latestEvent?.label || stateTemplate.label).trim(),
+      clientVisible: Boolean(sourceStep?.clientVisible) || stepEvents.length > 0,
+      confirmed: Boolean(sourceStep?.confirmed) || stepEvents.some((event) => event.completed),
+      inProgress:
+        !Boolean(sourceStep?.confirmed) &&
+        (Boolean(sourceStep?.inProgress) || stepEvents.some((event) => event.inProgress && !event.completed)),
+      updatedAt: latestEvent?.updatedAt || latestEvent?.createdAt || sourceStep?.updatedAt || null,
       updates: stepEvents,
     };
   });
@@ -539,17 +545,34 @@ function buildTimelineStates(visibleConfirmedStates = []) {
     };
   });
 
-  if (baseStates.some((state) => state.inProgress && !state.confirmed)) {
-    return baseStates;
+  const furthestReachedIndex = baseStates.reduce(
+    (maxIndex, state, index) => (state.confirmed || state.inProgress ? index : maxIndex),
+    -1
+  );
+
+  const normalizedStates = baseStates.map((state, index) => {
+    if (furthestReachedIndex > 0 && index < furthestReachedIndex) {
+      return {
+        ...state,
+        confirmed: true,
+        inProgress: false,
+      };
+    }
+
+    return state;
+  });
+
+  if (normalizedStates.some((state) => state.inProgress && !state.confirmed)) {
+    return normalizedStates;
   }
 
-  const firstPendingIndex = baseStates.findIndex((state) => !state.confirmed);
+  const firstPendingIndex = normalizedStates.findIndex((state) => !state.confirmed);
 
   if (firstPendingIndex <= 0) {
-    return baseStates;
+    return normalizedStates;
   }
 
-  return baseStates.map((state, index) => ({
+  return normalizedStates.map((state, index) => ({
     ...state,
     inProgress: index === firstPendingIndex,
   }));
@@ -870,13 +893,13 @@ function renderTrackingResult(order) {
   const filesSectionMarkup = renderTrackingFilesSection(order);
 
   const mediaMarkup = (Array.isArray(order?.media) ? order.media : [])
-    .filter((item) => item?.url && item?.category !== "document")
+    .filter((item) => item?.url && (item?.type === "video" || item?.category === "video"))
     .map((item) => {
       if (item.type === "video") {
         return `<div class="feed-media-card video">${renderVideoElement(item.url, "Video del pedido")}</div>`;
       }
 
-      return `<div class="feed-media-card"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(order.vehicle?.brand || "Vehículo")}" loading="lazy" /></div>`;
+      return "";
     })
     .join("");
 
