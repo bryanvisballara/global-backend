@@ -175,6 +175,7 @@ function requireAdminAccess() {
   const hasAuthToken = Boolean(getAuthToken());
   const latamOnlyPages = new Set([
     "/admin-client-requests.html",
+    "/admin-order-accounting.html",
     "/admin-maintenance.html",
     "/admin-vehicles.html",
     "/admin-posts.html",
@@ -364,7 +365,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
       title: "Gestion",
       items: [
         { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
-        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html", "/admin-order-accounting.html"] },
         { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
         { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
       ],

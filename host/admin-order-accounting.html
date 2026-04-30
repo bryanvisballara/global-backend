@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Contabilidad</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight29" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+  </head>
+  <body class="admin-app-view admin-uppercase-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a id="accounting-back-link" class="secondary-button back-link" href="/admin-tracking.html">Volver al pedido</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero">
+          <h1>Contabilidad</h1>
+          <p class="dashboard-lead">Controla el precio del vehículo, registra gastos con evidencia y revisa el historial completo del pedido.</p>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div class="clients-dashboard-stack accounting-stack">
+              <section id="accounting-order-card" class="dashboard-card tracking-overview-card accounting-order-card" aria-label="Detalle del pedido">
+                <div class="empty-state">Cargando pedido...</div>
+              </section>
+
+              <section class="accounting-summary-grid" aria-label="Resumen contable">
+                <article class="metric-card accounting-summary-card is-purchase">
+                  <span>Precio Compra</span>
+                  <strong id="accounting-purchase-price">$0</strong>
+                </article>
+                <article class="metric-card accounting-summary-card is-sale">
+                  <span>Precio Venta</span>
+                  <strong id="accounting-sale-price">$0</strong>
+                </article>
+                <article class="metric-card accounting-summary-card is-expenses">
+                  <span>Gastos (sin Pago Vehículo)</span>
+                  <strong id="accounting-other-expenses">$0</strong>
+                </article>
+                <article class="metric-card accounting-summary-card is-payment">
+                  <span>Pago del vehículo</span>
+                  <strong id="accounting-vehicle-payment">$0</strong>
+                </article>
+                <article class="metric-card accounting-summary-card is-balance">
+                  <span>Saldo del vehículo</span>
+                  <strong id="accounting-vehicle-balance">$0</strong>
+                </article>
+                <article class="metric-card accounting-summary-card is-profit">
+                  <span>Utilidad LATAM</span>
+                  <strong id="accounting-profit">$0</strong>
+                </article>
+              </section>
+
+              <section class="dashboard-card accounting-form-card" aria-label="Registrar gasto">
+                <div class="card-heading compact">
+                  <h2>Registrar Gasto</h2>
+                </div>
+                <form id="accounting-expense-form" class="accounting-form" enctype="multipart/form-data">
+                  <div class="accounting-form-grid">
+                    <label>
+                      <span>Concepto</span>
+                      <select id="accounting-concept" name="concept" class="tracking-native-select" required>
+                        <option value="">Selecciona</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Valor</span>
+                      <input id="accounting-value" name="value" class="tracking-native-select" type="number" min="0" step="0.01" placeholder="0" required />
+                    </label>
+                    <label>
+                      <span>Evidencia (foto/pdf)</span>
+                      <input id="accounting-evidence" name="evidence" class="tracking-native-select" type="file" accept="image/*,.pdf,application/pdf" />
+                    </label>
+                  </div>
+                  <label>
+                    <span>Descripción</span>
+                    <textarea id="accounting-description" name="description" class="tracking-native-select" placeholder="Agrega una referencia interna para este gasto"></textarea>
+                  </label>
+                  <div class="tracking-new-event-actions">
+                    <button id="accounting-submit-button" class="primary-button" type="submit">Agregar gasto</button>
+                  </div>
+                  <p id="accounting-form-feedback" class="feedback" aria-live="polite"></p>
+                </form>
+              </section>
+
+              <section class="dashboard-card tracking-table-card accounting-history-card" aria-label="Historial de gastos">
+                <div class="card-heading compact">
+                  <h2>Historial de gastos</h2>
+                </div>
+                <div class="accounting-history-table-wrap">
+                  <table class="accounting-history-table">
+                    <thead>
+                      <tr>
+                        <th>Concepto</th>
+                        <th>Descripción</th>
+                        <th>Valor</th>
+                        <th>Evidencia</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="accounting-history-body">
+                      <tr>
+                        <td class="accounting-history-empty" colspan="6">Cargando gastos...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p id="accounting-history-feedback" class="feedback" aria-live="polite"></p>
+              </section>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-order-accounting.js?v=20260430-01"></script>
+  </body>
+</html>

@@ -6516,8 +6516,160 @@ body .tracking-search-page .page-hero h1 {
   color: inherit;
 }
 
+.tracking-order-accounting-action {
+  margin-top: 18px;
+}
+
+.accounting-stack {
+  gap: 18px;
+}
+
+.accounting-order-card {
+  display: grid;
+  gap: 18px;
+}
+
+.accounting-order-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.accounting-order-copy h2,
+.accounting-order-copy p {
+  margin: 0;
+}
+
+.accounting-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.accounting-summary-card {
+  min-height: 122px;
+}
+
+.accounting-summary-card strong {
+  font-size: clamp(1.7rem, 2.5vw, 2.35rem);
+}
+
+.accounting-summary-card.is-purchase strong,
+.accounting-summary-card.is-sale strong {
+  color: #111111;
+}
+
+.accounting-summary-card.is-expenses strong {
+  color: #f0ad00;
+}
+
+.accounting-summary-card.is-payment strong {
+  color: #11baf3;
+}
+
+.accounting-summary-card.is-balance strong {
+  color: #1f9d57;
+}
+
+.accounting-summary-card.is-profit strong {
+  color: #2167ff;
+}
+
+.accounting-form-card,
+.accounting-history-card {
+  display: grid;
+  gap: 18px;
+}
+
+.accounting-form {
+  display: grid;
+  gap: 16px;
+}
+
+.accounting-form-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.1fr) minmax(180px, 1fr) minmax(220px, 1.1fr);
+  gap: 14px;
+}
+
+.accounting-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.accounting-form label > span {
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.accounting-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.accounting-history-table-wrap {
+  overflow-x: auto;
+}
+
+.accounting-history-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.accounting-history-table th,
+.accounting-history-table td {
+  padding: 14px 8px;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.accounting-history-table th {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.accounting-history-table td {
+  font-size: 0.95rem;
+}
+
+.accounting-history-empty {
+  color: #66717f;
+  text-align: center !important;
+}
+
+.accounting-evidence-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.accounting-delete-button {
+  min-width: 0;
+  padding-inline: 12px;
+}
+
 .tracking-search-page .page-topbar {
   align-items: center;
+}
+
+@media (max-width: 1024px) {
+  .accounting-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .accounting-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .accounting-summary-grid,
+  .accounting-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .maintenance-meta-grid {

@@ -204,13 +204,14 @@ if (requireAdminAccess()) {
 
   function normalizeVehicles(orders) {
     return (orders || [])
-      .filter((order) => order?.orderRegion === "latam" && order?.status !== "cancelled")
+      .filter((order) => order?.status !== "cancelled")
       .map((order) => {
         const currentStage = resolveCurrentStage(order);
         const plate = normalizeText(order?.vehicle?.plate);
         return {
           id: String(order?._id || order?.id || ""),
           order,
+          orderRegion: normalizeText(order?.orderRegion || "latam"),
           vin: normalizeText(order?.vehicle?.vin),
           plate,
           clientName: normalizeText(order?.client?.name),
@@ -266,11 +267,13 @@ if (requireAdminAccess()) {
         </td>
         <td data-label="Etapa">${escapeHtml(vehicle.currentStage.display)}</td>
         <td data-label="Acciones" class="vehicles-actions-cell">
+          ${vehicle.orderRegion === "latam" ? `
           <button class="compact-action-button vehicle-edit-action" type="button" data-edit-vehicle-pricing="${escapeHtml(vehicle.id)}" aria-label="Editar precios del vehículo">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.13 1.13 3.75 3.75 1.13-1.13Z"></path>
             </svg>
           </button>
+          ` : "<span aria-hidden=\"true\">—</span>"}
         </td>
       </tr>
     `).join("");
