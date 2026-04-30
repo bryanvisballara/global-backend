@@ -204,7 +204,7 @@ if (requireAdminAccess()) {
 
   function normalizeVehicles(orders) {
     return (orders || [])
-      .filter((order) => order?.status !== "cancelled")
+      .filter((order) => order?.orderRegion === "latam" && order?.status !== "cancelled")
       .map((order) => {
         const currentStage = resolveCurrentStage(order);
         const plate = normalizeText(order?.vehicle?.plate);

@@ -36,7 +36,6 @@ body {
 }
 
 html {
-  font-size: 115%;
   zoom: 1;
 }
 
@@ -6451,13 +6450,15 @@ body .tracking-search-page .page-hero h1 {
   min-width: 220px;
 }
 
-.vehicle-tracking-value {
-  display: block;
-  font-size: 1.22rem;
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: 0.01em;
-  color: var(--text);
+.vehicle-id-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
 }
 
 .vehicle-tracking-link {
@@ -6478,31 +6479,6 @@ body .tracking-search-page .page-hero h1 {
 
 .vehicle-tracking-link:hover {
   opacity: 0.72;
-}
-
-.vehicle-id-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 0.86rem;
-}
-
-.vehicle-detail-button {
-  margin-top: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
 }
 
 .vehicles-actions-cell {
