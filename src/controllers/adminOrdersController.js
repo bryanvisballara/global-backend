@@ -180,6 +180,18 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex) {
   return false;
 }
 
+function canFinalizeTrackingOrder(requester, currentIndex) {
+  if (currentIndex !== TRACKING_STATE_TEMPLATES.length - 1) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner(requester)) {
+    return true;
+  }
+
+  return ["admin", "manager"].includes(normalizeRequesterRole(requester));
+}
+
 function resolveOrderModelForCreate(role) {
   return isUsaAdministrativeRole(role) ? OrderGlobalUS : Order;
 }
@@ -2579,6 +2591,102 @@ async function transitionTrackingState(req, res) {
   }
 }
 
+async function finalizeTrackingOrder(req, res) {
+  try {
+    const { orderId } = req.params;
+    const orderResult = await findOrderForRole(orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
+    order.trackingEventCollectionEnabled = true;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+    order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
+
+    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps);
+
+    if (currentStepIndex < 0) {
+      return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
+    }
+
+    if (!canFinalizeTrackingOrder(req.user, currentStepIndex)) {
+      return res.status(403).json({ message: "No tienes permisos para finalizar este pedido" });
+    }
+
+    const finalStep = order.trackingSteps[currentStepIndex];
+    const finalStateMeta = TRACKING_STATE_TEMPLATES[currentStepIndex] || { key: finalStep.key, label: finalStep.label };
+    const now = new Date();
+    const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, finalStep.key);
+
+    finalStep.confirmed = true;
+    finalStep.inProgress = false;
+
+    ensureTrackingStepLifecycleUpdate(finalStep, {
+      notes: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}.`,
+      clientVisible: true,
+      inProgress: false,
+      completed: true,
+      timestamp: now,
+    });
+
+    await createTrackingEvent({
+      orderId: order._id,
+      orderRegion: orderResult.region,
+      stepKey: finalStep.key,
+      title: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}`,
+      location: String(req.body?.location || "").trim(),
+      notes: String(req.body?.notes || "").trim() || `La orden finalizo en ${finalStateMeta.label}.`,
+      media: [],
+      clientVisible: true,
+      inProgress: false,
+      completed: true,
+      timestamp: now,
+    });
+
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+    syncTrackingStepProgression(order.trackingSteps, -1);
+    order.trackingSteps.forEach((step) => syncTrackingStepDerivedFields(step));
+
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
+    const updatedFinalStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === finalStep.key);
+    let notificationSummary = {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+
+    if (updatedFinalStep) {
+      const publishedStep = buildTrackingStepSnapshot(updatedFinalStep, {
+        title: `Pedido finalizado en E${currentStepIndex + 1} — ${finalStateMeta.label}`,
+        notes: `La orden finalizo en ${finalStateMeta.label}.`,
+        media: [],
+        clientVisible: true,
+        inProgress: false,
+        completed: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep);
+    }
+
+    return res.status(200).json({
+      message: "Order finalized successfully",
+      notificationSummary,
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error finalizing order" });
+  }
+}
+
 async function toggleTrackingEventVisibility(req, res) {
   try {
     const { orderId, eventId } = req.params;
@@ -2797,6 +2905,7 @@ module.exports = {
   deleteOrderAccountingExpense,
   deleteOrderDocument,
   deleteTrackingUpdate,
+  finalizeTrackingOrder,
   getOrder,
   listOrderDeletionRequests,
   listOrders,

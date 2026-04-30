@@ -15,6 +15,7 @@ const {
   deleteOrderAccountingExpense,
   deleteOrderDocument,
   deleteTrackingUpdate,
+  finalizeTrackingOrder,
   getOrder,
   listOrderDeletionRequests,
   listOrders,
@@ -88,6 +89,7 @@ router.patch("/orders/:orderId/deletion-request", reviewOrderDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/deletion-request", reviewTrackingEventDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/visibility", toggleTrackingEventVisibility);
 router.patch("/orders/:orderId/tracking-transition", transitionTrackingState);
+router.patch("/orders/:orderId/tracking-finalize", finalizeTrackingOrder);
 router.patch("/orders/:orderId/tracking-states/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFiles", 10), updateTrackingState);
 router.delete("/orders/:orderId/tracking-states/:stepKey/updates/:updateIndex", deleteTrackingUpdate);
