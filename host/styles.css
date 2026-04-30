@@ -2653,9 +2653,11 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-journey-dot.current {
-  border-color: rgba(244, 210, 143, 0.32);
+  width: 24px;
+  height: 24px;
+  border-color: rgba(244, 210, 143, 0.38);
   background: #f4d28f;
-  box-shadow: 0 0 0 6px rgba(244, 210, 143, 0.12);
+  box-shadow: 0 0 0 7px rgba(244, 210, 143, 0.14);
 }
 
 .tracking-journey-copy {
@@ -2722,7 +2724,8 @@ body.tracking-detail-mode #tracking-form {
   padding: 14px 12px;
   text-align: left;
   vertical-align: top;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .tracking-events-table thead th {
@@ -2732,6 +2735,7 @@ body.tracking-detail-mode #tracking-form {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
 }
 
 .tracking-events-table tbody tr:nth-child(odd) td {
@@ -2759,6 +2763,42 @@ body.tracking-detail-mode #tracking-form {
   color: rgba(219, 223, 228, 0.86);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.tracking-events-description-cell {
+  white-space: nowrap;
+}
+
+.tracking-event-description-fallback {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.tracking-event-more-button {
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(244, 210, 143, 0.14);
+  color: #f4d28f;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tracking-description-modal-card {
+  max-height: min(72vh, 520px);
+  border-radius: 24px;
+}
+
+.tracking-description-body {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.75;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .tracking-state-detail-panel {

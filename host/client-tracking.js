@@ -19,12 +19,17 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260430-clientevents05";
+const TRACKING_PAGE_VERSION = "20260430-clientevents06";
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
 const trackingResults = document.getElementById("tracking-page-results");
 const trackingFeedback = document.getElementById("tracking-page-feedback");
 const trackingNavButtons = Array.from(document.querySelectorAll("[data-nav-go]"));
+const trackingDescriptionModal = document.getElementById("tracking-description-modal");
+const trackingDescriptionOverlay = document.getElementById("tracking-description-overlay");
+const trackingDescriptionClose = document.getElementById("tracking-description-close");
+const trackingDescriptionTitle = document.getElementById("tracking-description-title");
+const trackingDescriptionBody = document.getElementById("tracking-description-body");
 let registeredPushToken = "";
 let activeTrackingOrder = null;
 
@@ -509,7 +514,7 @@ function buildTimelineStates(visibleConfirmedStates = []) {
     (visibleConfirmedStates || []).map((item) => [String(item.key || ""), item])
   );
 
-  return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
+  const baseStates = TRACKING_TIMELINE_STATES.map((stateTemplate) => {
     const visibleState = visibleByKey.get(stateTemplate.key);
 
     return {
@@ -519,6 +524,21 @@ function buildTimelineStates(visibleConfirmedStates = []) {
       inProgress: Boolean(visibleState?.inProgress),
     };
   });
+
+  if (baseStates.some((state) => state.inProgress && !state.confirmed)) {
+    return baseStates;
+  }
+
+  const firstPendingIndex = baseStates.findIndex((state) => !state.confirmed);
+
+  if (firstPendingIndex <= 0) {
+    return baseStates;
+  }
+
+  return baseStates.map((state, index) => ({
+    ...state,
+    inProgress: index === firstPendingIndex,
+  }));
 }
 
 function buildTrackingEventRows(order) {
@@ -530,14 +550,19 @@ function buildTrackingEventRows(order) {
     })
     .map((event, index) => {
       const matchedState = TRACKING_TIMELINE_STATES.find((item) => item.key === event.key);
+      const matchedStateIndex = TRACKING_TIMELINE_STATES.findIndex((item) => item.key === event.key);
       const title = String(event.title || event.headline || "").trim();
+      const descriptionSource = String(event.notes || event.description || "").trim();
+      const hasDescription = Boolean(descriptionSource);
+      const stageLabel = event.label || matchedState?.label || "Etapa";
 
       return {
         key: `${event.key}-${event.updatedAt || event.createdAt || index}`,
         date: event.updatedAt || event.createdAt || null,
-        stage: event.label || matchedState?.label || "Etapa",
+        stage: matchedStateIndex >= 0 ? `E${matchedStateIndex + 1} - ${stageLabel}` : stageLabel,
         title,
-        description: String(event.notes || event.description || "Sin descripción por ahora.").trim(),
+        description: hasDescription ? descriptionSource : "Sin descripción por ahora.",
+        hasDescription,
       };
     });
 }
@@ -629,7 +654,11 @@ function renderTrackingEventsTable(order) {
                   <td>${escapeHtml(event.date ? formatDate(event.date) : "Sin fecha")}</td>
                   <td>${escapeHtml(event.stage || "Etapa")}</td>
                   <td>${event.title ? escapeHtml(event.title) : '<span class="tracking-event-title-placeholder">Próximamente</span>'}</td>
-                  <td>${escapeHtml(event.description || "Sin descripción por ahora.")}</td>
+                  <td class="tracking-events-description-cell">
+                    ${event.hasDescription
+                      ? `<button type="button" class="tracking-event-more-button" data-tracking-description-title="${escapeHtml(event.title || event.stage || "Descripción")}" data-tracking-description="${escapeHtml(event.description || "")}">Ver más</button>`
+                      : '<span class="tracking-event-description-fallback">Sin descripción por ahora.</span>'}
+                  </td>
                 </tr>
               `)
               .join("")}
@@ -669,6 +698,26 @@ function renderTrackingResult(order) {
   `;
 }
 
+function openTrackingDescriptionModal(title, description) {
+  if (!trackingDescriptionModal || !trackingDescriptionBody || !trackingDescriptionTitle) {
+    return;
+  }
+
+  trackingDescriptionTitle.textContent = title || "Descripción";
+  trackingDescriptionBody.textContent = description || "Sin descripción por ahora.";
+  trackingDescriptionModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeTrackingDescriptionModal() {
+  if (!trackingDescriptionModal) {
+    return;
+  }
+
+  trackingDescriptionModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
 trackingResults.addEventListener("click", (event) => {
   const downloadButton = event.target.closest("[data-download-url]");
 
@@ -698,7 +747,19 @@ trackingResults.addEventListener("click", (event) => {
     return;
   }
 
+  const descriptionButton = event.target.closest("[data-tracking-description]");
+
+  if (descriptionButton) {
+    openTrackingDescriptionModal(
+      descriptionButton.getAttribute("data-tracking-description-title") || "Descripción",
+      descriptionButton.getAttribute("data-tracking-description") || ""
+    );
+  }
+
 });
+
+trackingDescriptionOverlay?.addEventListener("click", closeTrackingDescriptionModal);
+trackingDescriptionClose?.addEventListener("click", closeTrackingDescriptionModal);
 
 trackingNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
