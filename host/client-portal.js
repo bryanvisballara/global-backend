@@ -821,14 +821,21 @@ function buildEmbeddedVideoUrl(rawUrl) {
       if (host.includes("youtu.be")) {
         videoId = parsedUrl.pathname.split("/").filter(Boolean)[0] || "";
       } else {
-        videoId = parsedUrl.searchParams.get("v") || "";
+        const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
+
+        videoId =
+          parsedUrl.searchParams.get("v") ||
+          (pathSegments[0] === "embed" ? pathSegments[1] || "" : "") ||
+          (pathSegments[0] === "shorts" ? pathSegments[1] || "" : "") ||
+          (pathSegments[0] === "live" ? pathSegments[1] || "" : "") ||
+          (pathSegments[0] === "v" ? pathSegments[1] || "" : "");
       }
 
       if (!videoId) {
         return "";
       }
 
-      return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&mute=1&controls=1&playsinline=1&rel=0&modestbranding=1`;
+      return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?controls=1&playsinline=1&rel=0&modestbranding=1`;
     }
 
     if (host.includes("vimeo.com")) {
@@ -839,7 +846,7 @@ function buildEmbeddedVideoUrl(rawUrl) {
         return "";
       }
 
-      return `https://player.vimeo.com/video/${encodeURIComponent(videoId)}?autoplay=1&muted=1&controls=1&title=0&byline=0&portrait=0`;
+      return `https://player.vimeo.com/video/${encodeURIComponent(videoId)}?controls=1&title=0&byline=0&portrait=0`;
     }
   } catch {
     return "";
@@ -868,7 +875,7 @@ function renderFeedVideoMedia(url) {
 
   return `
     <div class="feed-media-card video">
-      <video controls autoplay muted playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>
+      <video controls playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>
     </div>
   `;
 }
