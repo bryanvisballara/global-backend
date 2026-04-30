@@ -22,6 +22,7 @@ if (requireAdminAccess()) {
   const videoUrlGroup = document.getElementById("post-video-url-group");
   const videoUrlInput = document.getElementById("post-video-url");
   const mediaFilesGroup = document.getElementById("post-media-files-group");
+  const postMediaPreview = document.getElementById("post-media-preview");
   const scheduleDateInput = document.getElementById("schedule-date");
   const scheduleTimeInput = document.getElementById("schedule-time");
   const postsManagerModal = document.getElementById("posts-manager-modal");
@@ -39,6 +40,7 @@ if (requireAdminAccess()) {
   let allPosts = [];
   let confirmResolver = null;
   let pendingSubmitAction = "publish";
+  let postMediaPreviewUrls = [];
 
   function isSupportedVideoUrl(value) {
     if (!value) {
@@ -129,6 +131,68 @@ if (requireAdminAccess()) {
       .replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function clearPostMediaPreview() {
+    postMediaPreviewUrls.forEach((objectUrl) => {
+      URL.revokeObjectURL(objectUrl);
+    });
+    postMediaPreviewUrls = [];
+
+    if (!postMediaPreview) {
+      return;
+    }
+
+    postMediaPreview.innerHTML = "";
+    postMediaPreview.hidden = true;
+  }
+
+  function renderPostMediaPreview(files = []) {
+    if (!postMediaPreview) {
+      return;
+    }
+
+    clearPostMediaPreview();
+
+    const selectedFiles = Array.from(files || []);
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    postMediaPreview.innerHTML = selectedFiles.map((file, index) => {
+      const objectUrl = URL.createObjectURL(file);
+      const label = escapeHtml(file.name || `Archivo ${index + 1}`);
+
+      postMediaPreviewUrls.push(objectUrl);
+
+      if (file.type.startsWith("video/")) {
+        return `
+          <article class="tracking-media-card video">
+            <video controls playsinline preload="metadata" src="${escapeHtml(objectUrl)}"></video>
+            <strong>${label}</strong>
+          </article>
+        `;
+      }
+
+      if (file.type.startsWith("image/")) {
+        return `
+          <article class="tracking-media-card image">
+            <img src="${escapeHtml(objectUrl)}" alt="${label}" loading="lazy" />
+            <strong>${label}</strong>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="tracking-media-card document">
+          <strong>${label}</strong>
+          <span>Vista previa no disponible para este archivo.</span>
+        </article>
+      `;
+    }).join("");
+
+    postMediaPreview.hidden = false;
   }
 
   function findPostById(postId) {
@@ -278,6 +342,7 @@ if (requireAdminAccess()) {
     const selectedFiles = Array.from(mediaFilesInput.files || []);
 
     if (!selectedFiles.length) {
+      clearPostMediaPreview();
       setFeedback(postFeedback, "");
       return;
     }
@@ -288,12 +353,14 @@ if (requireAdminAccess()) {
         postForm.elements.format.value,
         videoUrlInput?.value || ""
       );
+      renderPostMediaPreview(selectedFiles);
       setFeedback(
         postFeedback,
         `${selectedFiles.length} archivo${selectedFiles.length > 1 ? "s" : ""} cargado${selectedFiles.length > 1 ? "s" : ""} y listo${selectedFiles.length > 1 ? "s" : ""} para publicar.`,
         "success"
       );
     } catch (error) {
+      clearPostMediaPreview();
       setFeedback(postFeedback, error.message, "error");
     }
   });
@@ -473,6 +540,7 @@ if (requireAdminAccess()) {
   });
   window.addEventListener("pageshow", syncVideoInputMode);
   window.addEventListener("load", syncVideoInputMode);
+  window.addEventListener("beforeunload", clearPostMediaPreview);
   syncVideoInputMode();
 
   scheduleSubmitButton.addEventListener("click", () => {

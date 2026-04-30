@@ -1010,6 +1010,71 @@ function renderMediaItems(media = []) {
   `;
 }
 
+function releaseUploadPreviewUrls(previewElement) {
+  const objectUrls = Array.isArray(previewElement?.__previewObjectUrls) ? previewElement.__previewObjectUrls : [];
+
+  objectUrls.forEach((objectUrl) => {
+    URL.revokeObjectURL(objectUrl);
+  });
+
+  if (previewElement) {
+    previewElement.__previewObjectUrls = [];
+  }
+}
+
+function renderPendingUploadPreview(previewElement, files = []) {
+  if (!previewElement) {
+    return;
+  }
+
+  releaseUploadPreviewUrls(previewElement);
+
+  const selectedFiles = Array.from(files || []);
+
+  if (!selectedFiles.length) {
+    previewElement.innerHTML = "";
+    previewElement.hidden = true;
+    return;
+  }
+
+  const objectUrls = [];
+
+  previewElement.innerHTML = selectedFiles.map((file, index) => {
+    const objectUrl = URL.createObjectURL(file);
+    const label = escapeHtml(file.name || `Adjunto ${index + 1}`);
+
+    objectUrls.push(objectUrl);
+
+    if (file.type.startsWith("video/")) {
+      return `
+        <article class="tracking-media-card video">
+          <video controls playsinline preload="metadata" src="${escapeHtml(objectUrl)}"></video>
+          <strong>${label}</strong>
+        </article>
+      `;
+    }
+
+    if (file.type.startsWith("image/")) {
+      return `
+        <article class="tracking-media-card image">
+          <img src="${escapeHtml(objectUrl)}" alt="${label}" loading="lazy" />
+          <strong>${label}</strong>
+        </article>
+      `;
+    }
+
+    return `
+      <article class="tracking-media-card document">
+        <strong>${label}</strong>
+        <span>Vista previa no disponible para este archivo.</span>
+      </article>
+    `;
+  }).join("");
+
+  previewElement.__previewObjectUrls = objectUrls;
+  previewElement.hidden = false;
+}
+
 function getFlattenedStateMedia(step) {
   return getIndexedUpdates(step).flatMap((update) =>
     (Array.isArray(update?.media) ? update.media : []).map((item, mediaIndex) => ({
@@ -1452,6 +1517,10 @@ function renderTrackingOverview(order) {
 function renderStates() {
   const selectedOrder = getSelectedOrder();
 
+  trackingStatesList.querySelectorAll("[data-upload-preview]").forEach((previewElement) => {
+    releaseUploadPreviewUrls(previewElement);
+  });
+
   if (!selectedOrder) {
     syncTrackingPageMode(null);
     trackingStatesList.innerHTML = "";
@@ -1508,6 +1577,7 @@ function renderStates() {
               <textarea rows="4" data-field="videoLinks" placeholder="Pega uno o varios links, separados por salto de linea" ${canEditState ? "" : "disabled"}>${escapeHtml(draft.videoLinks)}</textarea>
             </label>
           </div>
+          <div class="tracking-state-media-list" data-upload-preview="${escapeHtml(state.key)}" hidden></div>
           <div class="tracking-state-actions">
             <button class="primary-button" type="button" data-save-state-key="${escapeHtml(state.key)}" ${canEditState ? "" : "disabled"}>Agregar evento</button>
             <p class="feedback" data-state-feedback="${escapeHtml(state.key)}"></p>
@@ -2321,6 +2391,14 @@ trackingRoot.addEventListener("click", handleTrackingPageClick);
 trackingPreview.addEventListener("click", handleTrackingPageClick);
 
 trackingRoot.addEventListener("change", (event) => {
+  const attachmentsField = event.target.closest('[data-field="attachments"]');
+
+  if (attachmentsField) {
+    const stateCard = attachmentsField.closest("[data-state-card]");
+    const uploadPreview = stateCard?.querySelector("[data-upload-preview]");
+    renderPendingUploadPreview(uploadPreview, attachmentsField.files);
+  }
+
   const stateField = event.target.closest('[data-field="confirmed"], [data-field="inProgress"]');
 
   if (stateField) {
