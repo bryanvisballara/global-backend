@@ -1,7 +1,51 @@
+function wrapDarkEmailDocument(content) {
+  return `<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <style>
+      :root {
+        color-scheme: dark;
+        supported-color-schemes: dark;
+      }
+
+      html,
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #060606 !important;
+        color: #f6f4ef !important;
+      }
+
+      body {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+
+      .email-root,
+      .email-root div,
+      .email-root p,
+      .email-root span,
+      .email-root strong,
+      .email-root h1,
+      .email-root a {
+        -webkit-text-fill-color: currentColor !important;
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">
+    <div class="email-root" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">${content}</div>
+  </body>
+</html>`;
+}
+
 function buildVerificationEmailHtml({ name, verificationCode }) {
   const safeName = String(name || "Cliente").trim() || "Cliente";
 
-  return `
+  return wrapDarkEmailDocument(`
     <div style="margin:0;padding:0;background:#060606;font-family:Manrope,Arial,sans-serif;color:#f6f4ef;">
       <div style="max-width:620px;margin:0 auto;padding:32px 18px;">
         <div style="border:1px solid rgba(216,170,82,0.22);border-radius:30px;overflow:hidden;background:linear-gradient(180deg,#111214 0%,#0a0a0b 100%);box-shadow:0 24px 60px rgba(0,0,0,0.45);">
@@ -38,14 +82,14 @@ function buildVerificationEmailHtml({ name, verificationCode }) {
         </div>
       </div>
     </div>
-  `;
+  `);
 }
 
 function buildPasswordResetEmailHtml({ name, resetUrl }) {
   const safeName = String(name || "Cliente").trim() || "Cliente";
   const safeUrl = String(resetUrl || "").trim();
 
-  return `
+  return wrapDarkEmailDocument(`
     <div style="margin:0;padding:0;background:#060606;font-family:Manrope,Arial,sans-serif;color:#f6f4ef;">
       <div style="max-width:620px;margin:0 auto;padding:32px 18px;">
         <div style="border:1px solid rgba(216,170,82,0.22);border-radius:30px;overflow:hidden;background:linear-gradient(180deg,#111214 0%,#0a0a0b 100%);box-shadow:0 24px 60px rgba(0,0,0,0.45);">
@@ -91,7 +135,7 @@ function buildPasswordResetEmailHtml({ name, resetUrl }) {
         </div>
       </div>
     </div>
-  `;
+  `);
 }
 
 async function sendBrevoEmail({
