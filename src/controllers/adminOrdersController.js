@@ -434,7 +434,7 @@ function buildInitialTrackingSteps(timestamp = new Date()) {
     const initialUpdate = buildTrackingUpdateEntry({
       notes: "Orden creada.",
       media: [],
-      clientVisible: false,
+      clientVisible: true,
       inProgress: true,
       completed: false,
       timestamp: resolvedTimestamp,
@@ -444,7 +444,7 @@ function buildInitialTrackingSteps(timestamp = new Date()) {
       ...step,
       inProgress: true,
       confirmed: false,
-      clientVisible: false,
+      clientVisible: true,
       notes: initialUpdate.notes,
       media: [],
       updates: [initialUpdate],
