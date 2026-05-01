@@ -6343,6 +6343,11 @@ body .tracking-search-page .page-hero h1 {
   font-size: 0.88rem;
 }
 
+.feed-author-meta .feed-author-credit {
+  color: rgba(244, 210, 143, 0.86);
+  font-size: 0.8rem;
+}
+
 .maintenance-card-top span {
   display: inline-flex;
   align-items: center;

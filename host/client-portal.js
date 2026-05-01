@@ -943,6 +943,8 @@ function renderFeed() {
         : "";
 
       const authorName = "Global Imports";
+      const publishedByName = String(post?.publishedBy?.name || "").trim();
+      const authorCredit = publishedByName ? `Autor: ${publishedByName}` : "Autor: Global Imports";
       const publishedDate = new Date(post.publishedAt || post.createdAt);
       const relativeDate = publishedDate.toLocaleDateString("es-VE", {
         month: "short",
@@ -963,6 +965,7 @@ function renderFeed() {
               </div>
               <div>
                 <strong>${authorName}</strong>
+                <p class="feed-author-credit">${escapeHtml(authorCredit)}</p>
                 <p>${escapeHtml(relativeDate)} · ${escapeHtml(relativeTime)}</p>
               </div>
             </div>
