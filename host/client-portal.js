@@ -2150,9 +2150,9 @@ function renderSequoiaOrderSummary() {
   }
 
   if (sequoiaCityFeeNote) {
-    sequoiaCityFeeNote.textContent = summary.deliveryFee > 0
-      ? `${summary.deliveryCityLabel} ${formatCopCurrency(summary.deliveryFee)} por servicio de Niñera Express privada`
-      : `${summary.deliveryCityLabel} gratis por servicio de Niñera Express privada`;
+    sequoiaCityFeeNote.textContent = selectedSequoiaDeliveryCity === "barranquilla"
+      ? "Entrega en el showroom de nuestra sede."
+      : `${summary.deliveryCityLabel} ${formatCopCurrency(summary.deliveryFee)} por servicio de Niñera Express privada`;
   }
 
   if (sequoiaOrderDetails) {
