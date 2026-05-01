@@ -2926,22 +2926,9 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-events-table-wrap {
-  position: relative;
   overflow-x: auto;
   padding-bottom: 2px;
-}
-
-.tracking-events-table-wrap::after {
-  content: "";
-  position: sticky;
-  right: 0;
-  display: block;
-  width: 42px;
-  height: 100%;
-  margin-top: -100%;
-  margin-left: auto;
-  background: linear-gradient(90deg, rgba(15, 15, 16, 0), rgba(15, 15, 16, 0.94));
-  pointer-events: none;
+  box-shadow: inset -26px 0 24px -24px rgba(15, 15, 16, 0.92);
 }
 
 @keyframes tracking-scroll-hint-pulse {
@@ -3007,8 +2994,8 @@ body.tracking-detail-mode #tracking-form {
     display: none;
   }
 
-  .tracking-events-table-wrap::after {
-    display: none;
+  .tracking-events-table-wrap {
+    box-shadow: none;
   }
 }
 
