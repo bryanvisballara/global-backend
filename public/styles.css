@@ -6727,17 +6727,28 @@ body .tracking-search-page .page-hero h1 {
 .client-nav-button {
   display: grid;
   justify-items: center;
+  align-content: start;
+  min-width: 0;
   gap: 6px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  padding: 12px 6px;
+  padding: 10px 3px;
 }
 
 .client-nav-button span {
+  display: block;
+  width: 100%;
   font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  text-wrap: balance;
 }
 
 .client-nav-button.is-active {
@@ -6968,7 +6979,7 @@ body.modal-open {
   }
 
   .client-nav-button span {
-    font-size: 0.66rem;
+    font-size: 0.62rem;
   }
 
   .virtual-dealer-item-main {
