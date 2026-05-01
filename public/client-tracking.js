@@ -777,25 +777,34 @@ function buildTrackingEventRows(order) {
     });
 }
 
-function buildTrackingVehicleSummary(order) {
-  const vinValue = String(order?.vehicle?.vin || "").trim();
-  const exteriorColor = String(order?.vehicle?.exteriorColor || order?.vehicle?.color || "").trim();
-  const interiorColor = String(order?.vehicle?.interiorColor || "").trim();
-  const summaryParts = [];
+function buildTrackingVehicleDetailsMarkup(order) {
+  const detailItems = [
+    {
+      label: "VIN",
+      value: String(order?.vehicle?.vin || "").trim() || "Sin VIN",
+    },
+    {
+      label: "Año",
+      value: String(order?.vehicle?.year || "").trim() || "-",
+    },
+    {
+      label: "Exterior",
+      value: String(order?.vehicle?.exteriorColor || order?.vehicle?.color || "").trim() || "-",
+    },
+    {
+      label: "Interior",
+      value: String(order?.vehicle?.interiorColor || "").trim() || "-",
+    },
+  ];
 
-  if (vinValue) {
-    summaryParts.push(`VIN ${vinValue}`);
-  }
-
-  if (exteriorColor) {
-    summaryParts.push(`Exterior ${exteriorColor}`);
-  }
-
-  if (interiorColor) {
-    summaryParts.push(`Interior ${interiorColor}`);
-  }
-
-  return summaryParts.join(" · ") || "VIN sin asignar";
+  return detailItems
+    .map((item) => `
+      <article class="tracking-card-detail-item">
+        <span class="tracking-card-detail-label">${escapeHtml(item.label)}</span>
+        <strong class="tracking-card-detail-value">${escapeHtml(item.value)}</strong>
+      </article>
+    `)
+    .join("");
 }
 
 function buildTrackingFiles(order) {
@@ -1108,9 +1117,11 @@ function renderTrackingResult(order) {
   trackingResults.innerHTML = `
     <section class="tracking-preview">
       <div class="tracking-card-header">
-        <strong>${escapeHtml(order.vehicle?.brand || "Vehículo")} ${escapeHtml(order.vehicle?.model || "")}</strong>
-        <p>Guía ${escapeHtml(order.trackingNumber)}</p>
-        <p>${escapeHtml(buildTrackingVehicleSummary(order))}</p>
+        <strong class="tracking-card-title">${escapeHtml(order.vehicle?.brand || "Vehículo")} ${escapeHtml(order.vehicle?.model || "")}</strong>
+        <p class="tracking-card-guide">Guía ${escapeHtml(order.trackingNumber)}</p>
+        <div class="tracking-card-details-grid">
+          ${buildTrackingVehicleDetailsMarkup(order)}
+        </div>
       </div>
       ${mediaMarkup ? `<div class="feed-media-strip">${mediaMarkup}</div>` : ""}
       ${timelineMarkup}
