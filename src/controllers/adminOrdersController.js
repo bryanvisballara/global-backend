@@ -35,6 +35,7 @@ const ORDER_DOCUMENT_TYPES = new Set([
   "TITULO",
   "BOOKING",
   "TRACKING",
+  "PLAQUETA VIN",
   "REGISTRO DE IMPORTACION",
   "FOTOS",
   "AES",
@@ -46,6 +47,7 @@ const ORDER_DOCUMENT_TYPES = new Set([
 ]);
 const ORDER_DOCUMENT_TYPE_ALIASES = new Map([
   ["SOPORTE DE PAGO", "SOPORTE_DE_PAGO"],
+  ["PLAQUETA_VIN", "PLAQUETA VIN"],
   ["PRE APOSTILLA", "PRE_APOSTILLA"],
   ["PRE-APOSTILLA", "PRE_APOSTILLA"],
   ["REGISTRO_DE_IMPORTACION", "REGISTRO DE IMPORTACION"],
@@ -1399,7 +1401,39 @@ async function syncMaintenanceSchedule(order, adminUserId) {
     return;
   }
 
-  const dueDate = addMonths(order.purchaseDate, 6);
+  const trackingSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+  const isCompletedOrder = String(order?.status || "").trim().toLowerCase() === "completed"
+    && trackingSteps.length > 0
+    && trackingSteps.every((step) => Boolean(buildTrackingStepSnapshot(step)?.confirmed));
+
+  if (!isCompletedOrder) {
+    await Maintenance.findOneAndDelete({ order: order._id });
+    return;
+  }
+
+  const completionDates = trackingSteps
+    .map((step) => buildTrackingStepSnapshot(step)?.confirmedAt || buildTrackingStepSnapshot(step)?.updatedAt || null)
+    .map((value) => new Date(value || 0))
+    .filter((value) => !Number.isNaN(value.getTime()));
+
+  if (!completionDates.length) {
+    const fallbackDate = new Date(order?.updatedAt || order?.createdAt || order?.purchaseDate || 0);
+
+    if (!Number.isNaN(fallbackDate.getTime())) {
+      completionDates.push(fallbackDate);
+    }
+  }
+
+  if (!completionDates.length) {
+    await Maintenance.findOneAndDelete({ order: order._id });
+    return;
+  }
+
+  const activationDate = completionDates.reduce(
+    (latestDate, currentDate) => (currentDate.getTime() > latestDate.getTime() ? currentDate : latestDate),
+    completionDates[0]
+  );
+  const dueDate = addMonths(activationDate, 6);
   const status = dueDate <= new Date() ? "due" : "scheduled";
 
   await Maintenance.findOneAndUpdate(

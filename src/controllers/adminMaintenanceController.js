@@ -1,5 +1,6 @@
 const Maintenance = require("../models/Maintenance");
 const ClientMaintenanceVehicle = require("../models/ClientMaintenanceVehicle");
+const Order = require("../models/Order");
 
 const CLIENT_PREVENTIVE_MAINTENANCE_CYCLE_MONTHS = 6;
 
@@ -80,32 +81,106 @@ function isNextMonthAndYear(leftDate, rightDate) {
   );
 }
 
+function normalizeRequesterRole(requester) {
+  if (requester && typeof requester === "object") {
+    return String(requester.role || "");
+  }
+
+  return String(requester || "");
+}
+
+function canAccessLatamOrders(requester) {
+  const normalizedRole = normalizeRequesterRole(requester);
+  return normalizedRole === "admin" || normalizedRole === "manager";
+}
+
+function resolveOrderMaintenanceActivationDate(order) {
+  const trackingSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+  const isCompletedOrder = String(order?.status || "").trim().toLowerCase() === "completed"
+    && trackingSteps.length > 0
+    && trackingSteps.every((step) => Boolean(step?.confirmed));
+
+  if (!isCompletedOrder) {
+    return null;
+  }
+
+  const completionDates = trackingSteps
+    .map((step) => new Date(step?.confirmedAt || step?.updatedAt || 0))
+    .filter((date) => !Number.isNaN(date.getTime()));
+
+  if (!completionDates.length) {
+    const fallbackDate = new Date(order?.updatedAt || order?.createdAt || order?.purchaseDate || 0);
+    return Number.isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+  }
+
+  return completionDates.reduce(
+    (latestDate, currentDate) => (currentDate.getTime() > latestDate.getTime() ? currentDate : latestDate),
+    completionDates[0]
+  );
+}
+
 async function listMaintenance(req, res) {
   try {
     const dueOnly = req.query.dueOnly === "true";
-    const query = dueOnly
-      ? {
-          dueDate: { $lte: new Date() },
-          status: { $in: ["scheduled", "due", "contacted"] },
-        }
-      : {};
 
-    const [maintenance, clientMaintenanceVehicles] = await Promise.all([
-      Maintenance.find(query)
-        .populate("client", "name email phone")
-        .populate({
-          path: "order",
-          select: "trackingNumber vehicle purchaseDate status",
-        })
-        .sort({ dueDate: 1 }),
+    const [maintenanceDocuments, clientMaintenanceVehicles, latamOrders] = await Promise.all([
+      Maintenance.find({})
+        .sort({ dueDate: 1 })
+        .lean(),
       ClientMaintenanceVehicle.find({})
         .populate("user", "name email phone")
         .populate("client", "name email phone")
         .sort({ createdAt: -1 }),
+      canAccessLatamOrders(req.user)
+        ? Order.find({ status: "completed" })
+          .populate("client", "name email phone")
+          .sort({ updatedAt: -1 })
+        : Promise.resolve([]),
     ]);
 
     const now = new Date();
     const nowUtcNoon = toUtcNoon(now) || now;
+    const maintenanceByOrderId = new Map(
+      maintenanceDocuments.map((item) => [String(item.order || "").trim(), item])
+    );
+    const registeredOrderMaintenance = latamOrders
+      .map((order) => {
+        const activationDate = resolveOrderMaintenanceActivationDate(order);
+
+        if (!activationDate) {
+          return null;
+        }
+
+        const resolvedDueDate = addMonths(activationDate, CLIENT_PREVENTIVE_MAINTENANCE_CYCLE_MONTHS);
+
+        if (!resolvedDueDate) {
+          return null;
+        }
+
+        const maintenanceRecord = maintenanceByOrderId.get(String(order?._id || order?.id || "").trim()) || null;
+        const currentStatus = String(maintenanceRecord?.status || "").trim().toLowerCase();
+        const resolvedStatus = currentStatus === "completed"
+          ? "completed"
+          : currentStatus === "contacted"
+            ? "contacted"
+            : "sin_programar";
+
+        return {
+          maintenanceId: String(maintenanceRecord?._id || "").trim(),
+          order: order.toObject ? order.toObject() : order,
+          client: order?.client?.toObject ? order.client.toObject() : order?.client || null,
+          activationDate,
+          dueDate: resolvedDueDate,
+          status: resolvedStatus,
+          reportedMileage: maintenanceRecord?.reportedMileage ?? null,
+          clientNotes: maintenanceRecord?.clientNotes || "",
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => new Date(left.dueDate || 0).getTime() - new Date(right.dueDate || 0).getTime());
+    const filteredMaintenance = dueOnly
+      ? registeredOrderMaintenance.filter((item) => item.dueDate <= now && ["sin_programar", "contacted"].includes(item.status))
+      : registeredOrderMaintenance;
 
     const vehiclesWithScheduleDate = clientMaintenanceVehicles
       .map((vehicle) => {
@@ -180,7 +255,7 @@ async function listMaintenance(req, res) {
       });
 
     return res.status(200).json({
-      maintenance,
+      maintenance: filteredMaintenance,
       clientMaintenanceVehicles,
       dueByDateThisMonth,
       dueByDateNextMonth,
