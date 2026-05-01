@@ -961,6 +961,14 @@ function renderTrackingEventsTable(order) {
         <p class="tracking-journey-kicker">Historial</p>
         <h2>Eventos del pedido</h2>
       </div>
+      <div class="tracking-events-scroll-hint" aria-hidden="true">
+        <span>Desliza la tabla para ver todo</span>
+        <span class="tracking-events-scroll-hint-arrows">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </div>
       <div class="tracking-events-table-wrap">
         <table class="tracking-events-table" aria-label="Historial de eventos del pedido">
           <thead>
