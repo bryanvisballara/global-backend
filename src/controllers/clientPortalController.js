@@ -792,12 +792,16 @@ async function getPublicTrackingOrder(req, res) {
       },
     };
 
-    let order = await Order.findOne(trackingQuery).populate("createdBy", "name email role");
+    let order = await Order.findOne(trackingQuery)
+      .populate("createdBy", "name email role")
+      .populate("client", "name");
     let orderRegion = "latam";
     let linkedClientModel = Client;
 
     if (!order) {
-      order = await OrderGlobalUS.findOne(trackingQuery).populate("createdBy", "name email role");
+      order = await OrderGlobalUS.findOne(trackingQuery)
+        .populate("createdBy", "name email role")
+        .populate("client", "name");
       orderRegion = "usa";
       linkedClientModel = ClientGlobalUS;
     }
@@ -844,6 +848,8 @@ async function getPublicTrackingOrder(req, res) {
 
       await order.save();
     }
+
+    await order.populate("client", "name");
 
     const hydratedOrder = await hydrateOrderTracking(order, orderRegion, {
       preferCollectionOnly: true,
