@@ -1,3 +1,4 @@
+(() => {
 const {
   attachLogout,
   fetchJson,
@@ -564,3 +565,4 @@ if (requireAdminAccess()) {
 
   window.addEventListener("beforeunload", clearEditableMediaItems);
 }
+})();
