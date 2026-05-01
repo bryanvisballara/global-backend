@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260430-clientevents08";
+const TRACKING_PAGE_VERSION = "20260501-clientevents13";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -782,6 +782,7 @@ function buildTrackingVehicleDetailsMarkup(order) {
     {
       label: "VIN",
       value: String(order?.vehicle?.vin || "").trim() || "Sin VIN",
+      valueClassName: "tracking-card-detail-value-vin",
     },
     {
       label: "Año",
@@ -801,10 +802,26 @@ function buildTrackingVehicleDetailsMarkup(order) {
     .map((item) => `
       <article class="tracking-card-detail-item">
         <span class="tracking-card-detail-label">${escapeHtml(item.label)}</span>
-        <strong class="tracking-card-detail-value">${escapeHtml(item.value)}</strong>
+        <strong class="tracking-card-detail-value${item.valueClassName ? ` ${item.valueClassName}` : ""}">${escapeHtml(item.value)}</strong>
       </article>
     `)
     .join("");
+}
+
+function buildTrackingVehicleTitle(order) {
+  const vehicle = order?.vehicle || {};
+  return [vehicle.brand || "Vehículo", vehicle.model || "", vehicle.version || "", vehicle.year || ""]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getTrackingClientName(order) {
+  const clientName = order?.client && typeof order.client === "object"
+    ? order.client.name
+    : "";
+
+  return String(clientName || "").trim() || "Cliente";
 }
 
 function buildTrackingFiles(order) {
@@ -1102,6 +1119,8 @@ function renderTrackingResult(order) {
   const timelineMarkup = renderTrackingTimeline(order);
   const eventsTableMarkup = renderTrackingEventsTable(order);
   const filesSectionMarkup = renderTrackingFilesSection(order);
+  const vehicleTitle = buildTrackingVehicleTitle(order);
+  const clientName = getTrackingClientName(order);
 
   const mediaMarkup = (Array.isArray(order?.media) ? order.media : [])
     .filter((item) => item?.url && (item?.type === "video" || item?.category === "video"))
@@ -1117,8 +1136,12 @@ function renderTrackingResult(order) {
   trackingResults.innerHTML = `
     <section class="tracking-preview">
       <div class="tracking-card-header">
-        <strong class="tracking-card-title">${escapeHtml(order.vehicle?.brand || "Vehículo")} ${escapeHtml(order.vehicle?.model || "")}</strong>
+        <strong class="tracking-card-title">${escapeHtml(vehicleTitle)}</strong>
         <p class="tracking-card-guide">Guía ${escapeHtml(order.trackingNumber)}</p>
+        <div class="tracking-card-client">
+          <span class="tracking-card-client-label">Cliente</span>
+          <strong class="tracking-card-client-name">${escapeHtml(clientName)}</strong>
+        </div>
         <div class="tracking-card-details-grid">
           ${buildTrackingVehicleDetailsMarkup(order)}
         </div>

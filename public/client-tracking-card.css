@@ -13,6 +13,7 @@
   font-size: clamp(1.35rem, 5vw, 1.95rem);
   line-height: 1.08;
   text-align: center;
+  text-transform: uppercase;
 }
 
 .tracking-card-guide {
@@ -20,6 +21,29 @@
   font-weight: 700;
   color: rgba(255, 255, 255, 0.86) !important;
   text-align: center;
+  text-transform: uppercase;
+}
+
+.tracking-card-client {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.tracking-card-client-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tracking-card-client-name {
+  color: var(--text);
+  font-size: clamp(1.2rem, 4.5vw, 1.75rem);
+  line-height: 1.15;
+  text-transform: uppercase;
 }
 
 .tracking-card-details-grid {
@@ -52,6 +76,13 @@
   word-break: break-word;
 }
 
+.tracking-card-detail-value-vin {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-size: clamp(0.95rem, 3.2vw, 1.1rem);
+}
+
 @media (max-width: 760px) {
   .tracking-card-header {
     gap: 16px;
@@ -65,5 +96,9 @@
 
   .tracking-card-detail-value {
     font-size: 1rem;
+  }
+
+  .tracking-card-detail-value-vin {
+    font-size: clamp(0.88rem, 3.9vw, 1rem);
   }
 }
