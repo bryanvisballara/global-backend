@@ -7541,6 +7541,7 @@ body .tracking-search-page .page-hero h1 {
 .client-nav-button {
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: 6px;
   border: 0;
   border-radius: 0;
@@ -7550,8 +7551,15 @@ body .tracking-search-page .page-hero h1 {
 }
 
 .client-nav-button span {
+  display: block;
+  width: 100%;
   font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .client-nav-button.is-active {
