@@ -733,11 +733,30 @@ function buildTimelineStates(visibleConfirmedStates = []) {
 }
 
 function buildTrackingEventRows(order) {
+  function getTrackingEventStageIndex(event) {
+    return TRACKING_TIMELINE_STATES.findIndex((item) => item.key === event.key);
+  }
+
   return getClientVisibleTrackingEvents(order)
     .sort((left, right) => {
+      const leftStageIndex = getTrackingEventStageIndex(left);
+      const rightStageIndex = getTrackingEventStageIndex(right);
+
+      if (leftStageIndex !== rightStageIndex) {
+        if (leftStageIndex === -1) {
+          return 1;
+        }
+
+        if (rightStageIndex === -1) {
+          return -1;
+        }
+
+        return leftStageIndex - rightStageIndex;
+      }
+
       const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
       const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
-      return rightTime - leftTime;
+      return leftTime - rightTime;
     })
     .map((event, index) => {
       const matchedState = TRACKING_TIMELINE_STATES.find((item) => item.key === event.key);
@@ -756,6 +775,27 @@ function buildTrackingEventRows(order) {
         hasDescription,
       };
     });
+}
+
+function buildTrackingVehicleSummary(order) {
+  const vinValue = String(order?.vehicle?.vin || "").trim();
+  const exteriorColor = String(order?.vehicle?.exteriorColor || order?.vehicle?.color || "").trim();
+  const interiorColor = String(order?.vehicle?.interiorColor || "").trim();
+  const summaryParts = [];
+
+  if (vinValue) {
+    summaryParts.push(`VIN ${vinValue}`);
+  }
+
+  if (exteriorColor) {
+    summaryParts.push(`Exterior ${exteriorColor}`);
+  }
+
+  if (interiorColor) {
+    summaryParts.push(`Interior ${interiorColor}`);
+  }
+
+  return summaryParts.join(" · ") || "VIN sin asignar";
 }
 
 function buildTrackingFiles(order) {
@@ -1062,7 +1102,7 @@ function renderTrackingResult(order) {
       <div class="tracking-card-header">
         <strong>${escapeHtml(order.vehicle?.brand || "Vehículo")} ${escapeHtml(order.vehicle?.model || "")}</strong>
         <p>Guía ${escapeHtml(order.trackingNumber)}</p>
-        <p>Compra ${escapeHtml(formatDate(order.purchaseDate))} · Llegada estimada ${escapeHtml(formatDate(order.expectedArrivalDate))}</p>
+        <p>${escapeHtml(buildTrackingVehicleSummary(order))}</p>
       </div>
       ${mediaMarkup ? `<div class="feed-media-strip">${mediaMarkup}</div>` : ""}
       ${timelineMarkup}
