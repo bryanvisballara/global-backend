@@ -61,6 +61,7 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "vehicle-payment",
   "other",
 ]);
+const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "false").trim().toLowerCase() === "true";
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
@@ -720,6 +721,10 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
 }
 
 async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, orderRegion = "latam") {
+  if (!ADMIN_TRACKING_EMAILS_ENABLED) {
+    return { sent: 0, failed: 0, skipped: true };
+  }
+
   if (!updatedStep) {
     return { sent: 0, failed: 0 };
   }
