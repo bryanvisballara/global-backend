@@ -1197,29 +1197,19 @@ function resolveInitialOrderId(filters) {
     return "";
   }
 
-  const match = getActiveOrders().find((order) => {
-    if (filters.orderId && getOrderIdentifier(order) === filters.orderId) {
-      return true;
-    }
+  const activeOrders = getActiveOrders();
 
-    if (filters.tracking && normalizeSearchValue(order?.trackingNumber) === filters.tracking) {
-      return true;
-    }
-
-    if (filters.vin && normalizeSearchValue(order?.vehicle?.vin) === filters.vin) {
-      return true;
-    }
-
-    if (filters.client && normalizeSearchValue(getClientDisplayName(order)) === filters.client) {
-      return true;
-    }
-
-    if (filters.internal && normalizeSearchValue(getInternalIdentifier(order)) === filters.internal) {
-      return true;
-    }
-
-    return false;
-  });
+  const match = filters.orderId
+    ? activeOrders.find((order) => getOrderIdentifier(order) === filters.orderId)
+    : filters.tracking
+      ? activeOrders.find((order) => normalizeSearchValue(order?.trackingNumber) === filters.tracking)
+      : filters.vin
+        ? activeOrders.find((order) => normalizeSearchValue(order?.vehicle?.vin) === filters.vin)
+        : filters.client
+          ? activeOrders.find((order) => normalizeSearchValue(getClientDisplayName(order)) === filters.client)
+          : filters.internal
+            ? activeOrders.find((order) => normalizeSearchValue(getInternalIdentifier(order)) === filters.internal)
+            : null;
 
   return match ? getOrderIdentifier(match) : "";
 }
@@ -1256,7 +1246,7 @@ function renderSearchResults(matches) {
               const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
 
               return `
-                <tr class="tracking-order-row is-broker-view" data-order-id="${escapeHtml(orderId)}">
+                <tr class="tracking-order-row is-broker-view">
                   <td data-label="Tracking">
                     <div class="tracking-order-link-stack">
                       <span class="tracking-order-static-value">${escapeHtml(trackingValue || "-")}</span>
@@ -1271,8 +1261,8 @@ function renderSearchResults(matches) {
                   <td data-label="Fecha">${escapeHtml(rowDate)}</td>
                   <td data-label="Acciones" class="tracking-order-actions-cell">
                     <div class="tracking-order-actions broker-actions">
-                      <button class="tracking-order-action-button" type="button" data-broker-upload="${escapeHtml(orderId)}">Subir archivos</button>
-                      <button class="tracking-order-action-button" type="button" data-broker-documents="${escapeHtml(orderId)}">Ver docs</button>
+                      <button class="tracking-order-action-button tracking-order-action-button-icon" type="button" data-broker-upload="${escapeHtml(orderId)}" aria-label="Subir archivos" title="Subir archivos">&#8593;</button>
+                      <button class="tracking-order-action-button tracking-order-action-button-icon" type="button" data-broker-documents="${escapeHtml(orderId)}" aria-label="Ver documentos" title="Ver documentos">&#8801;</button>
                     </div>
                   </td>
                 </tr>

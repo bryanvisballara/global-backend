@@ -2720,10 +2720,6 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-card-header {
-  display: grid;
-  gap: 18px;
-  justify-items: center;
-  text-align: center;
   padding: 16px 18px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
@@ -2735,67 +2731,8 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-card-header p {
-  margin: 0;
+  margin: 8px 0 0;
   color: var(--muted);
-}
-
-.tracking-card-title {
-  font-size: clamp(1.35rem, 5vw, 1.95rem);
-  line-height: 1.08;
-  text-align: center;
-}
-
-.tracking-card-guide {
-  font-size: 1rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.86) !important;
-  text-align: center;
-}
-
-.tracking-card-details-grid {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px 12px;
-}
-
-.tracking-card-detail-item {
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  text-align: center;
-  min-width: 0;
-}
-
-.tracking-card-detail-label {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.tracking-card-detail-value {
-  color: var(--text);
-  font-size: 1.1rem;
-  line-height: 1.3;
-  word-break: break-word;
-}
-
-@media (max-width: 760px) {
-  .tracking-card-header {
-    gap: 16px;
-    padding: 18px 16px;
-  }
-
-  .tracking-card-details-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px 12px;
-  }
-
-  .tracking-card-detail-value {
-    font-size: 1rem;
-  }
 }
 
 .tracking-roadmap {
@@ -3449,24 +3386,40 @@ body.admin-uppercase-view *::placeholder {
 .tracking-overview-header {
   display: grid;
   gap: 12px;
+  justify-items: center;
+  text-align: center;
 }
 
 .tracking-overview-header h3 {
+  margin: 0;
+  width: 100%;
   font-size: 2rem;
   line-height: 1.05;
+  text-align: center;
+}
+
+.tracking-overview-heading {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  justify-items: center;
+  text-align: center;
 }
 
 .tracking-overview-tracking {
+  display: block;
+  width: 100%;
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.2;
   color: var(--text);
+  text-align: center;
 }
 
 .tracking-overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 28px;
-  margin-top: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px 28px;
+  margin-top: 22px;
 }
 
 .tracking-overview-grid p {
@@ -3476,6 +3429,49 @@ body.admin-uppercase-view *::placeholder {
 
 .tracking-overview-grid strong {
   font-size: 1.02rem;
+}
+
+.tracking-overview-detail {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 88px;
+}
+
+.tracking-overview-detail-client {
+  grid-column: 1 / -1;
+  justify-items: center;
+  text-align: center;
+}
+
+.tracking-overview-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.tracking-overview-value {
+  color: var(--text);
+  font-size: 1.38rem;
+  line-height: 1.24;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-label {
+  font-size: 1.16rem;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+  font-size: 1.86rem;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) {
+  justify-items: center;
+  text-align: center;
+}
+
+.tracking-overview-detail-client .tracking-overview-value {
+  font-size: 1.72rem;
 }
 
 .tracking-stage-transition-card-inline {
@@ -4100,6 +4096,10 @@ body.admin-app-view .request-card-top strong {
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease;
 }
 
+.tracking-order-action-button-icon {
+  font-size: 1.15rem;
+}
+
 .tracking-order-action-button:hover,
 .tracking-order-action-button:focus-visible {
   transform: translateY(-1px);
@@ -4126,6 +4126,15 @@ body.admin-app-view .request-card-top strong {
 .tracking-order-row:hover td,
 .tracking-order-row.selected td {
   background: rgba(216, 170, 82, 0.08);
+}
+
+.tracking-order-row.is-broker-view:hover td,
+.tracking-order-row.is-broker-view.selected td {
+  background: transparent;
+}
+
+.tracking-order-row.is-broker-view {
+  cursor: default;
 }
 
 .tracking-order-row:focus-visible {
@@ -5141,6 +5150,22 @@ body.modal-open {
 
   .tracking-overview-header h3 {
     font-size: 1.6rem;
+  }
+
+  .tracking-overview-value {
+    font-size: 1.24rem;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-label {
+    font-size: 1.02rem;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+    font-size: 1.67rem;
+  }
+
+  .tracking-overview-detail-client .tracking-overview-value {
+    font-size: 1.42rem;
   }
 
   .tracking-document-upload-grid {
@@ -7997,6 +8022,28 @@ body.modal-open {
   background: rgba(244, 234, 211, 0.14);
 }
 
+.maint-registered-table-wrap {
+  margin-top: 14px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.maint-registered-table td[data-label="Estado"] {
+  white-space: nowrap;
+}
+
+body.admin-app-view .maint-registered-table .maint-vehicle-card-badge {
+  background: rgba(216, 170, 82, 0.18);
+  color: #7a4d00;
+  border: 1px solid rgba(216, 170, 82, 0.28);
+}
+
+body.admin-app-view .maint-registered-table .maint-vehicle-card-badge.is-soon {
+  background: rgba(255, 140, 60, 0.16);
+  color: #9a3f00;
+  border-color: rgba(255, 140, 60, 0.24);
+}
+
 .maint-vehicle-card {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -8623,20 +8670,33 @@ body.modal-open {
 }
 
 .maint-detail-table-wrap {
-  overflow-x: auto;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.015);
 }
 
-.maint-table {
+.maint-detail-table-scroll {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+}
+
+.maint-table {
+  width: max-content;
   border-collapse: collapse;
-  min-width: 1600px;
+  min-width: 1420px;
 }
 
 .maint-th {
-  padding: 13px 16px;
+  padding: 12px 12px;
   text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
@@ -8649,7 +8709,7 @@ body.modal-open {
 }
 
 .maint-td {
-  padding: 11px 16px;
+  padding: 10px 12px;
   vertical-align: middle;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-size: 0.84rem;
@@ -8702,13 +8762,13 @@ body.modal-open {
 
 .maint-td-action {
   white-space: nowrap;
-  min-width: 120px;
+  min-width: 96px;
   position: sticky;
   right: 0;
   background: rgba(13, 13, 14, 0.5);
   box-shadow: -2px 0 6px rgba(0, 0, 0, 0.3);
   z-index: 1;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
 .maint-row:hover .maint-td-action {
@@ -8726,7 +8786,7 @@ body.modal-open {
 /* Status select */
 .maint-status-select {
   width: 100%;
-  min-width: 175px;
+  min-width: 148px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
@@ -8754,7 +8814,7 @@ body.modal-open {
 /* Notes input */
 .maint-notes-input {
   width: 100%;
-  min-width: 150px;
+  min-width: 132px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -8768,7 +8828,7 @@ body.modal-open {
 
 .maint-appointment-date-input {
   width: 100%;
-  min-width: 150px;
+  min-width: 124px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -8781,7 +8841,7 @@ body.modal-open {
 
 .maint-appointment-time-input {
   width: 100%;
-  min-width: 125px;
+  min-width: 112px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -8850,7 +8910,13 @@ body.modal-open {
 /* Save button in table */
 .maint-save-btn {
   font-size: 0.78rem !important;
-  padding: 7px 14px !important;
+  width: 100%;
+  min-width: 84px;
+  padding: 7px 12px !important;
+  white-space: nowrap;
+}
+
+.maint-td[data-label="Placa"] {
   white-space: nowrap;
 }
 
@@ -8902,6 +8968,61 @@ body.modal-open {
   font-size: 0.73rem;
 }
 
+@media (max-width: 1366px) {
+  .maint-table {
+    min-width: 1180px;
+    table-layout: fixed;
+  }
+
+  .maint-th,
+  .maint-td {
+    padding: 8px 9px;
+    font-size: 0.75rem;
+  }
+
+  .maint-status-select,
+  .maint-notes-input,
+  .maint-appointment-date-input,
+  .maint-appointment-time-input {
+    min-width: 0;
+    font-size: 0.71rem;
+    padding: 6px 7px;
+  }
+
+  .maint-save-btn {
+    min-width: 72px;
+    padding: 7px 8px !important;
+    font-size: 0.73rem !important;
+  }
+
+  .maint-td-name,
+  .maint-td-phone,
+  .maint-td-city,
+  .maint-td-vehicle,
+  .maint-td-lastcontact {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .maint-table th:nth-child(6),
+  .maint-table td:nth-child(6),
+  .maint-table th:nth-child(9),
+  .maint-table td:nth-child(9) {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .maint-table {
+    min-width: 1020px;
+  }
+
+  .maint-table th:nth-child(3),
+  .maint-table td:nth-child(3) {
+    display: none;
+  }
+}
+
 @media (max-width: 760px) {
   .maint-detail-section {
     margin-top: 14px;
@@ -8933,6 +9054,10 @@ body.modal-open {
     overflow: visible;
     border: 0;
     background: transparent;
+  }
+
+  .maint-detail-table-scroll {
+    overflow: visible;
   }
 
   .maint-table {
@@ -9357,6 +9482,85 @@ body.admin-app-view .maint-detail-city-filter option,
 body.admin-app-view .maint-detail-city-filter optgroup {
   background: #ffffff;
   color: #111111;
+}
+
+body.admin-app-view .maint-table .maint-vehicle-card-plate {
+  background: rgba(17, 17, 17, 0.08) !important;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  color: #7a4d00 !important;
+}
+
+body.admin-app-view .maint-table .maint-td-action,
+body.admin-app-view .maint-table thead .maint-th:last-child {
+  box-shadow: -4px 0 10px rgba(17, 17, 17, 0.08);
+}
+
+body.admin-app-view .maint-table tbody tr:nth-child(odd) .maint-td-action {
+  background: #ffffff !important;
+}
+
+body.admin-app-view .maint-table tbody tr:nth-child(even) .maint-td-action {
+  background: #f3f3f3 !important;
+}
+
+body.admin-app-view.maint-detail-page .dashboard-stage,
+body.admin-app-view.maint-detail-page .maint-detail-section,
+body.admin-app-view.maint-detail-page .maint-detail-table-wrap,
+body.admin-app-view.maint-detail-page .maint-detail-table-scroll {
+  min-width: 0;
+}
+
+body.admin-app-view.maint-detail-page .dashboard-stage {
+  overflow: visible;
+}
+
+body.admin-app-view.maint-detail-page .maint-detail-table-wrap {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+body.admin-app-view.maint-detail-page .maint-detail-table-scroll {
+  max-width: 100%;
+  overflow-x: scroll !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+}
+
+body.admin-app-view.maint-detail-page .maint-table {
+  width: max-content;
+  min-width: 1280px;
+}
+
+body.admin-app-view.maint-detail-page .maint-table thead .maint-th:last-child,
+body.admin-app-view.maint-detail-page .maint-table .maint-td-action {
+  position: static;
+  right: auto;
+  box-shadow: none !important;
+}
+
+body.admin-app-view.maint-detail-page .maint-table thead .maint-th:last-child {
+  min-width: 112px;
+  background: #ffffff !important;
+  text-align: center;
+}
+
+body.admin-app-view.maint-detail-page .maint-table .maint-td-action,
+body.admin-app-view.maint-detail-page .maint-table tbody tr:nth-child(odd) .maint-td-action,
+body.admin-app-view.maint-detail-page .maint-table tbody tr:nth-child(even) .maint-td-action,
+body.admin-app-view.maint-detail-page .maint-row:hover .maint-td-action {
+  background: transparent !important;
+}
+
+body.admin-app-view.maint-detail-page .maint-table .maint-td-action {
+  min-width: 112px;
+  text-align: center;
+}
+
+@media (max-width: 1680px) {
+  body.admin-app-view.maint-detail-page .maint-table th:nth-child(13),
+  body.admin-app-view.maint-detail-page .maint-table td:nth-child(13) {
+    display: none;
+  }
 }
 
 body.admin-app-view .dashboard-form input::placeholder,
