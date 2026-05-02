@@ -96,7 +96,7 @@ app.use((req, res, next) => {
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!["admin", "manager", "adminUSA", "gerenteUSA"].includes(decodedToken.role)) {
+    if (!["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(decodedToken.role)) {
       return res.redirect(req.path.startsWith("/app/") ? "/app/index.html" : "/index.html");
     }
 

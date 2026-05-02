@@ -107,6 +107,9 @@ if (true) {
   const mediaSummary = document.getElementById("order-media-summary");
   const clientSelect = document.getElementById("order-client-select");
   const clientSummary = document.getElementById("order-client-summary");
+  const brokerField = document.getElementById("order-broker-field");
+  const brokerSelect = document.getElementById("order-broker-select");
+  const brokerSummary = document.getElementById("order-broker-summary");
   const successModal = document.getElementById("order-success-modal");
   const successDescription = document.getElementById("order-success-description");
   const successMeta = document.getElementById("order-success-meta");
@@ -115,6 +118,8 @@ if (true) {
     || null;
   let orders = [];
   let clients = [];
+  let brokers = [];
+  let currentAdminRole = "";
   let initOverlayWatchdog = null;
 
   if (orderForm) {
@@ -127,6 +132,16 @@ if (true) {
 
   function getEditingOrderId() {
     return String(orderForm?.dataset.orderId || "").trim();
+  }
+
+  function getOrderFormRegion() {
+    const explicitRegion = String(orderForm?.dataset.orderRegion || "").trim().toLowerCase();
+
+    if (explicitRegion) {
+      return explicitRegion;
+    }
+
+    return ["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim()) ? "usa" : "latam";
   }
 
   function forceClearLoadingState() {
@@ -222,6 +237,50 @@ if (true) {
     }
   }
 
+  function canAssignBrokerToOrders() {
+    if (currentAdminRole !== "gerenteUSA") {
+      return false;
+    }
+
+    const formMode = getOrderFormMode();
+
+    if (formMode !== "edit") {
+      return true;
+    }
+
+    return getOrderFormRegion() === "usa";
+  }
+
+  function renderBrokerOptions() {
+    if (!brokerField || !brokerSelect) {
+      return;
+    }
+
+    const canAssignBroker = canAssignBrokerToOrders();
+    brokerField.hidden = !canAssignBroker;
+    brokerSelect.disabled = !canAssignBroker;
+
+    if (!canAssignBroker) {
+      brokerSelect.innerHTML = '<option value="">Sin broker asignado</option>';
+      return;
+    }
+
+    const sortedBrokers = [...brokers].sort((left, right) => (
+      String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
+    ));
+
+    brokerSelect.innerHTML = [
+      '<option value="">Sin broker asignado</option>',
+      ...sortedBrokers.map((broker) => `<option value="${broker._id || broker.id}">${broker.name || broker.email || "Broker USA"}</option>`),
+    ].join("");
+
+    if (brokerSummary) {
+      brokerSummary.textContent = sortedBrokers.length
+        ? `${sortedBrokers.length} broker(s) USA disponible(s).`
+        : "No hay brokers USA creados todavía.";
+    }
+  }
+
   function closeSuccessModal() {
     if (!successModal) {
       return;
@@ -265,14 +324,28 @@ if (true) {
 
   async function loadOrdersPage() {
     try {
-      await loadOrdersPageSession();
-      const [ordersData, usersData] = await Promise.all([
+      const user = await loadOrdersPageSession();
+      currentAdminRole = String(user?.role || "");
+
+      if (currentAdminRole === "brokerUSA" && window.location.pathname === "/admin-orders.html") {
+        window.location.replace("/admin-tracking.html");
+        return;
+      }
+
+      if (orderForm) {
+        orderForm.dataset.orderRegion = ["gerenteUSA", "adminUSA", "brokerUSA"].includes(currentAdminRole) ? "usa" : "latam";
+      }
+
+      const [ordersData, usersData, adminsData] = await Promise.all([
         fetchOrdersPageJson("/api/admin/orders"),
         fetchOrdersPageJson("/api/admin/clients"),
+        canAssignBrokerToOrders() ? fetchOrdersPageJson("/api/admin/users/admins") : Promise.resolve({ users: [] }),
       ]);
       orders = normalizeCollectionPayload(ordersData, ["orders"]);
       clients = normalizeCollectionPayload(usersData, ["clients"]);
+      brokers = normalizeCollectionPayload(adminsData, ["users"]).filter((candidate) => String(candidate?.role || "").trim() === "brokerUSA");
       renderClientOptions();
+      renderBrokerOptions();
       window.__fillRandomTracking({ silent: true });
     } finally {
       stopInitOverlayWatchdog();
@@ -317,6 +390,12 @@ if (true) {
 
   async function submitAdminOrder(event) {
     event?.preventDefault?.();
+
+    if (currentAdminRole === "brokerUSA") {
+      adminSetFeedback(orderFeedback, "Tu perfil solo puede subir archivos en pedidos asignados.", "error");
+      return false;
+    }
+
     const formData = new FormData(orderForm);
     const formMode = getOrderFormMode();
     const editingOrderId = getEditingOrderId();
@@ -375,6 +454,10 @@ if (true) {
           notes: String(formData.get("notes") || "").trim(),
         };
 
+        if (canAssignBrokerToOrders()) {
+          payload.assignedBrokerId = String(formData.get("assignedBrokerId") || "").trim();
+        }
+
         const data = await fetchOrdersPageJson(`/api/admin/orders/${editingOrderId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
@@ -391,6 +474,10 @@ if (true) {
       formData.set("trackingNumber", trackingNumber);
       formData.set("purchaseDate", String(formData.get("purchaseDate") || "").trim() || buildLegacyPurchaseDate());
       formData.set("color", exteriorColor || interiorColor);
+
+      if (!canAssignBrokerToOrders()) {
+        formData.delete("assignedBrokerId");
+      }
 
       const data = await fetchOrdersPageJson("/api/admin/orders", {
         method: "POST",

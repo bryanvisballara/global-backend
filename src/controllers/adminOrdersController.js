@@ -298,7 +298,20 @@ function resolveClientModelForCreate(role) {
 }
 
 async function findOrderForRole(orderId, requester) {
-  if (canAccessLatamOrders(requester)) {
+  const requesterRole = normalizeRequesterRole(requester);
+
+  if (isUsaAdministrativeRole(requesterRole) && canAccessUsaOrders(requester)) {
+    const usaOrder = await OrderGlobalUS.findOne({
+      _id: orderId,
+      ...buildUsaOrderAccessFilter(requester),
+    });
+
+    if (usaOrder) {
+      return { order: usaOrder, orderModel: OrderGlobalUS, region: "usa" };
+    }
+  }
+
+  if (!isUsaAdministrativeRole(requesterRole) && canAccessLatamOrders(requester)) {
     const latamOrder = await Order.findById(orderId);
 
     if (latamOrder) {
@@ -306,7 +319,7 @@ async function findOrderForRole(orderId, requester) {
     }
   }
 
-  if (canAccessUsaOrders(requester)) {
+  if (!isUsaAdministrativeRole(requesterRole) && canAccessUsaOrders(requester)) {
     const usaOrder = await OrderGlobalUS.findOne({
       _id: orderId,
       ...buildUsaOrderAccessFilter(requester),
