@@ -319,6 +319,14 @@ const createOrderModalTitle = document.getElementById("tracking-create-order-tit
 const createOrderModalCopy = document.getElementById("tracking-create-order-copy");
 const createOrderSubmitButton = document.getElementById("tracking-create-order-submit");
 const createOrderFeedback = document.getElementById("order-feedback");
+const brokerDocumentModal = document.getElementById("broker-document-modal");
+const brokerDocumentForm = document.getElementById("broker-document-form");
+const brokerDocumentOrderSummary = document.getElementById("broker-document-order-summary");
+const brokerDocumentOrderCopy = document.getElementById("broker-document-order-copy");
+const brokerDocumentTypeField = document.getElementById("broker-document-type");
+const brokerDocumentFilesField = document.getElementById("broker-document-files");
+const brokerDocumentFeedback = document.getElementById("broker-document-feedback");
+const brokerDocumentSubmitButton = document.getElementById("broker-document-submit");
 const orderDeleteRequestModal = document.getElementById("order-delete-request-modal");
 const orderDeleteRequestForm = document.getElementById("order-delete-request-form");
 const orderDeleteRequestSummary = document.getElementById("order-delete-request-summary");
@@ -327,6 +335,7 @@ const orderDeleteRequestFeedback = document.getElementById("order-delete-request
 let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
 let pendingTrackingDeleteAction = null;
+let pendingBrokerDocumentOrderId = "";
 
 const searchConfigs = [
   {
@@ -380,6 +389,8 @@ const ORDER_DOCUMENT_TYPES = [
   { value: "BL", label: "BL" },
   { value: "CEPD", label: "CEPD" },
   { value: "TITULO", label: "TÍTULO" },
+  { value: "BUYERS_ORDER", label: "BUYERS ORDER" },
+  { value: "WIRE_INSTRUCTIONS", label: "WIRE INSTRUCTIONS" },
   { value: "BOOKING", label: "BOOKING" },
   { value: "TRACKING", label: "TRACKING" },
   { value: "PLAQUETA VIN", label: "PLAQUETA VIN" },
@@ -616,6 +627,10 @@ async function loadCreateOrderModalData() {
 
 function syncTrackingPageMode(order) {
   document.body.classList.toggle("tracking-detail-mode", Boolean(order));
+
+  if (trackingPreview) {
+    trackingPreview.hidden = isUsaBrokerRole();
+  }
 
   if (openCreateOrderModalButton) {
     openCreateOrderModalButton.hidden = Boolean(order) || !canCreateOrEditOrders();
@@ -1212,6 +1227,61 @@ function resolveInitialOrderId(filters) {
 function renderSearchResults(matches) {
   if (!matches.length) {
     trackingSearchResults.innerHTML = '<div class="empty-state">No encontramos pedidos activos con esos filtros.</div>';
+    return;
+  }
+
+  if (isUsaBrokerRole()) {
+    trackingSearchResults.innerHTML = `
+      <div class="tracking-table-wrap tracking-search-results-table-wrap">
+        <table class="tracking-data-table tracking-search-results-table">
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>VIN</th>
+              <th>Cliente</th>
+              <th>Destino</th>
+              <th>Estado</th>
+              <th>Vehículo</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${matches.map((order) => {
+              const orderId = getOrderIdentifier(order);
+              const trackingValue = String(order?.trackingNumber || "").trim();
+              const vinValue = String(order?.vehicle?.vin || "").trim();
+              const stageMeta = getCurrentStageMeta(order);
+              const vehicleLabel = formatOrderLabel(order);
+              const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
+
+              return `
+                <tr class="tracking-order-row is-broker-view" data-order-id="${escapeHtml(orderId)}">
+                  <td data-label="Tracking">
+                    <div class="tracking-order-link-stack">
+                      <span class="tracking-order-static-value">${escapeHtml(trackingValue || "-")}</span>
+                      ${renderOrderRegionBadge(order)}
+                    </div>
+                  </td>
+                  <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
+                  <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
+                  <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
+                  <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
+                  <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+                  <td data-label="Fecha">${escapeHtml(rowDate)}</td>
+                  <td data-label="Acciones" class="tracking-order-actions-cell">
+                    <div class="tracking-order-actions broker-actions">
+                      <button class="tracking-order-action-button" type="button" data-broker-upload="${escapeHtml(orderId)}">Subir archivos</button>
+                      <button class="tracking-order-action-button" type="button" data-broker-documents="${escapeHtml(orderId)}">Ver docs</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
     return;
   }
 
@@ -2066,6 +2136,98 @@ function renderOrderDocumentUploadCard() {
       </form>
     </article>
   `;
+}
+
+function closeBrokerDocumentModal() {
+  if (!brokerDocumentModal) {
+    return;
+  }
+
+  brokerDocumentModal.hidden = true;
+  pendingBrokerDocumentOrderId = "";
+
+  if (brokerDocumentForm) {
+    brokerDocumentForm.reset();
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "");
+  document.body.classList.remove("modal-open");
+}
+
+function openBrokerDocumentModal(orderId) {
+  const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+  if (!order || !brokerDocumentModal) {
+    return;
+  }
+
+  pendingBrokerDocumentOrderId = getOrderIdentifier(order);
+
+  if (brokerDocumentOrderSummary) {
+    brokerDocumentOrderSummary.value = `${order?.trackingNumber || "Sin tracking"} · ${formatOrderLabel(order)}`;
+  }
+
+  if (brokerDocumentOrderCopy) {
+    brokerDocumentOrderCopy.textContent = `${getClientDisplayName(order)} · VIN ${order?.vehicle?.vin || "Sin VIN"}`;
+  }
+
+  if (brokerDocumentTypeField) {
+    brokerDocumentTypeField.value = "";
+  }
+
+  if (brokerDocumentFilesField) {
+    brokerDocumentFilesField.value = "";
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "");
+  brokerDocumentModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+async function submitBrokerDocumentForm() {
+  const orderId = String(pendingBrokerDocumentOrderId || "").trim();
+
+  if (!orderId) {
+    throw new Error("No se encontro el pedido para subir documentos.");
+  }
+
+  if (!brokerDocumentForm) {
+    throw new Error("No se encontro el formulario de carga.");
+  }
+
+  const formData = new FormData(brokerDocumentForm);
+  const selectedType = String(formData.get("documentType") || "").trim();
+  const files = Array.from(brokerDocumentFilesField?.files || []);
+
+  if (!selectedType) {
+    throw new Error("Debes seleccionar un tipo de archivo.");
+  }
+
+  if (!files.length) {
+    throw new Error("Debes seleccionar al menos un archivo.");
+  }
+
+  if (brokerDocumentSubmitButton) {
+    brokerDocumentSubmitButton.disabled = true;
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "Subiendo archivos...");
+
+  try {
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${orderId}/documents`, {
+      method: "POST",
+      body: formData,
+    });
+
+    orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+    renderSearchResults(getFilteredOrders());
+    closeBrokerDocumentModal();
+    adminSetFeedback(trackingFeedback, "Archivo(s) cargado(s) correctamente.", "success");
+  } finally {
+    if (brokerDocumentSubmitButton) {
+      brokerDocumentSubmitButton.disabled = false;
+    }
+  }
 }
 
 function renderOrderSummary(order) {
@@ -3275,8 +3437,17 @@ window.addEventListener("admin-order-updated", async (event) => {
       searchConfigs[1].input.value = "";
       searchConfigs[2].input.value = "";
       renderSearchResults(getFilteredOrders());
-      selectOrder(updatedOrderId);
     }
+
+    selectedOrderId = "";
+    if (trackingOrderInput) {
+      trackingOrderInput.value = "";
+    }
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
+    syncSelectionToUrl(null);
+    renderTrackingOverview(null);
 
     adminSetFeedback(trackingFeedback, "Pedido actualizado correctamente.", "success");
   } catch (error) {
@@ -3308,6 +3479,11 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  if (event.target.closest("[data-close-broker-document-modal]")) {
+    closeBrokerDocumentModal();
+    return;
+  }
+
   const detailButton = event.target.closest("[data-order-detail-link]");
 
   if (detailButton) {
@@ -3315,6 +3491,25 @@ function handleTrackingPageClick(event) {
 
     if (href) {
       window.location.href = href;
+    }
+
+    return;
+  }
+
+  const brokerUploadButton = event.target.closest("[data-broker-upload]");
+
+  if (brokerUploadButton) {
+    openBrokerDocumentModal(String(brokerUploadButton.dataset.brokerUpload || ""));
+    return;
+  }
+
+  const brokerDocumentsButton = event.target.closest("[data-broker-documents]");
+
+  if (brokerDocumentsButton) {
+    const orderId = String(brokerDocumentsButton.dataset.brokerDocuments || "").trim();
+
+    if (orderId) {
+      window.location.href = `/admin-broker-documents.html?orderId=${encodeURIComponent(orderId)}`;
     }
 
     return;
@@ -3471,6 +3666,14 @@ function handleTrackingPageClick(event) {
 trackingRoot.addEventListener("click", handleTrackingPageClick);
 trackingPreview.addEventListener("click", handleTrackingPageClick);
 trackingStageTransitionCard?.addEventListener("click", handleTrackingPageClick);
+brokerDocumentModal?.addEventListener("click", handleTrackingPageClick);
+
+brokerDocumentForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitBrokerDocumentForm().catch((error) => {
+    adminSetFeedback(brokerDocumentFeedback, error.message, "error");
+  });
+});
 
 trackingPreview.addEventListener("submit", (event) => {
   const newEventForm = event.target.closest("[data-new-event-form]");
@@ -3595,6 +3798,15 @@ async function loadTrackingPage() {
   }
 
   renderSearchResults(getFilteredOrders());
+
+  if (isUsaBrokerRole()) {
+    syncTrackingPageMode(null);
+    renderOrderSummary(null);
+    renderStates();
+    stopInitOverlayWatchdog();
+    forceClearLoadingState();
+    return;
+  }
 
   if (initialOrderId) {
     selectOrder(initialOrderId);

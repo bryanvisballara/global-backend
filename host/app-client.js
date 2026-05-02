@@ -41,6 +41,16 @@ function resolveAppPagePath(pageName = "") {
   return `${isEmbeddedAppPage ? "/app" : ""}/${normalizedPageName}`;
 }
 
+function isAdministrativeRole(role = "") {
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || "").trim());
+}
+
+function resolveAuthenticatedLandingPage(role = "") {
+  return String(role || "").trim() === "brokerUSA"
+    ? resolveAppPagePath("admin-tracking.html")
+    : resolveAppPagePath("admin.html");
+}
+
 function isDirectApiHostCandidate(hostname = "") {
   const normalizedHostname = String(hostname || "").trim().toLowerCase();
 
@@ -381,9 +391,9 @@ async function completeAuthenticatedSession({ token, role, user }) {
 
   setFeedback("Acceso correcto. Redirigiendo...", "success");
 
-  if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
+  if (isAdministrativeRole(resolvedRole)) {
     window.setTimeout(() => {
-      window.location.href = resolveAppPagePath("admin.html");
+      window.location.href = resolveAuthenticatedLandingPage(resolvedRole);
     }, 250);
     return;
   }
@@ -469,8 +479,8 @@ async function redirectAuthenticatedUser() {
     sessionStorage.setItem("globalAppToken", token);
     sessionStorage.setItem("globalAppRole", resolvedRole);
 
-    if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
-      window.location.replace(resolveAppPagePath("admin.html"));
+    if (isAdministrativeRole(resolvedRole)) {
+      window.location.replace(resolveAuthenticatedLandingPage(resolvedRole));
       return;
     }
 
@@ -847,7 +857,9 @@ if (verificationForm) {
       renderVerificationResendButton();
 
       window.setTimeout(() => {
-        window.location.href = resolveAppPagePath("client.html");
+        window.location.href = isAdministrativeRole(data.user.role)
+          ? resolveAuthenticatedLandingPage(data.user.role)
+          : resolveAppPagePath("client.html");
       }, 300);
     } catch (error) {
       setVerificationFeedback(error.message, "error");

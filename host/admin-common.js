@@ -125,7 +125,7 @@ function getCurrentRole() {
 }
 
 function isAdminPanelRole(role) {
-  return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(String(role || ""));
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
 }
 
 function isManagerRole(role) {
@@ -133,7 +133,11 @@ function isManagerRole(role) {
 }
 
 function isUsaAdministrativeRole(role) {
-  return ["adminUSA", "gerenteUSA"].includes(String(role || ""));
+  return ["adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
+}
+
+function isUsaBrokerRole(role) {
+  return String(role || "") === "brokerUSA";
 }
 
 function canCreateAdministrativeUsers(role) {
@@ -173,6 +177,10 @@ function requireAdminAccess() {
   const currentPath = window.location.pathname || "";
   const currentRole = getCurrentRole();
   const hasAuthToken = Boolean(getAuthToken());
+  const brokerAllowedPages = new Set([
+    "/admin-tracking.html",
+    "/admin-broker-documents.html",
+  ]);
   const latamOnlyPages = new Set([
     "/admin-client-requests.html",
     "/admin-order-accounting.html",
@@ -192,6 +200,11 @@ function requireAdminAccess() {
     return false;
   }
 
+  if (isUsaBrokerRole(currentRole) && !brokerAllowedPages.has(currentPath)) {
+    window.location.replace("/admin-tracking.html");
+    return false;
+  }
+
   if (isUsaAdministrativeRole(currentRole) && latamOnlyPages.has(currentPath)) {
     window.location.replace("/admin.html");
     return false;
@@ -204,6 +217,7 @@ function applyManagerNavigationVisibility(role = getCurrentRole()) {
   const normalizedRole = String(role || "");
   const showAdminCreatorItems = canCreateAdministrativeUsers(normalizedRole);
   const hideLatamOnlyItems = isUsaAdministrativeRole(normalizedRole);
+  const brokerOnlyOrders = isUsaBrokerRole(normalizedRole);
 
   document.querySelectorAll(".admin-manager-only, .admin-admin-creator-only").forEach((element) => {
     const shouldShow = showAdminCreatorItems;
@@ -222,6 +236,13 @@ function applyManagerNavigationVisibility(role = getCurrentRole()) {
       element.hidden = hideLatamOnlyItems;
     }
   });
+
+  if (brokerOnlyOrders) {
+    document.querySelectorAll(".admin-nav-link").forEach((link) => {
+      const href = String(link.getAttribute("href") || "").trim();
+      link.style.display = href === "/admin-tracking.html" ? "" : "none";
+    });
+  }
 
   document.querySelectorAll(".admin-sidebar-section").forEach((section) => {
     const hasVisibleLinks = Array.from(section.querySelectorAll(".admin-nav-link"))
@@ -359,13 +380,14 @@ function setFeedback(element, message, type = "") {
 function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
   const isUsaRole = isUsaAdministrativeRole(currentRole);
+  const isBrokerRole = isUsaBrokerRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navSections = [
     {
       title: "Gestion",
       items: [
         { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
-        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html", "/admin-order-accounting.html"] },
+        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html", "/admin-order-accounting.html", "/admin-broker-documents.html"] },
         { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
         { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
       ],
@@ -415,6 +437,10 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
       }
 
       if (item.adminCreatorOnly && !canCreateAdministrativeUsers(currentRole)) {
+        inlineStyles.push("display:none");
+      }
+
+      if (isBrokerRole && item.href !== "/admin-tracking.html") {
         inlineStyles.push("display:none");
       }
 
@@ -895,6 +921,7 @@ window.AdminApp = {
   formatDateTimeInBogota,
   hideLoadingOverlay,
   isUsaAdministrativeRole,
+  isUsaBrokerRole,
   loadAdminSession,
   parseMediaUrls,
   populateSelect,

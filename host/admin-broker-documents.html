@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Documentos del pedido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260502-brokerdocs01" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260502-brokerdocs01" />
+  </head>
+  <body class="admin-app-view admin-uppercase-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/admin-tracking.html">Volver a pedidos</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+        <section class="page-hero tracking-hero">
+          <div class="tracking-hero-copy">
+            <h1>Ver docs</h1>
+            <p id="broker-documents-copy" class="dashboard-lead">Aqui puedes revisar los archivos cargados del pedido asignado.</p>
+          </div>
+        </section>
+        <section class="module-grid single-module-grid">
+          <article class="dashboard-card module-card module-card-wide">
+            <div id="broker-documents-summary" class="tracking-card-header"></div>
+            <p id="broker-documents-feedback" class="feedback" aria-live="polite"></p>
+            <div class="tracking-events-editor-grid">
+              <article class="dashboard-card tracking-table-card tracking-order-documents-card">
+                <div class="card-heading compact">
+                  <h2>Fotos del vehículo</h2>
+                </div>
+                <div id="broker-documents-photos"></div>
+              </article>
+              <article class="dashboard-card tracking-table-card tracking-order-documents-card">
+                <div class="card-heading compact">
+                  <h2>Documentos privados USA</h2>
+                </div>
+                <div id="broker-documents-private"></div>
+              </article>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script src="/admin-common.js?v=20260502-adminnav-broker01"></script>
+    <script src="/admin-broker-documents.js?v=20260502-brokerdocs01"></script>
+  </body>
+</html>

@@ -165,8 +165,8 @@ if (!getToken()) {
   redirectToLogin();
 }
 
-if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(getRole())) {
-  window.location.href = "/admin.html";
+if (["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(getRole())) {
+  window.location.href = getRole() === "brokerUSA" ? "/admin-tracking.html" : "/admin.html";
 }
 
 const viewNodes = Array.from(document.querySelectorAll(".client-view"));
