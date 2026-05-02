@@ -312,6 +312,9 @@ const createOrderTrackingInput = document.getElementById("order-tracking-number"
 const createOrderGenerateTrackingButton = document.getElementById("generate-tracking-button");
 const createOrderClientSelect = document.getElementById("order-client-select");
 const createOrderClientSummary = document.getElementById("order-client-summary");
+const createOrderBrokerField = document.getElementById("order-broker-field");
+const createOrderBrokerSelect = document.getElementById("order-broker-select");
+const createOrderBrokerSummary = document.getElementById("order-broker-summary");
 const createOrderModalTitle = document.getElementById("tracking-create-order-title");
 const createOrderModalCopy = document.getElementById("tracking-create-order-copy");
 const createOrderSubmitButton = document.getElementById("tracking-create-order-submit");
@@ -379,6 +382,7 @@ const ORDER_DOCUMENT_TYPES = [
   { value: "TITULO", label: "TÍTULO" },
   { value: "BOOKING", label: "BOOKING" },
   { value: "TRACKING", label: "TRACKING" },
+  { value: "PLAQUETA VIN", label: "PLAQUETA VIN" },
   { value: "REGISTRO DE IMPORTACION", label: "REGISTRO DE IMPORTACION" },
   { value: "FOTOS", label: "FOTOS" },
   { value: "AES", label: "AES" },
@@ -403,6 +407,7 @@ const ORDER_DOCUMENT_TYPE_LABELS = new Map(
 );
 const LEGACY_TRACKING_TRANSITION_STORAGE_KEY = "globalAdminTrackingLegacyTransition";
 let useLegacyTrackingTransition = sessionStorage.getItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY) === "1";
+let createOrderBrokers = [];
 
 function getOrderDocumentTypeLabel(value) {
   const normalizedValue = normalizeText(value || "OTRO").toUpperCase();
@@ -563,10 +568,49 @@ function renderCreateOrderClientOptions() {
   }
 }
 
+function renderCreateOrderBrokerOptions() {
+  if (!createOrderBrokerField || !createOrderBrokerSelect) {
+    return;
+  }
+
+  const fallbackOrderRegion = ["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim())
+    ? "usa"
+    : "latam";
+  const orderRegion = String(createOrderForm?.dataset.orderRegion || fallbackOrderRegion).trim().toLowerCase();
+  const canAssignBroker = canAssignBrokerToOrders() && orderRegion === "usa";
+  createOrderBrokerField.hidden = !canAssignBroker;
+  createOrderBrokerSelect.disabled = !canAssignBroker;
+
+  if (!canAssignBroker) {
+    createOrderBrokerSelect.innerHTML = '<option value="">Sin broker asignado</option>';
+    return;
+  }
+
+  const sortedBrokers = [...createOrderBrokers].sort((left, right) => (
+    String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
+  ));
+
+  createOrderBrokerSelect.innerHTML = [
+    '<option value="">Sin broker asignado</option>',
+    ...sortedBrokers.map((broker) => `<option value="${escapeHtml(broker._id || broker.id || "")}">${escapeHtml(broker.name || broker.email || "Broker USA")}</option>`),
+  ].join("");
+
+  if (createOrderBrokerSummary) {
+    createOrderBrokerSummary.textContent = sortedBrokers.length
+      ? `${sortedBrokers.length} broker(s) USA disponible(s).`
+      : "No hay brokers USA creados todavía.";
+  }
+}
+
 async function loadCreateOrderModalData() {
-  const clientsData = await fetchTrackingPageJson("/api/admin/clients");
+  const [clientsData, adminsData] = await Promise.all([
+    fetchTrackingPageJson("/api/admin/clients"),
+    canAssignBrokerToOrders() ? fetchTrackingPageJson("/api/admin/users/admins") : Promise.resolve({ users: [] }),
+  ]);
   createOrderClients = normalizeCollectionPayload(clientsData, ["clients"]);
+  createOrderBrokers = normalizeCollectionPayload(adminsData, ["users"]).filter((user) => String(user?.role || "").trim() === "brokerUSA");
   renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
   applyCreateOrderTrackingNumber();
 }
 
@@ -574,7 +618,7 @@ function syncTrackingPageMode(order) {
   document.body.classList.toggle("tracking-detail-mode", Boolean(order));
 
   if (openCreateOrderModalButton) {
-    openCreateOrderModalButton.hidden = Boolean(order);
+    openCreateOrderModalButton.hidden = Boolean(order) || !canCreateOrEditOrders();
   }
 
   if (trackingHeroActions) {
@@ -592,6 +636,22 @@ function getActiveOrders() {
 
 function isAnthonyGlobalOwner() {
   return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+}
+
+function isUsaBrokerRole(role = currentAdminRole) {
+  return String(role || "").trim() === "brokerUSA";
+}
+
+function canCreateOrEditOrders() {
+  return !isUsaBrokerRole();
+}
+
+function canAssignBrokerToOrders() {
+  return currentAdminRole === "gerenteUSA";
+}
+
+function canManageOrderDocumentActions() {
+  return !isUsaBrokerRole();
 }
 
 function normalizeEntityId(value) {
@@ -1052,13 +1112,24 @@ function getFilteredOrders() {
   });
 }
 
-function findExactMatch(matches) {
-  return matches.find((order) => searchConfigs.every((config) => {
-    const query = normalizeSearchValue(config.input.value);
+function hasActiveSearchFilters() {
+  const hasTextQuery = searchConfigs.some((config) => normalizeSearchValue(config.input.value));
+  const hasStateFilter = Boolean(String(trackingStateFilter?.value || "").trim());
+  const hasDateFrom = Boolean(String(trackingDateFromFilter?.value || "").trim());
+  const hasDateTo = Boolean(String(trackingDateToFilter?.value || "").trim());
 
-    if (!query) {
-      return true;
-    }
+  return hasTextQuery || hasStateFilter || hasDateFrom || hasDateTo;
+}
+
+function findExactMatch(matches) {
+  const activeSearchConfigs = searchConfigs.filter((config) => normalizeSearchValue(config.input.value));
+
+  if (!activeSearchConfigs.length) {
+    return null;
+  }
+
+  return matches.find((order) => activeSearchConfigs.every((config) => {
+    const query = normalizeSearchValue(config.input.value);
 
     return getConfigSearchValues(config, order).some((value) => normalizeSearchValue(value) === query);
   })) || null;
@@ -1170,6 +1241,15 @@ function renderSearchResults(matches) {
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
             const pendingDeletion = hasPendingDeletionRequest(order);
             const deleteLabel = pendingDeletion ? "Solicitud pendiente" : "Eliminar pedido";
+            const canManageOrder = canCreateOrEditOrders();
+            const actionMarkup = canManageOrder
+              ? `
+                  <div class="tracking-order-actions">
+                    <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
+                    <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
+                  </div>
+                `
+              : '<span class="admin-user-delete-placeholder">-</span>';
 
             return `
               <tr
@@ -1194,10 +1274,7 @@ function renderSearchResults(matches) {
                 <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
                 <td data-label="Acción" class="tracking-order-actions-cell">
-                  <div class="tracking-order-actions">
-                    <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
-                    <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
-                  </div>
+                  ${actionMarkup}
                 </td>
               </tr>
             `;
@@ -1802,12 +1879,12 @@ function renderAdminEventsTable(order) {
         <tbody>
           ${rows.map((row) => `
             <tr>
-              <td>${escapeHtml(formatDateTimeLabel(row.date))}</td>
-              <td>${escapeHtml(row.stage)}</td>
-              <td>${escapeHtml(row.title)}</td>
-              <td>${escapeHtml(row.location)}</td>
-              <td>${escapeHtml(row.description)}</td>
-              <td class="admin-tracking-events-actions-cell">
+              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(row.date))}</td>
+              <td data-label="Etapa">${escapeHtml(row.stage)}</td>
+              <td data-label="Título">${escapeHtml(row.title)}</td>
+              <td data-label="Ubicación">${escapeHtml(row.location)}</td>
+              <td data-label="Descripción">${escapeHtml(row.description)}</td>
+              <td data-label="Acciones" class="admin-tracking-events-actions-cell">
                 <div class="admin-tracking-event-actions">
                   ${renderVisibilityButton(row.stateKey, row.updateIndex, !row.clientVisible, row.clientVisible, row.eventId)}
                   ${renderDeleteEventTableButton(row.stateKey, row.updateIndex, row.eventId)}
@@ -1934,19 +2011,21 @@ function renderOrderDocumentsTable(order) {
         <tbody>
           ${documents.map((document) => `
             <tr>
-              <td>${escapeHtml(document.documentType)}</td>
-              <td>
+              <td data-label="Tipo">${escapeHtml(document.documentType)}</td>
+              <td data-label="Archivo">
                 <div class="tracking-document-link-cell">
                   <a class="tracking-document-link" href="${escapeHtml(document.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(document.name)}</a>
                 </div>
               </td>
-              <td>${escapeHtml(document.note || "-")}</td>
-              <td>${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
-              <td class="admin-tracking-events-actions-cell">
-                <div class="admin-tracking-event-actions">
-                  ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
-                  ${renderOrderDocumentDeleteButton(document.documentId)}
-                </div>
+              <td data-label="Nota">${escapeHtml(document.note || "-")}</td>
+              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
+              <td data-label="Acciones" class="admin-tracking-events-actions-cell">
+                ${canManageOrderDocumentActions()
+                  ? `<div class="admin-tracking-event-actions">
+                      ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
+                      ${renderOrderDocumentDeleteButton(document.documentId)}
+                    </div>`
+                  : '<span class="admin-user-delete-placeholder">-</span>'}
               </td>
             </tr>
           `).join("")}
@@ -2025,19 +2104,29 @@ function renderTrackingOverview(order) {
     <div class="tracking-overview-stack">
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
-          <header class="state-order-header tracking-overview-header">
-            <h3>${escapeHtml(formatOrderLabel(order))}</h3>
-            <strong class="tracking-overview-tracking">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+          <header class="state-order-header tracking-overview-header" style="display:block;width:100%;text-align:center;">
+            <div class="tracking-overview-heading" style="display:inline-grid;gap:12px;justify-items:center;margin:0 auto;text-align:center;">
+              <h3 style="margin:0;text-align:center;">${escapeHtml(formatOrderLabel(order))}</h3>
+              <strong class="tracking-overview-tracking" style="display:block;text-align:center;">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+            </div>
           </header>
           <div class="state-order-grid tracking-overview-grid">
-            <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
-            <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
-            <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-            <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
-            <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
-            <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
-            <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-            <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+            <article class="tracking-overview-detail tracking-overview-detail-client">
+              <span class="tracking-overview-label">Cliente</span>
+              <strong class="tracking-overview-value">${escapeHtml(getClientDisplayName(order))}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">VIN</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.vin || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Exterior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Interior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.interiorColor || "-")}</strong>
+            </article>
           </div>
           ${String(order?.orderRegion || "latam") === "latam" ? `
           <div class="tracking-new-event-actions tracking-order-accounting-action">
@@ -2639,6 +2728,15 @@ async function finalizeSelectedOrder() {
 }
 
 function handleSearchClick() {
+  if (!hasActiveSearchFilters()) {
+    adminSetFeedback(trackingFeedback, "Debes seleccionar al menos un filtro antes de buscar.", "error");
+    openSuccessModal({
+      title: "Debe seleccionar un filtro",
+      message: "Selecciona al menos un filtro antes de presionar Filtrar.",
+    });
+    return;
+  }
+
   const matches = getFilteredOrders();
   renderSearchResults(matches);
 
@@ -2783,6 +2881,12 @@ function setCreateOrderModalMode(mode, order = null) {
   const normalizedMode = mode === "edit" ? "edit" : "create";
   createOrderForm.dataset.mode = normalizedMode;
   createOrderForm.dataset.orderId = normalizedMode === "edit" ? getOrderIdentifier(order) : "";
+  createOrderForm.dataset.orderRegion = normalizedMode === "edit"
+    ? String(
+        order?.orderRegion
+        || (["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim()) ? "usa" : "latam")
+      ).trim().toLowerCase()
+    : (["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim()) ? "usa" : "latam");
 
   if (createOrderClientSelect) {
     createOrderClientSelect.required = normalizedMode !== "edit";
@@ -2801,6 +2905,8 @@ function setCreateOrderModalMode(mode, order = null) {
   if (createOrderSubmitButton) {
     createOrderSubmitButton.textContent = normalizedMode === "edit" ? "Guardar cambios" : "Crear pedido";
   }
+
+  renderCreateOrderBrokerOptions();
 }
 
 function resolveCreateOrderFieldValue(field, value) {
@@ -2856,12 +2962,17 @@ function fillCreateOrderFormFromOrder(order) {
   if (createOrderClientSelect) {
     createOrderClientSelect.value = String(order?.client?._id || order?.client?.id || order?.clientId || "");
   }
+
+  if (createOrderBrokerSelect) {
+    createOrderBrokerSelect.value = String(order?.assignedBroker?._id || order?.assignedBroker?.id || order?.assignedBrokerId || "");
+  }
 }
 
 function resetCreateOrderFormState() {
   createOrderForm?.reset();
   setCreateOrderModalMode("create");
   renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
   applyCreateOrderTrackingNumber();
   adminSetFeedback(createOrderFeedback, "");
 }
@@ -3227,7 +3338,7 @@ function handleTrackingPageClick(event) {
 
   if (orderRow) {
     selectOrder(String(orderRow.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    adminSetFeedback(trackingFeedback, canCreateOrEditOrders() ? "Pedido seleccionado. Ya puedes gestionar sus estados." : "Pedido seleccionado. Ya puedes subir archivos y documentos.", "success");
     return;
   }
 
@@ -3235,7 +3346,7 @@ function handleTrackingPageClick(event) {
 
   if (orderButton) {
     selectOrder(String(orderButton.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    adminSetFeedback(trackingFeedback, canCreateOrEditOrders() ? "Pedido seleccionado. Ya puedes gestionar sus estados." : "Pedido seleccionado. Ya puedes subir archivos y documentos.", "success");
     return;
   }
 
