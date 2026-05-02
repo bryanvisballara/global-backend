@@ -168,13 +168,17 @@ async function resolveAssignedBrokerForOrder({ assignedBrokerId, requester, orde
   }
 
   if (String(orderRegion || "") !== "usa" || normalizeRequesterRole(requester) !== "gerenteUSA") {
-    throw new Error("Solo el gerente USA puede asignar brokers a pedidos USA.");
+    const error = new Error("Solo el gerente USA puede asignar brokers a pedidos USA.");
+    error.status = 400;
+    throw error;
   }
 
   const brokerUser = await User.findById(normalizedBrokerId).select("_id role name email");
 
   if (!brokerUser || !isUsaBrokerRole(brokerUser.role)) {
-    throw new Error("Debes seleccionar un broker USA válido.");
+    const error = new Error("Debes seleccionar un broker USA válido.");
+    error.status = 400;
+    throw error;
   }
 
   return brokerUser;
@@ -1961,7 +1965,8 @@ async function updateOrder(req, res) {
       order: await serializeOrder(updatedOrder, orderResult.region),
     });
   } catch (error) {
-    return res.status(500).json({ message: "Error updating order" });
+    console.error("Error updating order", error);
+    return res.status(error.status || 500).json({ message: error.message || "Error updating order" });
   }
 }
 
