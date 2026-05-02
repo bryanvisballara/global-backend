@@ -2,10 +2,22 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 
 const LATAM_ADMIN_ROLES = ["manager", "admin"];
-const USA_ADMIN_ROLES = ["gerenteUSA", "adminUSA"];
+const USA_ADMIN_ROLES = ["gerenteUSA", "adminUSA", "brokerUSA"];
 
 function isUsaAdministrativeRole(role) {
   return USA_ADMIN_ROLES.includes(String(role || ""));
+}
+
+function resolveAdministrativeRoleToCreate(requesterRole, requestedRole) {
+  if (requesterRole === "manager") {
+    return "admin";
+  }
+
+  if (requesterRole !== "gerenteUSA") {
+    return "";
+  }
+
+  return String(requestedRole || "").trim() === "brokerUSA" ? "brokerUSA" : "adminUSA";
 }
 
 async function listUsers(req, res) {
@@ -42,7 +54,7 @@ async function createAdministrativeUser(req, res) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const { name, email, password } = req.body || {};
+    const { name, email, password, role } = req.body || {};
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email and password are required" });
@@ -66,12 +78,13 @@ async function createAdministrativeUser(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(String(password), 10);
+    const administrativeRole = resolveAdministrativeRoleToCreate(requesterRole, role);
 
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
       password: hashedPassword,
-      role: isUsaManager ? "adminUSA" : "admin",
+      role: administrativeRole || (isUsaManager ? "adminUSA" : "admin"),
       isActive: true,
     });
 
@@ -95,7 +108,7 @@ async function deleteAdministrativeUser(req, res) {
     const requesterRole = String(req.user?.role || "");
     const requesterId = String(req.user?._id || req.user?.id || "").trim();
     const administrativeUserId = String(req.params.adminUserId || "").trim();
-    const rolesAllowedToDelete = requesterRole === "gerenteUSA" ? ["adminUSA"] : requesterRole === "manager" ? ["admin"] : [];
+    const rolesAllowedToDelete = requesterRole === "gerenteUSA" ? ["adminUSA", "brokerUSA"] : requesterRole === "manager" ? ["admin"] : [];
 
     if (!rolesAllowedToDelete.length) {
       return res.status(403).json({ message: "Forbidden" });

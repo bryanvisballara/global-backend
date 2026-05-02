@@ -25,7 +25,7 @@ const {
   mapTrackingEventToUpdate,
 } = require("../services/trackingEventService");
 
-const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA"]);
+const USA_ADMIN_ROLES = new Set(["gerenteUSA", "adminUSA", "brokerUSA"]);
 const LATAM_LOCKED_STEP_KEYS = new Set(["order-received", "vehicle-search", "booking-and-shipping"]);
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const ORDER_DOCUMENT_TYPES = new Set([
@@ -112,6 +112,10 @@ function isUsaAdministrativeRole(role) {
   return USA_ADMIN_ROLES.has(String(role || ""));
 }
 
+function isUsaBrokerRole(role) {
+  return String(role || "") === "brokerUSA";
+}
+
 function isGlobalManagerRole(requester) {
   return normalizeRequesterRole(requester) === "manager";
 }
@@ -127,6 +131,60 @@ function canAccessLatamOrders(requester) {
 
 function canAccessUsaOrders(requester) {
   return isAnthonyGlobalOwner(requester) || isUsaAdministrativeRole(normalizeRequesterRole(requester));
+}
+
+function canCreateOrEditOrders(requester) {
+  const normalizedRole = normalizeRequesterRole(requester);
+  return ["manager", "admin", "gerenteUSA", "adminUSA"].includes(normalizedRole) || isAnthonyGlobalOwner(requester);
+}
+
+function canManageOrderDocuments(requester) {
+  return !isUsaBrokerRole(normalizeRequesterRole(requester));
+}
+
+function buildUsaOrderAccessFilter(requester) {
+  if (isAnthonyGlobalOwner(requester)) {
+    return {};
+  }
+
+  if (isUsaBrokerRole(normalizeRequesterRole(requester))) {
+    const requesterId = normalizeRequesterId(requester);
+
+    if (!requesterId) {
+      return { _id: null };
+    }
+
+    return { assignedBroker: requesterId };
+  }
+
+  return {};
+}
+
+async function resolveAssignedBrokerForOrder({ assignedBrokerId, requester, orderRegion, allowEmpty = true }) {
+  const normalizedBrokerId = String(assignedBrokerId || "").trim();
+
+  if (!normalizedBrokerId) {
+    return allowEmpty ? null : undefined;
+  }
+
+  if (String(orderRegion || "") !== "usa" || normalizeRequesterRole(requester) !== "gerenteUSA") {
+    throw new Error("Solo el gerente USA puede asignar brokers a pedidos USA.");
+  }
+
+  const brokerUser = await User.findById(normalizedBrokerId).select("_id role name email");
+
+  if (!brokerUser || !isUsaBrokerRole(brokerUser.role)) {
+    throw new Error("Debes seleccionar un broker USA válido.");
+  }
+
+  return brokerUser;
+}
+
+function populateOrderParties(query) {
+  return query
+    .populate("client", "name email phone")
+    .populate("createdBy", "name email role")
+    .populate("assignedBroker", "name email role");
 }
 
 function resolveOrderRegionByRole(role) {
@@ -245,7 +303,10 @@ async function findOrderForRole(orderId, requester) {
   }
 
   if (canAccessUsaOrders(requester)) {
-    const usaOrder = await OrderGlobalUS.findById(orderId);
+    const usaOrder = await OrderGlobalUS.findOne({
+      _id: orderId,
+      ...buildUsaOrderAccessFilter(requester),
+    });
 
     if (usaOrder) {
       return { order: usaOrder, orderModel: OrderGlobalUS, region: "usa" };
@@ -1460,6 +1521,10 @@ async function syncMaintenanceSchedule(order, adminUserId) {
 
 async function createOrder(req, res) {
   try {
+    if (!canCreateOrEditOrders(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para crear pedidos" });
+    }
+
     const orderRegion = resolveOrderRegionByRole(req.user?.role);
     const OrderModel = resolveOrderModelForCreate(req.user?.role);
     const ClientModel = resolveClientModelForCreate(req.user?.role);
@@ -1473,6 +1538,7 @@ async function createOrder(req, res) {
     const version = normalizeOptionalString(req.body.version);
     const trackingNumber = normalizeTrackingNumber(req.body.trackingNumber);
     const clientId = normalizeOptionalString(req.body.clientId);
+    const assignedBrokerId = normalizeOptionalString(req.body.assignedBrokerId);
     const notes = normalizeOptionalString(req.body.notes);
     const purchaseDate = resolveOrderPurchaseDate(req.body.purchaseDate);
     const expectedArrivalDate = normalizeOptionalString(req.body.expectedArrivalDate);
@@ -1527,10 +1593,16 @@ async function createOrder(req, res) {
     const uploadedMedia = await uploadFilesToCloudinary(req.files || []);
     const initialTrackingTimestamp = purchaseDate || new Date();
     const trackingSteps = buildInitialTrackingSteps(initialTrackingTimestamp);
+    const assignedBroker = await resolveAssignedBrokerForOrder({
+      assignedBrokerId,
+      requester: req.user,
+      orderRegion,
+    });
 
     const order = await OrderModel.create({
       client: client._id,
       createdBy: req.user._id,
+      assignedBroker: assignedBroker?._id || null,
       trackingNumber: normalizedTrackingNumber,
       vehicle: {
         brand: vehicle.brand,
@@ -1555,9 +1627,7 @@ async function createOrder(req, res) {
       await syncMaintenanceSchedule(order, req.user._id);
     }
 
-    const populatedOrder = await OrderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const populatedOrder = await populateOrderParties(OrderModel.findById(order._id));
 
     return res.status(201).json({
       message: "Order created successfully",
@@ -1586,12 +1656,13 @@ async function suggestTrackingNumber(req, res) {
 
 async function listOrders(req, res) {
   try {
+    const usaOrderFilter = buildUsaOrderAccessFilter(req.user);
     const [latamOrders, usaOrders] = await Promise.all([
       canAccessLatamOrders(req.user)
-        ? Order.find().populate("client", "name email phone").populate("createdBy", "name email role")
+        ? populateOrderParties(Order.find())
         : Promise.resolve([]),
       canAccessUsaOrders(req.user)
-        ? OrderGlobalUS.find().populate("client", "name email phone").populate("createdBy", "name email role")
+        ? populateOrderParties(OrderGlobalUS.find(usaOrderFilter))
         : Promise.resolve([]),
     ]);
 
@@ -1743,9 +1814,7 @@ async function getOrder(req, res) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    const order = await orderResult.orderModel.findById(req.params.orderId)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const order = await populateOrderParties(orderResult.orderModel.findById(req.params.orderId));
 
     await ensureTrackingEventCollectionReady(order, orderResult.orderModel, orderResult.region);
 
@@ -1757,6 +1826,10 @@ async function getOrder(req, res) {
 
 async function updateOrder(req, res) {
   try {
+    if (!canCreateOrEditOrders(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para editar pedidos" });
+    }
+
     const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
@@ -1782,6 +1855,7 @@ async function updateOrder(req, res) {
       ? normalizeTrackingNumber(req.body.trackingNumber)
       : normalizeTrackingNumber(order.trackingNumber);
     const clientId = normalizeOptionalString(req.body.clientId);
+    const assignedBrokerIdProvided = Object.prototype.hasOwnProperty.call(req.body, "assignedBrokerId");
     const hasYearValue = Object.prototype.hasOwnProperty.call(req.body, "year") || Object.prototype.hasOwnProperty.call(sourceVehicle, "year");
     const parsedYear = hasYearValue
       ? Number.parseInt(String(req.body.year ?? sourceVehicle.year ?? "").trim(), 10)
@@ -1820,6 +1894,16 @@ async function updateOrder(req, res) {
       }
 
       order.client = client._id;
+    }
+
+    if (assignedBrokerIdProvided) {
+      const assignedBroker = await resolveAssignedBrokerForOrder({
+        assignedBrokerId: req.body.assignedBrokerId,
+        requester: req.user,
+        orderRegion: orderResult.region,
+      });
+
+      order.assignedBroker = assignedBroker?._id || null;
     }
 
     const normalizedVehicle = {
@@ -1870,9 +1954,7 @@ async function updateOrder(req, res) {
       await syncMaintenanceSchedule(order, req.user._id);
     }
 
-    const updatedOrder = await orderResult.orderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
 
     return res.status(200).json({
       message: "Order updated successfully",
@@ -2058,9 +2140,7 @@ async function uploadOrderDocuments(req, res) {
     order.media = normalizeMedia([...(Array.isArray(order.media) ? order.media : []), ...documents]);
     await order.save();
 
-    const updatedOrder = await orderResult.orderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
 
     return res.status(200).json({
       message: "Documentos cargados correctamente",
@@ -2077,6 +2157,10 @@ async function uploadOrderDocuments(req, res) {
 
 async function toggleOrderDocumentVisibility(req, res) {
   try {
+    if (!canManageOrderDocuments(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para cambiar la visibilidad de documentos" });
+    }
+
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
@@ -2102,9 +2186,7 @@ async function toggleOrderDocumentVisibility(req, res) {
     order.media = normalizedMedia;
     await order.save();
 
-    const updatedOrder = await orderResult.orderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
 
     const updatedDocument = normalizeMedia(updatedOrder?.media || []).find(
       (item) => String(item?.documentId || "").trim() === String(req.params.documentId || "").trim()
@@ -2136,6 +2218,10 @@ async function toggleOrderDocumentVisibility(req, res) {
 
 async function deleteOrderDocument(req, res) {
   try {
+    if (!canManageOrderDocuments(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para eliminar documentos" });
+    }
+
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
@@ -2154,9 +2240,7 @@ async function deleteOrderDocument(req, res) {
     order.media = normalizedMedia;
     await order.save();
 
-    const updatedOrder = await orderResult.orderModel.findById(order._id)
-      .populate("client", "name email phone")
-      .populate("createdBy", "name email role");
+    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
 
     return res.status(200).json({
       message: "Documento eliminado correctamente",

@@ -57,7 +57,7 @@ function requireLatamAdministrativeRole(req, res, next) {
   return res.status(403).json({ message: "Modulo disponible solo para Global Imports LATAM" });
 }
 
-router.use(requireAuth, requireRole("admin", "manager", "adminUSA", "gerenteUSA"));
+router.use(requireAuth, requireRole("admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"));
 
 router.get("/users", listUsers);
 router.get("/users/admins", listAdministrativeUsers);
