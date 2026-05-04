@@ -71,10 +71,10 @@ const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_E
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
-    return String(requester.role || "");
+    return String(requester.role || "").trim();
   }
 
-  return String(requester || "");
+  return String(requester || "").trim();
 }
 
 function normalizeRequesterEmail(requester) {

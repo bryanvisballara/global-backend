@@ -5,15 +5,17 @@ const LATAM_ADMIN_ROLES = ["manager", "admin"];
 const USA_ADMIN_ROLES = ["gerenteUSA", "adminUSA", "brokerUSA"];
 
 function isUsaAdministrativeRole(role) {
-  return USA_ADMIN_ROLES.includes(String(role || ""));
+  return USA_ADMIN_ROLES.includes(String(role || "").trim());
 }
 
 function resolveAdministrativeRoleToCreate(requesterRole, requestedRole) {
-  if (requesterRole === "manager") {
+  const normalizedRequesterRole = String(requesterRole || "").trim();
+
+  if (normalizedRequesterRole === "manager") {
     return "admin";
   }
 
-  if (requesterRole !== "gerenteUSA") {
+  if (normalizedRequesterRole !== "gerenteUSA") {
     return "";
   }
 
