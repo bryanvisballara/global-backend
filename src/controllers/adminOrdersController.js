@@ -178,8 +178,8 @@ async function resolveAssignedBrokerForOrder({ assignedBrokerId, requester, orde
     return allowEmpty ? null : undefined;
   }
 
-  if (String(orderRegion || "") !== "usa" || normalizeRequesterRole(requester) !== "gerenteUSA") {
-    const error = new Error("Solo el gerente USA puede asignar brokers a pedidos USA.");
+  if (String(orderRegion || "") !== "usa" || !["gerenteUSA", "adminUSA"].includes(normalizeRequesterRole(requester))) {
+    const error = new Error("Solo los administradores USA pueden asignar brokers a pedidos USA.");
     error.status = 400;
     throw error;
   }
