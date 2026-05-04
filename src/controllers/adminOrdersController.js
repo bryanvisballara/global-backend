@@ -2328,7 +2328,7 @@ async function deleteOrderAccountingExpense(req, res) {
 
 async function uploadOrderDocuments(req, res) {
   try {
-    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -2373,7 +2373,7 @@ async function toggleOrderDocumentVisibility(req, res) {
       return res.status(403).json({ message: "No tienes permisos para cambiar la visibilidad de documentos" });
     }
 
-    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -2434,7 +2434,7 @@ async function deleteOrderDocument(req, res) {
       return res.status(403).json({ message: "No tienes permisos para eliminar documentos" });
     }
 
-    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
