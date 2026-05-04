@@ -218,7 +218,7 @@ function resolveTrackingStepIndex(stepKey) {
   return TRACKING_STATE_TEMPLATES.findIndex((step) => step.key === String(stepKey || "").trim());
 }
 
-function canModifyTrackingStep(requester, stepKey) {
+function canModifyTrackingStep(requester, stepKey, orderRegion = "latam", currentTrackingIndex = -1) {
   const normalizedStepKey = String(stepKey || "");
   const stepIndex = resolveTrackingStepIndex(normalizedStepKey);
 
@@ -233,6 +233,10 @@ function canModifyTrackingStep(requester, stepKey) {
   const requesterRole = normalizeRequesterRole(requester);
 
   if (isUsaAdministrativeRole(requesterRole)) {
+    if (String(orderRegion || "latam").trim().toLowerCase() === "latam") {
+      return currentTrackingIndex >= 0 && currentTrackingIndex <= 2 && stepIndex <= 2;
+    }
+
     return stepIndex <= 3;
   }
 
@@ -263,7 +267,7 @@ function getCurrentTrackingStepIndex(steps = []) {
   return steps.length - 1;
 }
 
-function canTransitionTrackingStep(requester, currentIndex, targetIndex) {
+function canTransitionTrackingStep(requester, currentIndex, targetIndex, orderRegion = "latam") {
   if (currentIndex < 0 || targetIndex < 0 || targetIndex >= TRACKING_STATE_TEMPLATES.length) {
     return false;
   }
@@ -275,6 +279,10 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex) {
   const requesterRole = normalizeRequesterRole(requester);
 
   if (isUsaAdministrativeRole(requesterRole)) {
+    if (String(orderRegion || "latam").trim().toLowerCase() === "latam") {
+      return currentIndex <= 1 && targetIndex <= 2;
+    }
+
     return currentIndex <= 2 && targetIndex <= 3;
   }
 
@@ -375,6 +383,22 @@ async function findReadableOrderForRole(orderId, requester) {
   }
 
   return { order: null, orderModel: null, region: null };
+}
+
+async function resolveTrackingWriteAccessError(orderId, requester, fallbackMessage = "Order not found") {
+  const readableOrderResult = await findReadableOrderForRole(orderId, requester);
+
+  if (readableOrderResult.order) {
+    return {
+      status: 403,
+      message: "No tienes permisos para modificar este pedido",
+    };
+  }
+
+  return {
+    status: 404,
+    message: fallbackMessage,
+  };
 }
 
 async function findOrderForDeletionManagement(orderId, requester) {
@@ -2443,7 +2467,7 @@ async function reviewOrderDeletionRequest(req, res) {
 async function updateTrackingState(req, res) {
   try {
     const { orderId, stepKey } = req.params;
-    const orderResult = await findOrderForRole(orderId, req.user);
+    const orderResult = await findReadableOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -2457,6 +2481,7 @@ async function updateTrackingState(req, res) {
       preferCollectionOnly: true,
     });
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps);
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
 
@@ -2482,7 +2507,7 @@ async function updateTrackingState(req, res) {
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
     const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
 
-    if (!canModifyTrackingStep(req.user, stepKey)) {
+    if (!canModifyTrackingStep(req.user, stepKey, orderResult.region, currentTrackingIndex)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
@@ -2698,7 +2723,7 @@ async function transitionTrackingState(req, res) {
       return res.status(400).json({ message: "Direccion de transicion invalida" });
     }
 
-    const orderResult = await findOrderForRole(orderId, req.user);
+    const orderResult = await findReadableOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -2733,7 +2758,7 @@ async function transitionTrackingState(req, res) {
       return res.status(409).json({ message: direction === "next" ? "El pedido ya esta en la ultima etapa" : "El pedido ya esta en la primera etapa" });
     }
 
-    if (!canTransitionTrackingStep(req.user, currentStepIndex, targetStepIndex)) {
+    if (!canTransitionTrackingStep(req.user, currentStepIndex, targetStepIndex, orderResult.region)) {
       return res.status(403).json({ message: "No tienes permisos para mover este pedido entre etapas" });
     }
 
@@ -2831,7 +2856,8 @@ async function finalizeTrackingOrder(req, res) {
     const order = orderResult.order;
 
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      const accessError = await resolveTrackingWriteAccessError(orderId, req.user);
+      return res.status(accessError.status).json({ message: accessError.message });
     }
 
     (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
@@ -2947,7 +2973,7 @@ async function finalizeTrackingOrder(req, res) {
 async function toggleTrackingEventVisibility(req, res) {
   try {
     const { orderId, eventId } = req.params;
-    const orderResult = await findOrderForRole(orderId, req.user);
+    const orderResult = await findReadableOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -2972,6 +2998,12 @@ async function toggleTrackingEventVisibility(req, res) {
 
     if (!targetEvent) {
       return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+
+    if (!canModifyTrackingStep(req.user, targetEvent.stepKey, orderResult.region, currentTrackingIndex)) {
+      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
     const previousClientVisible = Boolean(targetEvent.clientVisible);
@@ -3013,7 +3045,7 @@ async function deleteTrackingUpdate(req, res) {
     const { orderId, stepKey, updateIndex: rawUpdateIndex } = req.params;
     const requestedEventId = String(req.query.eventId || "").trim();
     const updateIndex = parseTrackingUpdateIndex(rawUpdateIndex);
-    const orderResult = await findOrderForRole(orderId, req.user);
+    const orderResult = await findReadableOrderForRole(orderId, req.user);
     const order = orderResult.order;
 
     if (!order) {
@@ -3031,6 +3063,12 @@ async function deleteTrackingUpdate(req, res) {
 
     if (stepIndex === -1) {
       return res.status(404).json({ message: "Tracking state not found" });
+    }
+
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+
+    if (!canModifyTrackingStep(req.user, stepKey, orderResult.region, currentTrackingIndex)) {
+      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
     const step = order.trackingSteps[stepIndex];
