@@ -135,6 +135,11 @@ function canAccessLatamOrders(requester) {
   return normalizedRole === "admin" || normalizedRole === "manager";
 }
 
+function canViewLatamOrders(requester) {
+  const normalizedRole = normalizeRequesterRole(requester);
+  return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(normalizedRole);
+}
+
 function canAccessUsaOrders(requester) {
   return isAnthonyGlobalOwner(requester) || isUsaAdministrativeRole(normalizeRequesterRole(requester));
 }
@@ -333,6 +338,39 @@ async function findOrderForRole(orderId, requester) {
 
     if (usaOrder) {
       return { order: usaOrder, orderModel: OrderGlobalUS, region: "usa" };
+    }
+  }
+
+  return { order: null, orderModel: null, region: null };
+}
+
+async function findReadableOrderForRole(orderId, requester) {
+  const requesterRole = normalizeRequesterRole(requester);
+
+  if (!isUsaAdministrativeRole(requesterRole) && canViewLatamOrders(requester)) {
+    const latamOrder = await Order.findById(orderId);
+
+    if (latamOrder) {
+      return { order: latamOrder, orderModel: Order, region: "latam" };
+    }
+  }
+
+  if (canAccessUsaOrders(requester)) {
+    const usaOrder = await OrderGlobalUS.findOne({
+      _id: orderId,
+      ...buildUsaOrderAccessFilter(requester),
+    });
+
+    if (usaOrder) {
+      return { order: usaOrder, orderModel: OrderGlobalUS, region: "usa" };
+    }
+  }
+
+  if (isUsaAdministrativeRole(requesterRole) && canViewLatamOrders(requester)) {
+    const latamOrder = await Order.findById(orderId);
+
+    if (latamOrder) {
+      return { order: latamOrder, orderModel: Order, region: "latam" };
     }
   }
 
@@ -1681,7 +1719,7 @@ async function listOrders(req, res) {
   try {
     const usaOrderFilter = buildUsaOrderAccessFilter(req.user);
     const [latamOrders, usaOrders] = await Promise.all([
-      canAccessLatamOrders(req.user)
+      canViewLatamOrders(req.user)
         ? populateOrderParties(Order.find())
         : Promise.resolve([]),
       canAccessUsaOrders(req.user)
@@ -1831,7 +1869,7 @@ async function listOrderDeletionRequests(req, res) {
 
 async function getOrder(req, res) {
   try {
-    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
 
     if (!orderResult.order) {
       return res.status(404).json({ message: "Order not found" });
