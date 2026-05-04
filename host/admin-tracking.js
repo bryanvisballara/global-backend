@@ -555,17 +555,33 @@ function renderCreateOrderClientOptions() {
     return;
   }
 
-  if (!createOrderClients.length) {
+  const canEditClient = String(createOrderForm?.dataset.mode || "") !== "edit" || isAnthonyGlobalOwner();
+  const fallbackOrderRegion = ["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim())
+    ? "usa"
+    : "latam";
+  const orderRegion = String(createOrderForm?.dataset.orderRegion || fallbackOrderRegion).trim().toLowerCase();
+  const compatibleClients = canEditClient && String(createOrderForm?.dataset.mode || "") === "edit"
+    ? [...createOrderClients]
+    : createOrderClients.filter((client) => {
+        const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
+        return clientRegion === orderRegion;
+      });
+  const previousValue = String(createOrderClientSelect.value || "").trim();
+  createOrderClientSelect.disabled = !canEditClient;
+
+  if (!compatibleClients.length) {
     createOrderClientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
 
     if (createOrderClientSummary) {
-      createOrderClientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+      createOrderClientSummary.textContent = canEditClient
+        ? "No hay clientes disponibles para este pedido."
+        : "Solo Anthony puede cambiar el cliente de un pedido.";
     }
 
     return;
   }
 
-  const sortedClients = [...createOrderClients].sort((left, right) => (
+  const sortedClients = [...compatibleClients].sort((left, right) => (
     String(left?.name || "Cliente").localeCompare(String(right?.name || "Cliente"), "es", { sensitivity: "base" })
   ));
 
@@ -574,8 +590,16 @@ function renderCreateOrderClientOptions() {
     ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")}</option>`),
   ].join("");
 
+  if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
+    createOrderClientSelect.value = previousValue;
+  }
+
   if (createOrderClientSummary) {
-    createOrderClientSummary.textContent = `${createOrderClients.length} cliente(s) disponible(s).`;
+    createOrderClientSummary.textContent = !canEditClient
+      ? "Solo Anthony puede cambiar el cliente de un pedido."
+      : String(createOrderForm?.dataset.mode || "") === "edit"
+        ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
+        : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
   }
 }
 
@@ -3058,6 +3082,7 @@ function setCreateOrderModalMode(mode, order = null) {
     createOrderSubmitButton.textContent = normalizedMode === "edit" ? "Guardar cambios" : "Crear pedido";
   }
 
+  renderCreateOrderClientOptions();
   renderCreateOrderBrokerOptions();
 }
 

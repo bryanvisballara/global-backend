@@ -120,7 +120,10 @@ if (true) {
   let clients = [];
   let brokers = [];
   let currentAdminRole = "";
+  let currentAdminEmail = "";
   let initOverlayWatchdog = null;
+
+  const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 
   if (orderForm) {
     orderForm.noValidate = true;
@@ -142,6 +145,14 @@ if (true) {
     }
 
     return ["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim()) ? "usa" : "latam";
+  }
+
+  function isAnthonyGlobalOwner() {
+    return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  }
+
+  function canEditOrderClient() {
+    return getOrderFormMode() !== "edit" || isAnthonyGlobalOwner();
   }
 
   function forceClearLoadingState() {
@@ -217,11 +228,24 @@ if (true) {
       return;
     }
 
-    if (!clients.length) {
+    const orderRegion = getOrderFormRegion();
+    const editableClient = canEditOrderClient();
+    const compatibleClients = editableClient && getOrderFormMode() === "edit"
+      ? [...clients]
+      : clients.filter((client) => {
+          const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
+          return clientRegion === orderRegion;
+        });
+    const previousValue = String(clientSelect.value || "").trim();
+    clientSelect.disabled = !editableClient;
+
+    if (!compatibleClients.length) {
       clientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
 
       if (clientSummary) {
-        clientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+        clientSummary.textContent = editableClient
+          ? "No hay clientes disponibles para este pedido."
+          : "Solo Anthony puede cambiar el cliente de un pedido.";
       }
 
       return;
@@ -229,12 +253,40 @@ if (true) {
 
     clientSelect.innerHTML = [
       '<option value="">Selecciona cliente</option>',
-      ...clients.map((client) => `<option value="${client._id || client.id}">${client.name} · ${client.email}</option>`),
+      ...compatibleClients.map((client) => `<option value="${client._id || client.id}">${client.name} · ${client.email}</option>`),
     ].join("");
 
-    if (clientSummary) {
-      clientSummary.textContent = `${clients.length} cliente(s) disponible(s).`;
+    if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
+      clientSelect.value = previousValue;
     }
+
+    if (clientSummary) {
+      clientSummary.textContent = !editableClient
+        ? "Solo Anthony puede cambiar el cliente de un pedido."
+        : getOrderFormMode() === "edit"
+          ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
+          : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
+    }
+  }
+
+  function isClientCompatibleWithOrderRegion(clientId) {
+    const normalizedClientId = String(clientId || "").trim();
+
+    if (!normalizedClientId) {
+      return true;
+    }
+
+    const selectedClient = clients.find((client) => String(client?._id || client?.id || "").trim() === normalizedClientId) || null;
+
+    if (!selectedClient) {
+      return false;
+    }
+
+    if (isAnthonyGlobalOwner() && getOrderFormMode() === "edit") {
+      return true;
+    }
+
+    return String(selectedClient?.clientRegion || getOrderFormRegion()).trim().toLowerCase() === getOrderFormRegion();
   }
 
   function canAssignBrokerToOrders() {
@@ -326,6 +378,7 @@ if (true) {
     try {
       const user = await loadOrdersPageSession();
       currentAdminRole = String(user?.role || "");
+      currentAdminEmail = String(user?.email || "").trim().toLowerCase();
 
       if (currentAdminRole === "brokerUSA" && window.location.pathname === "/admin-orders.html") {
         window.location.replace("/admin-tracking.html");
@@ -434,6 +487,10 @@ if (true) {
           throw new Error("No se encontró el pedido que se va a editar.");
         }
 
+        if (String(formData.get("clientId") || "").trim() && !canEditOrderClient()) {
+          throw new Error("Solo Anthony puede cambiar el cliente de un pedido.");
+        }
+
         const yearValue = Number.parseInt(String(formData.get("year") || "").trim(), 10);
 
         if (Number.isNaN(yearValue)) {
@@ -453,6 +510,10 @@ if (true) {
           clientId: String(formData.get("clientId") || "").trim(),
           notes: String(formData.get("notes") || "").trim(),
         };
+
+        if (!isClientCompatibleWithOrderRegion(payload.clientId)) {
+          throw new Error(`Selecciona un cliente ${getOrderFormRegion().toUpperCase()} para este pedido.`);
+        }
 
         if (canAssignBrokerToOrders()) {
           payload.assignedBrokerId = String(formData.get("assignedBrokerId") || "").trim();
