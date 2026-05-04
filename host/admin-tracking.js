@@ -230,6 +230,14 @@ function renderOrderRegionBadge(order) {
   return `<span class="tracking-order-region-badge is-${escapeHtml(orderRegion)}">${escapeHtml(orderRegion.toUpperCase())}</span>`;
 }
 
+function isOrderCompleted(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
+  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
+}
+
 function formatDateTimeLabel(value) {
   if (!value) {
     return "Sin fecha";
@@ -977,8 +985,22 @@ function resolveCurrentStageKey(order) {
   return firstPendingStep?.key || adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key || "";
 }
 
+function resolveStateBucketKey(order) {
+  return isOrderCompleted(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
+}
+
 function getCurrentStageMeta(order) {
-  const currentStageKey = resolveCurrentStageKey(order);
+  const currentStageKey = resolveStateBucketKey(order);
+
+  if (currentStageKey === COMPLETED_TIMELINE_STAGE.key) {
+    return {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      index: adminTrackingTemplates.length,
+      code: getStateCode(adminTrackingTemplates.length),
+      label: COMPLETED_TIMELINE_STAGE.label,
+    };
+  }
+
   const stageIndex = adminTrackingTemplates.findIndex((stage) => stage.key === currentStageKey);
 
   if (stageIndex === -1) {
@@ -1098,7 +1120,8 @@ function populateSearchSelects() {
   const stateOptions = ['<option value="">Todos los estados</option>'].concat(
     adminTrackingTemplates.map(
       (stage, index) => `<option value="${escapeHtml(stage.key)}">${escapeHtml(`${getStateCode(index)}: ${stage.label}`)}</option>`
-    )
+    ),
+    `<option value="${escapeHtml(COMPLETED_TIMELINE_STAGE.key)}">${escapeHtml(`E${adminTrackingTemplates.length + 1}: ${COMPLETED_TIMELINE_STAGE.label}`)}</option>`
   );
 
   if (trackingStateFilter) {
@@ -1110,12 +1133,14 @@ function populateSearchSelects() {
 }
 
 function getFilteredOrders() {
-  const activeOrders = getActiveOrders();
   const selectedState = String(trackingStateFilter?.value || "").trim();
+  const searchableOrders = selectedState === COMPLETED_TIMELINE_STAGE.key
+    ? orders.filter((order) => resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key)
+    : getActiveOrders();
   const dateFrom = trackingDateFromFilter?.value ? normalizeToDateStart(trackingDateFromFilter.value) : null;
   const dateTo = trackingDateToFilter?.value ? normalizeToDateEnd(trackingDateToFilter.value) : null;
 
-  return activeOrders.filter((order) => {
+  return searchableOrders.filter((order) => {
     const matchesSearch = searchConfigs.every((config) => {
       const query = normalizeSearchValue(config.input.value);
 
@@ -1130,7 +1155,7 @@ function getFilteredOrders() {
       return false;
     }
 
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveStateBucketKey(order);
 
     if (selectedState && currentStageKey !== selectedState) {
       return false;
@@ -1240,7 +1265,11 @@ function resolveInitialOrderId(filters) {
 
 function renderSearchResults(matches) {
   if (!matches.length) {
-    trackingSearchResults.innerHTML = '<div class="empty-state">No encontramos pedidos activos con esos filtros.</div>';
+    const selectedState = String(trackingStateFilter?.value || "").trim();
+    const emptyLabel = selectedState === COMPLETED_TIMELINE_STAGE.key
+      ? "No encontramos pedidos completados con esos filtros."
+      : "No encontramos pedidos activos con esos filtros.";
+    trackingSearchResults.innerHTML = `<div class="empty-state">${emptyLabel}</div>`;
     return;
   }
 

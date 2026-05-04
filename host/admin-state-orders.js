@@ -397,7 +397,17 @@
   }
 
   function getCurrentStageMeta(order) {
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveStateBucketKey(order);
+
+    if (currentStageKey === completedStageCard.key) {
+      return {
+        key: completedStageCard.key,
+        index: stageTemplates.length,
+        code: `E${stageTemplates.length + 1}`,
+        label: completedStageCard.label,
+      };
+    }
+
     const stageIndex = stageTemplates.findIndex((stage) => stage.key === currentStageKey);
 
     if (stageIndex === -1) {
