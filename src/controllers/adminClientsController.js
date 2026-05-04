@@ -78,6 +78,21 @@ function normalizeClientPayload(payload = {}) {
   };
 }
 
+function buildClientPersistencePayload(normalizedPayload, createdBy = null) {
+  const payload = {
+    name: normalizedPayload.name,
+    createdBy,
+  };
+
+  ["email", "phone", "identification", "address", "city", "country", "notes"].forEach((key) => {
+    if (normalizedPayload[key] !== undefined) {
+      payload[key] = normalizedPayload[key];
+    }
+  });
+
+  return payload;
+}
+
 function resolveClientResourcesForRequester(requester, client = null) {
   const isUsaClient = String(client?.clientRegion || "").trim().toLowerCase() === "usa";
   const requesterRole = requester?.role;
@@ -176,17 +191,9 @@ async function createClient(req, res) {
       }
     }
 
-    const client = await ClientModel.create({
-      name: normalizedName,
-      email: normalizedEmail,
-      phone: normalizedPayload.phone,
-      identification: normalizedPayload.identification,
-      address: normalizedPayload.address,
-      city: normalizedPayload.city,
-      country: normalizedPayload.country,
-      notes: normalizedPayload.notes,
-      createdBy: req.user?._id || null,
-    });
+    const client = await ClientModel.create(
+      buildClientPersistencePayload(normalizedPayload, req.user?._id || null)
+    );
 
     return res.status(201).json({
       message: "Client created successfully",
