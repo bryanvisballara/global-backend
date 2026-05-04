@@ -308,6 +308,32 @@ function canModifyTrackingStep(requester, stepKey, orderRegion = "latam", curren
   return false;
 }
 
+function canCreateTrackingUpdate(requester, stepKey, orderRegion = "latam") {
+  const normalizedStepKey = String(stepKey || "");
+  const stepIndex = resolveTrackingStepIndex(normalizedStepKey);
+
+  if (!normalizedStepKey || stepIndex === -1) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner(requester)) {
+    return true;
+  }
+
+  const requesterRole = normalizeRequesterRole(requester);
+  const normalizedRegion = String(orderRegion || "latam").trim().toLowerCase();
+
+  if (isUsaAdministrativeRole(requesterRole)) {
+    return normalizedRegion === "latam" || normalizedRegion === "usa";
+  }
+
+  if (["admin", "manager"].includes(requesterRole)) {
+    return normalizedRegion === "latam" && stepIndex >= 3;
+  }
+
+  return false;
+}
+
 function getCurrentTrackingStepIndex(steps = []) {
   if (!Array.isArray(steps) || !steps.length) {
     return -1;
@@ -2606,8 +2632,12 @@ async function updateTrackingState(req, res) {
     const requestedEventId = String(req.body.eventId || "").trim();
     const requestedUpdateIndex = parseTrackingUpdateIndex(req.body.updateIndex);
     const requestedMediaIndex = parseTrackingUpdateIndex(req.body.mediaIndex);
+    const isPassiveTrackingUpdate = !requestedVisibilityOnly && !requestedMediaVisibilityOnly && !requestedConfirmed && !requestedInProgress;
 
-    if (!canModifyTrackingStep(req.user, stepKey, orderResult.region, currentTrackingIndex)) {
+    if (
+      !canModifyTrackingStep(req.user, stepKey, orderResult.region, currentTrackingIndex)
+      && !(isPassiveTrackingUpdate && canCreateTrackingUpdate(req.user, stepKey, orderResult.region))
+    ) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
     }
 
