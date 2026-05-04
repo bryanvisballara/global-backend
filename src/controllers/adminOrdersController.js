@@ -2003,7 +2003,7 @@ async function updateOrder(req, res) {
     }
 
     const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
-    const orderResult = await findOrderForRole(req.params.orderId, req.user);
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
     let order = orderResult.order;
 
     if (!order) {
