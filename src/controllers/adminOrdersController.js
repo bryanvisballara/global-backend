@@ -173,12 +173,13 @@ function buildUsaOrderAccessFilter(requester) {
 
 async function resolveAssignedBrokerForOrder({ assignedBrokerId, requester, orderRegion, allowEmpty = true }) {
   const normalizedBrokerId = String(assignedBrokerId || "").trim();
+  const requesterRole = String(normalizeRequesterRole(requester) || "").trim().toLowerCase();
 
   if (!normalizedBrokerId) {
     return allowEmpty ? null : undefined;
   }
 
-  if (String(orderRegion || "") !== "usa" || !["gerenteUSA", "adminUSA"].includes(normalizeRequesterRole(requester))) {
+  if (String(orderRegion || "").trim().toLowerCase() !== "usa" || !["gerenteusa", "adminusa"].includes(requesterRole)) {
     const error = new Error("Solo los administradores USA pueden asignar brokers a pedidos USA.");
     error.status = 400;
     throw error;
