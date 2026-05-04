@@ -2494,6 +2494,14 @@ async function updateTrackingState(req, res) {
       return res.status(409).json({ message: "No puedes poner este estado en curso hasta completar los estados anteriores." });
     }
 
+    if (
+      requestedConfirmed
+      && stepIndex === getCurrentTrackingStepIndex(order.trackingSteps)
+      && canFinalizeTrackingOrder(req.user, order, stepIndex, orderResult.region)
+    ) {
+      return finalizeTrackingOrder(req, res);
+    }
+
     hydrateTrackingStepMediaFromFlattenedState(step);
 
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
@@ -2709,6 +2717,14 @@ async function transitionTrackingState(req, res) {
 
     if (currentStepIndex < 0) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
+    }
+
+    if (
+      direction === "next"
+      && currentStepIndex === order.trackingSteps.length - 1
+      && canFinalizeTrackingOrder(req.user, order, currentStepIndex, orderResult.region)
+    ) {
+      return finalizeTrackingOrder(req, res);
     }
 
     const targetStepIndex = direction === "next" ? currentStepIndex + 1 : currentStepIndex - 1;
