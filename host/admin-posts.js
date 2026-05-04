@@ -66,6 +66,18 @@ if (requireAdminAccess()) {
     return ["image", "carousel"].includes(String(format || "").trim().toLowerCase());
   }
 
+  function syncMediaFilesRequirement() {
+    if (!mediaFilesInput) {
+      return;
+    }
+
+    const format = formatSelect?.value || "carousel";
+    const isVideoFormat = format === "video";
+    const hasComposerFiles = getComposerSelectedFiles().length > 0;
+
+    mediaFilesInput.required = !isVideoFormat && !hasComposerFiles;
+  }
+
   function syncVideoInputMode() {
     const format = formatSelect?.value || "carousel";
     const isVideoFormat = format === "video";
@@ -86,9 +98,10 @@ if (requireAdminAccess()) {
     }
 
     if (mediaFilesInput) {
-      mediaFilesInput.required = !isVideoFormat;
       mediaFilesInput.accept = isVideoFormat ? "video/*" : "image/*";
     }
+
+    syncMediaFilesRequirement();
   }
 
   function getEditPostUrl(postId) {
@@ -166,15 +179,18 @@ if (requireAdminAccess()) {
     composerMediaItems = [];
 
     if (!postMediaPreview) {
+      syncMediaFilesRequirement();
       return;
     }
 
     postMediaPreview.innerHTML = "";
     postMediaPreview.hidden = true;
+    syncMediaFilesRequirement();
   }
 
   function renderPostMediaPreview() {
     if (!postMediaPreview) {
+      syncMediaFilesRequirement();
       return;
     }
 
@@ -183,6 +199,7 @@ if (requireAdminAccess()) {
     if (!selectedFiles.length) {
       postMediaPreview.innerHTML = "";
       postMediaPreview.hidden = true;
+      syncMediaFilesRequirement();
       return;
     }
 
@@ -220,6 +237,7 @@ if (requireAdminAccess()) {
     }).join("");
 
     postMediaPreview.hidden = false;
+    syncMediaFilesRequirement();
   }
 
   function setComposerMediaFiles(files = []) {
@@ -421,7 +439,6 @@ if (requireAdminAccess()) {
         `${selectedFiles.length} archivo${selectedFiles.length > 1 ? "s" : ""} cargado${selectedFiles.length > 1 ? "s" : ""} y listo${selectedFiles.length > 1 ? "s" : ""} para publicar.`,
         "success"
       );
-      mediaFilesInput.value = "";
     } catch (error) {
       clearPostMediaPreview();
       setFeedback(postFeedback, error.message, "error");
@@ -499,7 +516,13 @@ if (requireAdminAccess()) {
     formData.delete("mediaFiles");
     const format = formData.get("format");
     const videoUrl = String(formData.get("videoUrl") || "").trim();
-    const orderedFiles = getComposerSelectedFiles();
+    const composerFiles = getComposerSelectedFiles();
+    const inputFiles = Array.from(mediaFilesInput?.files || []);
+    const orderedFiles = composerFiles.length ? composerFiles : inputFiles;
+
+    if (!composerFiles.length && inputFiles.length) {
+      setComposerMediaFiles(inputFiles);
+    }
 
     await validateFiles(orderedFiles, format, videoUrl);
 
