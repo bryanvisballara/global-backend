@@ -214,6 +214,67 @@ function canManageTrackingEventDeletionRequests(requester) {
   return isAnthonyGlobalOwner(requester);
 }
 
+async function resolveClientForAnthonyReassignment(clientId) {
+  const normalizedClientId = String(clientId || "").trim();
+
+  if (!normalizedClientId) {
+    return { client: null, clientModel: null, region: null };
+  }
+
+  const latamClient = await Client.findById(normalizedClientId);
+
+  if (latamClient) {
+    return { client: latamClient, clientModel: Client, region: "latam" };
+  }
+
+  const usaClient = await ClientGlobalUS.findById(normalizedClientId);
+
+  if (usaClient) {
+    return { client: usaClient, clientModel: ClientGlobalUS, region: "usa" };
+  }
+
+  return { client: null, clientModel: null, region: null };
+}
+
+async function migrateOrderAcrossRegions({
+  order,
+  sourceModel,
+  sourceRegion,
+  targetModel,
+  targetRegion,
+  targetClient,
+  requester,
+}) {
+  const plainOrder = order?.toObject ? order.toObject({ depopulate: true }) : { ...(order || {}) };
+
+  delete plainOrder.__v;
+  plainOrder.client = targetClient._id;
+
+  if (targetRegion !== "usa") {
+    plainOrder.assignedBroker = null;
+  }
+
+  const migratedOrder = new targetModel(plainOrder);
+  await migratedOrder.save();
+
+  await Promise.all([
+    OrderTrackingEvent.updateMany(
+      { orderId: migratedOrder._id, orderRegion: sourceRegion },
+      { $set: { orderRegion: targetRegion } }
+    ),
+    sourceModel.deleteOne({ _id: migratedOrder._id }),
+    sourceRegion === "latam" && targetRegion !== "latam"
+      ? Maintenance.deleteOne({ order: migratedOrder._id })
+      : Promise.resolve(),
+  ]);
+
+  if (targetRegion === "latam") {
+    await syncMaintenanceSchedule(migratedOrder, requester?._id || null);
+  }
+
+  return migratedOrder;
+}
+
 function resolveTrackingStepIndex(stepKey) {
   return TRACKING_STATE_TEMPLATES.findIndex((step) => step.key === String(stepKey || "").trim());
 }
@@ -1917,7 +1978,7 @@ async function updateOrder(req, res) {
 
     const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
     const orderResult = await findOrderForRole(req.params.orderId, req.user);
-    const order = orderResult.order;
+    let order = orderResult.order;
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -1940,11 +2001,15 @@ async function updateOrder(req, res) {
       ? normalizeTrackingNumber(req.body.trackingNumber)
       : normalizeTrackingNumber(order.trackingNumber);
     const clientId = normalizeOptionalString(req.body.clientId);
+    const currentClientId = normalizeOptionalString(order?.client?._id || order?.client);
+    const clientChangeRequested = Boolean(clientId) && clientId !== currentClientId;
     const assignedBrokerIdProvided = Object.prototype.hasOwnProperty.call(req.body, "assignedBrokerId");
     const hasYearValue = Object.prototype.hasOwnProperty.call(req.body, "year") || Object.prototype.hasOwnProperty.call(sourceVehicle, "year");
     const parsedYear = hasYearValue
       ? Number.parseInt(String(req.body.year ?? sourceVehicle.year ?? "").trim(), 10)
       : undefined;
+    let effectiveOrderRegion = orderResult.region;
+    let reassignedClient = null;
 
     if (hasYearValue && Number.isNaN(parsedYear)) {
       return res.status(400).json({ message: "year must be a valid number" });
@@ -1954,9 +2019,24 @@ async function updateOrder(req, res) {
       return res.status(400).json({ message: "trackingNumber is required" });
     }
 
+    if (clientChangeRequested) {
+      if (!isAnthonyGlobalOwner(req.user)) {
+        return res.status(403).json({ message: "Solo Anthony puede cambiar el cliente de un pedido" });
+      }
+
+      const resolvedClient = await resolveClientForAnthonyReassignment(clientId);
+
+      if (!resolvedClient.client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      reassignedClient = resolvedClient.client;
+      effectiveOrderRegion = resolvedClient.region;
+    }
+
     if (
       nextDestination &&
-      orderResult.region === "latam" &&
+      effectiveOrderRegion === "latam" &&
       !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto Miami"].includes(String(nextDestination).trim())
     ) {
       return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla or Puerto Miami" });
@@ -1970,7 +2050,7 @@ async function updateOrder(req, res) {
       order.trackingNumber = nextTrackingNumber;
     }
 
-    if (clientId) {
+    if (clientId && !clientChangeRequested) {
       const ClientModel = orderResult.region === "usa" ? ClientGlobalUS : Client;
       const client = await ClientModel.findById(clientId);
 
@@ -1985,7 +2065,7 @@ async function updateOrder(req, res) {
       const assignedBroker = await resolveAssignedBrokerForOrder({
         assignedBrokerId: req.body.assignedBrokerId,
         requester: req.user,
-        orderRegion: orderResult.region,
+        orderRegion: effectiveOrderRegion,
       });
 
       order.assignedBroker = assignedBroker?._id || null;
@@ -2033,13 +2113,33 @@ async function updateOrder(req, res) {
       order.status = status;
     }
 
-    await order.save();
+    if (clientChangeRequested && reassignedClient && effectiveOrderRegion !== orderResult.region) {
+      order = await migrateOrderAcrossRegions({
+        order,
+        sourceModel: orderResult.orderModel,
+        sourceRegion: orderResult.region,
+        targetModel: effectiveOrderRegion === "usa" ? OrderGlobalUS : Order,
+        targetRegion: effectiveOrderRegion,
+        targetClient: reassignedClient,
+        requester: req.user,
+      });
+      orderResult.orderModel = effectiveOrderRegion === "usa" ? OrderGlobalUS : Order;
+      orderResult.region = effectiveOrderRegion;
+    } else {
+      if (clientChangeRequested && reassignedClient) {
+        order.client = reassignedClient._id;
+      }
 
-    if (orderResult.region === "latam") {
-      await syncMaintenanceSchedule(order, req.user._id);
+      await order.save();
+
+      if (orderResult.region === "latam") {
+        await syncMaintenanceSchedule(order, req.user._id);
+      }
     }
 
-    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
+    const responseOrderModel = orderResult.region === "usa" ? OrderGlobalUS : Order;
+
+    const updatedOrder = await populateOrderParties(responseOrderModel.findById(order._id));
 
     return res.status(200).json({
       message: "Order updated successfully",
