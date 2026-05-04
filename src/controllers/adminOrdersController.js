@@ -115,11 +115,12 @@ function isOrderCreatedByRequester(order, requester) {
 }
 
 function isUsaAdministrativeRole(role) {
-  return USA_ADMIN_ROLES.has(String(role || ""));
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  return ["gerenteusa", "adminusa", "brokerusa"].includes(normalizedRole);
 }
 
 function isUsaBrokerRole(role) {
-  return String(role || "") === "brokerUSA";
+  return String(role || "").trim().toLowerCase() === "brokerusa";
 }
 
 function isGlobalManagerRole(requester) {
@@ -179,8 +180,8 @@ async function resolveAssignedBrokerForOrder({ assignedBrokerId, requester, orde
     return allowEmpty ? null : undefined;
   }
 
-  if (String(orderRegion || "").trim().toLowerCase() !== "usa" || !["gerenteusa", "adminusa"].includes(requesterRole)) {
-    const error = new Error("Solo los administradores USA pueden asignar brokers a pedidos USA.");
+  if (!["gerenteusa", "adminusa"].includes(requesterRole)) {
+    const error = new Error("Solo los administradores USA pueden asignar brokers.");
     error.status = 400;
     throw error;
   }
