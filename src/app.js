@@ -181,6 +181,65 @@ app.get("/api/uploads/download/:fileName", (req, res) => {
   }
 });
 
+app.get("/api/downloads/pdf", async (req, res) => {
+  try {
+    const fileUrl = String(req.query.url || "").trim();
+
+    if (!fileUrl) {
+      return res.status(400).json({ message: "Missing file URL" });
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline; filename=\"document.pdf\"");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+
+    if (fileUrl.startsWith("/uploads/")) {
+      const localPath = path.join(uploadsDirectory, path.basename(fileUrl));
+
+      if (!localPath.startsWith(uploadsDirectory)) {
+        return res.status(400).json({ message: "Invalid local path" });
+      }
+
+      try {
+        await fs.promises.access(localPath);
+        return res.sendFile(localPath);
+      } catch {
+        return res.status(404).json({ message: "Local file not found" });
+      }
+    }
+
+    if (fileUrl.includes("res.cloudinary.com") || fileUrl.startsWith("http")) {
+      try {
+        const response = await (async () => {
+          const https = require("https");
+          const http = require("http");
+          const protocol = fileUrl.startsWith("https") ? https : http;
+
+          return new Promise((resolve, reject) => {
+            protocol.get(fileUrl, (response) => {
+              if (response.statusCode !== 200) {
+                reject(new Error(`HTTP ${response.statusCode}`));
+              }
+
+              resolve(response);
+            }).on("error", reject);
+          });
+        })();
+
+        return response.pipe(res);
+      } catch (error) {
+        console.error("Error proxying file from URL:", error.message);
+        return res.status(502).json({ message: "Error downloading file from source" });
+      }
+    }
+
+    return res.status(400).json({ message: "Invalid file URL" });
+  } catch (error) {
+    console.error("PDF download error:", error.message);
+    return res.status(500).json({ message: "Error downloading PDF" });
+  }
+});
+
 app.get("/", (req, res) => {
   res.redirect("/index.html");
 });
