@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const { randomInt, randomUUID } = require("crypto");
 const Client = require("../models/Client");
 const ClientGlobalUS = require("../models/ClientGlobalUS");
@@ -68,6 +70,72 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "other",
 ]);
 const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "false").trim().toLowerCase() === "true";
+const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
+
+function normalizeFileNameForStorage(value) {
+  return String(value || "archivo")
+    .trim()
+    .replace(/\.[^.]+$/, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "archivo";
+}
+
+function isPdfFile(file = {}) {
+  const mimeType = String(file?.mimetype || "").trim().toLowerCase();
+  const originalName = String(file?.originalname || "").trim().toLowerCase();
+  return mimeType === "application/pdf" || originalName.endsWith(".pdf");
+}
+
+function resolveRequestOrigin(req) {
+  const forwardedProto = String(req?.headers?.["x-forwarded-proto"] || "")
+    .split(",")
+    .map((item) => item.trim())
+    .find(Boolean);
+  const protocol = forwardedProto || String(req?.protocol || "https").trim() || "https";
+  const host = String(req?.headers?.["x-forwarded-host"] || req?.get?.("host") || "").trim();
+
+  if (!host) {
+    return "";
+  }
+
+  return `${protocol}://${host}`;
+}
+
+async function persistPdfFileAndBuildUrl(file, req) {
+  if (!file) {
+    throw new Error("Missing file for PDF upload");
+  }
+
+  await fs.promises.mkdir(PDF_UPLOAD_DIRECTORY, { recursive: true });
+
+  const safeBaseName = normalizeFileNameForStorage(file.originalname);
+  const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}.pdf`;
+  const destinationPath = path.join(PDF_UPLOAD_DIRECTORY, fileName);
+
+  if (file.buffer) {
+    await fs.promises.writeFile(destinationPath, file.buffer);
+  } else if (file.path) {
+    await fs.promises.copyFile(file.path, destinationPath);
+  } else {
+    throw new Error("Uploaded file is missing both buffer and path");
+  }
+
+  const relativeUrl = `/uploads/order-documents/${encodeURIComponent(fileName)}`;
+  const origin = resolveRequestOrigin(req);
+  const absoluteUrl = origin ? `${origin}${relativeUrl}` : relativeUrl;
+
+  return {
+    type: "document",
+    category: "document",
+    url: absoluteUrl,
+    name: file.originalname || fileName,
+    caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : safeBaseName,
+  };
+}
 
 function normalizeRequesterRole(requester) {
   if (requester && typeof requester === "object") {
@@ -1162,9 +1230,25 @@ function validateAccountingEvidenceFile(file) {
   throw new Error("evidence must be an image or PDF file");
 }
 
-async function uploadAccountingEvidenceToCloudinary(file) {
+async function uploadAccountingEvidenceToCloudinary(file, req) {
   if (!file) {
     return null;
+  }
+
+  if (isPdfFile(file)) {
+    const timestamp = new Date();
+    const documentFile = await persistPdfFileAndBuildUrl(file, req);
+
+    return {
+      documentId: randomUUID(),
+      type: "document",
+      category: "document",
+      url: documentFile.url,
+      name: documentFile.name,
+      caption: documentFile.caption,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
   }
 
   if (!isCloudinaryConfigured()) {
@@ -1584,17 +1668,23 @@ async function generateUniqueTrackingNumber() {
   throw new Error("Unable to generate a unique tracking number");
 }
 
-async function uploadFilesToCloudinary(files = []) {
+async function uploadFilesToCloudinary(files = [], req) {
   if (!files.length) {
     return [];
   }
 
-  if (!isCloudinaryConfigured()) {
+  const hasNonPdfFiles = files.some((file) => !isPdfFile(file));
+
+  if (hasNonPdfFiles && !isCloudinaryConfigured()) {
     throw new Error("Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.");
   }
 
   return Promise.all(
     files.map(async (file) => {
+      if (isPdfFile(file)) {
+        return persistPdfFileAndBuildUrl(file, req);
+      }
+
       const result = await uploadBufferToCloudinary(file, process.env.CLOUDINARY_ORDER_FOLDER || "global-app/orders");
 
       return {
@@ -1607,22 +1697,37 @@ async function uploadFilesToCloudinary(files = []) {
   );
 }
 
-async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = []) {
+async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) {
   if (!files.length) {
     return [];
   }
 
-  if (!isCloudinaryConfigured()) {
+  const hasNonPdfFiles = files.some((file) => !isPdfFile(file));
+
+  if (hasNonPdfFiles && !isCloudinaryConfigured()) {
     throw new Error("Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.");
   }
 
   return Promise.all(
     files.map(async (file, index) => {
+      const metadata = mediaMeta[index] || {};
+
+      if (isPdfFile(file)) {
+        const documentFile = await persistPdfFileAndBuildUrl(file, req);
+
+        return {
+          type: "document",
+          category: metadata.category || "document",
+          url: documentFile.url,
+          name: documentFile.name,
+          caption: metadata.caption || documentFile.caption,
+        };
+      }
+
       const result = await uploadBufferToCloudinary(
         file,
         process.env.CLOUDINARY_TRACKING_FOLDER || "global-app/order-states"
       );
-      const metadata = mediaMeta[index] || {};
 
       return {
         type: inferFileMediaType(file, result),
@@ -1764,7 +1869,7 @@ async function createOrder(req, res) {
       return res.status(409).json({ message: "Tracking number already exists" });
     }
 
-    const uploadedMedia = await uploadFilesToCloudinary(req.files || []);
+    const uploadedMedia = await uploadFilesToCloudinary(req.files || [], req);
     const initialTrackingTimestamp = purchaseDate || new Date();
     const trackingSteps = buildInitialTrackingSteps(initialTrackingTimestamp);
     const assignedBroker = await resolveAssignedBrokerForOrder({
@@ -2260,7 +2365,7 @@ async function addOrderAccountingExpense(req, res) {
       return res.status(400).json({ message: validationError.message });
     }
 
-    const evidence = await uploadAccountingEvidenceToCloudinary(req.file);
+    const evidence = await uploadAccountingEvidenceToCloudinary(req.file, req);
     const timestamp = new Date();
     const normalizedExpenses = Array.isArray(order.expenses) ? [...order.expenses] : [];
 
@@ -2343,7 +2448,7 @@ async function uploadOrderDocuments(req, res) {
       return res.status(400).json({ message: "Debes subir al menos un archivo" });
     }
 
-    const uploadedMedia = await uploadFilesToCloudinary(uploadedFiles);
+    const uploadedMedia = await uploadFilesToCloudinary(uploadedFiles, req);
     const documents = buildOrderDocumentMediaItems(uploadedMedia, {
       documentType: req.body.documentType,
       note: req.body.note,
@@ -2664,7 +2769,7 @@ async function updateTrackingState(req, res) {
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, step.key);
     const updateShouldBeClientVisible = requestedVisibilityOnly ? requestedClientVisible : false;
     const mediaMeta = parseTrackingMediaMeta(req.body.mediaMeta, uploadedFiles);
-    const uploadedMedia = await uploadTrackingFilesToCloudinary(uploadedFiles, mediaMeta);
+    const uploadedMedia = await uploadTrackingFilesToCloudinary(uploadedFiles, mediaMeta, req);
     const appendedMedia = dedupeTrackingMedia(
       normalizeMedia([...uploadedMedia, ...externalVideoMedia]).map((item) => ({
         ...item,

@@ -27,6 +27,7 @@ app.get("/api/debug/list-users", async (req, res) => {
   }
 });
 const publicDirectory = path.join(__dirname, "..", "public");
+const uploadsDirectory = path.join(__dirname, "..", "uploads");
 const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://teal-flamingo-532353.hostingersite.com",
@@ -145,6 +146,8 @@ app.use(
     },
   })
 );
+
+app.use("/uploads", express.static(uploadsDirectory));
 
 app.get("/", (req, res) => {
   res.redirect("/index.html");
