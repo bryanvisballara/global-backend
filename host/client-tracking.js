@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260501-clientevents13";
+const TRACKING_PAGE_VERSION = "20260504-clientevents14";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -1029,6 +1029,8 @@ function renderTrackingEventsTable(order) {
 
 function renderTrackingFilesSection(order) {
   const files = buildTrackingFiles(order);
+  const imageFiles = files.filter((item) => item.type !== "document" && item.category !== "document");
+  const documentFiles = files.filter((item) => item.type === "document" || item.category === "document");
 
   if (!files.length) {
     return `
@@ -1050,65 +1052,100 @@ function renderTrackingFilesSection(order) {
         <h2>Fotos y documentos</h2>
         <p class="tracking-files-intro">Aquí verás los archivos que tu asesor comparta contigo durante el proceso.</p>
       </div>
-      <div class="tracking-files-grid">
-        ${files
-          .map((item) => {
-            const footerText = item.note || item.caption || item.stageLabel || "Archivo";
+      <div class="tracking-files-gallery">
+        ${imageFiles.length
+          ? `
+            <div class="tracking-files-carousel-shell tracking-carousel-shell">
+              <div class="tracking-carousel-strip tracking-files-carousel" data-tracking-carousel>
+                ${imageFiles
+                  .map((item) => {
+                    const footerText = item.note || item.caption || item.stageLabel || "Archivo";
 
-            if (item.type === "document") {
-              const fileName = item.name || item.caption || "documento";
-              const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
-
-              return `
-                <article class="tracking-file-card document">
-                  <button
-                    class="tracking-document-download tracking-file-download"
-                    type="button"
-                    data-download-url="${escapeHtml(item.url)}"
-                    data-download-name="${escapeHtml(fileName)}"
-                    aria-label="Descargar ${escapeHtml(fileName)}"
-                  >
-                    <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
-                    <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
-                    <span class="tracking-document-cta">Descargar</span>
-                  </button>
-                  <div class="tracking-file-meta">
-                    <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+                    return `
+                      <article class="tracking-file-card image tracking-carousel-item tracking-files-carousel-item">
+                        <button
+                          class="tracking-file-image-button"
+                          type="button"
+                          data-open-tracking-image="true"
+                          data-image-url="${escapeHtml(item.url)}"
+                          data-image-note="${escapeHtml(footerText)}"
+                          aria-label="Ampliar imagen del tracking"
+                        >
+                          <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
+                        </button>
+                        <button
+                          class="tracking-media-download-icon"
+                          type="button"
+                          data-download-url="${escapeHtml(item.url)}"
+                          data-download-name="${escapeHtml(item.name || item.caption || "imagen")}"
+                          aria-label="Descargar imagen"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
+                          </svg>
+                        </button>
+                        <div class="tracking-file-meta">
+                          <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+                        </div>
+                      </article>
+                    `;
+                  })
+                  .join("")}
+              </div>
+              ${imageFiles.length > 1
+                ? `
+                  <div class="tracking-carousel-indicators">
+                    ${imageFiles
+                      .map(
+                        (_, index) => `
+                          <button
+                            class="feed-carousel-dot ${index === 0 ? "is-active" : ""}"
+                            type="button"
+                            data-tracking-carousel-dot
+                            data-tracking-carousel-index="${index}"
+                            aria-label="Ir a la imagen ${index + 1}"
+                          ></button>
+                        `
+                      )
+                      .join("")}
                   </div>
-                </article>
-              `;
-            }
+                `
+                : ""}
+            </div>
+          `
+          : ""}
+        ${documentFiles.length
+          ? `
+            <div class="tracking-files-documents-grid">
+              ${documentFiles
+                .map((item) => {
+                  const footerText = item.note || item.caption || item.stageLabel || "Archivo";
+                  const fileName = item.name || item.caption || "documento";
+                  const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
 
-            return `
-              <article class="tracking-file-card image">
-                <button
-                  class="tracking-file-image-button"
-                  type="button"
-                  data-open-tracking-image="true"
-                  data-image-url="${escapeHtml(item.url)}"
-                  data-image-note="${escapeHtml(footerText)}"
-                  aria-label="Ampliar imagen del tracking"
-                >
-                  <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
-                </button>
-                <button
-                  class="tracking-media-download-icon"
-                  type="button"
-                  data-download-url="${escapeHtml(item.url)}"
-                  data-download-name="${escapeHtml(item.name || item.caption || "imagen")}" 
-                  aria-label="Descargar imagen"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
-                  </svg>
-                </button>
-                <div class="tracking-file-meta">
-                  <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
-                </div>
-              </article>
-            `;
-          })
-          .join("")}
+                  return `
+                    <article class="tracking-file-card document">
+                      <button
+                        class="tracking-document-download tracking-file-download"
+                        type="button"
+                        data-download-url="${escapeHtml(item.url)}"
+                        data-download-name="${escapeHtml(fileName)}"
+                        aria-label="Descargar ${escapeHtml(fileName)}"
+                      >
+                        <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
+                        <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
+                        <span class="tracking-document-cta">Descargar</span>
+                      </button>
+                      <div class="tracking-file-meta">
+                        <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+                      </div>
+                    </article>
+                  `;
+                })
+                .join("")}
+            </div>
+          `
+          : ""}
       </div>
     </section>
   `;
@@ -1153,6 +1190,8 @@ function renderTrackingResult(order) {
       ${renderTrackingImageModal()}
     </section>
   `;
+
+  bindTrackingCarousels(trackingResults);
 }
 
 trackingResults.addEventListener("click", (event) => {

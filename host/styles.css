@@ -2573,7 +2573,7 @@ body.tracking-detail-mode #tracking-form {
 
 .tracking-filter-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: stretch;
   gap: 10px;
 }
 
@@ -2582,6 +2582,16 @@ body.tracking-detail-mode #tracking-form {
   min-height: 46px;
   min-width: 132px;
   justify-content: center;
+}
+
+.tracking-clear-button {
+  width: 100%;
+}
+
+body.admin-app-view #order-broker-field {
+  position: relative;
+  z-index: 8;
+  overflow: visible;
 }
 
 .tracking-search-stack > span {
@@ -3069,6 +3079,38 @@ body.tracking-detail-mode #tracking-form {
   gap: 20px;
 }
 
+.tracking-files-gallery {
+  display: grid;
+  gap: 16px;
+}
+
+.tracking-files-carousel-shell {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.tracking-files-carousel {
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f0f;
+}
+
+.tracking-files-carousel-item {
+  width: 100%;
+}
+
+.tracking-files-carousel-item.tracking-file-card.image img {
+  aspect-ratio: 1.22;
+  min-height: 300px;
+  object-fit: cover;
+}
+
+.tracking-files-documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
 .tracking-file-card {
   position: relative;
   display: grid;
@@ -3140,6 +3182,20 @@ body.tracking-detail-mode #tracking-form {
   .tracking-files-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
+  }
+
+  .tracking-files-carousel-shell {
+    width: 100%;
+  }
+
+  .tracking-files-carousel-item.tracking-file-card.image img {
+    aspect-ratio: 0.94;
+    min-height: 240px;
+  }
+
+  .tracking-files-documents-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .tracking-file-card.document {
