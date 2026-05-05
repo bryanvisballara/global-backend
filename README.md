@@ -5,6 +5,7 @@ Backend inicial en Node.js con Express, MongoDB y autenticacion con JWT.
 Dominio temporal del frontend:
 
 - `https://teal-flamingo-532353.hostingersite.com`
+- `https://globalimports.app`
 
 ## Scripts
 
@@ -98,4 +99,4 @@ Variables necesarias para correos transaccionales con Brevo:
 
 - Start Command actual compatible: `node server.js`
 - Si prefieres usar scripts de npm, tambien funciona `npm start`
-- Para el frontend temporal, usa `CORS_ORIGIN=https://teal-flamingo-532353.hostingersite.com`
+- Para mantener ambos dominios activos, usa `CORS_ORIGIN=https://teal-flamingo-532353.hostingersite.com,https://globalimports.app`

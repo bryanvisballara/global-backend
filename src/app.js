@@ -30,6 +30,7 @@ const publicDirectory = path.join(__dirname, "..", "public");
 const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://teal-flamingo-532353.hostingersite.com",
+  "https://globalimports.app",
   "https://global-backend-bdbx.onrender.com",
 ];
 
@@ -37,17 +38,33 @@ app.set("trust proxy", 1);
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 
+function normalizeOrigin(originValue) {
+  const trimmedOrigin = String(originValue || "").trim();
+
+  if (!trimmedOrigin) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(trimmedOrigin)) {
+    return trimmedOrigin.replace(/\/$/, "");
+  }
+
+  return `https://${trimmedOrigin}`.replace(/\/$/, "");
+}
+
 function resolveAllowedOrigins() {
   if (corsOrigin === "*") {
-    return DEFAULT_ALLOWED_ORIGINS;
+    return DEFAULT_ALLOWED_ORIGINS.map((originValue) => normalizeOrigin(originValue)).filter(Boolean);
   }
 
   const configuredOrigins = corsOrigin
     .split(",")
-    .map((item) => item.trim())
+    .map((item) => normalizeOrigin(item))
     .filter(Boolean);
 
-  return Array.from(new Set([...configuredOrigins, ...DEFAULT_ALLOWED_ORIGINS]));
+  const defaultOrigins = DEFAULT_ALLOWED_ORIGINS.map((originValue) => normalizeOrigin(originValue)).filter(Boolean);
+
+  return Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
 }
 
 const corsOptions = {
@@ -58,7 +75,9 @@ const corsOptions = {
 
     const allowedOrigins = resolveAllowedOrigins();
 
-    if (!origin || allowedOrigins.includes(origin)) {
+    const normalizedRequestOrigin = normalizeOrigin(origin);
+
+    if (!origin || allowedOrigins.includes(normalizedRequestOrigin)) {
       return callback(null, true);
     }
 
