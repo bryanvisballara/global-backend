@@ -620,17 +620,24 @@ async function downloadDocument(url, fileName) {
   }
 
   try {
-    const response = await fetch(url);
+    const apiUrl = `/api/downloads/pdf?url=${encodeURIComponent(url)}`;
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
     const blob = await response.blob();
     const objectUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = fileName || "documento";
+    anchor.download = fileName || "documento.pdf";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(objectUrl);
   } catch (error) {
+    console.error("Download failed:", error.message);
     window.open(url, "_blank", "noopener,noreferrer");
   }
 }
