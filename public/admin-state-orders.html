@@ -3,19 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Global Imports | Vehículos por estado</title>
+    <title>Global Imports | Pedidos por estado</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
   </head>
-  <body>
+  <body class="admin-app-view admin-uppercase-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
 
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -27,8 +28,8 @@
 
         <section class="page-hero">
           <p class="section-tag" id="state-key-chip">Estado</p>
-          <h1 id="state-page-title">Vehículos por estado</h1>
-          <p class="dashboard-lead" id="state-page-lead">Listado de vehículos filtrados por su estado actual.</p>
+          <h1 id="state-page-title">Pedidos por estado</h1>
+          <p class="dashboard-lead" id="state-page-lead">Listado de pedidos filtrados por su estado actual.</p>
           <p id="state-feedback" class="feedback" aria-live="polite"></p>
         </section>
 
@@ -36,7 +37,7 @@
           <article class="metric-card">
             <span>Total en estado</span>
             <strong id="state-total-count">0</strong>
-            <p>Vehículos actualmente ubicados en este estado.</p>
+            <p>Pedidos actualmente ubicados en este estado.</p>
           </article>
           <article class="metric-card">
             <span>Estado consultado</span>
@@ -48,16 +49,37 @@
         <section class="dashboard-card state-orders-card">
           <div class="card-heading">
             <div>
-              <h2>Vehículos en este estado</h2>
+              <h2>Pedidos en este estado</h2>
               <p class="module-copy">Se muestra información completa de cada pedido filtrado por estado.</p>
             </div>
+            <span id="state-orders-table-count" class="section-tag">0 pedido(s)</span>
           </div>
-          <div id="state-orders-list" class="state-orders-list"></div>
+          <div class="tracking-table-wrap tracking-search-results-table-wrap">
+            <table class="tracking-data-table tracking-search-results-table">
+              <thead>
+                <tr>
+                  <th>Tracking</th>
+                  <th>VIN</th>
+                  <th>Cliente</th>
+                  <th>Destino</th>
+                  <th>Estado</th>
+                  <th>Vehículo</th>
+                  <th>Fecha</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="state-orders-table-body">
+                <tr>
+                  <td colspan="8"><div class="empty-state">Cargando pedidos...</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </section>
     </main>
 
-    <script src="/app/admin-common.js?v=20260429-adminnav01"></script>
-    <script src="/app/admin-state-orders.js?v=20260416-stateorders06"></script>
+    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-state-orders.js?v=20260504-stateorders-completed10"></script>
   </body>
 </html>

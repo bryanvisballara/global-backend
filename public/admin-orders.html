@@ -7,14 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight23" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
     <style>
       .global-loading-overlay {
         display: none !important;
       }
     </style>
   </head>
-  <body class="admin-app-view admin-uppercase-view">
+  <body class="admin-app-view admin-uppercase-view orders-creation-page">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -49,7 +50,7 @@
                     <span>Tracking</span>
                     <div class="tracking-field-stack">
                       <input id="order-tracking-number" name="trackingNumber" type="text" placeholder="GI-000123" readonly required />
-                      <button id="generate-tracking-button" class="link-button tracking-generate-button" type="button" onclick="window.__fillRandomTracking?.(); return false;">Regenerar tracking aleatoriamente</button>
+                      <button id="generate-tracking-button" class="link-button tracking-generate-button" type="button" onclick="window.__fillRandomTracking?.(); return false;">Regenerar tracking</button>
                     </div>
                   </label>
                   <label><span>VIN</span><input name="vin" type="text" placeholder="Ingresa el VIN (opcional)" /></label>
@@ -62,6 +63,7 @@
                       <option value="Puerto Santa Marta">Puerto Santa Marta</option>
                       <option value="Puerto Cartagena">Puerto Cartagena</option>
                       <option value="Puerto Barranquilla">Puerto Barranquilla</option>
+                      <option value="Puerto Miami">Puerto Miami</option>
                     </select>
                   </label>
                   <label>
@@ -72,7 +74,7 @@
                       <option value="Blue">Blue</option>
                       <option value="Brown">Brown</option>
                       <option value="Gray">Gray</option>
-                      <option value="Incognito (gris nardo)">Incognito (gris nardo)</option>
+                      <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
                       <option value="Mudbath">Mudbath</option>
                       <option value="Other">Other</option>
                       <option value="Red">Red</option>
@@ -89,7 +91,7 @@
                       <option value="Blue">Blue</option>
                       <option value="Brown">Brown</option>
                       <option value="Gray">Gray</option>
-                      <option value="Incognito (gris nardo)">Incognito (gris nardo)</option>
+                      <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
                       <option value="Mudbath">Mudbath</option>
                       <option value="Other">Other</option>
                       <option value="Red">Red</option>
@@ -106,6 +108,13 @@
                   </select>
                   <small id="order-client-summary" class="field-helper">Selecciona uno de los clientes ya creados.</small>
                 </label>
+                <label id="order-broker-field" hidden>
+                  <span>Asignar broker (USA)</span>
+                  <select id="order-broker-select" name="assignedBrokerId">
+                    <option value="">Sin broker asignado</option>
+                  </select>
+                  <small id="order-broker-summary" class="field-helper">Disponible para administradores USA.</small>
+                </label>
                 <label>
                   <span>Fotos o videos</span>
                   <input id="order-media-files" name="mediaFiles" type="file" accept="image/*,video/*" multiple />
@@ -115,6 +124,36 @@
                 <p id="order-feedback" class="feedback" aria-live="polite"></p>
               </form>
             </div>
+          </article>
+          <article class="dashboard-card module-card module-card-wide clients-results-card" aria-label="Pedidos creados">
+            <div class="card-heading">
+              <div>
+                <h2>Pedidos creados</h2>
+                <p class="module-copy">Edita un pedido para completar VIN o corregir datos del vehículo después de crearlo.</p>
+              </div>
+              <span id="orders-table-count" class="section-tag">0 pedido(s)</span>
+            </div>
+            <div class="tracking-table-wrap">
+              <table class="tracking-data-table">
+                <thead>
+                  <tr>
+                    <th>Tracking</th>
+                    <th>Cliente</th>
+                    <th>Vehículo</th>
+                    <th>VIN</th>
+                    <th>Destino</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="orders-table-body">
+                  <tr>
+                    <td colspan="7"><div class="empty-state">Cargando pedidos...</div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p id="orders-table-feedback" class="feedback" aria-live="polite"></p>
           </article>
         </section>
       </section>
@@ -138,7 +177,118 @@
         </div>
       </section>
     </div>
-    <script src="/admin-common.js?v=20260429-adminnav01"></script>
+    <div id="order-edit-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="order-edit-modal" onclick="window.__closeOrderEditModal?.()"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="order-edit-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="order-edit-title">Editar pedido</h2>
+            <p class="modal-copy">Completa el VIN o ajusta la información principal del pedido.</p>
+          </div>
+        </header>
+        <form id="order-edit-form" class="dashboard-form">
+          <div class="form-row two-up">
+            <label><span>Tracking</span><input id="order-edit-tracking" type="text" readonly /></label>
+            <label><span>Cliente</span><input id="order-edit-client" type="text" readonly /></label>
+          </div>
+          <div class="form-row two-up">
+            <label><span>Marca</span><input id="order-edit-brand" type="text" required /></label>
+            <label><span>Modelo</span><input id="order-edit-model" type="text" required /></label>
+          </div>
+          <div class="form-row two-up">
+            <label><span>Versión</span><input id="order-edit-version" type="text" required /></label>
+            <label><span>Año</span><input id="order-edit-year" type="number" min="1900" required /></label>
+          </div>
+          <div class="form-row two-up">
+            <label><span>VIN</span><input id="order-edit-vin" type="text" placeholder="Ingresa el VIN" /></label>
+            <label>
+              <span>Estado</span>
+              <select id="order-edit-status">
+                <option value="active">Activo</option>
+                <option value="completed">Completado</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row three-up">
+            <label>
+              <span>Destino</span>
+              <select id="order-edit-destination" required>
+                <option value="">Selecciona destino</option>
+                <option value="Puerto Santa Marta">Puerto Santa Marta</option>
+                <option value="Puerto Cartagena">Puerto Cartagena</option>
+                <option value="Puerto Barranquilla">Puerto Barranquilla</option>
+                <option value="Puerto Miami">Puerto Miami</option>
+              </select>
+            </label>
+            <label>
+              <span>Color exterior</span>
+              <select id="order-edit-exterior-color" required>
+                <option value="">Selecciona color exterior</option>
+                <option value="Black">Black</option>
+                <option value="Blue">Blue</option>
+                <option value="Brown">Brown</option>
+                <option value="Gray">Gray</option>
+                <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
+                <option value="Mudbath">Mudbath</option>
+                <option value="Other">Other</option>
+                <option value="Red">Red</option>
+                <option value="Silver">Silver</option>
+                <option value="White">White</option>
+                <option value="Yellow">Yellow</option>
+              </select>
+            </label>
+            <label>
+              <span>Color interior</span>
+              <select id="order-edit-interior-color" required>
+                <option value="">Selecciona color interior</option>
+                <option value="Black">Black</option>
+                <option value="Blue">Blue</option>
+                <option value="Brown">Brown</option>
+                <option value="Gray">Gray</option>
+                <option value="Incognito (Gris Nardo)">Incognito (Gris Nardo)</option>
+                <option value="Mudbath">Mudbath</option>
+                <option value="Other">Other</option>
+                <option value="Red">Red</option>
+                <option value="Silver">Silver</option>
+                <option value="White">White</option>
+                <option value="Yellow">Yellow</option>
+              </select>
+            </label>
+          </div>
+          <label><span>Notas</span><input id="order-edit-notes" type="text" placeholder="Notas internas" /></label>
+          <p id="order-edit-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button class="secondary-button" type="button" onclick="window.__closeOrderEditModal?.()">Cancelar</button>
+            <button id="order-edit-submit" class="primary-button" type="submit">Guardar cambios</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <div id="order-delete-request-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="order-delete-request-modal" onclick="window.__closeOrderDeleteRequestModal?.()"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="order-delete-request-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="order-delete-request-title">Solicitar eliminación</h2>
+            <p class="modal-copy">La solicitud será enviada a gerencia para aprobación antes de eliminar el pedido.</p>
+          </div>
+        </header>
+        <form id="order-delete-request-form" class="dashboard-form">
+          <label><span>Pedido</span><input id="order-delete-request-summary" type="text" readonly /></label>
+          <label>
+            <span>Motivo de la solicitud</span>
+            <textarea id="order-delete-request-reason" rows="4" placeholder="Explica por qué se debe eliminar este pedido" required></textarea>
+          </label>
+          <p id="order-delete-request-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button class="secondary-button" type="button" onclick="window.__closeOrderDeleteRequestModal?.()">Cancelar</button>
+            <button id="order-delete-request-submit" class="primary-button" type="submit">Solicitar eliminación</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="/admin-common.js?v=20260502-adminnav-broker01"></script>
     <script>
       (() => {
         const currentUrl = new URL(window.location.href);
@@ -165,7 +315,8 @@
         });
         document.body.classList.remove("loading-active");
       });
+
     </script>
-    <script src="/admin-orders.js?v=20260409-35"></script>
+    <script src="/admin-orders.js?v=20260504-orders-brokerpicker16"></script>
   </body>
 </html>

@@ -7,14 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight30" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
+    <style>
+      .global-loading-overlay {
+        display: none !important;
+      }
+    </style>
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -121,18 +127,37 @@
                 <span class="maint-panel-icon">🚗</span>
                 <div>
                   <h2 class="maint-panel-heading">Total registrados</h2>
-                  <p class="maint-panel-sub">Todos los vehículos y mantenimientos activos</p>
+                  <p class="maint-panel-sub">Los mismos pedidos completados que ves en dashboard; el conteo inicia desde la finalización del pedido.</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-count">0</strong>
             </header>
-            <div class="maint-vehicle-list" id="maintenance-list"></div>
+            <div class="tracking-table-wrap maint-registered-table-wrap">
+              <table class="tracking-data-table maint-registered-table">
+                <thead>
+                  <tr>
+                    <th>Tracking</th>
+                    <th>Cliente</th>
+                    <th>Vehículo</th>
+                    <th>VIN</th>
+                    <th>Finalizado</th>
+                    <th>Vence 6M</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="maintenance-list">
+                  <tr>
+                    <td colspan="7"><div class="empty-state">Cargando mantenimientos...</div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </article>
 
         </section>
       </section>
     </main>
-    <script src="/app/admin-common.js?v=20260429-adminnav01"></script>
-    <script src="/app/admin-maintenance.js?v=20260412-11"></script>
+    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-maintenance.js?v=20260501-15"></script>
   </body>
 </html>

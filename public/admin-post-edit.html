@@ -7,14 +7,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=20260412-maint13" />
+    <link rel="icon" href="/iconoglobal.jpg" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight33" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin-posts.html">Volver a publicaciones</a>
+          <a class="secondary-button back-link" href="/admin-posts.html">Volver a publicaciones</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -25,7 +27,7 @@
         </header>
         <section class="page-hero">
           <h1>Modificar publicación</h1>
-          <p class="dashboard-lead">Edita únicamente el título y el texto de la publicación seleccionada.</p>
+          <p class="dashboard-lead">Edita el título, el texto y el orden visual de las imágenes de la publicación seleccionada.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
@@ -50,6 +52,19 @@
                 <input id="edit-post-page-id" type="hidden" />
                 <label><span>Título</span><input id="edit-post-page-title" name="title" type="text" required readonly /></label>
                 <label><span>Texto</span><textarea id="edit-post-page-body" name="body" rows="8" required readonly></textarea></label>
+                <section id="edit-post-media-section" class="admin-media-manager" hidden>
+                  <div class="admin-media-manager-head">
+                    <div>
+                      <strong>Imágenes de la publicación</strong>
+                      <p>Previsualiza, elimina con la X y arrastra para definir el orden final del carrusel o imagen.</p>
+                    </div>
+                  </div>
+                  <label>
+                    <span>Agregar imágenes</span>
+                    <input id="edit-post-page-media-files" name="mediaFiles" type="file" accept="image/*" multiple />
+                  </label>
+                  <div id="edit-post-page-media-preview" class="tracking-state-media-list admin-sortable-media-list" hidden></div>
+                </section>
                 <div id="edit-post-page-meta" class="modal-meta"></div>
                 <button id="edit-post-submit-button" class="primary-button edit-post-submit-button" type="submit">Guardar cambios</button>
                 <p id="edit-post-page-feedback" class="feedback" aria-live="polite"></p>
@@ -63,7 +78,7 @@
       <div class="client-modal-overlay" data-close-modal="success-action-modal" onclick="window.__closeAdminEditSuccessModal?.()"></div>
       <section class="client-modal-card admin-modal-card admin-success-card" role="dialog" aria-modal="true" aria-labelledby="success-action-title">
         <div class="admin-brand-mark success">
-          <img src="/app/logoblancoleon.png" alt="Global Imports" />
+          <img src="/logoblancoleon.png" alt="Global Imports" />
           <span>Global Imports</span>
         </div>
         <header class="client-modal-header admin-success-header">
@@ -77,339 +92,7 @@
         </div>
       </section>
     </div>
-    <script>
-      (() => {
-        const params = new URLSearchParams(window.location.search);
-        let resolvedPostId = params.get("postId") || "";
-        const legacyTitle = params.get("title") || "";
-        const legacyBody = params.get("body") || "";
-        const titleInput = document.getElementById("edit-post-page-title");
-        const bodyInput = document.getElementById("edit-post-page-body");
-        const postIdInput = document.getElementById("edit-post-page-id");
-        const currentTitle = document.getElementById("edit-post-current-title");
-        const currentBody = document.getElementById("edit-post-current-body");
-        const metaContainer = document.getElementById("edit-post-page-meta");
-        const feedback = document.getElementById("edit-post-page-feedback");
-        const editTitleTrigger = document.getElementById("edit-title-trigger");
-        const editBodyTrigger = document.getElementById("edit-body-trigger");
-        const form = document.getElementById("edit-post-page-form");
-        const submitButton = document.getElementById("edit-post-submit-button");
-        const successModal = document.getElementById("success-action-modal");
-        const successDescription = document.getElementById("success-action-description");
-        const successTitle = document.getElementById("success-action-title");
-        const successClose = document.getElementById("success-action-close");
-
-        function resolveApiBaseUrl() {
-          const { protocol, hostname, port } = window.location;
-
-          if (hostname === "localhost" || hostname === "127.0.0.1") {
-            return `${protocol}//${hostname}:${port || "10000"}`;
-          }
-
-          return "https://global-backend-bdbx.onrender.com";
-        }
-
-        function setInlineFeedback(message, type = "") {
-          if (!feedback) {
-            return;
-          }
-
-          feedback.textContent = message;
-          feedback.className = `feedback${type ? ` ${type}` : ""}`;
-        }
-
-        function setSubmitButtonState(isSaving) {
-          if (!submitButton) {
-            return;
-          }
-
-          submitButton.disabled = Boolean(isSaving);
-          submitButton.textContent = isSaving ? "Guardando..." : "Guardar cambios";
-        }
-
-        function normalizeComparableText(value) {
-          return String(value || "")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\+/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-            .toLowerCase();
-        }
-
-        function scoreLegacyMatch(post) {
-          const normalizedTitle = normalizeComparableText(legacyTitle);
-          const normalizedBody = normalizeComparableText(legacyBody);
-          const postTitle = normalizeComparableText(post?.title);
-          const postBody = normalizeComparableText(post?.body);
-          let score = 0;
-
-          if (normalizedTitle && postTitle === normalizedTitle) {
-            score += 100;
-          } else if (normalizedTitle && (postTitle.includes(normalizedTitle) || normalizedTitle.includes(postTitle))) {
-            score += 60;
-          }
-
-          if (normalizedBody && postBody === normalizedBody) {
-            score += 100;
-          } else if (normalizedBody && postBody && (postBody.includes(normalizedBody) || normalizedBody.includes(postBody))) {
-            score += 45;
-          }
-
-          if (!normalizedTitle && normalizedBody && postBody) {
-            score += 10;
-          }
-
-          return score;
-        }
-
-        function updateUrlWithPostId(postId) {
-          if (!postId) {
-            return;
-          }
-
-          const canonicalUrl = new URL(window.location.href);
-          canonicalUrl.search = "";
-          canonicalUrl.searchParams.set("postId", postId);
-          window.history.replaceState({}, document.title, canonicalUrl.toString());
-        }
-
-        function toggleSuccessModal(shouldOpen) {
-          if (window.AdminApp?.resetLoadingOverlay) {
-            window.AdminApp.resetLoadingOverlay();
-          }
-
-          document.querySelectorAll(".global-loading-overlay").forEach((overlay) => {
-            overlay.hidden = true;
-          });
-          document.body.classList.remove("loading-active");
-
-          if (!successModal) {
-            return;
-          }
-
-          successModal.hidden = !shouldOpen;
-          document.body.classList.toggle("modal-open", shouldOpen);
-        }
-
-        function forceCloseSuccessModal() {
-          document.querySelectorAll(".global-loading-overlay").forEach((overlay) => {
-            overlay.hidden = true;
-          });
-
-          document.body.classList.remove("loading-active");
-          document.body.classList.remove("modal-open");
-
-          if (window.AdminApp?.resetLoadingOverlay) {
-            window.AdminApp.resetLoadingOverlay();
-          }
-
-          if (successModal) {
-            successModal.hidden = true;
-          }
-        }
-
-        window.__closeAdminEditSuccessModal = forceCloseSuccessModal;
-
-        async function resolveLegacyPostId() {
-          if (resolvedPostId) {
-            return resolvedPostId;
-          }
-
-          if (!legacyTitle && !legacyBody) {
-            return "";
-          }
-
-          const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
-            },
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || "No se pudo ubicar la publicación a modificar.");
-          }
-
-          const matchedPost = (data.posts || [])
-            .map((post) => ({ post, score: scoreLegacyMatch(post) }))
-            .filter((entry) => entry.score > 0)
-            .sort((left, right) => right.score - left.score)[0]?.post;
-
-          if (!matchedPost?._id) {
-            throw new Error("No se pudo identificar la publicación desde la URL recibida.");
-          }
-
-          resolvedPostId = matchedPost._id;
-          updateUrlWithPostId(resolvedPostId);
-          window.__adminEditResolvedPostId = resolvedPostId;
-          return resolvedPostId;
-        }
-
-        function fillFromBackend(post) {
-          if (!post) {
-            return;
-          }
-
-          if (postIdInput) {
-            postIdInput.value = post._id || "";
-          }
-
-          if (titleInput) {
-            titleInput.value = post.title || "";
-          }
-
-          if (bodyInput) {
-            bodyInput.value = post.body || "";
-          }
-
-          if (currentTitle) {
-            currentTitle.textContent = post.title || "Sin título";
-          }
-
-          if (currentBody) {
-            currentBody.textContent = post.body || "Sin texto";
-          }
-
-          if (metaContainer) {
-            const publishedDate = post.publishedAt || post.createdAt || "";
-            metaContainer.innerHTML = `
-              <div class="info-box modal-info-box">
-                <span>${post.format || "publicación"}</span>
-                <strong>${publishedDate ? `Publicada: ${new Date(publishedDate).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Bogota" })}` : "Publicación cargada"}</strong>
-              </div>
-            `;
-          }
-        }
-
-        function unlockTitleField() {
-          if (!titleInput) {
-            return;
-          }
-
-          titleInput.readOnly = false;
-          titleInput.removeAttribute("readonly");
-          titleInput.focus();
-          titleInput.select();
-        }
-
-        function unlockBodyField() {
-          if (!bodyInput) {
-            return;
-          }
-
-          bodyInput.readOnly = false;
-          bodyInput.removeAttribute("readonly");
-          bodyInput.focus();
-        }
-
-        async function submitInlineEdit(event) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-
-          if (!form?.reportValidity()) {
-            return;
-          }
-
-          try {
-            const effectivePostId = await resolveLegacyPostId();
-
-            if (!effectivePostId) {
-              throw new Error("No se pudo identificar la publicación a modificar.");
-            }
-
-            setSubmitButtonState(true);
-
-            const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts/${effectivePostId}`, {
-              method: "PATCH",
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                title: titleInput?.value || "",
-                body: bodyInput?.value || "",
-              }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(data.message || "No se pudo modificar la publicación.");
-            }
-
-            fillFromBackend(data.post || {
-              _id: effectivePostId,
-              title: titleInput?.value || "",
-              body: bodyInput?.value || "",
-            });
-            setInlineFeedback("Tus cambios se actualizaron correctamente.", "success");
-
-            if (successTitle) {
-              successTitle.textContent = "Publicación actualizada";
-            }
-
-            if (successDescription) {
-              successDescription.textContent = "Tus cambios se actualizaron correctamente.";
-            }
-
-            toggleSuccessModal(true);
-          } catch (error) {
-            setInlineFeedback(error.message, "error");
-          } finally {
-            setSubmitButtonState(false);
-            if (window.AdminApp?.resetLoadingOverlay) {
-              window.AdminApp.resetLoadingOverlay();
-            } else if (window.AdminApp?.hideLoadingOverlay) {
-              window.AdminApp.hideLoadingOverlay();
-            }
-          }
-        }
-
-        async function loadPostInline() {
-          try {
-            const effectivePostId = await resolveLegacyPostId();
-
-            if (!effectivePostId) {
-              setInlineFeedback("No se recibió la publicación a modificar.", "error");
-              if (currentTitle) currentTitle.textContent = "No se recibió la publicación.";
-              if (currentBody) currentBody.textContent = "No se recibió la publicación.";
-              return;
-            }
-
-            const response = await fetch(`${resolveApiBaseUrl()}/api/admin/posts/${effectivePostId}`, {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("globalAppToken") || ""}`,
-              },
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(data.message || "No se pudo cargar la publicación.");
-            }
-
-            fillFromBackend(data.post);
-            window.__adminEditLoadedFromBackend = true;
-          } catch (error) {
-            setInlineFeedback(error.message, "error");
-            if (currentTitle) currentTitle.textContent = "No se pudo cargar el título.";
-            if (currentBody) currentBody.textContent = "No se pudo cargar el texto.";
-          }
-        }
-
-        loadPostInline();
-        editTitleTrigger?.addEventListener("click", unlockTitleField);
-        editBodyTrigger?.addEventListener("click", unlockBodyField);
-        form?.addEventListener("submit", submitInlineEdit);
-        successClose?.addEventListener("click", forceCloseSuccessModal);
-        document
-          .querySelector('[data-close-modal="success-action-modal"]')
-          ?.addEventListener("click", forceCloseSuccessModal);
-      })();
-    </script>
-    <script src="/app/admin-common.js?v=20260429-adminnav01"></script>
-    <script src="/app/admin-post-edit.js?v=20260406-15"></script>
+    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-post-edit.js?v=20260430-posteditmedia03"></script>
   </body>
 </html>
