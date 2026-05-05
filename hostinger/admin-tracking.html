@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight26" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight38" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
     <style>
       .global-loading-overlay {
         display: none !important;
@@ -81,7 +81,6 @@
                   </div>
                   <div class="tracking-filter-actions">
                     <button id="tracking-clear-button" class="secondary-button tracking-clear-button" type="button">Limpiar</button>
-                    <button id="tracking-search-button" class="primary-button tracking-filter-button" type="button" onclick="(window.__adminTrackingHandleSearch || window.__adminTrackingFallbackSearch)?.(); return false;">Filtrar</button>
                   </div>
                   <p id="tracking-feedback" class="feedback" aria-live="polite"></p>
                   <div id="tracking-search-results" class="tracking-search-results"></div>
@@ -198,6 +197,13 @@
               </select>
               <small id="order-client-summary" class="field-helper">Selecciona uno de los clientes ya creados.</small>
             </label>
+            <label id="order-broker-field" hidden>
+              <span>Asignar broker (USA)</span>
+              <select id="order-broker-select" name="assignedBrokerId">
+                <option value="">Sin broker asignado</option>
+              </select>
+              <small id="order-broker-summary" class="field-helper">Disponible para administradores USA.</small>
+            </label>
             <label>
               <span>Observaciones</span>
               <textarea name="notes" rows="4" placeholder="Escribe observaciones internas del pedido"></textarea>
@@ -253,7 +259,50 @@
         </div>
       </section>
     </div>
-    <script src="/admin-common.js?v=20260429-adminnav01"></script>
+    <div id="broker-document-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-broker-document-modal></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="broker-document-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="broker-document-title">Subir archivos del pedido</h2>
+            <p id="broker-document-order-copy" class="modal-copy">Selecciona el tipo de archivo y agrega una nota opcional.</p>
+          </div>
+          <button class="tracking-create-order-close" type="button" aria-label="Cerrar modal" data-close-broker-document-modal>&times;</button>
+        </header>
+        <form id="broker-document-form" class="dashboard-form" enctype="multipart/form-data" novalidate>
+          <label>
+            <span>Pedido</span>
+            <input id="broker-document-order-summary" type="text" readonly />
+          </label>
+          <div class="form-row two-up">
+            <label>
+              <span>Tipo de archivo *</span>
+              <select id="broker-document-type" name="documentType" required>
+                <option value="">Selecciona</option>
+                <option value="FOTOS">Fotos del vehículo (jpg/png/webp/pdf) - visible en LATAM</option>
+                <option value="TITULO">Titulo del vehículo (PDF) - Solo USA</option>
+                <option value="BUYERS_ORDER">Buyers Order (PDF) - Solo USA</option>
+                <option value="WIRE_INSTRUCTIONS">Wire instructions (PDF/JPG/PNG) - Solo USA</option>
+              </select>
+            </label>
+            <label>
+              <span>Archivo(s) *</span>
+              <input id="broker-document-files" name="mediaFiles" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip,.webp" multiple required />
+            </label>
+          </div>
+          <label>
+            <span>Notas</span>
+            <textarea id="broker-document-note" name="note" rows="4" placeholder="Agrega una nota corta para identificar el archivo"></textarea>
+          </label>
+          <p id="broker-document-feedback" class="feedback" aria-live="polite"></p>
+          <div class="modal-actions-row">
+            <button class="secondary-button" type="button" data-close-broker-document-modal>Cancelar</button>
+            <button id="broker-document-submit" class="primary-button" type="submit">Subir</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="/admin-common.js?v=20260502-adminnav-broker01"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -766,7 +815,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260430-trackingevents26"></script>
-    <script src="/admin-orders.js?v=20260429-ordermanage11"></script>
+    <script src="/admin-tracking.js?v=20260504-tracking-brokerpicker16"></script>
+    <script src="/admin-orders.js?v=20260504-orders-brokerpicker16"></script>
   </body>
 </html>

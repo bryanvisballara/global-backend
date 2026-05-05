@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight22" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight29" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
   </head>
   <body class="admin-app-view">
     <main class="dashboard-shell">
@@ -85,8 +85,8 @@
                       <tr>
                         <th>Nombre</th>
                         <th>Contacto</th>
-                        <th>Ubicación</th>
                         <th>Pedidos</th>
+                        <th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody id="clients-results-body">
@@ -128,14 +128,48 @@
             <label><span>País</span><input name="country" type="text" placeholder="Colombia, USA, ..." /></label>
           </div>
           <label><span>Notas</span><textarea name="notes" rows="4" placeholder="Observaciones relevantes..."></textarea></label>
+          <p id="client-form-feedback" class="feedback" aria-live="polite"></p>
           <div class="modal-actions-row">
             <button id="client-create-cancel" class="secondary-button" type="button">Cancelar</button>
-            <button class="primary-button" type="submit">Crear cliente</button>
+            <button id="client-submit-button" class="primary-button" type="submit">Crear cliente</button>
           </div>
         </form>
       </section>
     </div>
-    <script src="/admin-common.js?v=20260410-07"></script>
-      <script src="/admin-clients.js?v=20260410-04"></script>
+
+    <div id="client-orders-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="client-orders-modal"></div>
+      <section class="client-modal-card admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="client-orders-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="client-orders-title">Pedidos del cliente</h2>
+            <p id="client-orders-copy" class="modal-copy">Aquí verás los pedidos relacionados con este cliente.</p>
+          </div>
+        </header>
+        <div id="client-orders-list" class="modal-scroll-list"></div>
+        <div class="modal-actions-row single-action">
+          <button id="client-orders-close" class="secondary-button" type="button">Cerrar</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="client-delete-modal" class="client-modal" hidden>
+      <div class="client-modal-overlay" data-close-modal="client-delete-modal"></div>
+      <section class="client-modal-card admin-modal-card admin-confirm-card" role="dialog" aria-modal="true" aria-labelledby="client-delete-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="client-delete-title">Eliminar cliente</h2>
+            <p id="client-delete-copy" class="modal-copy">Esta acción no se puede deshacer.</p>
+          </div>
+        </header>
+        <p id="client-delete-feedback" class="feedback" aria-live="polite"></p>
+        <div class="modal-actions-row">
+          <button id="client-delete-cancel" class="secondary-button" type="button">Cancelar</button>
+          <button id="client-delete-confirm" class="secondary-button destructive-button" type="button">Eliminar</button>
+        </div>
+      </section>
+    </div>
+    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+      <script src="/admin-clients.js?v=20260430-06"></script>
   </body>
 </html>
