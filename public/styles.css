@@ -2637,10 +2637,6 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-card-header {
-  display: grid;
-  gap: 18px;
-  justify-items: center;
-  text-align: center;
   padding: 16px 18px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
@@ -2652,67 +2648,8 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-card-header p {
-  margin: 0;
+  margin: 8px 0 0;
   color: var(--muted);
-}
-
-.tracking-card-title {
-  font-size: clamp(1.35rem, 5vw, 1.95rem);
-  line-height: 1.08;
-  text-align: center;
-}
-
-.tracking-card-guide {
-  font-size: 1rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.86) !important;
-  text-align: center;
-}
-
-.tracking-card-details-grid {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px 12px;
-}
-
-.tracking-card-detail-item {
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  text-align: center;
-  min-width: 0;
-}
-
-.tracking-card-detail-label {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.tracking-card-detail-value {
-  color: var(--text);
-  font-size: 1.1rem;
-  line-height: 1.3;
-  word-break: break-word;
-}
-
-@media (max-width: 760px) {
-  .tracking-card-header {
-    gap: 16px;
-    padding: 18px 16px;
-  }
-
-  .tracking-card-details-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px 12px;
-  }
-
-  .tracking-card-detail-value {
-    font-size: 1rem;
-  }
 }
 
 .tracking-roadmap {
@@ -3049,6 +2986,38 @@ body.tracking-detail-mode #tracking-form {
   gap: 20px;
 }
 
+.tracking-files-gallery {
+  display: grid;
+  gap: 16px;
+}
+
+.tracking-files-carousel-shell {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.tracking-files-carousel {
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f0f;
+}
+
+.tracking-files-carousel-item {
+  width: 100%;
+}
+
+.tracking-files-carousel-item.tracking-file-card.image img {
+  aspect-ratio: 1.22;
+  min-height: 300px;
+  object-fit: cover;
+}
+
+.tracking-files-documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
 .tracking-file-card {
   position: relative;
   display: grid;
@@ -3120,6 +3089,20 @@ body.tracking-detail-mode #tracking-form {
   .tracking-files-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
+  }
+
+  .tracking-files-carousel-shell {
+    width: 100%;
+  }
+
+  .tracking-files-carousel-item.tracking-file-card.image img {
+    aspect-ratio: 0.94;
+    min-height: 240px;
+  }
+
+  .tracking-files-documents-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .tracking-file-card.document {
