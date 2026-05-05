@@ -7,10 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight37" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
   </head>
-  <body class="admin-app-view">
+  <body class="admin-app-view maint-detail-page">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -49,12 +49,14 @@
             <span class="maint-detail-count-label">Mostrando <strong id="maint-total-count">0</strong> vehículos</span>
           </div>
           <div class="maint-detail-table-wrap">
-            <table class="maint-table" id="maint-table">
-              <thead id="maint-table-head">
-                <tr></tr>
-              </thead>
-              <tbody id="maint-table-body"></tbody>
-            </table>
+            <div class="maint-detail-table-scroll">
+              <table class="maint-table" id="maint-table">
+                <thead id="maint-table-head">
+                  <tr></tr>
+                </thead>
+                <tbody id="maint-table-body"></tbody>
+              </table>
+            </div>
           </div>
           <section class="maint-status-board" id="maint-status-board" aria-label="Resumen por estado">
             <article class="dashboard-card maint-status-card">

@@ -8,6 +8,38 @@ body.admin-app-view {
   overflow-x: hidden;
 }
 
+@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-text-size-adjust: 90% !important;
+    text-size-adjust: 90% !important;
+  }
+
+  body.admin-app-view {
+    zoom: 0.9;
+  }
+
+  @supports not (zoom: 0.9) {
+    body.admin-app-view {
+      transform: scale(0.9);
+      transform-origin: top center;
+      width: 111.111% !important;
+      min-height: calc(100dvh / 0.9);
+    }
+  }
+
+  .tracking-card-detail-label {
+    font-size: 0.65rem !important;
+  }
+
+  .tracking-card-detail-value {
+    font-size: 0.85rem !important;
+  }
+
+  .tracking-card-detail-value-vin {
+    font-size: 0.75rem !important;
+  }
+}
+
 @media (max-width: 1100px) {
   html {
     zoom: 1 !important;
@@ -156,5 +188,69 @@ body.admin-app-view {
 
   body.admin-app-view.admin-sidebar-open .admin-sidebar {
     transform: translateX(0) !important;
+  }
+
+  body.admin-app-view .admin-tracking-events-table td,
+  body.admin-app-view .admin-tracking-documents-table td {
+    min-width: 0 !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body.admin-app-view .admin-tracking-events-table .admin-tracking-events-actions-cell,
+  body.admin-app-view .admin-tracking-documents-table .admin-tracking-events-actions-cell {
+    width: auto !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body.admin-app-view .admin-tracking-events-table .admin-tracking-event-actions,
+  body.admin-app-view .admin-tracking-documents-table .admin-tracking-event-actions {
+    display: flex !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  body.admin-app-view .admin-tracking-documents-table .tracking-document-link-cell,
+  body.admin-app-view .admin-tracking-documents-table .tracking-document-link {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  body.admin-app-view .clients-results-card .tracking-data-table td {
+    min-width: 0 !important;
+    grid-template-columns: 104px minmax(0, 1fr) !important;
+    align-items: start !important;
+  }
+
+  body.admin-app-view .clients-results-card .tracking-data-table td > strong,
+  body.admin-app-view .clients-results-card .tracking-data-table td > small,
+  body.admin-app-view .clients-results-card .tracking-data-table td > span,
+  body.admin-app-view .clients-results-card .tracking-data-table td > a,
+  body.admin-app-view .clients-results-card .tracking-data-table td > .clients-row-actions {
+    grid-column: 2 !important;
+    min-width: 0 !important;
+  }
+
+  body.admin-app-view .clients-results-card .tracking-data-table td strong,
+  body.admin-app-view .clients-results-card .tracking-data-table td small,
+  body.admin-app-view .clients-results-card .tracking-data-table td,
+  body.admin-app-view .clients-results-card .tracking-data-table td a {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  body.admin-app-view .clients-results-card .tracking-data-table td small {
+    margin-top: 4px !important;
+  }
+
+  body.admin-app-view .clients-results-card .clients-actions-cell {
+    width: auto !important;
+  }
+
+  body.admin-app-view .clients-results-card .clients-row-actions {
+    display: flex !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
   }
 }

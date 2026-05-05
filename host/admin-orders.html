@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
     <style>
       .global-loading-overlay {
         display: none !important;
@@ -107,6 +107,13 @@
                     <option value="">Cargando clientes...</option>
                   </select>
                   <small id="order-client-summary" class="field-helper">Selecciona uno de los clientes ya creados.</small>
+                </label>
+                <label id="order-broker-field" hidden>
+                  <span>Asignar broker (USA)</span>
+                  <select id="order-broker-select" name="assignedBrokerId">
+                    <option value="">Sin broker asignado</option>
+                  </select>
+                  <small id="order-broker-summary" class="field-helper">Disponible para administradores USA.</small>
                 </label>
                 <label>
                   <span>Fotos o videos</span>
@@ -281,7 +288,7 @@
         </form>
       </section>
     </div>
-    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-common.js?v=20260502-adminnav-broker01"></script>
     <script>
       (() => {
         const currentUrl = new URL(window.location.href);
@@ -310,6 +317,6 @@
       });
 
     </script>
-    <script src="/admin-orders.js?v=20260504-orders-anthonyclient03"></script>
+    <script src="/admin-orders.js?v=20260504-orders-brokerpicker16"></script>
   </body>
 </html>

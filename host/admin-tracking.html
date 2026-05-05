@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css?v=20260501-adminlight38" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260501-adminmobile03" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260505-ipad-fontfix01" />
     <style>
       .global-loading-overlay {
         display: none !important;
@@ -81,7 +81,6 @@
                   </div>
                   <div class="tracking-filter-actions">
                     <button id="tracking-clear-button" class="secondary-button tracking-clear-button" type="button">Limpiar</button>
-                    <button id="tracking-search-button" class="primary-button tracking-filter-button" type="button" onclick="(window.__adminTrackingHandleSearch || window.__adminTrackingFallbackSearch)?.(); return false;">Filtrar</button>
                   </div>
                   <p id="tracking-feedback" class="feedback" aria-live="polite"></p>
                   <div id="tracking-search-results" class="tracking-search-results"></div>
@@ -203,7 +202,7 @@
               <select id="order-broker-select" name="assignedBrokerId">
                 <option value="">Sin broker asignado</option>
               </select>
-              <small id="order-broker-summary" class="field-helper">Disponible solo para gerente USA.</small>
+              <small id="order-broker-summary" class="field-helper">Disponible para administradores USA.</small>
             </label>
             <label>
               <span>Observaciones</span>
@@ -816,7 +815,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260504-tracking-completedbucket07"></script>
-    <script src="/admin-orders.js?v=20260504-orders-anthonyclient03"></script>
+    <script src="/admin-tracking.js?v=20260504-tracking-brokerpicker16"></script>
+    <script src="/admin-orders.js?v=20260504-orders-brokerpicker16"></script>
   </body>
 </html>
