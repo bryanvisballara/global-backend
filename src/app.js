@@ -147,7 +147,39 @@ app.use(
   })
 );
 
-app.use("/uploads", express.static(uploadsDirectory));
+app.use("/uploads", express.static(uploadsDirectory, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".pdf")) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline; filename*=UTF-8''");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    }
+  },
+}));
+
+app.get("/api/uploads/download/:fileName", (req, res) => {
+  try {
+    const fileName = String(req.params.fileName || "").trim();
+    
+    if (!fileName || fileName.includes("..") || fileName.includes("/") || fileName.includes("\\")) {
+      return res.status(400).json({ message: "Invalid file name" });
+    }
+
+    const filePath = path.join(uploadsDirectory, fileName);
+    
+    if (!filePath.startsWith(uploadsDirectory)) {
+      return res.status(400).json({ message: "Invalid file path" });
+    }
+
+    return res.download(filePath, fileName, (error) => {
+      if (error && error.code !== "ERR_HTTP_HEADERS_SENT") {
+        console.error("File download error", error.message);
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error downloading file" });
+  }
+});
 
 app.get("/", (req, res) => {
   res.redirect("/index.html");

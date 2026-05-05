@@ -124,7 +124,7 @@ async function persistPdfFileAndBuildUrl(file, req) {
     throw new Error("Uploaded file is missing both buffer and path");
   }
 
-  const relativeUrl = `/uploads/order-documents/${encodeURIComponent(fileName)}`;
+  const relativeUrl = `/api/uploads/download/${encodeURIComponent(fileName)}`;
   const origin = resolveRequestOrigin(req);
   const absoluteUrl = origin ? `${origin}${relativeUrl}` : relativeUrl;
 
