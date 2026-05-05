@@ -2,8 +2,7 @@ require("dotenv").config({ quiet: true });
 
 const fs = require("fs");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
-const fetch = require("node-fetch");
+const { randomUUID } = require("crypto");
 const { connectToDatabase } = require("../config/db");
 const Order = require("../models/Order");
 const OrderGlobalUS = require("../models/OrderGlobalUS");
@@ -48,7 +47,7 @@ async function downloadPdfFromCloudinary(url) {
       throw new Error(`Invalid content-type: ${contentType}`);
     }
 
-    return await response.buffer();
+    return await response.arrayBuffer();
   } catch (error) {
     console.error(`Failed to download PDF from ${url}:`, error.message);
     return null;
@@ -56,17 +55,18 @@ async function downloadPdfFromCloudinary(url) {
 }
 
 async function saveLocalPdfFile(buffer, originalFileName) {
-  if (!buffer || !buffer.length) {
+  if (!buffer) {
     throw new Error("Empty PDF buffer");
   }
 
   await fs.promises.mkdir(PDF_UPLOAD_DIRECTORY, { recursive: true });
 
   const safeBaseName = normalizeFileNameForStorage(originalFileName || "documento");
-  const fileName = `migrated-${Date.now()}-${uuidv4()}-${safeBaseName}.pdf`;
+  const fileName = `migrated-${Date.now()}-${randomUUID()}-${safeBaseName}.pdf`;
   const destinationPath = path.join(PDF_UPLOAD_DIRECTORY, fileName);
 
-  await fs.promises.writeFile(destinationPath, buffer);
+  const bufferToWrite = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  await fs.promises.writeFile(destinationPath, bufferToWrite);
 
   return fileName;
 }
