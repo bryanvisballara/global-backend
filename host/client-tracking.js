@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260504-clientevents14";
+const TRACKING_PAGE_VERSION = "20260504-clientevents15";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -345,6 +345,16 @@ function getFileExtension(value) {
 
 function isImageLikeDocument(item = {}) {
   if (item?.type === "image") {
+    return true;
+  }
+
+  if (String(item?.mimeType || "").trim().toLowerCase().startsWith("image/")) {
+    return true;
+  }
+
+  const normalizedUrl = String(item?.url || "").trim().toLowerCase();
+
+  if (normalizedUrl.includes("/image/upload/")) {
     return true;
   }
 
@@ -835,7 +845,9 @@ function buildTrackingFiles(order) {
         .map((item, mediaIndex) => ({
           key: `${event.key}-${event.updatedAt || event.createdAt || eventIndex}-${mediaIndex}`,
           url: item.url,
-          type: item.type || (item.category === "document" ? "document" : "image"),
+          type: isImageLikeDocument(item)
+            ? "image"
+            : (item.type || (item.category === "document" ? "document" : "image")),
           category: item.category || "",
           name: String(item.name || "").trim(),
           caption: String(item.caption || item.name || stageLabel || "Archivo").trim(),
@@ -1029,8 +1041,8 @@ function renderTrackingEventsTable(order) {
 
 function renderTrackingFilesSection(order) {
   const files = buildTrackingFiles(order);
-  const imageFiles = files.filter((item) => item.type !== "document" && item.category !== "document");
-  const documentFiles = files.filter((item) => item.type === "document" || item.category === "document");
+  const imageFiles = files.filter((item) => item.type === "image");
+  const documentFiles = files.filter((item) => item.type === "document");
 
   if (!files.length) {
     return `
