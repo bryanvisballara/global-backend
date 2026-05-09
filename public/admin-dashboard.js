@@ -420,30 +420,6 @@ function renderGlobalEvents(events) {
     .join("");
 }
 
-function renderUsersTable(users) {
-  const tableBody = document.getElementById("dashboard-users-body");
-
-  if (!tableBody) {
-    return;
-  }
-
-  if (!users.length) {
-    tableBody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No hay usuarios registrados por mostrar.</div></td></tr>';
-    return;
-  }
-
-  tableBody.innerHTML = users
-    .map((user) => `
-      <tr>
-        <td data-label="Nombre">${escapeHtml(user?.name || "-")}</td>
-        <td data-label="Fecha de creación">${escapeHtml(formatDateTimeLabel(user?.createdAt))}</td>
-        <td data-label="Correo">${escapeHtml(user?.email || "-")}</td>
-        <td data-label="Teléfono">${escapeHtml(user?.phone || "-")}</td>
-      </tr>
-    `)
-    .join("");
-}
-
 function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenance = [] }) {
   const orderEvents = orders.flatMap((order) => {
     const trackingCode = order?.trackingNumber ? `Tracking ${order.trackingNumber}` : "Pedido";
@@ -588,7 +564,6 @@ if (true) {
   const maintenanceCount = document.getElementById("maintenance-count");
   const postsCount = document.getElementById("posts-count");
   const distributionCaption = document.getElementById("distribution-caption");
-  const usersPanel = document.getElementById("dashboard-users-panel");
   let initOverlayWatchdog = null;
 
   function stopInitOverlayWatchdog() {
@@ -680,7 +655,6 @@ if (true) {
       }
 
       renderStageDistribution(orders);
-      renderUsersTable(users);
       renderGlobalEvents(
         collectGlobalEvents({
           orders,
@@ -724,14 +698,6 @@ if (true) {
 
   document.querySelectorAll(".admin-meta-pill-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      const panelTarget = button.getAttribute("data-dashboard-panel");
-
-      if (panelTarget === "users" && usersPanel) {
-        usersPanel.hidden = false;
-        usersPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-
       const href = button.getAttribute("data-href");
       if (href) {
         window.location.href = href;

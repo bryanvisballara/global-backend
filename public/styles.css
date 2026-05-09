@@ -1396,13 +1396,13 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 
 .admin-dashboard-meta {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
   margin-top: 22px;
 }
 
 .admin-meta-pill {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
@@ -1429,15 +1429,15 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 .admin-meta-pill span {
   display: block;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
 }
 
 .admin-meta-pill strong {
   display: block;
-  margin-top: 10px;
-  font-size: 1.8rem;
+  margin-top: 8px;
+  font-size: 1.65rem;
   line-height: 1;
 }
 
