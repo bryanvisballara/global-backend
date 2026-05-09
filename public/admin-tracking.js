@@ -567,7 +567,7 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
   }
 
   if (["admin", "manager"].includes(currentAdminRole)) {
-    return currentIndex >= 3 && targetIndex >= 3;
+    return currentIndex === 2 && targetIndex === 3;
   }
 
   return false;

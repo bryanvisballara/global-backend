@@ -437,7 +437,7 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex, orderRe
 
   if (isUsaAdministrativeRole(requesterRole)) {
     if (String(orderRegion || "latam").trim().toLowerCase() === "latam") {
-      return currentIndex <= 1 && targetIndex <= 2;
+      return currentIndex <= 2 && targetIndex <= 3;
     }
 
     return currentIndex <= 2 && targetIndex <= 3;
