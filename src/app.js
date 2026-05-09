@@ -1,5 +1,6 @@
 const cors = require("cors");
 const express = require("express");
+const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const authRoutes = require("./routes/authRoutes");
@@ -215,8 +216,20 @@ app.get("/api/downloads/pdf", async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
     res.setHeader("Cache-Control", "public, max-age=3600");
 
-    if (fileUrl.startsWith("/uploads/")) {
-      const localPath = path.join(uploadsDirectory, path.basename(fileUrl));
+    let localDownloadFileName = "";
+
+    try {
+      const parsedUrl = new URL(fileUrl, "http://local");
+
+      if (parsedUrl.pathname.startsWith("/uploads/") || parsedUrl.pathname.startsWith("/api/uploads/download/")) {
+        localDownloadFileName = decodeURIComponent(path.basename(parsedUrl.pathname));
+      }
+    } catch {
+      localDownloadFileName = "";
+    }
+
+    if (localDownloadFileName) {
+      const localPath = path.join(uploadsDirectory, path.basename(localDownloadFileName));
 
       if (!localPath.startsWith(uploadsDirectory)) {
         return res.status(400).json({ message: "Invalid local path" });
