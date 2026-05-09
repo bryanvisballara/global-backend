@@ -131,8 +131,8 @@ if (requireAdminAccess()) {
     usersResultsBody.innerHTML = users
       .map((user) => `
         <tr>
-          <td data-label="Nombre">${escapeHtml(user?.name || "-")}</td>
           <td data-label="Fecha de creación">${escapeHtml(formatDateTimeLabel(user?.createdAt))}</td>
+          <td data-label="Nombre">${escapeHtml(user?.name || "-")}</td>
           <td data-label="Correo">${escapeHtml(user?.email || "-")}</td>
           <td data-label="Teléfono">${escapeHtml(user?.phone || "-")}</td>
         </tr>
