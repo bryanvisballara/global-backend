@@ -420,6 +420,30 @@ function renderGlobalEvents(events) {
     .join("");
 }
 
+function renderUsersTable(users) {
+  const tableBody = document.getElementById("dashboard-users-body");
+
+  if (!tableBody) {
+    return;
+  }
+
+  if (!users.length) {
+    tableBody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No hay usuarios registrados por mostrar.</div></td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = users
+    .map((user) => `
+      <tr>
+        <td data-label="Nombre">${escapeHtml(user?.name || "-")}</td>
+        <td data-label="Fecha de creación">${escapeHtml(formatDateTimeLabel(user?.createdAt))}</td>
+        <td data-label="Correo">${escapeHtml(user?.email || "-")}</td>
+        <td data-label="Teléfono">${escapeHtml(user?.phone || "-")}</td>
+      </tr>
+    `)
+    .join("");
+}
+
 function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenance = [] }) {
   const orderEvents = orders.flatMap((order) => {
     const trackingCode = order?.trackingNumber ? `Tracking ${order.trackingNumber}` : "Pedido";
@@ -556,6 +580,7 @@ if (true) {
   const adminFirstName = document.getElementById("admin-first-name");
   const adminNameTop = document.getElementById("admin-name-top");
   const clientsCount = document.getElementById("clients-count");
+  const usersCount = document.getElementById("users-count");
   const requestsCount = document.getElementById("requests-count");
   const ordersCount = document.getElementById("orders-count");
   const activeOrdersCount = document.getElementById("active-orders-count");
@@ -563,6 +588,7 @@ if (true) {
   const maintenanceCount = document.getElementById("maintenance-count");
   const postsCount = document.getElementById("posts-count");
   const distributionCaption = document.getElementById("distribution-caption");
+  const usersPanel = document.getElementById("dashboard-users-panel");
   let initOverlayWatchdog = null;
 
   function stopInitOverlayWatchdog() {
@@ -615,6 +641,7 @@ if (true) {
 
       const dashboardRequests = [
         { key: "clients", critical: true, promise: fetchDashboardJson("/api/admin/clients") },
+        { key: "users", critical: false, promise: fetchDashboardJson("/api/admin/users") },
         { key: "requests", critical: false, promise: isUsaRole ? Promise.resolve({ requests: [] }) : fetchDashboardJson("/api/admin/client-requests") },
         { key: "orders", critical: true, promise: fetchDashboardJson("/api/admin/orders") },
         { key: "maintenance", critical: false, promise: isUsaRole ? Promise.resolve({ maintenance: [] }) : fetchDashboardJson("/api/admin/maintenance") },
@@ -624,12 +651,14 @@ if (true) {
       const results = await Promise.allSettled(dashboardRequests.map((entry) => entry.promise));
 
       const clientsData = results[0].status === "fulfilled" ? results[0].value : {};
-      const requestsData = results[1].status === "fulfilled" ? results[1].value : {};
-      const ordersData = results[2].status === "fulfilled" ? results[2].value : {};
-      const maintenanceData = results[3].status === "fulfilled" ? results[3].value : {};
-      const postsData = results[4].status === "fulfilled" ? results[4].value : {};
+      const usersData = results[1].status === "fulfilled" ? results[1].value : {};
+      const requestsData = results[2].status === "fulfilled" ? results[2].value : {};
+      const ordersData = results[3].status === "fulfilled" ? results[3].value : {};
+      const maintenanceData = results[4].status === "fulfilled" ? results[4].value : {};
+      const postsData = results[5].status === "fulfilled" ? results[5].value : {};
 
       const clients = normalizeCollectionPayload(clientsData, ["clients"]);
+      const users = normalizeCollectionPayload(usersData, ["users"]);
       const requests = normalizeCollectionPayload(requestsData, ["requests", "clientRequests"]);
       const orders = normalizeCollectionPayload(ordersData, ["orders"]);
       const maintenance = normalizeCollectionPayload(maintenanceData, ["maintenance"]);
@@ -638,6 +667,7 @@ if (true) {
       const completedOrders = orders.filter((order) => order.status === "completed");
 
       setElementText(clientsCount, clients.length);
+      setElementText(usersCount, users.length);
       setElementText(requestsCount, requests.length);
       setElementText(ordersCount, orders.length);
       setElementText(activeOrdersCount, activeOrders.length);
@@ -650,6 +680,7 @@ if (true) {
       }
 
       renderStageDistribution(orders);
+      renderUsersTable(users);
       renderGlobalEvents(
         collectGlobalEvents({
           orders,
@@ -693,6 +724,14 @@ if (true) {
 
   document.querySelectorAll(".admin-meta-pill-btn").forEach((button) => {
     button.addEventListener("click", () => {
+      const panelTarget = button.getAttribute("data-dashboard-panel");
+
+      if (panelTarget === "users" && usersPanel) {
+        usersPanel.hidden = false;
+        usersPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
       const href = button.getAttribute("data-href");
       if (href) {
         window.location.href = href;

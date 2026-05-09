@@ -79,6 +79,10 @@
                     <span>Clientes</span>
                     <strong id="clients-count">0</strong>
                   </button>
+                  <button class="admin-meta-pill admin-meta-pill-btn" type="button" data-dashboard-panel="users">
+                    <span>Usuarios</span>
+                    <strong id="users-count">0</strong>
+                  </button>
                   <button class="admin-meta-pill admin-meta-pill-btn admin-latam-only" type="button" data-href="/admin-client-requests.html">
                     <span>Solicitudes de compra</span>
                     <strong id="requests-count">0</strong>
@@ -121,6 +125,32 @@
                 <strong id="completed-orders-count">0</strong>
                 <p>Pedidos cerrados que ya culminaron su ciclo operativo.</p>
               </article>
+            </section>
+
+            <section id="dashboard-users-panel" class="dashboard-card tracking-table-card" aria-label="Usuarios registrados" hidden>
+              <div class="admin-panel-heading">
+                <div>
+                  <h2>Usuarios registrados</h2>
+                  <p>Total de personas creadas en la app.</p>
+                </div>
+              </div>
+              <div class="tracking-table-wrap">
+                <table class="tracking-data-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Fecha de creación</th>
+                      <th>Correo</th>
+                      <th>Teléfono</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-users-body">
+                    <tr>
+                      <td colspan="4"><div class="empty-state">Cargando usuarios...</div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section class="dashboard-card admin-distribution-card">
@@ -192,6 +222,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260430-15"></script>
+    <script src="/admin-dashboard.js?v=20260509-dashboard-users16"></script>
   </body>
 </html>
