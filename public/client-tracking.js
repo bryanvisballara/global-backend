@@ -620,7 +620,8 @@ async function downloadDocument(url, fileName) {
   }
 
   try {
-    const apiUrl = `/api/downloads/pdf?url=${encodeURIComponent(url)}`;
+    const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+    const apiUrl = `/api/downloads/pdf?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
@@ -631,7 +632,7 @@ async function downloadDocument(url, fileName) {
     const objectUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = fileName || "documento.pdf";
+    anchor.download = resolvedFileName;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

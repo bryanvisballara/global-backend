@@ -761,6 +761,11 @@ function getStateCode(index) {
   return `E${index + 1}`;
 }
 
+function buildDocumentDownloadUrl(url, fileName) {
+  const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+  return `/api/downloads/pdf?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+}
+
 function resolveCurrentStageKey(order) {
   const steps = getOrderTrackingSteps(order);
   const activeStep = steps.find((step) => step.inProgress && !step.confirmed);
@@ -1796,7 +1801,7 @@ function renderOrderDocumentsTable(order) {
               <td>${escapeHtml(document.documentType)}</td>
               <td>
                 <div class="tracking-document-link-cell">
-                  <a class="tracking-document-link" href="${escapeHtml(document.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(document.name)}</a>
+                  <a class="tracking-document-link" href="${escapeHtml(buildDocumentDownloadUrl(document.url, document.name))}" download="${escapeHtml(document.name || "documento.pdf")}">${escapeHtml(document.name)}</a>
                 </div>
               </td>
               <td>${escapeHtml(document.note || "-")}</td>

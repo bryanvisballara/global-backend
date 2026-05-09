@@ -68,6 +68,26 @@ function resolveAllowedOrigins() {
   return Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
 }
 
+function sanitizeDownloadFileName(fileName, fallback = "document.pdf") {
+  const normalizedFallback = String(fallback || "document.pdf").trim() || "document.pdf";
+  const normalizedName = String(fileName || "").trim();
+
+  if (!normalizedName) {
+    return normalizedFallback;
+  }
+
+  const sanitizedName = normalizedName
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!sanitizedName) {
+    return normalizedFallback;
+  }
+
+  return /\.pdf$/i.test(sanitizedName) ? sanitizedName : `${sanitizedName}.pdf`;
+}
+
 const corsOptions = {
   origin(origin, callback) {
     if (corsOrigin === "*") {
@@ -150,8 +170,9 @@ app.use(
 app.use("/uploads", express.static(uploadsDirectory, {
   setHeaders(res, filePath) {
     if (filePath.endsWith(".pdf")) {
+      const downloadName = sanitizeDownloadFileName(path.basename(filePath), "document.pdf");
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline; filename*=UTF-8''");
+      res.setHeader("Content-Disposition", `inline; filename="${downloadName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
       res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     }
   },
@@ -184,13 +205,14 @@ app.get("/api/uploads/download/:fileName", (req, res) => {
 app.get("/api/downloads/pdf", async (req, res) => {
   try {
     const fileUrl = String(req.query.url || "").trim();
+    const requestedFileName = sanitizeDownloadFileName(req.query.fileName, "document.pdf");
 
     if (!fileUrl) {
       return res.status(400).json({ message: "Missing file URL" });
     }
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", "inline; filename=\"document.pdf\"");
+    res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
     res.setHeader("Cache-Control", "public, max-age=3600");
 
     if (fileUrl.startsWith("/uploads/")) {
