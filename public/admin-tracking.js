@@ -766,6 +766,33 @@ function buildDocumentDownloadUrl(url, fileName) {
   return `/api/downloads/pdf?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
 }
 
+async function downloadDocumentFile(downloadUrl, fileName) {
+  const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
+  const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
+  const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+
+  const response = await fetch(resolvedUrl.toString(), {
+    credentials: "include",
+    headers: {
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = resolvedFileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function resolveCurrentStageKey(order) {
   const steps = getOrderTrackingSteps(order);
   const activeStep = steps.find((step) => step.inProgress && !step.confirmed);
@@ -3026,6 +3053,20 @@ trackingDateToFilter?.addEventListener("change", () => {
 function handleTrackingPageClick(event) {
   if (event.target.closest("[data-close-tracking-modal]")) {
     closeSuccessModal();
+    return;
+  }
+
+  const documentLink = event.target.closest(".tracking-document-link");
+
+  if (documentLink) {
+    event.preventDefault();
+
+    downloadDocumentFile(
+      String(documentLink.getAttribute("href") || ""),
+      String(documentLink.getAttribute("download") || documentLink.textContent || "documento.pdf")
+    ).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo descargar el documento.", "error");
+    });
     return;
   }
 
