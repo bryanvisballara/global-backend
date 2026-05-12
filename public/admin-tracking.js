@@ -522,8 +522,16 @@ function getActiveOrders() {
   return orders.filter((order) => order?.status === "active");
 }
 
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
 function isAnthonyGlobalOwner() {
-  return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  return normalizeRole(currentAdminRole) === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+}
+
+function hasGlobalLatamOrderPrivileges() {
+  return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
 }
 
 function getTrackingStateIndex(stateKey) {
@@ -531,7 +539,7 @@ function getTrackingStateIndex(stateKey) {
 }
 
 function canEditStateForRole(role, stateKey) {
-  const normalizedRole = String(role || "").trim();
+  const normalizedRole = normalizeRole(role);
   const stateIndex = getTrackingStateIndex(stateKey);
 
   if (!normalizedRole || stateIndex === -1) {
@@ -542,12 +550,12 @@ function canEditStateForRole(role, stateKey) {
     return true;
   }
 
-  if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+  if (["adminusa", "gerenteusa"].includes(normalizedRole)) {
     return stateIndex <= 3;
   }
 
-  if (["admin", "manager"].includes(normalizedRole)) {
-    return stateIndex >= 3;
+  if (hasGlobalLatamOrderPrivileges()) {
+    return true;
   }
 
   return false;
@@ -562,12 +570,12 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
     return true;
   }
 
-  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole)) {
+  if (["adminusa", "gerenteusa"].includes(normalizeRole(currentAdminRole))) {
     return currentIndex <= 2 && targetIndex <= 3;
   }
 
-  if (["admin", "manager"].includes(currentAdminRole)) {
-    return currentIndex === 2 && targetIndex === 3;
+  if (hasGlobalLatamOrderPrivileges()) {
+    return true;
   }
 
   return false;
@@ -824,6 +832,10 @@ function getCurrentStageMeta(order) {
 function getTransitionHelperCopy(currentStageMeta) {
   if (isAnthonyGlobalOwner()) {
     return "Puedes avanzar o retroceder libremente. La etapa actual queda EN PROCESO.";
+  }
+
+  if (hasGlobalLatamOrderPrivileges()) {
+    return "Puedes avanzar o retroceder libremente dentro de pedidos LATAM. La etapa actual queda EN PROCESO.";
   }
 
   if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentStageMeta.index >= 3) {
