@@ -199,6 +199,10 @@ function isAnthonyGlobalOwner(requester) {
   return isGlobalManagerRole(requester) && normalizeRequesterEmail(requester) === ANTHONY_GLOBAL_OWNER_EMAIL;
 }
 
+function hasGlobalLatamOrderPrivileges(requester) {
+  return ["admin", "manager"].includes(normalizeRequesterRole(requester));
+}
+
 function canAccessLatamOrders(requester) {
   const normalizedRole = normalizeRequesterRole(requester);
   return normalizedRole === "admin" || normalizedRole === "manager";
@@ -361,6 +365,10 @@ function canModifyTrackingStep(requester, stepKey, orderRegion = "latam", curren
     return true;
   }
 
+  if (hasGlobalLatamOrderPrivileges(requester) && String(orderRegion || "latam").trim().toLowerCase() === "latam") {
+    return true;
+  }
+
   const requesterRole = normalizeRequesterRole(requester);
 
   if (isUsaAdministrativeRole(requesterRole)) {
@@ -387,6 +395,10 @@ function canCreateTrackingUpdate(requester, stepKey, orderRegion = "latam") {
   }
 
   if (isAnthonyGlobalOwner(requester)) {
+    return true;
+  }
+
+  if (hasGlobalLatamOrderPrivileges(requester) && String(orderRegion || "latam").trim().toLowerCase() === "latam") {
     return true;
   }
 
@@ -433,6 +445,10 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex, orderRe
     return true;
   }
 
+  if (hasGlobalLatamOrderPrivileges(requester) && String(orderRegion || "latam").trim().toLowerCase() === "latam") {
+    return true;
+  }
+
   const requesterRole = normalizeRequesterRole(requester);
 
   if (isUsaAdministrativeRole(requesterRole)) {
@@ -458,6 +474,10 @@ function canFinalizeTrackingOrder(requester, order, currentIndex, orderRegion = 
 
   if (isAnthonyGlobalOwner(requester)) {
     return currentIndex === TRACKING_STATE_TEMPLATES.length - 1 || (normalizedRegion === "usa" && currentIndex === 3);
+  }
+
+  if (hasGlobalLatamOrderPrivileges(requester) && normalizedRegion === "latam") {
+    return currentIndex === TRACKING_STATE_TEMPLATES.length - 1;
   }
 
   if (normalizedRegion === "usa") {
@@ -2155,11 +2175,15 @@ async function updateOrder(req, res) {
     }
 
     if (clientChangeRequested) {
-      if (!isAnthonyGlobalOwner(req.user)) {
-        return res.status(403).json({ message: "Solo Anthony puede cambiar el cliente de un pedido" });
+      if (!hasGlobalLatamOrderPrivileges(req.user)) {
+        return res.status(403).json({ message: "Solo Global Latam puede cambiar el cliente de un pedido" });
       }
 
       const resolvedClient = await resolveClientForAnthonyReassignment(clientId);
+
+      if (!isAnthonyGlobalOwner(req.user) && resolvedClient.region !== "latam") {
+        return res.status(403).json({ message: "Global Latam solo puede asignar clientes LATAM" });
+      }
 
       if (!resolvedClient.client) {
         return res.status(404).json({ message: "Client not found" });
