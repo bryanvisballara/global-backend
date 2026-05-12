@@ -153,7 +153,7 @@
   }
 
   function shouldShowOrderRegionBadge() {
-    return ["adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || isAnthonyGlobalOwner();
+    return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || isAnthonyGlobalOwner();
   }
 
   function renderOrderRegionBadge(order) {
@@ -278,11 +278,20 @@
     return stageTemplates.find((stage) => stage.key === stageKey) || null;
   }
 
+  function isOrderCompleted(order) {
+    if (String(order?.status || "").trim().toLowerCase() === "completed") {
+      return true;
+    }
+
+    return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === stageTemplates.length - 1);
+  }
+
   function getOrderTrackingSteps(order) {
     const orderSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
     const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || stageTemplates[index]?.key || ""), step]));
     const trackingEvents = getOrderTrackingEvents(order);
     const trackingEventsByKey = new Map();
+    const isCompletedOrder = isOrderCompleted(order);
 
     trackingEvents.forEach((event) => {
       if (!trackingEventsByKey.has(event.stateKey)) {
@@ -333,17 +342,26 @@
       return {
         key: template.key,
         label: String(sourceStep?.label || template.label),
-        confirmed: derivedConfirmed,
-        inProgress: derivedInProgress,
+        confirmed: isCompletedOrder ? true : derivedConfirmed,
+        inProgress: isCompletedOrder ? false : derivedInProgress,
         updates,
         updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
-        confirmedAt: sourceStep?.confirmedAt || null,
+        confirmedAt: sourceStep?.confirmedAt || (isCompletedOrder ? order?.updatedAt || order?.createdAt || null : null),
       };
     });
 
     const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
     const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
     const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+
+    if (isCompletedOrder) {
+      return normalizedSteps.map((step) => ({
+        ...step,
+        confirmed: true,
+        inProgress: false,
+        confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+      }));
+    }
 
     return normalizedSteps.map((step, index) => ({
       ...step,
@@ -373,7 +391,7 @@
   }
 
   function resolveStateBucketKey(order) {
-    if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    if (isOrderCompleted(order)) {
       return completedStageCard.key;
     }
 

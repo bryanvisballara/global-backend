@@ -24,6 +24,79 @@ function buildLegacyPurchaseDate() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function attachNativeSelectPicker(selectElement) {
+  if (!selectElement || selectElement.dataset.pickerBound === "true") {
+    return;
+  }
+
+  const collapseManualPicker = () => {
+    if (selectElement.dataset.manualExpanded !== "true") {
+      return;
+    }
+
+    selectElement.size = 1;
+    selectElement.dataset.manualExpanded = "false";
+    selectElement.classList.remove("is-picker-expanded");
+  };
+
+  const openPicker = (event) => {
+    if (selectElement.disabled) {
+      return;
+    }
+
+    const optionCount = Array.from(selectElement.options || []).length;
+    const useManualPicker = window.matchMedia("(max-width: 900px)").matches;
+
+    if (useManualPicker) {
+      if (optionCount <= 1) {
+        return;
+      }
+
+      const nextExpanded = selectElement.dataset.manualExpanded !== "true";
+      selectElement.size = nextExpanded ? Math.min(Math.max(optionCount, 2), 6) : 1;
+      selectElement.dataset.manualExpanded = nextExpanded ? "true" : "false";
+      selectElement.classList.toggle("is-picker-expanded", nextExpanded);
+      event?.preventDefault?.();
+
+      if (nextExpanded) {
+        selectElement.focus({ preventScroll: true });
+      }
+
+      return;
+    }
+
+    if (typeof selectElement.showPicker !== "function") {
+      return;
+    }
+
+    try {
+      selectElement.showPicker();
+    } catch {
+      // Ignore browsers that block imperative picker opening.
+    }
+  };
+
+  selectElement.addEventListener("click", openPicker);
+  selectElement.addEventListener("change", collapseManualPicker);
+  selectElement.addEventListener("blur", () => {
+    window.setTimeout(collapseManualPicker, 120);
+  });
+  selectElement.dataset.pickerBound = "true";
+}
+
 function normalizeCollectionPayload(payload, keys = []) {
   if (Array.isArray(payload)) {
     return payload;
@@ -108,7 +181,7 @@ if (true) {
   const clientSelect = document.getElementById("order-client-select");
   const clientSummary = document.getElementById("order-client-summary");
   const brokerField = document.getElementById("order-broker-field");
-  const brokerSelect = document.getElementById("order-broker-select");
+  let brokerSelect = document.getElementById("order-broker-select");
   const brokerSummary = document.getElementById("order-broker-summary");
   const successModal = document.getElementById("order-success-modal");
   const successDescription = document.getElementById("order-success-description");
@@ -116,6 +189,7 @@ if (true) {
   const orderSubmitButton = document.getElementById("tracking-create-order-submit")
     || orderForm?.querySelector('button[type="submit"]')
     || null;
+  const isEmbeddedTrackingOrderForm = window.location.pathname === "/admin-tracking.html" && Boolean(document.getElementById("tracking-create-order-modal"));
   let orders = [];
   let clients = [];
   let brokers = [];
@@ -144,15 +218,19 @@ if (true) {
       return explicitRegion;
     }
 
-    return ["gerenteUSA", "adminUSA", "brokerUSA"].includes(String(currentAdminRole || "").trim()) ? "usa" : "latam";
+    return ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam";
   }
 
   function isAnthonyGlobalOwner() {
-    return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+    return String(currentAdminRole || "").trim() === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  }
+
+  function hasGlobalLatamOrderPrivileges() {
+    return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
   }
 
   function canEditOrderClient() {
-    return getOrderFormMode() !== "edit" || isAnthonyGlobalOwner();
+    return getOrderFormMode() !== "edit" || hasGlobalLatamOrderPrivileges();
   }
 
   function forceClearLoadingState() {
@@ -230,7 +308,7 @@ if (true) {
 
     const orderRegion = getOrderFormRegion();
     const editableClient = canEditOrderClient();
-    const compatibleClients = editableClient && getOrderFormMode() === "edit"
+    const compatibleClients = editableClient && getOrderFormMode() === "edit" && isAnthonyGlobalOwner()
       ? [...clients]
       : clients.filter((client) => {
           const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
@@ -245,7 +323,7 @@ if (true) {
       if (clientSummary) {
         clientSummary.textContent = editableClient
           ? "No hay clientes disponibles para este pedido."
-          : "Solo Anthony puede cambiar el cliente de un pedido.";
+          : "Solo Global Latam puede cambiar el cliente de un pedido.";
       }
 
       return;
@@ -262,8 +340,8 @@ if (true) {
 
     if (clientSummary) {
       clientSummary.textContent = !editableClient
-        ? "Solo Anthony puede cambiar el cliente de un pedido."
-        : getOrderFormMode() === "edit"
+        ? "Solo Global Latam puede cambiar el cliente de un pedido."
+        : getOrderFormMode() === "edit" && isAnthonyGlobalOwner()
           ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
           : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
     }
@@ -274,6 +352,10 @@ if (true) {
 
     if (!normalizedClientId) {
       return true;
+    }
+
+    if (isEmbeddedTrackingOrderForm && !clients.length) {
+      return Array.from(clientSelect?.options || []).some((option) => String(option.value || "").trim() === normalizedClientId);
     }
 
     const selectedClient = clients.find((client) => String(client?._id || client?.id || "").trim() === normalizedClientId) || null;
@@ -290,20 +372,57 @@ if (true) {
   }
 
   function canAssignBrokerToOrders() {
-    if (currentAdminRole !== "gerenteUSA") {
+    const normalizedRole = normalizeRole(currentAdminRole);
+
+    if (!["gerenteusa", "adminusa"].includes(normalizedRole)) {
       return false;
     }
 
-    const formMode = getOrderFormMode();
-
-    if (formMode !== "edit") {
-      return true;
-    }
-
-    return getOrderFormRegion() === "usa";
+    return true;
   }
 
+  function ensureBrokerSelect() {
+    if (!brokerField) {
+      return null;
+    }
+
+    const legacyNodes = [
+      brokerField.querySelector("#order-broker-input"),
+      brokerField.querySelector("#order-broker-options"),
+      brokerField.querySelector("#order-broker-picker"),
+    ];
+
+    legacyNodes.forEach((node) => {
+      if (node) {
+        node.remove();
+      }
+    });
+
+    let selectElement = brokerField.querySelector("#order-broker-select");
+
+    if (!selectElement) {
+      selectElement = document.createElement("select");
+      selectElement.id = "order-broker-select";
+      selectElement.name = "assignedBrokerId";
+      selectElement.innerHTML = '<option value="">Sin broker asignado</option>';
+
+      const summaryElement = brokerField.querySelector("#order-broker-summary");
+
+      if (summaryElement) {
+        brokerField.insertBefore(selectElement, summaryElement);
+      } else {
+        brokerField.appendChild(selectElement);
+      }
+    }
+
+    return selectElement;
+  }
+
+  brokerSelect = brokerSelect || ensureBrokerSelect();
+
   function renderBrokerOptions() {
+    brokerSelect = brokerSelect || ensureBrokerSelect();
+
     if (!brokerField || !brokerSelect) {
       return;
     }
@@ -317,14 +436,20 @@ if (true) {
       return;
     }
 
+    const previousValue = String(brokerSelect.value || "").trim();
+
     const sortedBrokers = [...brokers].sort((left, right) => (
       String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
     ));
 
     brokerSelect.innerHTML = [
       '<option value="">Sin broker asignado</option>',
-      ...sortedBrokers.map((broker) => `<option value="${broker._id || broker.id}">${broker.name || broker.email || "Broker USA"}</option>`),
+      ...sortedBrokers.map((broker) => `<option value="${escapeHtml(broker._id || broker.id || "")}">${escapeHtml(broker.name || broker.email || "Broker USA")}</option>`),
     ].join("");
+
+    if (previousValue && sortedBrokers.some((broker) => String(broker?._id || broker?.id || "").trim() === previousValue)) {
+      brokerSelect.value = previousValue;
+    }
 
     if (brokerSummary) {
       brokerSummary.textContent = sortedBrokers.length
@@ -377,26 +502,30 @@ if (true) {
   async function loadOrdersPage() {
     try {
       const user = await loadOrdersPageSession();
-      currentAdminRole = String(user?.role || "");
+      currentAdminRole = String(user?.role || "").trim();
       currentAdminEmail = String(user?.email || "").trim().toLowerCase();
 
-      if (currentAdminRole === "brokerUSA" && window.location.pathname === "/admin-orders.html") {
+      if (normalizeRole(currentAdminRole) === "brokerusa" && window.location.pathname === "/admin-orders.html") {
         window.location.replace("/admin-tracking.html");
         return;
       }
 
       if (orderForm) {
-        orderForm.dataset.orderRegion = ["gerenteUSA", "adminUSA", "brokerUSA"].includes(currentAdminRole) ? "usa" : "latam";
+        orderForm.dataset.orderRegion = ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam";
+      }
+
+      if (isEmbeddedTrackingOrderForm) {
+        return;
       }
 
       const [ordersData, usersData, adminsData] = await Promise.all([
         fetchOrdersPageJson("/api/admin/orders"),
         fetchOrdersPageJson("/api/admin/clients"),
-        canAssignBrokerToOrders() ? fetchOrdersPageJson("/api/admin/users/admins") : Promise.resolve({ users: [] }),
+        fetchOrdersPageJson("/api/admin/users/admins"),
       ]);
       orders = normalizeCollectionPayload(ordersData, ["orders"]);
       clients = normalizeCollectionPayload(usersData, ["clients"]);
-      brokers = normalizeCollectionPayload(adminsData, ["users"]).filter((candidate) => String(candidate?.role || "").trim() === "brokerUSA");
+      brokers = normalizeCollectionPayload(adminsData, ["users"]).filter((candidate) => normalizeRole(candidate?.role) === "brokerusa");
       renderClientOptions();
       renderBrokerOptions();
       window.__fillRandomTracking({ silent: true });
@@ -444,12 +573,13 @@ if (true) {
   async function submitAdminOrder(event) {
     event?.preventDefault?.();
 
-    if (currentAdminRole === "brokerUSA") {
+    if (normalizeRole(currentAdminRole) === "brokerusa") {
       adminSetFeedback(orderFeedback, "Tu perfil solo puede subir archivos en pedidos asignados.", "error");
       return false;
     }
 
     const formData = new FormData(orderForm);
+    const isBrokerFieldVisible = Boolean(brokerField && !brokerField.hidden);
     const formMode = getOrderFormMode();
     const editingOrderId = getEditingOrderId();
     const trackingNumber = String(formData.get("trackingNumber") || "").trim().toUpperCase();
@@ -488,7 +618,7 @@ if (true) {
         }
 
         if (String(formData.get("clientId") || "").trim() && !canEditOrderClient()) {
-          throw new Error("Solo Anthony puede cambiar el cliente de un pedido.");
+          throw new Error("Solo Global Latam puede cambiar el cliente de un pedido.");
         }
 
         const yearValue = Number.parseInt(String(formData.get("year") || "").trim(), 10);
@@ -515,7 +645,7 @@ if (true) {
           throw new Error(`Selecciona un cliente ${getOrderFormRegion().toUpperCase()} para este pedido.`);
         }
 
-        if (canAssignBrokerToOrders()) {
+        if (isBrokerFieldVisible) {
           payload.assignedBrokerId = String(formData.get("assignedBrokerId") || "").trim();
         }
 
@@ -536,7 +666,7 @@ if (true) {
       formData.set("purchaseDate", String(formData.get("purchaseDate") || "").trim() || buildLegacyPurchaseDate());
       formData.set("color", exteriorColor || interiorColor);
 
-      if (!canAssignBrokerToOrders()) {
+      if (!isBrokerFieldVisible) {
         formData.delete("assignedBrokerId");
       }
 
@@ -583,7 +713,10 @@ if (true) {
   window.__submitAdminOrder = submitAdminOrder;
   window.__triggerAdminOrderSubmit = triggerAdminOrderSubmit;
   window.__loadOrderFormData = loadOrdersPage;
-  orderForm.addEventListener("submit", submitAdminOrder);
+
+  if (!isEmbeddedTrackingOrderForm) {
+    orderForm.addEventListener("submit", submitAdminOrder);
+  }
 
   renderMediaSummary([]);
 
