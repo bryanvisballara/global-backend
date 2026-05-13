@@ -771,7 +771,7 @@ function getStateCode(index) {
 
 function buildDocumentDownloadUrl(url, fileName) {
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-  return `/api/downloads/pdf?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+  return `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
 }
 
 async function downloadDocumentFile(downloadUrl, fileName) {

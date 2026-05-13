@@ -621,7 +621,7 @@ async function downloadDocument(url, fileName) {
 
   try {
     const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-    const apiUrl = `/api/downloads/pdf?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+    const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
     const response = await fetch(apiUrl);
 
     if (!response.ok) {

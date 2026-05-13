@@ -90,6 +90,35 @@ function sanitizeDownloadFileName(fileName, fallback = "document.pdf") {
   return /\.pdf$/i.test(sanitizedName) ? sanitizedName : `${sanitizedName}.pdf`;
 }
 
+function sanitizeAttachmentFileName(fileName, fallback = "documento") {
+  const normalizedFallback = String(fallback || "documento").trim() || "documento";
+  const normalizedName = String(fileName || "").trim();
+  const resolvedName = normalizedName || normalizedFallback;
+  const sanitizedName = resolvedName
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return sanitizedName || normalizedFallback;
+}
+
+function resolveDownloadFileName(fileUrl, requestedFileName, fallback = "documento") {
+  const normalizedRequestedFileName = String(requestedFileName || "").trim();
+
+  if (normalizedRequestedFileName) {
+    return sanitizeAttachmentFileName(normalizedRequestedFileName, fallback);
+  }
+
+  try {
+    const parsedUrl = new URL(String(fileUrl || ""), "http://local");
+    const urlFileName = decodeURIComponent(path.basename(parsedUrl.pathname || ""));
+
+    return sanitizeAttachmentFileName(urlFileName, fallback);
+  } catch {
+    return sanitizeAttachmentFileName("", fallback);
+  }
+}
+
 async function resolveLocalUploadPath(fileName) {
   const normalizedFileName = String(fileName || "").trim();
 
@@ -114,6 +143,105 @@ async function resolveLocalUploadPath(fileName) {
   }
 
   return null;
+}
+
+function getRemoteFileStream(fileUrl, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl;
+
+    try {
+      parsedUrl = new URL(fileUrl);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      reject(new Error("Invalid file URL"));
+      return;
+    }
+
+    const protocol = parsedUrl.protocol === "https:" ? require("https") : require("http");
+
+    protocol.get(parsedUrl, (response) => {
+      const statusCode = Number(response.statusCode || 0);
+
+      if ([301, 302, 303, 307, 308].includes(statusCode) && response.headers.location && redirectCount < 5) {
+        response.resume();
+        const redirectUrl = new URL(response.headers.location, parsedUrl).toString();
+        getRemoteFileStream(redirectUrl, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (statusCode !== 200) {
+        response.resume();
+        reject(new Error(`HTTP ${statusCode}`));
+        return;
+      }
+
+      resolve(response);
+    }).on("error", reject);
+  });
+}
+
+async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
+  try {
+    const fileUrl = String(req.query.url || "").trim();
+
+    if (!fileUrl) {
+      return res.status(400).json({ message: "Missing file URL" });
+    }
+
+    const requestedFileName = resolveDownloadFileName(fileUrl, req.query.fileName, fallbackFileName);
+    res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+
+    let localDownloadFileName = "";
+
+    try {
+      const parsedUrl = new URL(fileUrl, "http://local");
+
+      if (parsedUrl.pathname.startsWith("/uploads/") || parsedUrl.pathname.startsWith("/api/uploads/download/")) {
+        localDownloadFileName = decodeURIComponent(path.basename(parsedUrl.pathname));
+      }
+    } catch {
+      localDownloadFileName = "";
+    }
+
+    if (localDownloadFileName) {
+      const localPath = await resolveLocalUploadPath(path.basename(localDownloadFileName));
+
+      if (!localPath) {
+        return res.status(404).json({ message: "Local file not found" });
+      }
+
+      return res.sendFile(localPath);
+    }
+
+    if (fileUrl.includes("res.cloudinary.com") || fileUrl.startsWith("http")) {
+      try {
+        const response = await getRemoteFileStream(fileUrl);
+
+        if (response.headers["content-type"]) {
+          res.setHeader("Content-Type", response.headers["content-type"]);
+        }
+
+        if (response.headers["content-length"]) {
+          res.setHeader("Content-Length", response.headers["content-length"]);
+        }
+
+        return response.pipe(res);
+      } catch (error) {
+        console.error("Error proxying file from URL:", error.message);
+        return res.status(502).json({ message: "Error downloading file from source" });
+      }
+    }
+
+    return res.status(400).json({ message: "Invalid file URL" });
+  } catch (error) {
+    console.error("File download error:", error.message);
+    return res.status(500).json({ message: "Error downloading file" });
+  }
 }
 
 const corsOptions = {
@@ -230,72 +358,8 @@ app.get("/api/uploads/download/:fileName", async (req, res) => {
   }
 });
 
-app.get("/api/downloads/pdf", async (req, res) => {
-  try {
-    const fileUrl = String(req.query.url || "").trim();
-    const requestedFileName = sanitizeDownloadFileName(req.query.fileName, "document.pdf");
-
-    if (!fileUrl) {
-      return res.status(400).json({ message: "Missing file URL" });
-    }
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-
-    let localDownloadFileName = "";
-
-    try {
-      const parsedUrl = new URL(fileUrl, "http://local");
-
-      if (parsedUrl.pathname.startsWith("/uploads/") || parsedUrl.pathname.startsWith("/api/uploads/download/")) {
-        localDownloadFileName = decodeURIComponent(path.basename(parsedUrl.pathname));
-      }
-    } catch {
-      localDownloadFileName = "";
-    }
-
-    if (localDownloadFileName) {
-      const localPath = await resolveLocalUploadPath(path.basename(localDownloadFileName));
-
-      if (!localPath) {
-        return res.status(404).json({ message: "Local file not found" });
-      }
-
-      return res.sendFile(localPath);
-    }
-
-    if (fileUrl.includes("res.cloudinary.com") || fileUrl.startsWith("http")) {
-      try {
-        const response = await (async () => {
-          const https = require("https");
-          const http = require("http");
-          const protocol = fileUrl.startsWith("https") ? https : http;
-
-          return new Promise((resolve, reject) => {
-            protocol.get(fileUrl, (response) => {
-              if (response.statusCode !== 200) {
-                reject(new Error(`HTTP ${response.statusCode}`));
-              }
-
-              resolve(response);
-            }).on("error", reject);
-          });
-        })();
-
-        return response.pipe(res);
-      } catch (error) {
-        console.error("Error proxying file from URL:", error.message);
-        return res.status(502).json({ message: "Error downloading file from source" });
-      }
-    }
-
-    return res.status(400).json({ message: "Invalid file URL" });
-  } catch (error) {
-    console.error("PDF download error:", error.message);
-    return res.status(500).json({ message: "Error downloading PDF" });
-  }
-});
+app.get("/api/downloads/file", (req, res) => proxyDownloadFile(req, res));
+app.get("/api/downloads/pdf", (req, res) => proxyDownloadFile(req, res, "document.pdf"));
 
 app.get("/", (req, res) => {
   res.redirect("/index.html");
