@@ -62,6 +62,7 @@ async function loadTrackingPageSession() {
   const user = data.user || {};
   currentAdminRole = String(user.role || "");
   currentAdminEmail = String(user.email || "").trim().toLowerCase();
+  currentAdminId = String(user._id || user.id || "").trim();
 
   if (user.role) {
     localStorage.setItem("globalAppRole", user.role);
@@ -150,6 +151,11 @@ function buildOrderDetailUrl(order) {
   return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
 }
 
+function buildOrderAccountingUrl(order) {
+  const orderId = getOrderIdentifier(order);
+  return `/admin-order-accounting.html?orderId=${encodeURIComponent(orderId)}`;
+}
+
 function isDeletionManagerRole(role) {
   return ["manager", "gerenteUSA"].includes(String(role || "").trim());
 }
@@ -206,6 +212,36 @@ function formatDateLabel(value) {
   });
 }
 
+function shouldShowOrderRegionBadge() {
+  return ["adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || hasGlobalLatamOrderPrivileges();
+}
+
+function renderOrderRegionBadge(order) {
+  if (!shouldShowOrderRegionBadge()) {
+    return "";
+  }
+
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+  if (!["latam", "usa"].includes(orderRegion)) {
+    return "";
+  }
+
+  return `<span class="tracking-order-region-badge is-${escapeHtml(orderRegion)}">${escapeHtml(orderRegion.toUpperCase())}</span>`;
+}
+
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
+function isOrderCompleted(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
+  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
+}
+
 function formatDateTimeLabel(value) {
   if (!value) {
     return "Sin fecha";
@@ -245,12 +281,20 @@ function normalizeToDateEnd(value) {
 adminAttachLogout();
 document.body.classList.add("tracking-search-page");
 
+function isWindowsDesktopEnvironment() {
+  const platform = String(navigator.userAgentData?.platform || navigator.platform || "").toLowerCase();
+  const userAgent = String(navigator.userAgent || "").toLowerCase();
+
+  return platform.includes("win") || userAgent.includes("windows");
+}
+
+document.body.classList.toggle("host-windows-desktop", isWindowsDesktopEnvironment());
+
 const trackingRoot = document.getElementById("tracking-form");
 const trackingFeedback = document.getElementById("tracking-feedback");
 const trackingOrderInput = document.getElementById("tracking-order-id");
 const trackingPreview = document.getElementById("tracking-preview");
 const trackingEditorFields = document.getElementById("tracking-editor-fields");
-const trackingSearchButton = document.getElementById("tracking-search-button");
 const trackingClearButton = document.getElementById("tracking-clear-button");
 const trackingSearchResults = document.getElementById("tracking-search-results");
 const trackingStateFilter = document.getElementById("tracking-search-state");
@@ -279,18 +323,130 @@ const createOrderTrackingInput = document.getElementById("order-tracking-number"
 const createOrderGenerateTrackingButton = document.getElementById("generate-tracking-button");
 const createOrderClientSelect = document.getElementById("order-client-select");
 const createOrderClientSummary = document.getElementById("order-client-summary");
+const createOrderBrokerField = document.getElementById("order-broker-field");
+let createOrderBrokerSelect = document.getElementById("order-broker-select");
+const createOrderBrokerSummary = document.getElementById("order-broker-summary");
 const createOrderModalTitle = document.getElementById("tracking-create-order-title");
 const createOrderModalCopy = document.getElementById("tracking-create-order-copy");
 const createOrderSubmitButton = document.getElementById("tracking-create-order-submit");
 const createOrderFeedback = document.getElementById("order-feedback");
+const brokerDocumentModal = document.getElementById("broker-document-modal");
+const brokerDocumentForm = document.getElementById("broker-document-form");
+const brokerDocumentOrderSummary = document.getElementById("broker-document-order-summary");
+const brokerDocumentOrderCopy = document.getElementById("broker-document-order-copy");
+const brokerDocumentTypeField = document.getElementById("broker-document-type");
+const brokerDocumentFilesField = document.getElementById("broker-document-files");
+const brokerDocumentFeedback = document.getElementById("broker-document-feedback");
+const brokerDocumentSubmitButton = document.getElementById("broker-document-submit");
 const orderDeleteRequestModal = document.getElementById("order-delete-request-modal");
 const orderDeleteRequestForm = document.getElementById("order-delete-request-form");
 const orderDeleteRequestSummary = document.getElementById("order-delete-request-summary");
 const orderDeleteRequestReason = document.getElementById("order-delete-request-reason");
 const orderDeleteRequestFeedback = document.getElementById("order-delete-request-feedback");
+
+function attachNativeSelectPicker(selectElement) {
+  if (!selectElement || selectElement.dataset.pickerBound === "true") {
+    return;
+  }
+
+  const collapseManualPicker = () => {
+    if (selectElement.dataset.manualExpanded !== "true") {
+      return;
+    }
+
+    selectElement.size = 1;
+    selectElement.dataset.manualExpanded = "false";
+    selectElement.classList.remove("is-picker-expanded");
+  };
+
+  const openPicker = (event) => {
+    if (selectElement.disabled) {
+      return;
+    }
+
+    const optionCount = Array.from(selectElement.options || []).length;
+    const useManualPicker = window.matchMedia("(max-width: 900px)").matches;
+
+    if (useManualPicker) {
+      if (optionCount <= 1) {
+        return;
+      }
+
+      const nextExpanded = selectElement.dataset.manualExpanded !== "true";
+      selectElement.size = nextExpanded ? Math.min(Math.max(optionCount, 2), 6) : 1;
+      selectElement.dataset.manualExpanded = nextExpanded ? "true" : "false";
+      selectElement.classList.toggle("is-picker-expanded", nextExpanded);
+      event?.preventDefault?.();
+
+      if (nextExpanded) {
+        selectElement.focus({ preventScroll: true });
+      }
+
+      return;
+    }
+
+    if (typeof selectElement.showPicker !== "function") {
+      return;
+    }
+
+    try {
+      selectElement.showPicker();
+    } catch {
+      // Ignore browsers that block imperative picker opening.
+    }
+  };
+
+  selectElement.addEventListener("click", openPicker);
+  selectElement.addEventListener("change", collapseManualPicker);
+  selectElement.addEventListener("blur", () => {
+    window.setTimeout(collapseManualPicker, 120);
+  });
+  selectElement.dataset.pickerBound = "true";
+}
+
+function ensureCreateOrderBrokerSelect() {
+  if (!createOrderBrokerField) {
+    return null;
+  }
+
+  const legacyNodes = [
+    createOrderBrokerField.querySelector("#order-broker-input"),
+    createOrderBrokerField.querySelector("#order-broker-options"),
+    createOrderBrokerField.querySelector("#order-broker-picker"),
+  ];
+
+  legacyNodes.forEach((node) => {
+    if (node) {
+      node.remove();
+    }
+  });
+
+  let selectElement = createOrderBrokerField.querySelector("#order-broker-select");
+
+  if (!selectElement) {
+    selectElement = document.createElement("select");
+    selectElement.id = "order-broker-select";
+    selectElement.name = "assignedBrokerId";
+    selectElement.innerHTML = '<option value="">Sin broker asignado</option>';
+
+    const summaryElement = createOrderBrokerField.querySelector("#order-broker-summary");
+
+    if (summaryElement) {
+      createOrderBrokerField.insertBefore(selectElement, summaryElement);
+    } else {
+      createOrderBrokerField.appendChild(selectElement);
+    }
+  }
+
+  return selectElement;
+}
+
+createOrderBrokerSelect = createOrderBrokerSelect || ensureCreateOrderBrokerSelect();
+
 let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
 let pendingTrackingDeleteAction = null;
+let pendingBrokerDocumentOrderId = "";
 
 const searchConfigs = [
   {
@@ -329,6 +485,7 @@ let orders = [];
 let selectedOrderId = "";
 let currentAdminRole = "";
 let currentAdminEmail = "";
+let currentAdminId = "";
 let expandedStateKey = "";
 let expandedOverviewStateKey = "";
 let initOverlayWatchdog = null;
@@ -337,18 +494,52 @@ const savingStates = new Set();
 const stateDrafts = new Map();
 let createOrderClients = [];
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const COMPLETED_TIMELINE_STAGE = { key: "completed", label: "Completado" };
 const ORDER_DOCUMENT_TYPES = [
   { value: "FACTURA", label: "FACTURA" },
   { value: "BL", label: "BL" },
+  { value: "CEPD", label: "CEPD" },
   { value: "TITULO", label: "TÍTULO" },
+  { value: "BUYERS_ORDER", label: "BUYERS ORDER" },
+  { value: "WIRE_INSTRUCTIONS", label: "WIRE INSTRUCTIONS" },
   { value: "BOOKING", label: "BOOKING" },
   { value: "TRACKING", label: "TRACKING" },
+  { value: "PLAQUETA VIN", label: "PLAQUETA VIN" },
+  { value: "REGISTRO DE IMPORTACION", label: "REGISTRO DE IMPORTACION" },
   { value: "FOTOS", label: "FOTOS" },
+  { value: "AES", label: "AES" },
   { value: "CONTRATO", label: "CONTRATO" },
+  { value: "SWIFT", label: "SWIFT" },
+  { value: "SOPORTE_DE_PAGO", label: "SOPORTE DE PAGO" },
+  { value: "PRE_APOSTILLA", label: "PRE-APOSTILLA" },
   { value: "OTRO", label: "OTRO" },
 ];
+const ORDER_DOCUMENT_TYPE_LABELS = new Map(
+  ORDER_DOCUMENT_TYPES.flatMap((option) => {
+    const normalizedValue = String(option.value || "").trim().toUpperCase();
+    const normalizedLabel = String(option.label || normalizedValue).trim().toUpperCase();
+
+    return [
+      [normalizedValue, option.label],
+      [normalizedLabel, option.label],
+      [normalizedLabel.replaceAll("-", "_"), option.label],
+      [normalizedLabel.replaceAll("-", " "), option.label],
+    ];
+  })
+);
 const LEGACY_TRACKING_TRANSITION_STORAGE_KEY = "globalAdminTrackingLegacyTransition";
 let useLegacyTrackingTransition = sessionStorage.getItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY) === "1";
+let createOrderBrokers = [];
+
+function getOrderDocumentTypeLabel(value) {
+  const normalizedValue = normalizeText(value || "OTRO").toUpperCase();
+
+  return ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue)
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", " "))
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", "-"))
+    || normalizedValue
+    || "OTRO";
+}
 
 function buildCreateOrderTrackingNumber() {
   const existingTrackings = new Set(
@@ -475,38 +666,117 @@ function renderCreateOrderClientOptions() {
     return;
   }
 
-  if (!createOrderClients.length) {
+  const canEditClient = String(createOrderForm?.dataset.mode || "") !== "edit" || hasGlobalLatamOrderPrivileges();
+  const fallbackOrderRegion = ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole))
+    ? "usa"
+    : "latam";
+  const orderRegion = String(createOrderForm?.dataset.orderRegion || fallbackOrderRegion).trim().toLowerCase();
+  const compatibleClients = canEditClient && String(createOrderForm?.dataset.mode || "") === "edit" && isAnthonyGlobalOwner()
+    ? [...createOrderClients]
+    : createOrderClients.filter((client) => {
+        const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
+        return clientRegion === orderRegion;
+      });
+  const previousValue = String(createOrderClientSelect.value || "").trim();
+  createOrderClientSelect.disabled = !canEditClient;
+
+  if (!compatibleClients.length) {
     createOrderClientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
 
     if (createOrderClientSummary) {
-      createOrderClientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+      createOrderClientSummary.textContent = canEditClient
+        ? "No hay clientes disponibles para este pedido."
+        : "Solo Global Latam puede cambiar el cliente de un pedido.";
     }
 
     return;
   }
 
+  const sortedClients = [...compatibleClients].sort((left, right) => (
+    String(left?.name || "Cliente").localeCompare(String(right?.name || "Cliente"), "es", { sensitivity: "base" })
+  ));
+
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")} · ${escapeHtml(client.email || "Sin email")}</option>`),
+    ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")}</option>`),
   ].join("");
 
+  if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
+    createOrderClientSelect.value = previousValue;
+  }
+
   if (createOrderClientSummary) {
-    createOrderClientSummary.textContent = `${createOrderClients.length} cliente(s) disponible(s).`;
+    createOrderClientSummary.textContent = !canEditClient
+      ? "Solo Global Latam puede cambiar el cliente de un pedido."
+      : String(createOrderForm?.dataset.mode || "") === "edit" && isAnthonyGlobalOwner()
+        ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
+        : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
+  }
+}
+
+function renderCreateOrderBrokerOptions() {
+  createOrderBrokerSelect = createOrderBrokerSelect || ensureCreateOrderBrokerSelect();
+
+  if (!createOrderBrokerField || !createOrderBrokerSelect) {
+    return;
+  }
+
+  const fallbackOrderRegion = ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole))
+    ? "usa"
+    : "latam";
+  const orderRegion = String(createOrderForm?.dataset.orderRegion || fallbackOrderRegion).trim().toLowerCase();
+  const canAssignBroker = canAssignBrokerToOrders();
+  createOrderBrokerField.hidden = !canAssignBroker;
+  createOrderBrokerSelect.disabled = !canAssignBroker;
+
+  if (!canAssignBroker) {
+    createOrderBrokerSelect.innerHTML = '<option value="">Sin broker asignado</option>';
+    return;
+  }
+
+  const previousValue = String(createOrderBrokerSelect.value || "").trim();
+
+  const sortedBrokers = [...createOrderBrokers].sort((left, right) => (
+    String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
+  ));
+
+  createOrderBrokerSelect.innerHTML = [
+    '<option value="">Sin broker asignado</option>',
+    ...sortedBrokers.map((broker) => `<option value="${escapeHtml(broker._id || broker.id || "")}">${escapeHtml(broker.name || broker.email || "Broker USA")}</option>`),
+  ].join("");
+
+  if (previousValue && sortedBrokers.some((broker) => String(broker?._id || broker?.id || "").trim() === previousValue)) {
+    createOrderBrokerSelect.value = previousValue;
+  }
+
+  if (createOrderBrokerSummary) {
+    createOrderBrokerSummary.textContent = sortedBrokers.length
+      ? `${sortedBrokers.length} broker(s) USA disponible(s).`
+      : "No hay brokers USA creados todavía.";
   }
 }
 
 async function loadCreateOrderModalData() {
-  const clientsData = await fetchTrackingPageJson("/api/admin/clients");
+  const [clientsData, adminsData] = await Promise.all([
+    fetchTrackingPageJson("/api/admin/clients"),
+    fetchTrackingPageJson("/api/admin/users/admins"),
+  ]);
   createOrderClients = normalizeCollectionPayload(clientsData, ["clients"]);
+  createOrderBrokers = normalizeCollectionPayload(adminsData, ["users"]).filter((user) => normalizeRole(user?.role) === "brokerusa");
   renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
   applyCreateOrderTrackingNumber();
 }
 
 function syncTrackingPageMode(order) {
   document.body.classList.toggle("tracking-detail-mode", Boolean(order));
 
+  if (trackingPreview) {
+    trackingPreview.hidden = isUsaBrokerRole();
+  }
+
   if (openCreateOrderModalButton) {
-    openCreateOrderModalButton.hidden = Boolean(order);
+    openCreateOrderModalButton.hidden = Boolean(order) || !canCreateOrEditOrders();
   }
 
   if (trackingHeroActions) {
@@ -522,27 +792,42 @@ function getActiveOrders() {
   return orders.filter((order) => order?.status === "active");
 }
 
-function normalizeRole(role) {
-  return String(role || "").trim().toLowerCase();
+function getSearchableOrders() {
+  const selectedState = String(trackingStateFilter?.value || "").trim();
+  const baseOrders = selectedState === COMPLETED_TIMELINE_STAGE.key
+    ? orders.filter((order) => resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key)
+    : getActiveOrders();
+  const pinnedOrder = selectedOrderId
+    ? orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null
+    : null;
+
+  if (!pinnedOrder || baseOrders.some((order) => getOrderIdentifier(order) === getOrderIdentifier(pinnedOrder))) {
+    return baseOrders;
+  }
+
+  return [pinnedOrder, ...baseOrders];
 }
 
 function isAnthonyGlobalOwner() {
-  return normalizeRole(currentAdminRole) === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
 }
 
 function hasGlobalLatamOrderPrivileges() {
   return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
 }
 
-function getTrackingStateIndex(stateKey) {
-  return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
+function isUsaBrokerRole(role = currentAdminRole) {
+  return normalizeRole(role) === "brokerusa";
 }
 
-function canEditStateForRole(role, stateKey) {
-  const normalizedRole = normalizeRole(role);
-  const stateIndex = getTrackingStateIndex(stateKey);
+function getOrderRegion(order) {
+  return String(order?.orderRegion || "latam").trim().toLowerCase();
+}
 
-  if (!normalizedRole || stateIndex === -1) {
+function canManageSelectedOrderRegion(role, order) {
+  const normalizedRole = String(role || "").trim();
+
+  if (!normalizedRole || !order) {
     return false;
   }
 
@@ -550,18 +835,148 @@ function canEditStateForRole(role, stateKey) {
     return true;
   }
 
-  if (["adminusa", "gerenteusa"].includes(normalizedRole)) {
-    return stateIndex <= 3;
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+   if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+     return ["latam", "usa"].includes(getOrderRegion(order));
+   }
+
+  if (getOrderRegion(order) === "usa") {
+    return ["adminUSA", "gerenteUSA"].includes(normalizedRole);
+  }
+
+  return ["admin", "manager"].includes(normalizedRole);
+}
+
+function canManageTrackingForOrder(role, order) {
+  const normalizedRole = String(role || "").trim();
+
+  if (!normalizedRole || !order) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
   }
 
   if (hasGlobalLatamOrderPrivileges()) {
-    return true;
+    return getOrderRegion(order) === "latam";
+  }
+
+  const orderRegion = getOrderRegion(order);
+  const currentStageMeta = getCurrentStageMeta(order);
+
+  if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+    if (orderRegion === "usa") {
+      return true;
+    }
+
+    return currentStageMeta.index >= 0 && currentStageMeta.index <= 2;
+  }
+
+  if (["admin", "manager"].includes(normalizedRole)) {
+    return orderRegion === "latam";
   }
 
   return false;
 }
 
-function canTransitionTrackingState(currentIndex, targetIndex) {
+function canCreateOrEditOrders() {
+  return !isUsaBrokerRole();
+}
+
+function canAssignBrokerToOrders() {
+  return ["gerenteusa", "adminusa"].includes(normalizeRole(currentAdminRole));
+}
+
+function canManageOrderDocumentActions(order = getSelectedOrder()) {
+  if (isUsaBrokerRole()) {
+    return false;
+  }
+
+  return canManageSelectedOrderRegion(currentAdminRole, order);
+}
+
+function normalizeEntityId(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return String(value._id || value.id || "").trim();
+  }
+
+  return String(value).trim();
+}
+
+function isCurrentAdminOrderCreator(order) {
+  const creatorId = normalizeEntityId(order?.createdBy);
+  const creatorEmail = String(order?.createdBy?.email || "").trim().toLowerCase();
+
+  if (creatorId && currentAdminId) {
+    return creatorId === currentAdminId;
+  }
+
+  return Boolean(creatorEmail) && creatorEmail === currentAdminEmail;
+}
+
+function getTrackingStateIndex(stateKey) {
+  return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
+}
+
+function canCreateTrackingUpdateForRole(role, stateKey, order = getSelectedOrder()) {
+  const normalizedRole = String(role || "").trim();
+  const stateIndex = getTrackingStateIndex(stateKey);
+
+  if (!normalizedRole || stateIndex === -1 || !order) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+    return ["latam", "usa"].includes(getOrderRegion(order));
+  }
+
+  return getOrderRegion(order) === "latam" && stateIndex >= 3;
+}
+
+function canEditStateForRole(role, stateKey, order = getSelectedOrder()) {
+  const normalizedRole = String(role || "").trim();
+  const stateIndex = getTrackingStateIndex(stateKey);
+
+  if (!normalizedRole || stateIndex === -1 || !canManageTrackingForOrder(normalizedRole, order)) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+  if (getOrderRegion(order) === "usa") {
+    return stateIndex <= 3;
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(normalizedRole)) {
+    return stateIndex <= 2;
+  }
+
+  return stateIndex >= 3;
+}
+
+function canTransitionTrackingState(currentIndex, targetIndex, order = getSelectedOrder()) {
   if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
     return false;
   }
@@ -570,15 +985,41 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
     return true;
   }
 
-  if (["adminusa", "gerenteusa"].includes(normalizeRole(currentAdminRole))) {
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+  if (!canManageTrackingForOrder(currentAdminRole, order)) {
+    return false;
+  }
+
+  if (getOrderRegion(order) === "usa") {
     return currentIndex <= 2 && targetIndex <= 3;
   }
 
-  if (hasGlobalLatamOrderPrivileges()) {
-    return true;
+  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole)) {
+    return currentIndex <= 2 && targetIndex <= 3;
   }
 
-  return false;
+  return currentIndex === 2 && targetIndex === 3;
+}
+
+function canFinalizeTrackingOrder(order, currentIndex) {
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+  if (isAnthonyGlobalOwner()) {
+    return currentIndex === adminTrackingTemplates.length - 1 || (orderRegion === "usa" && currentIndex === 3);
+  }
+
+  if (hasGlobalLatamOrderPrivileges()) {
+    return orderRegion === "latam" && currentIndex === adminTrackingTemplates.length - 1;
+  }
+
+  if (orderRegion === "usa") {
+    return ["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentIndex === 3 && isCurrentAdminOrderCreator(order);
+  }
+
+  return currentIndex === adminTrackingTemplates.length - 1 && ["admin", "manager"].includes(currentAdminRole);
 }
 
 function canAdvanceTrackingState(states = [], stateIndex = -1) {
@@ -665,6 +1106,7 @@ function getOrderTrackingSteps(order) {
   const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || adminTrackingTemplates[index]?.key || ""), step]));
   const trackingEvents = getOrderTrackingEvents(order);
   const trackingEventsByKey = new Map();
+  const isCompletedOrder = isOrderCompleted(order);
 
   trackingEvents.forEach((event) => {
     if (!trackingEventsByKey.has(event.stateKey)) {
@@ -734,11 +1176,11 @@ function getOrderTrackingSteps(order) {
       key: template.key,
       label: String(sourceStep?.label || template.label),
       updates,
-      confirmed: derivedConfirmed,
-      inProgress: derivedInProgress,
+      confirmed: isCompletedOrder ? true : derivedConfirmed,
+      inProgress: isCompletedOrder ? false : derivedInProgress,
       clientVisible: updates.some((item) => item.clientVisible),
       updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
-      confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || null,
+      confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || (isCompletedOrder ? order?.updatedAt || order?.createdAt || null : null),
       notes: normalizeText(sourceStep?.notes || latestUpdate?.notes || ""),
       media: Array.isArray(sourceStep?.media) ? sourceStep.media.filter((item) => item?.url) : [],
     };
@@ -747,6 +1189,15 @@ function getOrderTrackingSteps(order) {
   const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
   const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
   const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+
+  if (isCompletedOrder) {
+    return normalizedSteps.map((step) => ({
+      ...step,
+      confirmed: true,
+      inProgress: false,
+      confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+    }));
+  }
 
   return normalizedSteps.map((step, index) => ({
     ...step,
@@ -769,6 +1220,46 @@ function getStateCode(index) {
   return `E${index + 1}`;
 }
 
+function buildDocumentDownloadUrl(url, fileName) {
+  const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+  return `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+}
+
+async function downloadDocumentFile(downloadUrl, fileName) {
+  const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
+  const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
+  const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+
+  let response = await fetch(resolvedUrl.toString(), {
+    credentials: "include",
+    headers: {
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const originalFileUrl = resolvedUrl.searchParams.get("url") || "";
+
+    if (/^https?:\/\//i.test(originalFileUrl)) {
+      response = await fetch(originalFileUrl, { mode: "cors" });
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = resolvedFileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function resolveCurrentStageKey(order) {
   const steps = getOrderTrackingSteps(order);
   const activeStep = steps.find((step) => step.inProgress && !step.confirmed);
@@ -781,8 +1272,22 @@ function resolveCurrentStageKey(order) {
   return firstPendingStep?.key || adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key || "";
 }
 
+function resolveStateBucketKey(order) {
+  return isOrderCompleted(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
+}
+
 function getCurrentStageMeta(order) {
-  const currentStageKey = resolveCurrentStageKey(order);
+  const currentStageKey = resolveStateBucketKey(order);
+
+  if (currentStageKey === COMPLETED_TIMELINE_STAGE.key) {
+    return {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      index: adminTrackingTemplates.length,
+      code: getStateCode(adminTrackingTemplates.length),
+      label: COMPLETED_TIMELINE_STAGE.label,
+    };
+  }
+
   const stageIndex = adminTrackingTemplates.findIndex((stage) => stage.key === currentStageKey);
 
   if (stageIndex === -1) {
@@ -797,13 +1302,38 @@ function getCurrentStageMeta(order) {
   };
 }
 
-function getTransitionHelperCopy(currentStageMeta) {
+function getTimelineSteps(order) {
+  const steps = getOrderTrackingSteps(order);
+  const allTrackingStepsCompleted = steps.length > 0 && steps.every((step) => Boolean(step?.confirmed));
+
+  return [
+    ...steps,
+    {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      label: COMPLETED_TIMELINE_STAGE.label,
+      confirmed: allTrackingStepsCompleted || isOrderCompleted(order),
+      inProgress: false,
+    },
+  ];
+}
+
+function getTransitionHelperCopy(order, currentStageMeta) {
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
   if (isAnthonyGlobalOwner()) {
     return "Puedes avanzar o retroceder libremente. La etapa actual queda EN PROCESO.";
   }
 
-  if (hasGlobalLatamOrderPrivileges()) {
+  if (hasGlobalLatamOrderPrivileges() && orderRegion === "latam") {
     return "Puedes avanzar o retroceder libremente dentro de pedidos LATAM. La etapa actual queda EN PROCESO.";
+  }
+
+  if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && orderRegion === "usa" && currentStageMeta.index === 3) {
+    if (isCurrentAdminOrderCreator(order)) {
+      return "Llegaste a la etapa 4. Puedes finalizar este pedido para completar todas las etapas restantes.";
+    }
+
+    return "Los usuarios de USA solo pueden mover pedidos hasta la etapa 4. Solo el creador del pedido puede finalizarlo desde aqui.";
   }
 
   if (["adminUSA", "gerenteUSA"].includes(currentAdminRole) && currentStageMeta.index >= 3) {
@@ -832,8 +1362,10 @@ function renderStageTransitionCardMarkup(order) {
   }
 
   const currentStageMeta = getCurrentStageMeta(order);
-  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1);
-  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1);
+  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1, order);
+  const finalizeEnabled = canFinalizeTrackingOrder(order, currentStageMeta.index);
+  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1, order)
+    || (finalizeEnabled && currentStageMeta.index === adminTrackingTemplates.length - 1);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -848,18 +1380,25 @@ function renderStageTransitionCardMarkup(order) {
         <span aria-hidden="true">→</span>
       </button>
     </div>
-    <p>${escapeHtml(getTransitionHelperCopy(currentStageMeta))}</p>
+    ${finalizeEnabled ? `
+    <div class="tracking-stage-transition-complete-row">
+      <button class="primary-button tracking-stage-transition-complete-button" type="button" data-finalize-order="true">
+        Finalizar pedido
+      </button>
+    </div>
+    ` : ""}
+    <p>${escapeHtml(getTransitionHelperCopy(order, currentStageMeta))}</p>
     </article>
   `;
 }
 
 function populateSearchSelects() {
-  const activeOrders = getActiveOrders();
+  const searchableOrders = getSearchableOrders();
 
   searchConfigs.forEach((config) => {
     const values = new Set();
 
-    activeOrders.forEach((order) => {
+    searchableOrders.forEach((order) => {
       getConfigSearchValues(config, order).forEach((rawValue) => {
         values.add(rawValue);
       });
@@ -873,7 +1412,8 @@ function populateSearchSelects() {
   const stateOptions = ['<option value="">Todos los estados</option>'].concat(
     adminTrackingTemplates.map(
       (stage, index) => `<option value="${escapeHtml(stage.key)}">${escapeHtml(`${getStateCode(index)}: ${stage.label}`)}</option>`
-    )
+    ),
+    `<option value="${escapeHtml(COMPLETED_TIMELINE_STAGE.key)}">${escapeHtml(`E${adminTrackingTemplates.length + 1}: ${COMPLETED_TIMELINE_STAGE.label}`)}</option>`
   );
 
   if (trackingStateFilter) {
@@ -885,12 +1425,12 @@ function populateSearchSelects() {
 }
 
 function getFilteredOrders() {
-  const activeOrders = getActiveOrders();
+  const searchableOrders = getSearchableOrders();
   const selectedState = String(trackingStateFilter?.value || "").trim();
   const dateFrom = trackingDateFromFilter?.value ? normalizeToDateStart(trackingDateFromFilter.value) : null;
   const dateTo = trackingDateToFilter?.value ? normalizeToDateEnd(trackingDateToFilter.value) : null;
 
-  return activeOrders.filter((order) => {
+  return searchableOrders.filter((order) => {
     const matchesSearch = searchConfigs.every((config) => {
       const query = normalizeSearchValue(config.input.value);
 
@@ -905,7 +1445,7 @@ function getFilteredOrders() {
       return false;
     }
 
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveStateBucketKey(order);
 
     if (selectedState && currentStageKey !== selectedState) {
       return false;
@@ -926,13 +1466,24 @@ function getFilteredOrders() {
   });
 }
 
-function findExactMatch(matches) {
-  return matches.find((order) => searchConfigs.every((config) => {
-    const query = normalizeSearchValue(config.input.value);
+function hasActiveSearchFilters() {
+  const hasTextQuery = searchConfigs.some((config) => normalizeSearchValue(config.input.value));
+  const hasStateFilter = Boolean(String(trackingStateFilter?.value || "").trim());
+  const hasDateFrom = Boolean(String(trackingDateFromFilter?.value || "").trim());
+  const hasDateTo = Boolean(String(trackingDateToFilter?.value || "").trim());
 
-    if (!query) {
-      return true;
-    }
+  return hasTextQuery || hasStateFilter || hasDateFrom || hasDateTo;
+}
+
+function findExactMatch(matches) {
+  const activeSearchConfigs = searchConfigs.filter((config) => normalizeSearchValue(config.input.value));
+
+  if (!activeSearchConfigs.length) {
+    return null;
+  }
+
+  return matches.find((order) => activeSearchConfigs.every((config) => {
+    const query = normalizeSearchValue(config.input.value);
 
     return getConfigSearchValues(config, order).some((value) => normalizeSearchValue(value) === query);
   })) || null;
@@ -985,36 +1536,85 @@ function resolveInitialOrderId(filters) {
     return "";
   }
 
-  const match = getActiveOrders().find((order) => {
-    if (filters.orderId && getOrderIdentifier(order) === filters.orderId) {
-      return true;
-    }
+  const searchableOrders = Array.isArray(orders) ? orders : [];
 
-    if (filters.tracking && normalizeSearchValue(order?.trackingNumber) === filters.tracking) {
-      return true;
-    }
-
-    if (filters.vin && normalizeSearchValue(order?.vehicle?.vin) === filters.vin) {
-      return true;
-    }
-
-    if (filters.client && normalizeSearchValue(getClientDisplayName(order)) === filters.client) {
-      return true;
-    }
-
-    if (filters.internal && normalizeSearchValue(getInternalIdentifier(order)) === filters.internal) {
-      return true;
-    }
-
-    return false;
-  });
+  const match = filters.orderId
+    ? searchableOrders.find((order) => getOrderIdentifier(order) === filters.orderId)
+    : filters.tracking
+      ? searchableOrders.find((order) => normalizeSearchValue(order?.trackingNumber) === filters.tracking)
+      : filters.vin
+        ? searchableOrders.find((order) => normalizeSearchValue(order?.vehicle?.vin) === filters.vin)
+        : filters.client
+          ? searchableOrders.find((order) => normalizeSearchValue(getClientDisplayName(order)) === filters.client)
+          : filters.internal
+            ? searchableOrders.find((order) => normalizeSearchValue(getInternalIdentifier(order)) === filters.internal)
+            : null;
 
   return match ? getOrderIdentifier(match) : "";
 }
 
 function renderSearchResults(matches) {
   if (!matches.length) {
-    trackingSearchResults.innerHTML = '<div class="empty-state">No encontramos pedidos activos con esos filtros.</div>';
+    const selectedState = String(trackingStateFilter?.value || "").trim();
+    const emptyLabel = selectedState === COMPLETED_TIMELINE_STAGE.key
+      ? "No encontramos pedidos completados con esos filtros."
+      : "No encontramos pedidos activos con esos filtros.";
+    trackingSearchResults.innerHTML = `<div class="empty-state">${emptyLabel}</div>`;
+    return;
+  }
+
+  if (isUsaBrokerRole()) {
+    trackingSearchResults.innerHTML = `
+      <div class="tracking-table-wrap tracking-search-results-table-wrap">
+        <table class="tracking-data-table tracking-search-results-table">
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>VIN</th>
+              <th>Cliente</th>
+              <th>Destino</th>
+              <th>Estado</th>
+              <th>Vehículo</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${matches.map((order) => {
+              const orderId = getOrderIdentifier(order);
+              const trackingValue = String(order?.trackingNumber || "").trim();
+              const vinValue = String(order?.vehicle?.vin || "").trim();
+              const stageMeta = getCurrentStageMeta(order);
+              const vehicleLabel = formatOrderLabel(order);
+              const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
+
+              return `
+                <tr class="tracking-order-row is-broker-view">
+                  <td data-label="Tracking">
+                    <div class="tracking-order-link-stack">
+                      <span class="tracking-order-static-value">${escapeHtml(trackingValue || "-")}</span>
+                      ${renderOrderRegionBadge(order)}
+                    </div>
+                  </td>
+                  <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
+                  <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
+                  <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
+                  <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
+                  <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+                  <td data-label="Fecha">${escapeHtml(rowDate)}</td>
+                  <td data-label="Acciones" class="tracking-order-actions-cell">
+                    <div class="tracking-order-actions broker-actions">
+                      <button class="tracking-order-action-button tracking-order-action-button-icon" type="button" data-broker-upload="${escapeHtml(orderId)}" aria-label="Subir archivos" title="Subir archivos">&#8593;</button>
+                      <button class="tracking-order-action-button tracking-order-action-button-icon" type="button" data-broker-documents="${escapeHtml(orderId)}" aria-label="Ver documentos" title="Ver documentos">&#8801;</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
     return;
   }
 
@@ -1044,6 +1644,15 @@ function renderSearchResults(matches) {
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
             const pendingDeletion = hasPendingDeletionRequest(order);
             const deleteLabel = pendingDeletion ? "Solicitud pendiente" : "Eliminar pedido";
+            const canManageOrder = canCreateOrEditOrders();
+            const actionMarkup = canManageOrder
+              ? `
+                  <div class="tracking-order-actions">
+                    <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
+                    <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
+                  </div>
+                `
+              : '<span class="admin-user-delete-placeholder">-</span>';
 
             return `
               <tr
@@ -1054,9 +1663,12 @@ function renderSearchResults(matches) {
                 aria-label="Seleccionar pedido ${escapeHtml(trackingValue || vehicleLabel || orderId)}"
               >
                 <td data-label="Tracking">
-                  <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
-                    ${escapeHtml(trackingValue || "-")}
-                  </button>
+                  <div class="tracking-order-link-stack">
+                    <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
+                      ${escapeHtml(trackingValue || "-")}
+                    </button>
+                    ${renderOrderRegionBadge(order)}
+                  </div>
                 </td>
                 <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
                 <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
@@ -1065,10 +1677,7 @@ function renderSearchResults(matches) {
                 <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
                 <td data-label="Acción" class="tracking-order-actions-cell">
-                  <div class="tracking-order-actions">
-                    <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
-                    <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
-                  </div>
+                  ${actionMarkup}
                 </td>
               </tr>
             `;
@@ -1673,12 +2282,12 @@ function renderAdminEventsTable(order) {
         <tbody>
           ${rows.map((row) => `
             <tr>
-              <td>${escapeHtml(formatDateTimeLabel(row.date))}</td>
-              <td>${escapeHtml(row.stage)}</td>
-              <td>${escapeHtml(row.title)}</td>
-              <td>${escapeHtml(row.location)}</td>
-              <td>${escapeHtml(row.description)}</td>
-              <td class="admin-tracking-events-actions-cell">
+              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(row.date))}</td>
+              <td data-label="Etapa">${escapeHtml(row.stage)}</td>
+              <td data-label="Título">${escapeHtml(row.title)}</td>
+              <td data-label="Ubicación">${escapeHtml(row.location)}</td>
+              <td data-label="Descripción">${escapeHtml(row.description)}</td>
+              <td data-label="Acciones" class="admin-tracking-events-actions-cell">
                 <div class="admin-tracking-event-actions">
                   ${renderVisibilityButton(row.stateKey, row.updateIndex, !row.clientVisible, row.clientVisible, row.eventId)}
                   ${renderDeleteEventTableButton(row.stateKey, row.updateIndex, row.eventId)}
@@ -1694,8 +2303,21 @@ function renderAdminEventsTable(order) {
 
 function renderNewEventCard(order) {
   const currentStageMeta = getCurrentStageMeta(order);
-  const stageOptions = adminTrackingTemplates
-    .filter((template) => canEditStateForRole(currentAdminRole, template.key))
+  const editableStages = adminTrackingTemplates
+    .filter((template) => canCreateTrackingUpdateForRole(currentAdminRole, template.key, order));
+
+  if (!editableStages.length) {
+    return `
+      <article class="dashboard-card tracking-table-card tracking-new-event-card">
+        <div class="card-heading compact">
+          <h2>Nuevo evento</h2>
+        </div>
+        <div class="empty-state">Tu perfil no puede registrar eventos en este pedido.</div>
+      </article>
+    `;
+  }
+
+  const stageOptions = editableStages
     .map((template) => {
       const templateIndex = getTrackingStateIndex(template.key);
       const isSelected = template.key === currentStageMeta.key;
@@ -1741,7 +2363,7 @@ function getOrderDocuments(order) {
     .filter((item) => item?.url && (item?.category === "document" || item?.type === "document"))
     .map((item) => ({
       documentId: String(item.documentId || "").trim(),
-      documentType: normalizeText(item.documentType || "OTRO") || "OTRO",
+      documentType: getOrderDocumentTypeLabel(item.documentType || "OTRO"),
       name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
       note: normalizeText(item.note || ""),
       url: String(item.url || ""),
@@ -1805,19 +2427,21 @@ function renderOrderDocumentsTable(order) {
         <tbody>
           ${documents.map((document) => `
             <tr>
-              <td>${escapeHtml(document.documentType)}</td>
-              <td>
+              <td data-label="Tipo">${escapeHtml(document.documentType)}</td>
+              <td data-label="Archivo">
                 <div class="tracking-document-link-cell">
-                  <a class="tracking-document-link" href="${escapeHtml(document.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(document.name)}</a>
+                  <a class="tracking-document-link" href="${escapeHtml(buildDocumentDownloadUrl(document.url, document.name))}" download="${escapeHtml(document.name || "documento.pdf")}">${escapeHtml(document.name)}</a>
                 </div>
               </td>
-              <td>${escapeHtml(document.note || "-")}</td>
-              <td>${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
-              <td class="admin-tracking-events-actions-cell">
-                <div class="admin-tracking-event-actions">
-                  ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
-                  ${renderOrderDocumentDeleteButton(document.documentId)}
-                </div>
+              <td data-label="Nota">${escapeHtml(document.note || "-")}</td>
+              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
+              <td data-label="Acciones" class="admin-tracking-events-actions-cell">
+                ${canManageOrderDocumentActions(order)
+                  ? `<div class="admin-tracking-event-actions">
+                      ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
+                      ${renderOrderDocumentDeleteButton(document.documentId)}
+                    </div>`
+                  : '<span class="admin-user-delete-placeholder">-</span>'}
               </td>
             </tr>
           `).join("")}
@@ -1828,6 +2452,17 @@ function renderOrderDocumentsTable(order) {
 }
 
 function renderOrderDocumentUploadCard() {
+  if (!canManageOrderDocumentActions()) {
+    return `
+      <article class="dashboard-card tracking-table-card tracking-document-upload-card">
+        <div class="card-heading compact">
+          <h2>Subir documento(s)</h2>
+        </div>
+        <div class="empty-state">Tu perfil no puede subir documentos en este pedido.</div>
+      </article>
+    `;
+  }
+
   return `
     <article class="dashboard-card tracking-table-card tracking-document-upload-card">
       <div class="card-heading compact">
@@ -1843,8 +2478,8 @@ function renderOrderDocumentUploadCard() {
           </label>
           <label>
             <span>Archivo(s) *</span>
-            <input name="mediaFiles" class="tracking-document-file-input" type="file" multiple required />
-            <small>Puedes seleccionar varios archivos a la vez.</small>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip" multiple required />
+            <small>Puedes seleccionar varias imagenes o documentos a la vez, incluyendo ZIP.</small>
           </label>
         </div>
         <label>
@@ -1858,6 +2493,98 @@ function renderOrderDocumentUploadCard() {
       </form>
     </article>
   `;
+}
+
+function closeBrokerDocumentModal() {
+  if (!brokerDocumentModal) {
+    return;
+  }
+
+  brokerDocumentModal.hidden = true;
+  pendingBrokerDocumentOrderId = "";
+
+  if (brokerDocumentForm) {
+    brokerDocumentForm.reset();
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "");
+  document.body.classList.remove("modal-open");
+}
+
+function openBrokerDocumentModal(orderId) {
+  const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+  if (!order || !brokerDocumentModal) {
+    return;
+  }
+
+  pendingBrokerDocumentOrderId = getOrderIdentifier(order);
+
+  if (brokerDocumentOrderSummary) {
+    brokerDocumentOrderSummary.value = `${order?.trackingNumber || "Sin tracking"} · ${formatOrderLabel(order)}`;
+  }
+
+  if (brokerDocumentOrderCopy) {
+    brokerDocumentOrderCopy.textContent = `${getClientDisplayName(order)} · VIN ${order?.vehicle?.vin || "Sin VIN"}`;
+  }
+
+  if (brokerDocumentTypeField) {
+    brokerDocumentTypeField.value = "";
+  }
+
+  if (brokerDocumentFilesField) {
+    brokerDocumentFilesField.value = "";
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "");
+  brokerDocumentModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+async function submitBrokerDocumentForm() {
+  const orderId = String(pendingBrokerDocumentOrderId || "").trim();
+
+  if (!orderId) {
+    throw new Error("No se encontro el pedido para subir documentos.");
+  }
+
+  if (!brokerDocumentForm) {
+    throw new Error("No se encontro el formulario de carga.");
+  }
+
+  const formData = new FormData(brokerDocumentForm);
+  const selectedType = String(formData.get("documentType") || "").trim();
+  const files = Array.from(brokerDocumentFilesField?.files || []);
+
+  if (!selectedType) {
+    throw new Error("Debes seleccionar un tipo de archivo.");
+  }
+
+  if (!files.length) {
+    throw new Error("Debes seleccionar al menos un archivo.");
+  }
+
+  if (brokerDocumentSubmitButton) {
+    brokerDocumentSubmitButton.disabled = true;
+  }
+
+  adminSetFeedback(brokerDocumentFeedback, "Subiendo archivos...");
+
+  try {
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${orderId}/documents`, {
+      method: "POST",
+      body: formData,
+    });
+
+    orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+    renderSearchResults(getFilteredOrders());
+    closeBrokerDocumentModal();
+    adminSetFeedback(trackingFeedback, "Archivo(s) cargado(s) correctamente.", "success");
+  } finally {
+    if (brokerDocumentSubmitButton) {
+      brokerDocumentSubmitButton.disabled = false;
+    }
+  }
 }
 
 function renderOrderSummary(order) {
@@ -1875,7 +2602,7 @@ function renderOrderSummary(order) {
   trackingOrderSummary.innerHTML = `
     <div class="tracking-card-header">
       <strong>${escapeHtml(formatOrderLabel(order))}</strong>
-      <p>${escapeHtml(getClientDisplayName(order))} · Tracking ${escapeHtml(order?.trackingNumber || "-")}</p>
+      <p>${escapeHtml(getClientDisplayName(order))} · Tracking ${escapeHtml(order?.trackingNumber || "-")} ${renderOrderRegionBadge(order)}</p>
       <p>VIN ${escapeHtml(order?.vehicle?.vin || "Sin VIN")} · Exterior ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
       <p>Interior ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
       <p>Destino ${escapeHtml(order?.vehicle?.destination || "-")} · ${escapeHtml(`${stageMeta.code} ${stageMeta.label}`)}</p>
@@ -1896,20 +2623,38 @@ function renderTrackingOverview(order) {
     <div class="tracking-overview-stack">
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
-          <header class="state-order-header tracking-overview-header">
-            <h3>${escapeHtml(formatOrderLabel(order))}</h3>
-            <strong class="tracking-overview-tracking">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+          <header class="state-order-header tracking-overview-header" style="display:block;width:100%;text-align:center;">
+            <div class="tracking-overview-heading" style="display:inline-grid;gap:12px;justify-items:center;margin:0 auto;text-align:center;">
+              <h3 style="margin:0;text-align:center;">${escapeHtml(formatOrderLabel(order))}</h3>
+              <div class="tracking-order-link-stack" style="align-items:center;margin:0 auto;">
+                <strong class="tracking-overview-tracking" style="display:block;text-align:center;">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+                ${renderOrderRegionBadge(order)}
+              </div>
+            </div>
           </header>
           <div class="state-order-grid tracking-overview-grid">
-            <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
-            <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
-            <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-            <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
-            <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
-            <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
-            <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-            <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+            <article class="tracking-overview-detail tracking-overview-detail-client">
+              <span class="tracking-overview-label">Cliente</span>
+              <strong class="tracking-overview-value">${escapeHtml(getClientDisplayName(order))}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">VIN</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.vin || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Exterior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Interior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.interiorColor || "-")}</strong>
+            </article>
           </div>
+          ${String(order?.orderRegion || "latam") === "latam" ? `
+          <div class="tracking-new-event-actions tracking-order-accounting-action">
+            <a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>
+          </div>
+          ` : ""}
         </article>
         ${renderStageTransitionCardMarkup(order)}
       </div>
@@ -1919,11 +2664,13 @@ function renderTrackingOverview(order) {
           <h2>Timeline de etapas</h2>
         </div>
         <div class="tracking-timeline-grid">
-          ${states.map((state, index) => {
-            const variant = resolveTimelineStateVariant(state, index, states);
+          ${getTimelineSteps(order).map((state, index, timelineStates) => {
+            const variant = resolveTimelineStateVariant(state, index, timelineStates);
             const statusLabel = resolveTimelineStateStatusLabel(variant);
             const statusIcon = variant === "is-completed" ? "✅" : variant === "is-current" ? "⭐" : "◻";
-            const canEditState = canEditStateForRole(currentAdminRole, state.key);
+            const canEditState = state.key === COMPLETED_TIMELINE_STAGE.key
+              ? false
+              : canEditStateForRole(currentAdminRole, state.key, order);
 
             return `
               <button
@@ -2116,12 +2863,12 @@ async function saveState(stateKey) {
     return;
   }
 
-  if (!canEditStateForRole(currentAdminRole, stateKey)) {
+  const selectedOrder = getSelectedOrder();
+
+  if (!canEditStateForRole(currentAdminRole, stateKey, selectedOrder)) {
     adminSetFeedback(trackingFeedback, "No tienes permisos para modificar este estado.", "error");
     return;
   }
-
-  const selectedOrder = getSelectedOrder();
   const stateCard = trackingStatesList?.querySelector(`[data-state-card="${stateKey}"]`) || null;
   const stateFeedback = trackingStatesList?.querySelector(`[data-state-feedback="${stateKey}"]`) || null;
   const saveButton = trackingStatesList?.querySelector(`[data-save-state-key="${stateKey}"]`) || null;
@@ -2174,7 +2921,7 @@ async function saveState(stateKey) {
   adminSetFeedback(stateFeedback, "Guardando evento...");
 
   try {
-    const response = await fetchTrackingPageJson(`/api/admin/orders/${selectedOrder._id}/tracking-states/${stateKey}`, {
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-states/${stateKey}`, {
       method: "PATCH",
       body: formData,
     });
@@ -2221,7 +2968,7 @@ async function submitNewTrackingEventForm(form) {
     return;
   }
 
-  if (!canEditStateForRole(currentAdminRole, stageKey)) {
+  if (!canCreateTrackingUpdateForRole(currentAdminRole, stageKey, selectedOrder)) {
     adminSetFeedback(feedbackElement, "No tienes permisos para registrar eventos en esta etapa.", "error");
     return;
   }
@@ -2271,6 +3018,11 @@ async function submitOrderDocumentForm(form) {
 
   if (!selectedOrder) {
     adminSetFeedback(feedbackElement, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  if (!canManageOrderDocumentActions(selectedOrder)) {
+    adminSetFeedback(feedbackElement, "No tienes permisos para subir documentos en este pedido.", "error");
     return;
   }
 
@@ -2370,6 +3122,17 @@ async function transitionSelectedOrder(direction) {
 
   if (!selectedOrder) {
     adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const currentStageMeta = getCurrentStageMeta(selectedOrder);
+
+  if (
+    direction === "next"
+    && currentStageMeta.index === adminTrackingTemplates.length - 1
+    && canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)
+  ) {
+    await finalizeSelectedOrder();
     return;
   }
 
@@ -2477,32 +3240,29 @@ async function transitionSelectedOrder(direction) {
   );
 }
 
-function handleSearchClick() {
-  const matches = getFilteredOrders();
-  renderSearchResults(matches);
+async function finalizeSelectedOrder() {
+  const selectedOrder = getSelectedOrder();
 
-  if (!matches.length) {
-    selectedOrderId = "";
-    trackingOrderInput.value = "";
-    if (trackingEditorFields) {
-      trackingEditorFields.hidden = true;
-    }
-    updateUrlForOrder(null);
-    renderOrderSummary(null);
-    renderStates();
-    adminSetFeedback(trackingFeedback, "No hay pedidos activos que coincidan con esos filtros.", "error");
-    return;
+  if (!selectedOrder) {
+    throw new Error("Selecciona un pedido antes de finalizarlo.");
   }
 
-  const exactMatch = findExactMatch(matches);
+  const currentStageMeta = getCurrentStageMeta(selectedOrder);
 
-  if (exactMatch || matches.length === 1) {
-    selectOrder(getOrderIdentifier(exactMatch || matches[0]));
-    adminSetFeedback(trackingFeedback, "Pedido listo para gestionar sus estados.", "success");
-    return;
+  if (!canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)) {
+    throw new Error("No tienes permisos para finalizar este pedido.");
   }
 
-  adminSetFeedback(trackingFeedback, "Selecciona uno de los pedidos encontrados para trabajar su tracking.", "success");
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-finalize`, {
+    method: "PATCH",
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+
+  adminSetFeedback(trackingFeedback, "Pedido finalizado correctamente. Todas las etapas quedaron completadas.", "success");
 }
 
 function openSuccessModal(options = {}) {
@@ -2622,6 +3382,12 @@ function setCreateOrderModalMode(mode, order = null) {
   const normalizedMode = mode === "edit" ? "edit" : "create";
   createOrderForm.dataset.mode = normalizedMode;
   createOrderForm.dataset.orderId = normalizedMode === "edit" ? getOrderIdentifier(order) : "";
+  createOrderForm.dataset.orderRegion = normalizedMode === "edit"
+    ? String(
+        order?.orderRegion
+        || (["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam")
+      ).trim().toLowerCase()
+    : (["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam");
 
   if (createOrderClientSelect) {
     createOrderClientSelect.required = normalizedMode !== "edit";
@@ -2640,6 +3406,9 @@ function setCreateOrderModalMode(mode, order = null) {
   if (createOrderSubmitButton) {
     createOrderSubmitButton.textContent = normalizedMode === "edit" ? "Guardar cambios" : "Crear pedido";
   }
+
+  renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
 }
 
 function resolveCreateOrderFieldValue(field, value) {
@@ -2668,6 +3437,8 @@ function fillCreateOrderFormFromOrder(order) {
     return;
   }
 
+  createOrderBrokerSelect = createOrderBrokerSelect || ensureCreateOrderBrokerSelect();
+
   const setFieldValue = (name, value) => {
     const field = createOrderForm.elements.namedItem(name);
 
@@ -2695,12 +3466,17 @@ function fillCreateOrderFormFromOrder(order) {
   if (createOrderClientSelect) {
     createOrderClientSelect.value = String(order?.client?._id || order?.client?.id || order?.clientId || "");
   }
+
+  if (createOrderBrokerSelect) {
+    createOrderBrokerSelect.value = String(order?.assignedBroker?._id || order?.assignedBroker?.id || order?.assignedBrokerId || "");
+  }
 }
 
 function resetCreateOrderFormState() {
   createOrderForm?.reset();
   setCreateOrderModalMode("create");
   renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
   applyCreateOrderTrackingNumber();
   adminSetFeedback(createOrderFeedback, "");
 }
@@ -2894,8 +3670,6 @@ function closeCreateOrderModal() {
 }
 
 window.__closeTrackingSuccessModal = closeSuccessModal;
-window.__adminTrackingHandleSearch = () => handleSearchClick();
-window.__adminTrackingFallbackSearch = () => handleSearchClick();
 window.__openCreateOrderModal = openCreateOrderModal;
 window.__closeCreateOrderModal = closeCreateOrderModal;
 window.__closeOrderDeleteRequestModal = closeOrderDeleteRequestModal;
@@ -2922,7 +3696,6 @@ function stopInitOverlayWatchdog() {
   initOverlayWatchdog = null;
 }
 
-trackingSearchButton?.addEventListener("click", handleSearchClick);
 trackingClearButton?.addEventListener("click", clearSearchFilters);
 trackingSuccessClose?.addEventListener("click", closeSuccessModal);
 
@@ -3003,8 +3776,17 @@ window.addEventListener("admin-order-updated", async (event) => {
       searchConfigs[1].input.value = "";
       searchConfigs[2].input.value = "";
       renderSearchResults(getFilteredOrders());
-      selectOrder(updatedOrderId);
     }
+
+    selectedOrderId = "";
+    if (trackingOrderInput) {
+      trackingOrderInput.value = "";
+    }
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
+    syncSelectionToUrl(null);
+    renderTrackingOverview(null);
 
     adminSetFeedback(trackingFeedback, "Pedido actualizado correctamente.", "success");
   } catch (error) {
@@ -3036,6 +3818,25 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  const documentLink = event.target.closest(".tracking-document-link");
+
+  if (documentLink) {
+    event.preventDefault();
+
+    downloadDocumentFile(
+      String(documentLink.getAttribute("href") || ""),
+      String(documentLink.getAttribute("download") || documentLink.textContent || "documento.pdf")
+    ).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo descargar el documento.", "error");
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-close-broker-document-modal]")) {
+    closeBrokerDocumentModal();
+    return;
+  }
+
   const detailButton = event.target.closest("[data-order-detail-link]");
 
   if (detailButton) {
@@ -3043,6 +3844,25 @@ function handleTrackingPageClick(event) {
 
     if (href) {
       window.location.href = href;
+    }
+
+    return;
+  }
+
+  const brokerUploadButton = event.target.closest("[data-broker-upload]");
+
+  if (brokerUploadButton) {
+    openBrokerDocumentModal(String(brokerUploadButton.dataset.brokerUpload || ""));
+    return;
+  }
+
+  const brokerDocumentsButton = event.target.closest("[data-broker-documents]");
+
+  if (brokerDocumentsButton) {
+    const orderId = String(brokerDocumentsButton.dataset.brokerDocuments || "").trim();
+
+    if (orderId) {
+      window.location.href = `/admin-broker-documents.html?orderId=${encodeURIComponent(orderId)}`;
     }
 
     return;
@@ -3066,7 +3886,7 @@ function handleTrackingPageClick(event) {
 
   if (orderRow) {
     selectOrder(String(orderRow.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    adminSetFeedback(trackingFeedback, canCreateOrEditOrders() ? "Pedido seleccionado. Ya puedes gestionar sus estados." : "Pedido seleccionado. Ya puedes subir archivos y documentos.", "success");
     return;
   }
 
@@ -3074,7 +3894,7 @@ function handleTrackingPageClick(event) {
 
   if (orderButton) {
     selectOrder(String(orderButton.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    adminSetFeedback(trackingFeedback, canCreateOrEditOrders() ? "Pedido seleccionado. Ya puedes gestionar sus estados." : "Pedido seleccionado. Ya puedes subir archivos y documentos.", "success");
     return;
   }
 
@@ -3091,6 +3911,15 @@ function handleTrackingPageClick(event) {
 
   if (transitionButton) {
     transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message, "error");
+    });
+    return;
+  }
+
+  const finalizeButton = event.target.closest("[data-finalize-order]");
+
+  if (finalizeButton) {
+    finalizeSelectedOrder().catch((error) => {
       adminSetFeedback(trackingFeedback, error.message, "error");
     });
     return;
@@ -3190,6 +4019,14 @@ function handleTrackingPageClick(event) {
 trackingRoot.addEventListener("click", handleTrackingPageClick);
 trackingPreview.addEventListener("click", handleTrackingPageClick);
 trackingStageTransitionCard?.addEventListener("click", handleTrackingPageClick);
+brokerDocumentModal?.addEventListener("click", handleTrackingPageClick);
+
+brokerDocumentForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitBrokerDocumentForm().catch((error) => {
+    adminSetFeedback(brokerDocumentFeedback, error.message, "error");
+  });
+});
 
 trackingPreview.addEventListener("submit", (event) => {
   const newEventForm = event.target.closest("[data-new-event-form]");
@@ -3296,10 +4133,15 @@ async function loadTrackingPage() {
   await loadTrackingPageSession();
   const ordersData = await fetchTrackingPageJson("/api/admin/orders");
   orders = Array.isArray(ordersData?.orders) ? ordersData.orders : [];
-  populateSearchSelects();
 
   const urlFilters = getUrlFilters();
   const initialOrderId = resolveInitialOrderId(urlFilters);
+
+  if (initialOrderId) {
+    selectedOrderId = initialOrderId;
+  }
+
+  populateSearchSelects();
 
   if (urlFilters.tracking) {
     searchConfigs[0].input.value = urlFilters.tracking;
@@ -3314,6 +4156,15 @@ async function loadTrackingPage() {
   }
 
   renderSearchResults(getFilteredOrders());
+
+  if (isUsaBrokerRole()) {
+    syncTrackingPageMode(null);
+    renderOrderSummary(null);
+    renderStates();
+    stopInitOverlayWatchdog();
+    forceClearLoadingState();
+    return;
+  }
 
   if (initialOrderId) {
     selectOrder(initialOrderId);
