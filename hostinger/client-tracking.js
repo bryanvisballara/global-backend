@@ -28,6 +28,12 @@ const trackingFeedback = document.getElementById("tracking-page-feedback");
 const refreshIndicator = document.getElementById("feed-refresh-indicator");
 const refreshLabel = document.getElementById("feed-refresh-label");
 const trackingNavButtons = Array.from(document.querySelectorAll("[data-nav-go]"));
+
+function isAppleTouchDownloadEnvironment() {
+  const userAgent = String(navigator.userAgent || "");
+  const platform = String(navigator.platform || "");
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+}
 let registeredPushToken = "";
 let activeTrackingOrder = null;
 let touchStartY = 0;
@@ -622,7 +628,14 @@ async function downloadDocument(url, fileName) {
   try {
     const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
     const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
-    let response = await fetch(apiUrl);
+    const resolvedApiUrl = new URL(apiUrl, apiBaseUrl).toString();
+
+    if (isAppleTouchDownloadEnvironment()) {
+      window.location.href = resolvedApiUrl;
+      return;
+    }
+
+    let response = await fetch(resolvedApiUrl);
 
     if (!response.ok && /^https?:\/\//i.test(url)) {
       response = await fetch(url, { mode: "cors" });

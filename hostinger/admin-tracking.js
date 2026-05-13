@@ -1225,10 +1225,21 @@ function buildDocumentDownloadUrl(url, fileName) {
   return `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
 }
 
+function isAppleTouchDownloadEnvironment() {
+  const userAgent = String(navigator.userAgent || "");
+  const platform = String(navigator.platform || "");
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
 async function downloadDocumentFile(downloadUrl, fileName) {
   const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
   const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+
+  if (isAppleTouchDownloadEnvironment()) {
+    window.location.href = resolvedUrl.toString();
+    return;
+  }
 
   let response = await fetch(resolvedUrl.toString(), {
     credentials: "include",
