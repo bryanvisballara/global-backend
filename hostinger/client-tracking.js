@@ -620,8 +620,13 @@ async function downloadDocument(url, fileName) {
   }
 
   try {
-    const apiUrl = `/api/downloads/pdf?url=${encodeURIComponent(url)}`;
-    const response = await fetch(apiUrl);
+    const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
+    const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+    let response = await fetch(apiUrl);
+
+    if (!response.ok && /^https?:\/\//i.test(url)) {
+      response = await fetch(url, { mode: "cors" });
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -631,7 +636,7 @@ async function downloadDocument(url, fileName) {
     const objectUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = fileName || "documento.pdf";
+    anchor.download = resolvedFileName;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

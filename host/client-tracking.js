@@ -622,7 +622,11 @@ async function downloadDocument(url, fileName) {
   try {
     const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
     const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
-    const response = await fetch(apiUrl);
+    let response = await fetch(apiUrl);
+
+    if (!response.ok && /^https?:\/\//i.test(url)) {
+      response = await fetch(url, { mode: "cors" });
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);

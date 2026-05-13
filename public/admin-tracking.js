@@ -779,12 +779,20 @@ async function downloadDocumentFile(downloadUrl, fileName) {
   const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
 
-  const response = await fetch(resolvedUrl.toString(), {
+  let response = await fetch(resolvedUrl.toString(), {
     credentials: "include",
     headers: {
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     },
   });
+
+  if (!response.ok) {
+    const originalFileUrl = resolvedUrl.searchParams.get("url") || "";
+
+    if (/^https?:\/\//i.test(originalFileUrl)) {
+      response = await fetch(originalFileUrl, { mode: "cors" });
+    }
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
