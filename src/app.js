@@ -29,6 +29,7 @@ app.get("/api/debug/list-users", async (req, res) => {
 });
 const publicDirectory = path.join(__dirname, "..", "public");
 const uploadsDirectory = path.join(__dirname, "..", "uploads");
+const orderDocumentsDirectory = path.join(uploadsDirectory, "order-documents");
 const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://teal-flamingo-532353.hostingersite.com",
@@ -87,6 +88,32 @@ function sanitizeDownloadFileName(fileName, fallback = "document.pdf") {
   }
 
   return /\.pdf$/i.test(sanitizedName) ? sanitizedName : `${sanitizedName}.pdf`;
+}
+
+async function resolveLocalUploadPath(fileName) {
+  const normalizedFileName = String(fileName || "").trim();
+
+  if (!normalizedFileName || normalizedFileName.includes("..") || normalizedFileName.includes("/") || normalizedFileName.includes("\\")) {
+    return null;
+  }
+
+  const candidateDirectories = [uploadsDirectory, orderDocumentsDirectory];
+
+  for (const candidateDirectory of candidateDirectories) {
+    const candidatePath = path.resolve(candidateDirectory, normalizedFileName);
+    const resolvedDirectory = path.resolve(candidateDirectory);
+
+    if (candidatePath !== resolvedDirectory && candidatePath.startsWith(`${resolvedDirectory}${path.sep}`)) {
+      try {
+        await fs.promises.access(candidatePath, fs.constants.R_OK);
+        return candidatePath;
+      } catch {
+        // Try the next supported uploads location.
+      }
+    }
+  }
+
+  return null;
 }
 
 const corsOptions = {
@@ -179,7 +206,7 @@ app.use("/uploads", express.static(uploadsDirectory, {
   },
 }));
 
-app.get("/api/uploads/download/:fileName", (req, res) => {
+app.get("/api/uploads/download/:fileName", async (req, res) => {
   try {
     const fileName = String(req.params.fileName || "").trim();
     
@@ -187,10 +214,10 @@ app.get("/api/uploads/download/:fileName", (req, res) => {
       return res.status(400).json({ message: "Invalid file name" });
     }
 
-    const filePath = path.join(uploadsDirectory, fileName);
-    
-    if (!filePath.startsWith(uploadsDirectory)) {
-      return res.status(400).json({ message: "Invalid file path" });
+    const filePath = await resolveLocalUploadPath(fileName);
+
+    if (!filePath) {
+      return res.status(404).json({ message: "File not found" });
     }
 
     return res.download(filePath, fileName, (error) => {
@@ -229,18 +256,13 @@ app.get("/api/downloads/pdf", async (req, res) => {
     }
 
     if (localDownloadFileName) {
-      const localPath = path.join(uploadsDirectory, path.basename(localDownloadFileName));
+      const localPath = await resolveLocalUploadPath(path.basename(localDownloadFileName));
 
-      if (!localPath.startsWith(uploadsDirectory)) {
-        return res.status(400).json({ message: "Invalid local path" });
-      }
-
-      try {
-        await fs.promises.access(localPath);
-        return res.sendFile(localPath);
-      } catch {
+      if (!localPath) {
         return res.status(404).json({ message: "Local file not found" });
       }
+
+      return res.sendFile(localPath);
     }
 
     if (fileUrl.includes("res.cloudinary.com") || fileUrl.startsWith("http")) {
