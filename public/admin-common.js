@@ -538,7 +538,7 @@ function ensureSidebarToggleButton() {
 
 function initializeAdminSidebarDrawer() {
   const currentPath = String(window.location.pathname || "");
-  const isAdminHtmlRoute = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
 
   if (!isAdminHtmlRoute) {
     return;
@@ -551,6 +551,8 @@ function initializeAdminSidebarDrawer() {
   if (!sidebar || !main || !stage) {
     return;
   }
+
+  document.body.classList.add("admin-app-view");
 
   document.querySelectorAll(".page-topbar .back-link").forEach((link) => {
     link.remove();
