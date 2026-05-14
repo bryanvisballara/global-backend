@@ -327,6 +327,7 @@ const searchConfigs = [
 
 let orders = [];
 let selectedOrderId = "";
+let isRestoringTrackingHistory = false;
 let currentAdminRole = "";
 let currentAdminEmail = "";
 let expandedStateKey = "";
@@ -994,8 +995,9 @@ function findExactMatch(matches) {
   })) || null;
 }
 
-function updateUrlForOrder(order) {
+function updateUrlForOrder(order, options = {}) {
   const url = new URL(window.location.href);
+  const mode = options.mode === "push" ? "push" : "replace";
 
   if (!order) {
     url.searchParams.delete("orderId");
@@ -1003,7 +1005,7 @@ function updateUrlForOrder(order) {
     url.searchParams.delete("vin");
     url.searchParams.delete("client");
     url.searchParams.delete("internal");
-    window.history.replaceState({}, document.title, url.toString());
+    window.history[mode === "push" ? "pushState" : "replaceState"]({ orderId: "" }, document.title, url.toString());
     return;
   }
 
@@ -1012,7 +1014,7 @@ function updateUrlForOrder(order) {
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.delete("internal");
-  window.history.replaceState({}, document.title, url.toString());
+  window.history[mode === "push" ? "pushState" : "replaceState"]({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
 }
 
 function applySelectedOrderToInputs(order) {
@@ -2079,7 +2081,7 @@ function renderStates() {
   renderTrackingOverview(selectedOrder);
 }
 
-function selectOrder(orderId) {
+function selectOrder(orderId, options = {}) {
   selectedOrderId = String(orderId || "").trim();
   expandedStateKey = "";
   expandedOverviewStateKey = "";
@@ -2092,7 +2094,11 @@ function selectOrder(orderId) {
 
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
-  updateUrlForOrder(selectedOrder);
+  if (options.updateUrl !== false) {
+    updateUrlForOrder(selectedOrder, {
+      mode: options.historyMode || (isRestoringTrackingHistory ? "replace" : "push"),
+    });
+  }
   applySelectedOrderToInputs(selectedOrder);
   renderOrderSummary(selectedOrder);
   renderStates();
@@ -2126,11 +2132,61 @@ function clearSearchFilters() {
   expandedOverviewEventIds.clear();
   clearStateDrafts();
   syncTrackingPageMode(null);
-  updateUrlForOrder(null);
+  updateUrlForOrder(null, { mode: isRestoringTrackingHistory ? "replace" : "push" });
   renderOrderSummary(null);
   renderStates();
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(trackingFeedback, "Filtros limpiados. Mostrando todos los pedidos activos.", "success");
+}
+
+function restoreTrackingSelectionFromUrl() {
+  const filters = getUrlFilters();
+  const orderId = resolveInitialOrderId(filters);
+
+  isRestoringTrackingHistory = true;
+
+  try {
+    searchConfigs[0].input.value = filters.tracking || "";
+    searchConfigs[1].input.value = filters.vin || "";
+    searchConfigs[2].input.value = filters.client || filters.internal || "";
+
+    if (filters.tracking) {
+      searchConfigs[0].input.value = filters.tracking;
+    }
+
+    if (filters.vin) {
+      searchConfigs[1].input.value = filters.vin;
+    }
+
+    if (filters.internal) {
+      searchConfigs[2].input.value = filters.client || filters.internal;
+    } else if (filters.client) {
+      searchConfigs[2].input.value = filters.client;
+    }
+
+    renderSearchResults(getFilteredOrders());
+
+    if (orderId) {
+      selectOrder(orderId, { updateUrl: false });
+      return;
+    }
+
+    selectedOrderId = "";
+    trackingOrderInput.value = "";
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
+    expandedStateKey = "";
+    expandedOverviewStateKey = "";
+    expandedOverviewEventIds.clear();
+    clearStateDrafts();
+    syncTrackingPageMode(null);
+    renderOrderSummary(null);
+    renderStates();
+    renderSearchResults(getFilteredOrders());
+  } finally {
+    isRestoringTrackingHistory = false;
+  }
 }
 
 async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventId = "") {
@@ -3516,7 +3572,7 @@ async function loadTrackingPage() {
   renderSearchResults(getFilteredOrders());
 
   if (initialOrderId) {
-    selectOrder(initialOrderId);
+    selectOrder(initialOrderId, { historyMode: "replace" });
   } else {
     if (trackingEditorFields) {
       trackingEditorFields.hidden = true;
@@ -3528,6 +3584,10 @@ async function loadTrackingPage() {
   stopInitOverlayWatchdog();
   forceClearLoadingState();
 }
+
+window.addEventListener("popstate", () => {
+  restoreTrackingSelectionFromUrl();
+});
 
 forceClearLoadingState();
 initOverlayWatchdog = window.setInterval(forceClearLoadingState, 600);
