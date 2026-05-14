@@ -1023,6 +1023,11 @@ function hasTrackingSelectionInUrl() {
   return Boolean(filters.orderId || filters.tracking || filters.vin || filters.client || filters.internal);
 }
 
+function replaceCurrentHistoryWithTrackingList() {
+  updateUrlForOrder(null, { mode: "replace" });
+  restoreTrackingSelectionFromUrl();
+}
+
 function applySelectedOrderToInputs(order) {
   if (!order) {
     return;
@@ -3593,7 +3598,7 @@ async function loadTrackingPage() {
 window.addEventListener("popstate", () => {
   if (window.location.pathname === trackingHistoryPath) {
     if (hasTrackingSelectionInUrl()) {
-      window.history.back();
+      replaceCurrentHistoryWithTrackingList();
       return;
     }
 

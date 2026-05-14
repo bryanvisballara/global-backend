@@ -63,6 +63,67 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
 }
 
 @media (min-width: 1101px) and (hover: hover) and (pointer: fine) {
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-collapsed:not(.admin-ipad-drawer) .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-open:not(.admin-ipad-drawer) .admin-dashboard-layout {
+    grid-template-columns: 272px minmax(0, 1fr) !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar {
+    contain: none !important;
+    overflow-x: visible !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-brand {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: 14px !important;
+    align-items: center !important;
+    overflow: visible !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-logo {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    padding: 10px !important;
+    border-radius: 18px !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-brand strong {
+    margin-top: 10px !important;
+    font-size: 1.05rem !important;
+    line-height: normal !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-section-label {
+    font-size: 0.7rem !important;
+    line-height: normal !important;
+    letter-spacing: 0.18em !important;
+    white-space: normal !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-nav-link {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+    padding: 0 16px !important;
+    border-radius: 18px !important;
+    font-size: 0.94rem !important;
+    line-height: normal !important;
+    letter-spacing: 0.16em !important;
+    white-space: normal !important;
+    text-transform: uppercase !important;
+  }
+
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-badge-sidebar {
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+  }
+}
+
+@media (min-width: 1101px) and (hover: hover) and (pointer: fine) {
   body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-toggle {
     display: none !important;
   }
