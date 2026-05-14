@@ -3742,7 +3742,7 @@ body.admin-app-view .request-card-top strong {
 }
 
 .admin-tracking-events-actions-cell {
-  width: 112px;
+  width: 164px;
 }
 
 .admin-tracking-event-actions {
@@ -3773,6 +3773,33 @@ body.admin-app-view .request-card-top strong {
   border-color: rgba(255, 120, 120, 0.52);
   background: rgba(255, 94, 94, 0.14);
   color: #ffd1d1;
+}
+
+.tracking-event-edit-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(216, 170, 82, 0.34);
+  background: rgba(216, 170, 82, 0.12);
+  color: #f3cd84;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+
+.tracking-event-edit-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.tracking-event-edit-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(216, 170, 82, 0.6);
+  background: rgba(216, 170, 82, 0.18);
+  color: #ffe2aa;
 }
 
 .tracking-delete-update-card {

@@ -2561,6 +2561,47 @@ async function toggleOrderDocumentVisibility(req, res) {
   }
 }
 
+async function updateOrderDocument(req, res) {
+  try {
+    if (!canManageOrderDocuments(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para editar documentos" });
+    }
+
+    const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const normalizedMedia = normalizeMedia(order.media || []);
+    const documentIndex = getOrderDocumentMediaIndex(normalizedMedia, req.params.documentId);
+
+    if (documentIndex === -1 || !isOrderDocumentMediaItem(normalizedMedia[documentIndex])) {
+      return res.status(404).json({ message: "Documento no encontrado" });
+    }
+
+    normalizedMedia[documentIndex] = {
+      ...normalizedMedia[documentIndex],
+      documentType: normalizeOrderDocumentType(req.body.documentType, normalizedMedia[documentIndex].documentType || "OTRO"),
+      note: normalizeOrderDocumentNote(req.body.note),
+      updatedAt: new Date(),
+    };
+
+    order.media = normalizedMedia;
+    await order.save();
+
+    const updatedOrder = await populateOrderParties(orderResult.orderModel.findById(order._id));
+
+    return res.status(200).json({
+      message: "Documento actualizado correctamente",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error updating order document" });
+  }
+}
+
 async function deleteOrderDocument(req, res) {
   try {
     if (!canManageOrderDocuments(req.user)) {
@@ -3303,6 +3344,59 @@ async function toggleTrackingEventVisibility(req, res) {
   }
 }
 
+async function updateTrackingEvent(req, res) {
+  try {
+    const { orderId, eventId } = req.params;
+    const orderResult = await findReadableOrderForRole(orderId, req.user);
+    const order = orderResult.order;
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    (order.trackingSteps || []).forEach((trackingStep) => hydrateTrackingStepMediaFromFlattenedState(trackingStep));
+    await backfillTrackingEventsFromOrder(order, orderResult.region);
+    order.trackingEventCollectionEnabled = true;
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+
+    const targetEvent = await OrderTrackingEvent.findOne({
+      _id: String(eventId || "").trim(),
+      orderId: order._id,
+      orderRegion: orderResult.region,
+    });
+
+    if (!targetEvent) {
+      return res.status(404).json({ message: "Subestado no encontrado" });
+    }
+
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+
+    if (!canModifyTrackingStep(req.user, targetEvent.stepKey, orderResult.region, currentTrackingIndex)) {
+      return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
+    }
+
+    targetEvent.title = String(req.body.title || "").trim();
+    targetEvent.notes = String(req.body.notes ?? req.body.description ?? "").trim();
+    targetEvent.updatedAt = new Date();
+    await targetEvent.save();
+
+    order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
+      preferCollectionOnly: true,
+    });
+
+    const updatedOrder = await persistTrackingOrderState(orderResult, order);
+
+    return res.status(200).json({
+      message: "Evento actualizado correctamente",
+      order: await serializeOrder(updatedOrder, orderResult.region),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error updating tracking event" });
+  }
+}
+
 async function deleteTrackingUpdate(req, res) {
   try {
     const { orderId, stepKey, updateIndex: rawUpdateIndex } = req.params;
@@ -3475,7 +3569,9 @@ module.exports = {
   transitionTrackingState,
   toggleTrackingEventVisibility,
   uploadOrderDocuments,
+  updateOrderDocument,
   updateOrder,
   updateOrderVehiclePricing,
+  updateTrackingEvent,
   updateTrackingState,
 };

@@ -28,7 +28,9 @@ const {
   transitionTrackingState,
   uploadOrderDocuments,
   updateOrder,
+  updateOrderDocument,
   updateOrderVehiclePricing,
+  updateTrackingEvent,
   updateTrackingState,
 } = require("../controllers/adminOrdersController");
 const { listMaintenance, updateMaintenance, updateClientMaintenanceVehicle } = require("../controllers/adminMaintenanceController");
@@ -82,11 +84,13 @@ router.patch("/orders/:orderId/vehicle-pricing", requireLatamAdministrativeRole,
 router.post("/orders/:orderId/accounting-expenses", requireLatamAdministrativeRole, upload.single("evidence"), addOrderAccountingExpense);
 router.delete("/orders/:orderId/accounting-expenses/:expenseId", requireLatamAdministrativeRole, deleteOrderAccountingExpense);
 router.post("/orders/:orderId/documents", upload.array("mediaFiles", 10), uploadOrderDocuments);
+router.patch("/orders/:orderId/documents/:documentId", updateOrderDocument);
 router.patch("/orders/:orderId/documents/:documentId/visibility", toggleOrderDocumentVisibility);
 router.delete("/orders/:orderId/documents/:documentId", deleteOrderDocument);
 router.post("/orders/:orderId/deletion-request", requestOrderDeletion);
 router.patch("/orders/:orderId/deletion-request", reviewOrderDeletionRequest);
 router.patch("/orders/:orderId/tracking-events/:eventId/deletion-request", reviewTrackingEventDeletionRequest);
+router.patch("/orders/:orderId/tracking-events/:eventId", updateTrackingEvent);
 router.patch("/orders/:orderId/tracking-events/:eventId/visibility", toggleTrackingEventVisibility);
 router.patch("/orders/:orderId/tracking-transition", transitionTrackingState);
 router.patch("/orders/:orderId/tracking-finalize", finalizeTrackingOrder);
