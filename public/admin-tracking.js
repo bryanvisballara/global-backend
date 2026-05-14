@@ -220,6 +220,10 @@ function formatDateTimeLabel(value) {
   });
 }
 
+function getOriginalDate(value = {}) {
+  return value?.createdAt || value?.updatedAt || null;
+}
+
 function normalizeToDateStart(value) {
   const date = new Date(value);
 
@@ -1543,7 +1547,7 @@ function renderStateUpdates(step) {
           <div class="tracking-state-history-header">
             <div>
               <strong>${escapeHtml(getUpdateStatusLabel(update))}</strong>
-              <p>${escapeHtml(formatDateTimeLabel(update.updatedAt || update.createdAt))}</p>
+              <p>${escapeHtml(formatDateTimeLabel(getOriginalDate(update)))}</p>
             </div>
             <div class="tracking-stage-event-actions">
               ${renderVisibilityButton(step.key, update.updateIndex, !update.clientVisible, update.clientVisible, update.eventId)}
@@ -1570,7 +1574,7 @@ function buildRecentEvents(order) {
           stateKey: event.stateKey,
           stateCode: event.stateCode,
           stateLabel: event.stateLabel,
-          latestDate: event.updatedAt || event.createdAt || null,
+          latestDate: getOriginalDate(event),
           items: [],
         });
       }
@@ -1584,7 +1588,7 @@ function buildRecentEvents(order) {
         updateIndex: event.updateIndex,
         stateCode: event.stateCode,
         stateLabel: event.stateLabel,
-        date: event.updatedAt || event.createdAt || null,
+        date: getOriginalDate(event),
         title: getUpdateStatusLabel(event),
         description: event.notes || "Sin descripción registrada.",
         clientVisible: event.clientVisible,
@@ -1592,10 +1596,10 @@ function buildRecentEvents(order) {
       });
 
       const stageGroupTime = new Date(stageGroup.latestDate || 0).getTime();
-      const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
+      const eventTime = new Date(getOriginalDate(event) || 0).getTime();
 
       if (eventTime > stageGroupTime) {
-        stageGroup.latestDate = event.updatedAt || event.createdAt || null;
+        stageGroup.latestDate = getOriginalDate(event);
       }
     });
 
@@ -1619,7 +1623,7 @@ function buildRecentEvents(order) {
           updateIndex: update.updateIndex,
           stateCode,
           stateLabel: step.label,
-          date: update.updatedAt || update.createdAt || null,
+          date: getOriginalDate(update),
           title: getUpdateStatusLabel(update),
           description: update.notes || "Sin descripción registrada.",
           clientVisible: Boolean(update.clientVisible),
@@ -1728,7 +1732,7 @@ function buildAdminEventTableRows(order) {
     eventId: event.eventId,
     stateKey: event.stateKey,
     updateIndex: event.updateIndex,
-    date: event.updatedAt || event.createdAt || null,
+    date: getOriginalDate(event),
     stage: event.stateCode || "-",
     title: event.title || getUpdateStatusLabel(event),
     location: event.location || "-",
@@ -1837,8 +1841,9 @@ function getOrderDocuments(order) {
       clientVisible: Boolean(item.clientVisible),
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || item.createdAt || null,
+      uploadedAt: getOriginalDate(item),
     }))
-    .sort((left, right) => new Date(right.updatedAt || right.createdAt || 0).getTime() - new Date(left.updatedAt || left.createdAt || 0).getTime());
+    .sort((left, right) => new Date(right.uploadedAt || 0).getTime() - new Date(left.uploadedAt || 0).getTime());
 }
 
 function renderOrderDocumentVisibilityButton(documentId, nextVisible, isVisible) {
@@ -1918,7 +1923,7 @@ function renderOrderDocumentsTable(order) {
                 </div>
               </td>
               <td>${escapeHtml(document.note || "-")}</td>
-              <td>${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
+              <td>${escapeHtml(formatDateTimeLabel(document.uploadedAt))}</td>
               <td class="admin-tracking-events-actions-cell">
                 <div class="admin-tracking-event-actions">
                   ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
