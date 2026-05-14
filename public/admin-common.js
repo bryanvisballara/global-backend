@@ -561,8 +561,14 @@ function initializeAdminSidebarDrawer() {
   document.body.classList.add("admin-drawer-ready");
   ensureSidebarToggleButton();
 
-  const desktopMediaQuery = window.matchMedia("(min-width: 1101px)");
+  const desktopMediaQuery = window.matchMedia("(min-width: 1101px) and (hover: hover) and (pointer: fine)");
   const desktopSidebarStateKey = "globalAdminSidebarDesktopCollapsed";
+  const isAppleTouchDevice = () => {
+    const userAgent = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+  };
+  const isDesktopSidebarMode = () => desktopMediaQuery.matches && !isAppleTouchDevice();
 
   let backdrop = document.querySelector(".admin-sidebar-backdrop");
 
@@ -575,7 +581,7 @@ function initializeAdminSidebarDrawer() {
 
   const updateToggleButtons = () => {
     const isOpen = document.body.classList.contains("admin-sidebar-open");
-    const isDesktop = desktopMediaQuery.matches;
+    const isDesktop = isDesktopSidebarMode();
     const isExpanded = isDesktop ? !document.body.classList.contains("admin-sidebar-collapsed") : isOpen;
     document.querySelectorAll(".admin-sidebar-toggle").forEach((button) => {
       button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
@@ -590,7 +596,10 @@ function initializeAdminSidebarDrawer() {
   };
 
   const syncSidebarMode = () => {
-    if (desktopMediaQuery.matches) {
+    const isDesktop = isDesktopSidebarMode();
+    document.body.classList.toggle("admin-touch-drawer", !isDesktop);
+
+    if (isDesktop) {
       const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
       document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
       document.body.classList.remove("admin-sidebar-open");
@@ -602,7 +611,7 @@ function initializeAdminSidebarDrawer() {
   };
 
   const closeSidebar = () => {
-    if (desktopMediaQuery.matches) {
+    if (isDesktopSidebarMode()) {
       document.body.classList.add("admin-sidebar-collapsed");
       window.localStorage.setItem(desktopSidebarStateKey, "true");
       updateToggleButtons();
@@ -614,7 +623,7 @@ function initializeAdminSidebarDrawer() {
   };
 
   const toggleSidebar = () => {
-    if (desktopMediaQuery.matches) {
+    if (isDesktopSidebarMode()) {
       const shouldCollapseDesktop = !document.body.classList.contains("admin-sidebar-collapsed");
       document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
       window.localStorage.setItem(desktopSidebarStateKey, shouldCollapseDesktop ? "true" : "false");
@@ -647,14 +656,14 @@ function initializeAdminSidebarDrawer() {
     }
 
     if (event.target.closest(".admin-sidebar .admin-nav-link")) {
-      if (!desktopMediaQuery.matches) {
+      if (!isDesktopSidebarMode()) {
         closeSidebar();
       }
       return;
     }
 
     if (
-      !desktopMediaQuery.matches &&
+      !isDesktopSidebarMode() &&
       document.body.classList.contains("admin-sidebar-open") &&
       !event.target.closest(".admin-sidebar")
     ) {
@@ -663,7 +672,7 @@ function initializeAdminSidebarDrawer() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !desktopMediaQuery.matches) {
+    if (event.key === "Escape" && !isDesktopSidebarMode()) {
       closeSidebar();
     }
   });

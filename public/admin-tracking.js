@@ -782,12 +782,16 @@ function isAppleTouchDownloadEnvironment() {
 }
 
 async function downloadDocumentFile(downloadUrl, fileName) {
+  const nativeDownloadHandler = window.webkit?.messageHandlers?.globalImportsDownload;
   const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
   const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
 
-  if (isAppleTouchDownloadEnvironment()) {
-    window.location.href = resolvedUrl.toString();
+  if (nativeDownloadHandler?.postMessage) {
+    nativeDownloadHandler.postMessage({
+      url: resolvedUrl.toString(),
+      fileName: resolvedFileName,
+    });
     return;
   }
 

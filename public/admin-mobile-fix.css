@@ -106,6 +106,44 @@ body.admin-app-view .admin-logout-button {
   text-align: left !important;
 }
 
+body.admin-app-view.admin-touch-drawer .admin-dashboard-layout,
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready .admin-dashboard-layout {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready .admin-sidebar {
+  position: fixed !important;
+  left: max(14px, env(safe-area-inset-left)) !important;
+  top: max(14px, env(safe-area-inset-top)) !important;
+  width: min(360px, calc(100vw - 28px)) !important;
+  height: auto !important;
+  max-height: calc(100dvh - 28px) !important;
+  overflow-y: auto !important;
+  z-index: 60 !important;
+  transform: translateX(calc(-100% - 28px)) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready.admin-sidebar-open .admin-sidebar {
+  transform: translateX(0) !important;
+}
+
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready .admin-sidebar-backdrop {
+  display: block !important;
+}
+
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready.admin-sidebar-open .admin-sidebar-backdrop {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready .admin-dashboard-main,
+body.admin-app-view.admin-touch-drawer.admin-drawer-ready.admin-sidebar-open .admin-dashboard-main {
+  width: 100% !important;
+  margin-left: 0 !important;
+}
+
 @media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   html {
     -webkit-text-size-adjust: 90% !important;
