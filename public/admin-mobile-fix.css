@@ -135,7 +135,7 @@ body.admin-app-view {
   }
 
   body.admin-app-view .admin-dashboard-header {
-    padding: 16px 10px 0 !important;
+    padding: calc(68px + env(safe-area-inset-top)) 10px 0 !important;
   }
 
   body.admin-app-view .admin-dashboard-meta,
@@ -158,6 +158,10 @@ body.admin-app-view {
   body.admin-app-view .page-hero {
     padding-left: 8px !important;
     padding-right: 8px !important;
+  }
+
+  body.admin-app-view .page-topbar {
+    padding-top: calc(68px + env(safe-area-inset-top)) !important;
   }
 
   body.admin-app-view .admin-sidebar,
