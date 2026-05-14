@@ -562,7 +562,6 @@ function initializeAdminSidebarDrawer() {
   ensureSidebarToggleButton();
 
   const desktopMediaQuery = window.matchMedia("(min-width: 1101px) and (hover: hover) and (pointer: fine)");
-  const desktopSidebarStateKey = "globalAdminSidebarDesktopCollapsed";
   const isAppleTouchDevice = () => {
     const userAgent = String(navigator.userAgent || "");
     const platform = String(navigator.platform || "");
@@ -587,7 +586,7 @@ function initializeAdminSidebarDrawer() {
   const updateToggleButtons = () => {
     const isOpen = document.body.classList.contains("admin-sidebar-open");
     const isDesktop = isDesktopSidebarMode();
-    const isExpanded = isDesktop ? !document.body.classList.contains("admin-sidebar-collapsed") : isOpen;
+    const isExpanded = isDesktop || isOpen;
     document.querySelectorAll(".admin-sidebar-toggle").forEach((button) => {
       button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
       button.setAttribute("aria-label", isExpanded ? "Cerrar menu lateral" : "Abrir menu lateral");
@@ -595,7 +594,7 @@ function initializeAdminSidebarDrawer() {
       const label = button.querySelector("span:last-child");
 
       if (label) {
-        label.textContent = isDesktop ? (isExpanded ? "Ocultar menu" : "Mostrar menu") : (isExpanded ? "Cerrar menu" : "Menu");
+        label.textContent = isDesktop ? "Menu" : (isExpanded ? "Cerrar menu" : "Menu");
       }
     });
   };
@@ -605,8 +604,8 @@ function initializeAdminSidebarDrawer() {
     document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpadTouchDevice());
 
     if (isDesktop) {
-      const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
-      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
+      window.localStorage.removeItem("globalAdminSidebarDesktopCollapsed");
+      document.body.classList.remove("admin-sidebar-collapsed");
       document.body.classList.remove("admin-sidebar-open");
     } else {
       document.body.classList.remove("admin-sidebar-collapsed");
@@ -617,8 +616,6 @@ function initializeAdminSidebarDrawer() {
 
   const closeSidebar = () => {
     if (isDesktopSidebarMode()) {
-      document.body.classList.add("admin-sidebar-collapsed");
-      window.localStorage.setItem(desktopSidebarStateKey, "true");
       updateToggleButtons();
       return;
     }
@@ -629,9 +626,6 @@ function initializeAdminSidebarDrawer() {
 
   const toggleSidebar = () => {
     if (isDesktopSidebarMode()) {
-      const shouldCollapseDesktop = !document.body.classList.contains("admin-sidebar-collapsed");
-      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
-      window.localStorage.setItem(desktopSidebarStateKey, shouldCollapseDesktop ? "true" : "false");
       updateToggleButtons();
       return;
     }

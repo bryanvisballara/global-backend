@@ -62,6 +62,76 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   line-height: 1.16 !important;
 }
 
+@media (min-width: 1101px) and (hover: hover) and (pointer: fine) {
+  body.admin-app-view:not(.admin-ipad-drawer) .admin-sidebar-toggle {
+    display: none !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .dashboard-shell {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    zoom: 1 !important;
+    transform: none !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .dashboard-stage {
+    min-height: 100vh !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-collapsed:not(.admin-ipad-drawer) .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-open:not(.admin-ipad-drawer) .admin-dashboard-layout {
+    display: grid !important;
+    grid-template-columns: 272px minmax(0, 1fr) !important;
+    gap: 22px !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: calc(100vh - 84px) !important;
+    overflow: visible !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .admin-sidebar,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-collapsed:not(.admin-ipad-drawer) .admin-sidebar,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-open:not(.admin-ipad-drawer) .admin-sidebar {
+    position: sticky !important;
+    top: 22px !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 22px 18px !important;
+    border-color: var(--line) !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    z-index: 60 !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .admin-dashboard-main,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-collapsed:not(.admin-ipad-drawer) .admin-dashboard-main,
+  body.admin-app-view.admin-drawer-ready.admin-sidebar-open:not(.admin-ipad-drawer) .admin-dashboard-main {
+    width: auto !important;
+    min-height: calc(100vh - 44px) !important;
+    margin-left: 0 !important;
+    transform: none !important;
+  }
+
+  body.admin-app-view.admin-drawer-ready:not(.admin-ipad-drawer) .admin-sidebar-backdrop {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
 @media (max-width: 760px) {
   html,
   body.admin-app-view {
@@ -598,7 +668,7 @@ body.admin-app-view.admin-ipad-drawer.admin-drawer-ready.admin-sidebar-open .adm
   }
 }
 
-@media (min-width: 761px) and (max-width: 1366px) and (orientation: landscape) {
+@media (min-width: 761px) and (max-width: 1366px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
   body.admin-app-view,
   body.admin-app-view.admin-sidebar-open {
     height: auto !important;
@@ -789,7 +859,7 @@ body.admin-app-view.admin-ipad-drawer.admin-drawer-ready.admin-sidebar-open .adm
   }
 }
 
-@media (min-width: 761px) and (max-width: 1366px) {
+@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   body.admin-app-view {
     width: 100vw !important;
     min-width: 100vw !important;
