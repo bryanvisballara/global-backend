@@ -102,21 +102,109 @@ function sanitizeAttachmentFileName(fileName, fallback = "documento") {
   return sanitizedName || normalizedFallback;
 }
 
+function ensurePdfFileName(fileName, fallback = "document.pdf") {
+  const sanitizedName = sanitizeAttachmentFileName(fileName, fallback);
+  return /\.pdf$/i.test(sanitizedName) ? sanitizedName : `${sanitizedName}.pdf`;
+}
+
+function isPdfDownloadRequest(fileUrl, fileName) {
+  const normalizedFileName = String(fileName || "").trim();
+
+  if (/\.pdf(?:$|[?#])/i.test(normalizedFileName)) {
+    return true;
+  }
+
+  try {
+    const parsedUrl = new URL(String(fileUrl || ""), "http://local");
+    return /\.pdf$/i.test(decodeURIComponent(parsedUrl.pathname || ""));
+  } catch {
+    return /\.pdf(?:$|[?#])/i.test(String(fileUrl || ""));
+  }
+}
+
 function resolveDownloadFileName(fileUrl, requestedFileName, fallback = "documento") {
   const normalizedRequestedFileName = String(requestedFileName || "").trim();
 
   if (normalizedRequestedFileName) {
-    return sanitizeAttachmentFileName(normalizedRequestedFileName, fallback);
+    return isPdfDownloadRequest(fileUrl, normalizedRequestedFileName)
+      ? ensurePdfFileName(normalizedRequestedFileName, fallback)
+      : sanitizeAttachmentFileName(normalizedRequestedFileName, fallback);
   }
 
   try {
     const parsedUrl = new URL(String(fileUrl || ""), "http://local");
     const urlFileName = decodeURIComponent(path.basename(parsedUrl.pathname || ""));
 
-    return sanitizeAttachmentFileName(urlFileName, fallback);
+    return isPdfDownloadRequest(fileUrl, urlFileName)
+      ? ensurePdfFileName(urlFileName, fallback)
+      : sanitizeAttachmentFileName(urlFileName, fallback);
   } catch {
-    return sanitizeAttachmentFileName("", fallback);
+    return isPdfDownloadRequest(fileUrl, "") ? ensurePdfFileName("", fallback) : sanitizeAttachmentFileName("", fallback);
   }
+}
+
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getRecoverableRemoteUrl(mediaItem = {}) {
+  const candidateUrls = [
+    mediaItem.originalCloudinaryUrl,
+    mediaItem.cloudinaryUrl,
+    mediaItem.sourceUrl,
+    mediaItem.backupUrl,
+    mediaItem.url,
+  ];
+
+  return candidateUrls
+    .map((value) => String(value || "").trim())
+    .find((value) => value && /^https?:\/\//i.test(value) && !/\/api\/uploads\/download\//i.test(value) && !/\/uploads\//i.test(value)) || "";
+}
+
+function collectRecoverableMediaUrls(media = []) {
+  return (Array.isArray(media) ? media : [])
+    .map((item) => getRecoverableRemoteUrl(item))
+    .filter(Boolean);
+}
+
+async function findRecoverableDownloadUrlForLocalUpload(fileName) {
+  const normalizedFileName = String(fileName || "").trim();
+
+  if (!normalizedFileName) {
+    return "";
+  }
+
+  const fileNamePattern = new RegExp(escapeRegex(normalizedFileName), "i");
+  const query = {
+    $or: [
+      { "media.url": fileNamePattern },
+      { "media.name": fileNamePattern },
+      { "media.originalCloudinaryUrl": fileNamePattern },
+    ],
+  };
+
+  try {
+    const [Order, OrderGlobalUS, OrderTrackingEvent] = [
+      require("./models/Order"),
+      require("./models/OrderGlobalUS"),
+      require("./models/OrderTrackingEvent"),
+    ];
+
+    const collections = [Order, OrderGlobalUS, OrderTrackingEvent];
+
+    for (const Model of collections) {
+      const document = await Model.findOne(query).lean();
+      const recoveredUrl = collectRecoverableMediaUrls(document?.media || [])[0] || "";
+
+      if (recoveredUrl) {
+        return recoveredUrl;
+      }
+    }
+  } catch (error) {
+    console.error("Error looking up recoverable download URL:", error.message);
+  }
+
+  return "";
 }
 
 async function resolveLocalUploadPath(fileName) {
@@ -192,9 +280,14 @@ async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
       return res.status(400).json({ message: "Missing file URL" });
     }
 
-    const requestedFileName = resolveDownloadFileName(fileUrl, req.query.fileName, fallbackFileName);
+    const isPdfDownload = isPdfDownloadRequest(fileUrl, req.query.fileName || fallbackFileName);
+    const requestedFileName = resolveDownloadFileName(fileUrl, req.query.fileName, isPdfDownload ? "document.pdf" : fallbackFileName);
     res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
     res.setHeader("Cache-Control", "public, max-age=3600");
+
+    if (isPdfDownload) {
+      res.setHeader("Content-Type", "application/pdf");
+    }
 
     let localDownloadFileName = "";
 
@@ -212,6 +305,22 @@ async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
       const localPath = await resolveLocalUploadPath(path.basename(localDownloadFileName));
 
       if (!localPath) {
+        const recoveredUrl = await findRecoverableDownloadUrlForLocalUpload(localDownloadFileName);
+
+        if (recoveredUrl) {
+          const response = await getRemoteFileStream(recoveredUrl);
+
+          if (!isPdfDownload && response.headers["content-type"]) {
+            res.setHeader("Content-Type", response.headers["content-type"]);
+          }
+
+          if (response.headers["content-length"]) {
+            res.setHeader("Content-Length", response.headers["content-length"]);
+          }
+
+          return response.pipe(res);
+        }
+
         return res.status(404).json({ message: "Local file not found" });
       }
 
@@ -222,7 +331,7 @@ async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
       try {
         const response = await getRemoteFileStream(fileUrl);
 
-        if (response.headers["content-type"]) {
+        if (!isPdfDownload && response.headers["content-type"]) {
           res.setHeader("Content-Type", response.headers["content-type"]);
         }
 

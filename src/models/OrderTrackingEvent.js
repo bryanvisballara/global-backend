@@ -18,6 +18,11 @@ const mediaItemSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    originalCloudinaryUrl: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
     name: {
       type: String,
       trim: true,

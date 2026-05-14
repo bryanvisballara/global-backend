@@ -771,7 +771,8 @@ function getStateCode(index) {
 
 function buildDocumentDownloadUrl(url, fileName) {
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-  return `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+  const endpoint = /\.pdf$/i.test(resolvedFileName) || /\.pdf(?:$|[?#])/i.test(String(url || "")) ? "/api/downloads/pdf" : "/api/downloads/file";
+  return `${endpoint}?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
 }
 
 function isAppleTouchDownloadEnvironment() {

@@ -110,6 +110,25 @@ async function persistPdfFileAndBuildUrl(file, req) {
     throw new Error("Missing file for PDF upload");
   }
 
+  if (isCloudinaryConfigured()) {
+    const result = await uploadBufferToCloudinary(
+      file,
+      process.env.CLOUDINARY_ORDER_PDF_FOLDER || "global-app/order-documents"
+    );
+    const secureUrl = String(result?.secure_url || "").trim();
+
+    if (secureUrl) {
+      return {
+        type: "document",
+        category: "document",
+        url: secureUrl,
+        name: file.originalname || `${normalizeFileNameForStorage(file.originalname)}.pdf`,
+        caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : normalizeFileNameForStorage(file.originalname),
+        originalCloudinaryUrl: secureUrl,
+      };
+    }
+  }
+
   await fs.promises.mkdir(PDF_UPLOAD_DIRECTORY, { recursive: true });
 
   const safeBaseName = normalizeFileNameForStorage(file.originalname);
@@ -1117,6 +1136,7 @@ function normalizeMedia(media = []) {
       type: item.type,
       category: item.category ? String(item.category).trim() : undefined,
       url: String(item.url).trim(),
+      originalCloudinaryUrl: item.originalCloudinaryUrl ? String(item.originalCloudinaryUrl).trim() : undefined,
       name: item.name ? String(item.name).trim() : undefined,
       caption: item.caption ? String(item.caption).trim() : undefined,
       documentType: item.documentType ? String(item.documentType).trim().toUpperCase() : undefined,
@@ -1741,6 +1761,7 @@ async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) 
           type: "document",
           category: metadata.category || "document",
           url: documentFile.url,
+          originalCloudinaryUrl: documentFile.originalCloudinaryUrl,
           name: documentFile.name,
           caption: metadata.caption || documentFile.caption,
         };
