@@ -41,6 +41,46 @@ function resolveAppPagePath(pageName = "") {
   return `${isEmbeddedAppPage ? "/app" : ""}/${normalizedPageName}`;
 }
 
+function isAdministrativeRole(role = "") {
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || "").trim());
+}
+
+function resolveAuthenticatedLandingPage(role = "") {
+  return String(role || "").trim() === "brokerUSA"
+    ? resolveAppPagePath("admin-tracking.html")
+    : resolveAppPagePath("admin.html");
+}
+
+function isNativeAppShell() {
+  return String(window.location.pathname || "").startsWith("/app/");
+}
+
+function getNativeAdminBlockedMessage() {
+  return "La app móvil es solo para clientes. Para administrar pedidos, usa el panel web desde el navegador.";
+}
+
+async function clearBlockedNativeAdminSession(token = "") {
+  clearAuthState();
+
+  try {
+    await fetch(`${apiBaseUrl}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  } catch {
+    // Local and biometric auth state are already cleared; the cookie will be replaced on next valid login.
+  }
+}
+
+async function blockNativeAdminSession(token = "") {
+  await clearBlockedNativeAdminSession(token);
+  setFeedback(getNativeAdminBlockedMessage(), "error");
+}
+
 function isDirectApiHostCandidate(hostname = "") {
   const normalizedHostname = String(hostname || "").trim().toLowerCase();
 
@@ -371,6 +411,12 @@ function persistAuthenticatedSession(token, role) {
 
 async function completeAuthenticatedSession({ token, role, user }) {
   const resolvedRole = user?.role || role || "";
+
+  if (isNativeAppShell() && isAdministrativeRole(resolvedRole)) {
+    await blockNativeAdminSession(token);
+    return;
+  }
+
   persistAuthenticatedSession(token, resolvedRole);
 
   try {
@@ -381,9 +427,9 @@ async function completeAuthenticatedSession({ token, role, user }) {
 
   setFeedback("Acceso correcto. Redirigiendo...", "success");
 
-  if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
+  if (isAdministrativeRole(resolvedRole)) {
     window.setTimeout(() => {
-      window.location.href = resolveAppPagePath("admin.html");
+      window.location.href = resolveAuthenticatedLandingPage(resolvedRole);
     }, 250);
     return;
   }
@@ -460,17 +506,21 @@ async function redirectAuthenticatedUser() {
 
     const data = await response.json();
     const resolvedRole = data.user?.role || role;
+    const resolvedToken = data.token || token;
 
     if (!resolvedRole) {
       throw new Error("Stored session is missing role information");
     }
 
-    localStorage.setItem("globalAppRole", resolvedRole);
-    sessionStorage.setItem("globalAppToken", token);
-    sessionStorage.setItem("globalAppRole", resolvedRole);
+    if (isNativeAppShell() && isAdministrativeRole(resolvedRole)) {
+      await blockNativeAdminSession(resolvedToken);
+      return;
+    }
 
-    if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(resolvedRole)) {
-      window.location.replace(resolveAppPagePath("admin.html"));
+    persistAuthenticatedSession(resolvedToken, resolvedRole);
+
+    if (isAdministrativeRole(resolvedRole)) {
+      window.location.replace(resolveAuthenticatedLandingPage(resolvedRole));
       return;
     }
 
