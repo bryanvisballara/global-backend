@@ -164,6 +164,8 @@ async function fetchDashboardJson(path, options = {}) {
 
   const isTokenError =
     response.status === 401 ||
+    response.status === 403 ||
+    data.message === "Forbidden" ||
     data.message === "Authentication required" ||
     data.message === "Invalid or expired token" ||
     data.message === "Invalid token";
@@ -242,6 +244,10 @@ function renderOrderRegionBadge(orderRegion) {
   }
 
   return `<span class="tracking-order-region-badge is-${escapeHtml(normalizedOrderRegion)}">${escapeHtml(normalizedOrderRegion.toUpperCase())}</span>`;
+}
+
+function isUsaAdministrativeRole(role) {
+  return ["adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
 }
 
 function getStateCode(index) {
@@ -407,6 +413,14 @@ function resolveCurrentStageKey(order) {
   }
 
   return stageTemplates[firstPendingIndex]?.key || null;
+}
+
+function resolveDistributionStageKey(order) {
+  if (isOrderCompleted(order)) {
+    return completedStageCard.key;
+  }
+
+  return resolveCurrentStageKey(order);
 }
 
 function resolveStageDisplayFromOrder(order) {
@@ -610,10 +624,11 @@ function renderStageDistribution(orders) {
     return;
   }
 
-  const countsByStage = new Map(stageTemplates.map((stage) => [stage.key, 0]));
+  const distributionStages = [...stageTemplates, completedStageCard];
+  const countsByStage = new Map(distributionStages.map((stage) => [stage.key, 0]));
 
   orders.forEach((order) => {
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveDistributionStageKey(order);
 
     if (!currentStageKey || !countsByStage.has(currentStageKey)) {
       return;
@@ -622,7 +637,7 @@ function renderStageDistribution(orders) {
     countsByStage.set(currentStageKey, countsByStage.get(currentStageKey) + 1);
   });
 
-  stageGrid.innerHTML = stageTemplates
+  stageGrid.innerHTML = distributionStages
     .map((stage, index) => {
       const count = countsByStage.get(stage.key) || 0;
       const label = stageLabelByKey[stage.key] || stage.label;
@@ -661,6 +676,7 @@ if (true) {
   const adminNameTop = document.getElementById("admin-name-top");
   const clientsCount = document.getElementById("clients-count");
   const usersCount = document.getElementById("users-count");
+  const deletionRequestsCount = document.getElementById("deletion-requests-count");
   const requestsCount = document.getElementById("requests-count");
   const ordersCount = document.getElementById("orders-count");
   const activeOrdersCount = document.getElementById("active-orders-count");
@@ -709,10 +725,37 @@ if (true) {
         adminNameTop.textContent = user?.name || "Administrador";
       }
 
+      if (String(user?.role || "") === "brokerUSA") {
+        window.location.replace("/app/admin-tracking.html");
+        return;
+      }
+
+      const adminRoleLabel = document.getElementById("admin-role-label");
+      if (adminRoleLabel && user?.role) {
+        const roleText = user.role === "manager"
+          ? "Gerente"
+          : user.role === "gerenteUSA"
+            ? "Gerente USA"
+            : user.role === "adminUSA"
+              ? "Administrador USA"
+              : user.role === "brokerUSA"
+                ? "Broker USA"
+              : user.role === "admin"
+                ? "Administrador"
+                : "Usuario";
+        adminRoleLabel.textContent = roleText;
+      }
+
       const isUsaRole = isUsaAdministrativeRole(user?.role);
+      const canManageDeletionRequests = ["manager", "gerenteUSA"].includes(String(user?.role || ""));
 
       document.querySelectorAll(".admin-latam-only").forEach((element) => {
         element.style.display = isUsaRole ? "none" : "";
+      });
+
+      document.querySelectorAll(".admin-admin-creator-only").forEach((element) => {
+        element.hidden = !canManageDeletionRequests;
+        element.style.display = canManageDeletionRequests ? "" : "none";
       });
 
       if (isUsaRole) {
@@ -721,10 +764,15 @@ if (true) {
         setElementText(postsCount, 0);
       }
 
+      if (!canManageDeletionRequests) {
+        setElementText(deletionRequestsCount, 0);
+      }
+
       const dashboardRequests = [
         { key: "clients", critical: true, promise: fetchDashboardJson("/api/admin/clients") },
         { key: "users", critical: false, promise: fetchDashboardJson("/api/admin/users") },
         { key: "requests", critical: false, promise: isUsaRole ? Promise.resolve({ requests: [] }) : fetchDashboardJson("/api/admin/client-requests") },
+        { key: "deletionRequests", critical: false, promise: canManageDeletionRequests ? fetchDashboardJson(`/api/admin/orders/deletion-requests?ts=${Date.now()}`) : Promise.resolve({ orders: [], trackingEventRequests: [] }) },
         { key: "orders", critical: true, promise: fetchDashboardJson("/api/admin/orders") },
         { key: "maintenance", critical: false, promise: isUsaRole ? Promise.resolve({ maintenance: [] }) : fetchDashboardJson("/api/admin/maintenance") },
         { key: "posts", critical: false, promise: isUsaRole ? Promise.resolve({ posts: [] }) : fetchDashboardJson("/api/admin/posts") },
@@ -735,30 +783,40 @@ if (true) {
       const clientsData = results[0].status === "fulfilled" ? results[0].value : {};
       const usersData = results[1].status === "fulfilled" ? results[1].value : {};
       const requestsData = results[2].status === "fulfilled" ? results[2].value : {};
-      const ordersData = results[3].status === "fulfilled" ? results[3].value : {};
-      const maintenanceData = results[4].status === "fulfilled" ? results[4].value : {};
-      const postsData = results[5].status === "fulfilled" ? results[5].value : {};
+      const deletionRequestsData = results[3].status === "fulfilled" ? results[3].value : {};
+      const ordersData = results[4].status === "fulfilled" ? results[4].value : {};
+      const maintenanceData = results[5].status === "fulfilled" ? results[5].value : {};
+      const postsData = results[6].status === "fulfilled" ? results[6].value : {};
 
       const clients = normalizeCollectionPayload(clientsData, ["clients"]);
       const users = normalizeCollectionPayload(usersData, ["users"]);
       const requests = normalizeCollectionPayload(requestsData, ["requests", "clientRequests"]);
       const orders = normalizeCollectionPayload(ordersData, ["orders"]);
       const maintenance = normalizeCollectionPayload(maintenanceData, ["maintenance"]);
+      const clientMaintenanceVehicles = normalizeCollectionPayload(maintenanceData, ["clientMaintenanceVehicles"]);
+      const scheduledMaintenance = clientMaintenanceVehicles.filter(
+        (vehicle) => String(vehicle?.adminContactStatus || "").trim() === "appointment_scheduled"
+      );
       const posts = normalizeCollectionPayload(postsData, ["posts"]);
+      const deletionRequestsCountValue = canManageDeletionRequests
+        ? normalizeCollectionPayload(deletionRequestsData, ["orders"]).length
+          + normalizeCollectionPayload(deletionRequestsData, ["trackingEventRequests"]).length
+        : 0;
       const activeOrders = orders.filter((order) => order.status === "active");
       const completedOrders = orders.filter((order) => order.status === "completed");
 
       setElementText(clientsCount, clients.length);
       setElementText(usersCount, users.length);
+      setElementText(deletionRequestsCount, deletionRequestsCountValue);
       setElementText(requestsCount, requests.length);
       setElementText(ordersCount, orders.length);
       setElementText(activeOrdersCount, activeOrders.length);
       setElementText(completedOrdersCount, completedOrders.length);
-      setElementText(maintenanceCount, maintenance.length);
+      setElementText(maintenanceCount, scheduledMaintenance.length);
       setElementText(postsCount, posts.length);
 
       if (distributionCaption) {
-        distributionCaption.textContent = `${orders.length} vehículos distribuidos entre los 9 estados del tracking.`;
+        distributionCaption.textContent = `${orders.length} vehículos distribuidos entre los 10 estados del tracking.`;
       }
 
       renderStageDistribution(orders);

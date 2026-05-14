@@ -22,7 +22,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="admin-app-view">
     <main class="dashboard-shell">
       <section class="dashboard-stage admin-dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -47,6 +47,7 @@
               <div class="admin-sidebar-section">
                 <p class="admin-sidebar-section-label">Control</p>
                 <a class="admin-nav-link" href="/admin-deleted-accounts.html">CUENTAS ELIMINADAS</a>
+                <a class="admin-nav-link admin-admin-creator-only" href="/admin-order-deletion-requests.html" style="display:none">SOLICITUDES DE ELIMINACION</a>
                 <a class="admin-nav-link admin-latam-only" href="/admin-client-requests.html">SOLICITUDES DE COMPRA</a>
                 <a class="admin-nav-link admin-latam-only" href="/admin-maintenance.html">MANTENIMIENTOS</a>
               </div>
@@ -83,6 +84,10 @@
                   <button class="admin-meta-pill admin-meta-pill-btn" type="button" data-href="/admin-users.html">
                     <span>Usuarios</span>
                     <strong id="users-count">0</strong>
+                  </button>
+                  <button class="admin-meta-pill admin-meta-pill-btn admin-admin-creator-only" type="button" data-href="/admin-order-deletion-requests.html" hidden>
+                    <span>Solicitudes de eliminacion</span>
+                    <strong id="deletion-requests-count">0</strong>
                   </button>
                   <button class="admin-meta-pill admin-meta-pill-btn admin-latam-only" type="button" data-href="/admin-client-requests.html">
                     <span>Solicitudes de compra</span>
@@ -145,6 +150,7 @@
                 <a class="stage-distribution-item stage-distribution-link" href="/admin-state-orders.html?state=vehicle-preparation"><span>E7</span><strong>Alistamiento</strong><b>0</b></a>
                 <a class="stage-distribution-item stage-distribution-link" href="/admin-state-orders.html?state=delivery"><span>E8</span><strong>Entrega</strong><b>0</b></a>
                 <a class="stage-distribution-item stage-distribution-link" href="/admin-state-orders.html?state=registration"><span>E9</span><strong>Matrícula</strong><b>0</b></a>
+                <a class="stage-distribution-item stage-distribution-link" href="/admin-state-orders.html?state=completed"><span>E10</span><strong>Completado</strong><b>0</b></a>
               </div>
             </section>
 
@@ -196,6 +202,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260513-events-mobile03"></script>
+    <script src="/admin-dashboard.js?v=20260514-adminsync10"></script>
   </body>
 </html>
