@@ -15,6 +15,7 @@ const VERIFICATION_TTL_MINUTES = 10;
 const VERIFICATION_RESEND_COOLDOWN_MS = 30 * 1000;
 const VERIFICATION_MAX_ATTEMPTS = 8;
 const PASSWORD_RESET_TTL_MINUTES = 30;
+const AUTH_COOKIE_MAX_AGE_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
 function hashVerificationCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
@@ -75,7 +76,7 @@ function getAuthCookieOptions(req) {
     sameSite: isProduction ? "none" : "lax",
     secure: isSecure,
     path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
   };
 }
 
@@ -371,8 +372,13 @@ async function login(req, res) {
 }
 
 async function me(req, res) {
+  const token = generateToken(req.user);
+
+  res.cookie("globalAppToken", token, getAuthCookieOptions(req));
+
   return res.status(200).json({
     user: req.user,
+    token,
   });
 }
 
