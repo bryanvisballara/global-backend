@@ -568,6 +568,11 @@ function initializeAdminSidebarDrawer() {
     const platform = String(navigator.platform || "");
     return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
   };
+  const isIpadTouchDevice = () => {
+    const userAgent = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    return /iPad/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+  };
   const isDesktopSidebarMode = () => desktopMediaQuery.matches && !isAppleTouchDevice();
 
   let backdrop = document.querySelector(".admin-sidebar-backdrop");
@@ -597,7 +602,7 @@ function initializeAdminSidebarDrawer() {
 
   const syncSidebarMode = () => {
     const isDesktop = isDesktopSidebarMode();
-    document.body.classList.toggle("admin-touch-drawer", !isDesktop);
+    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpadTouchDevice());
 
     if (isDesktop) {
       const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
