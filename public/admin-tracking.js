@@ -328,6 +328,7 @@ const searchConfigs = [
 let orders = [];
 let selectedOrderId = "";
 let isRestoringTrackingHistory = false;
+const trackingHistoryPath = window.location.pathname;
 let currentAdminRole = "";
 let currentAdminEmail = "";
 let expandedStateKey = "";
@@ -997,7 +998,6 @@ function findExactMatch(matches) {
 
 function updateUrlForOrder(order, options = {}) {
   const url = new URL(window.location.href);
-  const mode = options.mode === "push" ? "push" : "replace";
 
   if (!order) {
     url.searchParams.delete("orderId");
@@ -1005,7 +1005,7 @@ function updateUrlForOrder(order, options = {}) {
     url.searchParams.delete("vin");
     url.searchParams.delete("client");
     url.searchParams.delete("internal");
-    window.history[mode === "push" ? "pushState" : "replaceState"]({ orderId: "" }, document.title, url.toString());
+    window.history.replaceState({ orderId: "" }, document.title, url.toString());
     return;
   }
 
@@ -1014,7 +1014,7 @@ function updateUrlForOrder(order, options = {}) {
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.delete("internal");
-  window.history[mode === "push" ? "pushState" : "replaceState"]({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
+  window.history.replaceState({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
 }
 
 function applySelectedOrderToInputs(order) {
@@ -2095,9 +2095,7 @@ function selectOrder(orderId, options = {}) {
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
   if (options.updateUrl !== false) {
-    updateUrlForOrder(selectedOrder, {
-      mode: options.historyMode || (isRestoringTrackingHistory ? "replace" : "push"),
-    });
+    updateUrlForOrder(selectedOrder);
   }
   applySelectedOrderToInputs(selectedOrder);
   renderOrderSummary(selectedOrder);
@@ -2132,7 +2130,7 @@ function clearSearchFilters() {
   expandedOverviewEventIds.clear();
   clearStateDrafts();
   syncTrackingPageMode(null);
-  updateUrlForOrder(null, { mode: isRestoringTrackingHistory ? "replace" : "push" });
+  updateUrlForOrder(null);
   renderOrderSummary(null);
   renderStates();
   renderSearchResults(getFilteredOrders());
@@ -3586,7 +3584,9 @@ async function loadTrackingPage() {
 }
 
 window.addEventListener("popstate", () => {
-  restoreTrackingSelectionFromUrl();
+  if (window.location.pathname === trackingHistoryPath) {
+    window.history.back();
+  }
 });
 
 forceClearLoadingState();
