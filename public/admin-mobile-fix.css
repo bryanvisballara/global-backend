@@ -1143,6 +1143,10 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
 }
 
 @media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  body.admin-app-view {
+    --admin-ipad-top-safe: max(28px, env(safe-area-inset-top)) !important;
+  }
+
   html,
   body.admin-app-view {
     width: 100% !important;
@@ -1186,6 +1190,17 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
     box-sizing: border-box !important;
   }
 
+  body.admin-app-view.admin-ipad-drawer .admin-sidebar-toggle,
+  body.admin-app-view.admin-ipad-drawer.admin-drawer-ready .admin-sidebar-toggle {
+    top: calc(var(--admin-ipad-top-safe) + 8px) !important;
+  }
+
+  body.admin-app-view.admin-ipad-drawer .admin-dashboard-header,
+  body.admin-app-view.admin-ipad-drawer .page-topbar,
+  body.admin-app-view.admin-ipad-drawer .page-hero {
+    padding-top: calc(var(--admin-ipad-top-safe) + 58px) !important;
+  }
+
   body.admin-app-view.admin-ipad-drawer.admin-sidebar-open {
     overflow-y: auto !important;
     min-height: max(100dvh, 1120px) !important;
@@ -1205,6 +1220,7 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
     width: min(420px, calc(100dvw - 28px)) !important;
     max-width: calc(100dvw - 28px) !important;
     position: absolute !important;
+    top: calc(var(--admin-ipad-top-safe) + 12px) !important;
     height: auto !important;
     max-height: none !important;
     display: grid !important;
