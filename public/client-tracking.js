@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260514-fileview19";
+const TRACKING_PAGE_VERSION = "20260514-filedate20";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -340,13 +340,34 @@ function formatDate(dateValue) {
 }
 
 function getFileExtension(value) {
-  const normalizedValue = String(value || "").trim().toLowerCase();
+  const normalizedValue = String(value || "").trim().toLowerCase().split(/[?#]/)[0];
+  const fileSegment = normalizedValue.split("/").pop() || normalizedValue;
 
-  if (!normalizedValue.includes(".")) {
+  if (!fileSegment.includes(".")) {
     return "";
   }
 
-  return normalizedValue.split(".").pop() || "";
+  return (fileSegment.split(".").pop() || "").replace(/[^a-z0-9]/g, "");
+}
+
+function getMediaExtension(item = {}) {
+  return getFileExtension(item?.name || item?.caption || item?.url || "");
+}
+
+function isPdfLikeDocument(item = {}) {
+  const mimeType = String(item?.mimeType || "").trim().toLowerCase();
+  return mimeType === "application/pdf" || getMediaExtension(item) === "pdf";
+}
+
+function isZipLikeDocument(item = {}) {
+  const mimeType = String(item?.mimeType || "").trim().toLowerCase();
+  const extension = getMediaExtension(item);
+  return ["zip", "x-zip", "x-zip-compressed"].some((value) => mimeType.includes(value)) || extension === "zip";
+}
+
+function isPhotoDocumentType(item = {}) {
+  const documentType = String(item?.documentType || "").trim().toUpperCase();
+  return ["FOTO", "FOTOS", "IMAGEN", "IMAGENES", "IMÁGENES", "PHOTO", "PHOTOS"].includes(documentType);
 }
 
 function isImageLikeDocument(item = {}) {
@@ -364,8 +385,38 @@ function isImageLikeDocument(item = {}) {
     return true;
   }
 
-  const extension = getFileExtension(item?.name || item?.caption || item?.url || "");
-  return ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension);
+  const extension = getMediaExtension(item);
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension)) {
+    return true;
+  }
+
+  return isPhotoDocumentType(item) && !isPdfLikeDocument(item) && !isZipLikeDocument(item);
+}
+
+function inferTrackingFileType(item = {}) {
+  if (item?.type === "video" || item?.category === "video") {
+    return "video";
+  }
+
+  return isImageLikeDocument(item) ? "image" : "document";
+}
+
+function getDisplayFileExtension(item = {}) {
+  const extension = getMediaExtension(item);
+
+  if (extension) {
+    return extension.toUpperCase();
+  }
+
+  if (isPdfLikeDocument(item)) {
+    return "PDF";
+  }
+
+  if (isZipLikeDocument(item)) {
+    return "ZIP";
+  }
+
+  return isImageLikeDocument(item) ? "IMG" : "ARCHIVO";
 }
 
 function buildFileViewUrl(url, fileName = "documento") {
@@ -497,7 +548,7 @@ function renderMediaItems(media = []) {
     return "";
   }
 
-  const isImageItem = (item) => item && item.type !== "video" && item.type !== "document" && isImageLikeDocument(item);
+  const isImageItem = (item) => item && item.type !== "video" && isImageLikeDocument(item);
   const onlyImages = media.every((item) => isImageItem(item));
 
   const renderImageCard = (item) => `
@@ -555,9 +606,9 @@ function renderMediaItems(media = []) {
             `;
           }
 
-          if (item.type === "document" || (item.category === "document" && !isImageLikeDocument(item))) {
+          if (inferTrackingFileType(item) === "document") {
             const fileName = item.name || item.caption || "documento";
-            const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
+            const extension = getDisplayFileExtension(item);
             return `
               <button
                 class="tracking-document-download"
@@ -711,8 +762,8 @@ function buildTrackingStepsFromEvents(order) {
   return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
     const sourceStep = sourceStepsByKey.get(stateTemplate.key) || null;
     const stepEvents = (eventsByStepKey.get(stateTemplate.key) || []).sort((left, right) => {
-      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      const leftTime = new Date(left.createdAt || left.updatedAt || 0).getTime();
+      const rightTime = new Date(right.createdAt || right.updatedAt || 0).getTime();
       return leftTime - rightTime;
     });
     const latestEvent = stepEvents[stepEvents.length - 1] || null;
@@ -815,8 +866,8 @@ function buildTrackingEventRows(order) {
       const stageLabel = event.label || matchedState?.label || "Etapa";
 
       return {
-        key: `${event.key}-${event.updatedAt || event.createdAt || index}`,
-        date: event.updatedAt || event.createdAt || null,
+        key: `${event.key}-${event.createdAt || event.updatedAt || index}`,
+        date: event.createdAt || event.updatedAt || null,
         stage: matchedStateIndex >= 0 ? `E${matchedStateIndex + 1} - ${stageLabel}` : stageLabel,
         title,
         description: hasDescription ? descriptionSource : "Sin descripción por ahora.",
@@ -881,17 +932,17 @@ function buildTrackingFiles(order) {
       return (Array.isArray(event.media) ? event.media : [])
         .filter((item) => item?.url && item.type !== "video" && item.category !== "video")
         .map((item, mediaIndex) => ({
-          key: `${event.key}-${event.updatedAt || event.createdAt || eventIndex}-${mediaIndex}`,
+          key: `${event.key}-${event.createdAt || event.updatedAt || eventIndex}-${mediaIndex}`,
           url: item.url,
-          type: isImageLikeDocument(item)
-            ? "image"
-            : (item.type || (item.category === "document" ? "document" : "image")),
+          type: inferTrackingFileType(item),
           category: item.category || "",
           name: String(item.name || "").trim(),
           caption: String(item.caption || item.name || stageLabel || "Archivo").trim(),
+          mimeType: String(item.mimeType || "").trim(),
+          documentType: String(item.documentType || "").trim(),
           note: "",
           stageLabel,
-          date: event.updatedAt || event.createdAt || null,
+          date: item.createdAt || event.createdAt || event.updatedAt || null,
         }));
     });
 
@@ -900,13 +951,15 @@ function buildTrackingFiles(order) {
     .map((item, index) => ({
       key: `order-document-${String(item.documentId || index)}`,
       url: item.url,
-      type: isImageLikeDocument(item) ? "image" : "document",
+      type: inferTrackingFileType(item),
       category: item.category || "document",
       name: String(item.name || "").trim(),
       caption: String(item.caption || item.name || item.documentType || "Archivo").trim(),
+      mimeType: String(item.mimeType || "").trim(),
+      documentType: String(item.documentType || "").trim(),
       note: String(item.note || "").trim(),
       stageLabel: "Documentos del pedido",
-      date: item.updatedAt || item.createdAt || null,
+      date: item.createdAt || item.updatedAt || null,
     }));
 
   return eventFiles
@@ -1171,7 +1224,7 @@ function renderTrackingFilesSection(order) {
                 .map((item) => {
                   const footerText = item.note || item.caption || item.stageLabel || "Archivo";
                   const fileName = item.name || item.caption || "documento";
-                  const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
+                  const extension = getDisplayFileExtension(item);
 
                   return `
                     <article class="tracking-file-card document">

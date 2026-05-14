@@ -42,6 +42,11 @@ const mediaItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: 280,
     },
+    mimeType: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
     documentType: {
       type: String,
       trim: true,

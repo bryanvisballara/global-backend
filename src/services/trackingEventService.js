@@ -65,7 +65,10 @@ function normalizeEventMedia(media = []) {
       url: String(item.url).trim(),
       name: item.name ? String(item.name).trim() : undefined,
       caption: item.caption ? String(item.caption).trim() : undefined,
+      mimeType: item.mimeType ? String(item.mimeType).trim() : undefined,
       clientVisible: Boolean(item.clientVisible),
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || item.createdAt || null,
     }));
 }
 

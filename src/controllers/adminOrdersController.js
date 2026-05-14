@@ -124,6 +124,7 @@ async function persistPdfFileAndBuildUrl(file, req) {
         url: secureUrl,
         name: file.originalname || `${normalizeFileNameForStorage(file.originalname)}.pdf`,
         caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : normalizeFileNameForStorage(file.originalname),
+        mimeType: file.mimetype || "application/pdf",
         originalCloudinaryUrl: secureUrl,
       };
     }
@@ -153,6 +154,7 @@ async function persistPdfFileAndBuildUrl(file, req) {
     url: absoluteUrl,
     name: file.originalname || fileName,
     caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : safeBaseName,
+    mimeType: file.mimetype || "application/pdf",
   };
 }
 
@@ -1139,6 +1141,7 @@ function normalizeMedia(media = []) {
       originalCloudinaryUrl: item.originalCloudinaryUrl ? String(item.originalCloudinaryUrl).trim() : undefined,
       name: item.name ? String(item.name).trim() : undefined,
       caption: item.caption ? String(item.caption).trim() : undefined,
+      mimeType: item.mimeType ? String(item.mimeType).trim() : undefined,
       documentType: item.documentType ? String(item.documentType).trim().toUpperCase() : undefined,
       note: item.note ? String(item.note).trim() : "",
       clientVisible: parseBooleanValue(item.clientVisible, true),
@@ -1196,7 +1199,7 @@ function buildOrderDocumentMediaItems(uploadedMedia = [], options = {}) {
     note,
     clientVisible,
     createdAt: item.createdAt || timestamp,
-    updatedAt: timestamp,
+    updatedAt: item.updatedAt || item.createdAt || timestamp,
   }));
 }
 
@@ -1288,6 +1291,7 @@ async function uploadAccountingEvidenceToCloudinary(file, req) {
       url: documentFile.url,
       name: documentFile.name,
       caption: documentFile.caption,
+      mimeType: documentFile.mimeType,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -1734,6 +1738,7 @@ async function uploadFilesToCloudinary(files = [], req) {
         url: result.secure_url,
         name: file.originalname,
         caption: file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : undefined,
+        mimeType: file.mimetype,
       };
     })
   );
@@ -1764,6 +1769,7 @@ async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) 
           originalCloudinaryUrl: documentFile.originalCloudinaryUrl,
           name: documentFile.name,
           caption: metadata.caption || documentFile.caption,
+          mimeType: documentFile.mimeType,
         };
       }
 
@@ -1778,6 +1784,7 @@ async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) 
         url: result.secure_url,
         name: file.originalname,
         caption: metadata.caption || (file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : undefined),
+        mimeType: file.mimetype,
       };
     })
   );

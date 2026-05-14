@@ -33,9 +33,22 @@ const mediaItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: 280,
     },
+    mimeType: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
     clientVisible: {
       type: Boolean,
       default: false,
+    },
+    createdAt: {
+      type: Date,
+      default: null,
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
     },
   },
   { _id: false }
