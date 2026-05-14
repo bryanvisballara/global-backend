@@ -321,8 +321,8 @@ body.admin-app-view {
   body.admin-app-view .admin-dashboard-layout,
   body.admin-app-view.admin-drawer-ready .admin-dashboard-layout {
     display: grid !important;
-    grid-template-columns: clamp(320px, 30vw, 390px) minmax(0, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: clamp(460px, 42vw, 580px) minmax(0, 1fr) !important;
+    gap: 14px !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
@@ -344,7 +344,7 @@ body.admin-app-view {
     height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
     max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
     overflow-y: auto !important;
-    padding: 14px 10px !important;
+    padding: 14px 12px !important;
     border-radius: 18px !important;
     transform: none !important;
     opacity: 1 !important;
@@ -392,18 +392,42 @@ body.admin-app-view {
   body.admin-app-view .admin-sidebar-nav {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    gap: 8px !important;
+    gap: 7px !important;
     overflow: visible !important;
     padding-right: 0 !important;
   }
 
+  body.admin-app-view .admin-sidebar-section {
+    gap: 4px !important;
+  }
+
+  body.admin-app-view .admin-sidebar-section-label {
+    font-size: 0.56rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  body.admin-app-view .admin-sidebar-brand strong,
+  body.admin-app-view .admin-badge-sidebar strong {
+    font-size: 0.66rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+  }
+
+  body.admin-app-view .admin-badge-sidebar span {
+    font-size: 0.52rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.04em !important;
+  }
+
   body.admin-app-view .admin-nav-link,
   body.admin-app-view .admin-logout-button {
-    min-height: 34px !important;
-    padding: 8px 10px !important;
-    font-size: 0.74rem !important;
-    line-height: 1.18 !important;
-    letter-spacing: 0.04em !important;
+    min-height: 30px !important;
+    padding: 6px 8px !important;
+    font-size: 0.62rem !important;
+    line-height: 1.08 !important;
+    letter-spacing: 0 !important;
+    text-align: left !important;
   }
 
   body.admin-app-view .admin-dashboard-main,
@@ -494,6 +518,48 @@ body.admin-app-view {
   body.admin-app-view .admin-dashboard-main,
   body.admin-app-view.admin-drawer-ready .admin-dashboard-main {
     min-height: calc(100dvh / 0.75) !important;
+  }
+
+  body.admin-app-view .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-layout {
+    grid-template-columns: clamp(460px, 42vw, 580px) minmax(0, 1fr) !important;
+  }
+
+  body.admin-app-view .admin-sidebar,
+  body.admin-app-view .admin-sidebar *,
+  body.admin-app-view .admin-sidebar-brand,
+  body.admin-app-view .admin-sidebar-brand > div,
+  body.admin-app-view .admin-sidebar-footer,
+  body.admin-app-view .admin-badge-sidebar {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body.admin-app-view .admin-nav-link,
+  body.admin-app-view .admin-logout-button {
+    font-size: 0.62rem !important;
+    line-height: 1.08 !important;
+    letter-spacing: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    hyphens: auto !important;
+  }
+
+  body.admin-app-view .admin-sidebar-section-label,
+  body.admin-app-view .admin-badge-sidebar span {
+    font-size: 0.52rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  body.admin-app-view .admin-sidebar-brand strong,
+  body.admin-app-view .admin-badge-sidebar strong {
+    font-size: 0.66rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
   }
 
   @supports not (zoom: 0.75) {
