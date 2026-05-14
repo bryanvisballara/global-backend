@@ -44,6 +44,21 @@ function enableAdminUppercaseView() {
 
 enableAdminUppercaseView();
 
+function syncAdminViewportMetrics() {
+  const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+  const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0);
+
+  if (viewportWidth > 0) {
+    document.documentElement.style.setProperty("--admin-visual-width", `${viewportWidth}px`);
+  }
+
+  if (viewportHeight > 0) {
+    document.documentElement.style.setProperty("--admin-visual-height", `${viewportHeight}px`);
+  }
+}
+
+syncAdminViewportMetrics();
+
 function ensureLoadingOverlay() {
   if (loadingOverlay) {
     return;
@@ -768,12 +783,23 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
 }
 
 injectAdminSidebarLayout();
+syncAdminViewportMetrics();
 initializeAdminSidebarDrawer();
 
 window.addEventListener("load", forceHideAnyLoadingOverlay);
+window.addEventListener("load", syncAdminViewportMetrics);
+window.addEventListener("resize", syncAdminViewportMetrics);
+window.addEventListener("orientationchange", () => {
+  syncAdminViewportMetrics();
+  window.setTimeout(syncAdminViewportMetrics, 120);
+  window.setTimeout(syncAdminViewportMetrics, 360);
+});
+window.visualViewport?.addEventListener("resize", syncAdminViewportMetrics);
 window.addEventListener("pageshow", forceHideAnyLoadingOverlay);
+window.addEventListener("pageshow", syncAdminViewportMetrics);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    syncAdminViewportMetrics();
     forceHideAnyLoadingOverlay();
   }
 });
