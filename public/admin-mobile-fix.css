@@ -8,6 +8,104 @@ body.admin-app-view {
   overflow-x: hidden;
 }
 
+body.admin-app-view .admin-dashboard-layout,
+body.admin-app-view.admin-drawer-ready .admin-dashboard-layout {
+  grid-template-columns: clamp(360px, 34vw, 520px) minmax(0, 1fr) !important;
+}
+
+body.admin-app-view .admin-sidebar {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  contain: inline-size !important;
+}
+
+body.admin-app-view .admin-sidebar,
+body.admin-app-view .admin-sidebar *,
+body.admin-app-view .admin-sidebar *::before,
+body.admin-app-view .admin-sidebar *::after {
+  box-sizing: border-box !important;
+}
+
+body.admin-app-view .admin-sidebar-brand,
+body.admin-app-view .admin-sidebar-brand > div,
+body.admin-app-view .admin-sidebar-nav,
+body.admin-app-view .admin-sidebar-section,
+body.admin-app-view .admin-sidebar-footer,
+body.admin-app-view .admin-badge-sidebar {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+}
+
+body.admin-app-view .admin-sidebar-brand {
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr) !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+body.admin-app-view .admin-sidebar-logo {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  padding: 4px !important;
+  border-radius: 9px !important;
+}
+
+body.admin-app-view .admin-sidebar .section-tag,
+body.admin-app-view .admin-sidebar-brand strong,
+body.admin-app-view .admin-sidebar-section-label,
+body.admin-app-view .admin-nav-link,
+body.admin-app-view .admin-badge-sidebar,
+body.admin-app-view .admin-badge-sidebar span,
+body.admin-app-view .admin-badge-sidebar strong,
+body.admin-app-view .admin-logout-button {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
+  text-overflow: clip !important;
+}
+
+body.admin-app-view .admin-sidebar .section-tag {
+  font-size: 0.5rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  padding: 4px 5px !important;
+}
+
+body.admin-app-view .admin-sidebar-brand strong,
+body.admin-app-view .admin-badge-sidebar strong {
+  font-size: 0.7rem !important;
+  line-height: 1.1 !important;
+  letter-spacing: 0 !important;
+}
+
+body.admin-app-view .admin-sidebar-section-label,
+body.admin-app-view .admin-badge-sidebar span {
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.03em !important;
+}
+
+body.admin-app-view .admin-nav-link,
+body.admin-app-view .admin-logout-button {
+  min-height: 30px !important;
+  padding: 5px 6px !important;
+  border-radius: 8px !important;
+  font-size: 0.54rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0 !important;
+  text-align: left !important;
+}
+
 @media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   html {
     -webkit-text-size-adjust: 90% !important;
