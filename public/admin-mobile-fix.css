@@ -440,7 +440,7 @@ body.admin-app-view.admin-ipad-drawer.admin-drawer-ready.admin-sidebar-open .adm
   margin-left: 0 !important;
 }
 
-@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   html {
     -webkit-text-size-adjust: 90% !important;
     text-size-adjust: 90% !important;
@@ -1142,12 +1142,12 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   line-height: 1.16 !important;
 }
 
-@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   html,
   body.admin-app-view {
-    width: var(--admin-visual-width, 100dvw) !important;
+    width: 100% !important;
     min-width: 0 !important;
-    max-width: var(--admin-visual-width, 100dvw) !important;
+    max-width: 100% !important;
     overflow-x: hidden !important;
   }
 
@@ -1155,8 +1155,8 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   body.admin-app-view.admin-drawer-ready .dashboard-shell,
   body.admin-app-view.admin-ipad-drawer .dashboard-shell,
   body.admin-app-view.admin-ipad-drawer.admin-drawer-ready .dashboard-shell {
-    width: var(--admin-visual-width, 100dvw) !important;
-    max-width: var(--admin-visual-width, 100dvw) !important;
+    width: 100% !important;
+    max-width: 100% !important;
     min-width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -1173,7 +1173,7 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   body.admin-app-view .admin-dashboard-main,
   body.admin-app-view.admin-drawer-ready .admin-dashboard-main {
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
     min-width: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -1189,7 +1189,7 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   body.admin-app-view.admin-ipad-drawer .admin-sidebar,
   body.admin-app-view.admin-ipad-drawer.admin-drawer-ready .admin-sidebar,
   body.admin-app-view.admin-ipad-drawer.admin-sidebar-open .admin-sidebar {
-    width: min(420px, calc(var(--admin-visual-width, 100dvw) - 28px)) !important;
-    max-width: calc(var(--admin-visual-width, 100dvw) - 28px) !important;
+    width: min(420px, calc(100dvw - 28px)) !important;
+    max-width: calc(100dvw - 28px) !important;
   }
 }
