@@ -457,7 +457,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
 
 function injectAdminSidebarLayout() {
   const currentPath = String(window.location.pathname || "");
-  const isAdminHtmlRoute = /^\/app\/admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
 
   if (!isAdminHtmlRoute) {
     return;
