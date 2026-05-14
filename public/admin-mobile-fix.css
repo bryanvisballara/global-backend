@@ -440,3 +440,38 @@ body.admin-app-view {
     display: none !important;
   }
 }
+
+@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  body.admin-app-view {
+    overflow-x: hidden !important;
+  }
+
+  body.admin-app-view .dashboard-shell,
+  body.admin-app-view.admin-drawer-ready .dashboard-shell {
+    width: calc(100vw / 0.75) !important;
+    max-width: none !important;
+    min-height: calc(100dvh / 0.75) !important;
+    margin: 0 !important;
+    zoom: 0.75 !important;
+    transform-origin: top left !important;
+  }
+
+  body.admin-app-view .dashboard-stage,
+  body.admin-app-view.admin-drawer-ready .dashboard-stage,
+  body.admin-app-view .admin-dashboard-stage,
+  body.admin-app-view .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-layout,
+  body.admin-app-view .admin-dashboard-main,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-main {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  @supports not (zoom: 0.75) {
+    body.admin-app-view .dashboard-shell,
+    body.admin-app-view.admin-drawer-ready .dashboard-shell {
+      transform: scale(0.75) !important;
+      transform-origin: top left !important;
+    }
+  }
+}
