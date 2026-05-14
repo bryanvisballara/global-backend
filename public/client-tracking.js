@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260504-clientevents15";
+const TRACKING_PAGE_VERSION = "20260514-fileview19";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -368,6 +368,60 @@ function isImageLikeDocument(item = {}) {
   return ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension);
 }
 
+function buildFileViewUrl(url, fileName = "documento") {
+  const resolvedFileName = String(fileName || "documento").trim() || "documento";
+  const viewPath = `/api/downloads/view?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+  return new URL(viewPath, apiBaseUrl).toString();
+}
+
+function openExternalBrowserUrl(url, pendingWindow = null) {
+  const resolvedUrl = String(url || "").trim();
+
+  if (!resolvedUrl) {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.close();
+    }
+    return false;
+  }
+
+  const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
+
+  if (nativeExternalLinkHandler?.postMessage) {
+    try {
+      if (pendingWindow && !pendingWindow.closed) {
+        pendingWindow.close();
+      }
+
+      nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
+      return true;
+    } catch (error) {
+      console.warn("No se pudo abrir el archivo en el navegador externo.", error);
+    }
+  }
+
+  if (pendingWindow && !pendingWindow.closed) {
+    pendingWindow.opener = null;
+    pendingWindow.location.replace(resolvedUrl);
+    return true;
+  }
+
+  const openedWindow = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+
+  if (openedWindow) {
+    openedWindow.opener = null;
+    return true;
+  }
+
+  const externalLink = document.createElement("a");
+  externalLink.href = resolvedUrl;
+  externalLink.target = "_blank";
+  externalLink.rel = "noopener noreferrer external";
+  (document.body || document.documentElement).appendChild(externalLink);
+  externalLink.click();
+  externalLink.remove();
+  return true;
+}
+
 function buildEmbeddedVideoUrl(rawUrl) {
   const url = String(rawUrl || "").trim();
 
@@ -443,7 +497,7 @@ function renderMediaItems(media = []) {
     return "";
   }
 
-  const isImageItem = (item) => item && item.type !== "video" && item.type !== "document" && item.category !== "document";
+  const isImageItem = (item) => item && item.type !== "video" && item.type !== "document" && isImageLikeDocument(item);
   const onlyImages = media.every((item) => isImageItem(item));
 
   const renderImageCard = (item) => `
@@ -453,13 +507,13 @@ function renderMediaItems(media = []) {
         type="button"
         data-download-url="${escapeHtml(item.url)}"
         data-download-name="${escapeHtml(item.name || item.caption || "imagen")}" 
-        aria-label="Descargar imagen"
+        aria-label="Ver imagen"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
         </svg>
       </button>
-      <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Adjunto")}" loading="lazy" />
+      <img src="${escapeHtml(buildFileViewUrl(item.url, item.name || item.caption || "imagen"))}" alt="${escapeHtml(item.caption || item.name || "Adjunto")}" loading="lazy" />
     </article>
   `;
 
@@ -501,7 +555,7 @@ function renderMediaItems(media = []) {
             `;
           }
 
-          if (item.type === "document" || item.category === "document") {
+          if (item.type === "document" || (item.category === "document" && !isImageLikeDocument(item))) {
             const fileName = item.name || item.caption || "documento";
             const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
             return `
@@ -510,11 +564,11 @@ function renderMediaItems(media = []) {
                 type="button"
                 data-download-url="${escapeHtml(item.url)}"
                 data-download-name="${escapeHtml(fileName)}"
-                aria-label="Descargar ${escapeHtml(fileName)}"
+                aria-label="Ver ${escapeHtml(fileName)}"
               >
                 <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
                 <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
-                <span class="tracking-document-cta">Descargar</span>
+                <span class="tracking-document-cta">Ver</span>
               </button>
             `;
           }
@@ -559,8 +613,8 @@ function bindTrackingCarousels(scope = trackingResults) {
 
 function buildStateMediaBuckets(media = []) {
   return {
-    document: media.filter((item) => item.category === "document" || item.type === "document"),
-    photoSingle: media.filter((item) => item.category === "photo-single"),
+    document: media.filter((item) => (item.category === "document" || item.type === "document") && !isImageLikeDocument(item)),
+    photoSingle: media.filter((item) => item.category === "photo-single" || (item.category === "document" && isImageLikeDocument(item))),
     photoCarousel: media.filter((item) => item.category === "photo-carousel" || (item.type === "image" && !item.category)),
     video: media.filter((item) => item.category === "video" || item.type === "video"),
   };
@@ -614,50 +668,9 @@ function renderCategorizedMediaSections(media = []) {
   `;
 }
 
-async function downloadDocument(url, fileName) {
-  const nativeDownloadHandler = window.webkit?.messageHandlers?.globalImportsDownload;
-
-  if (nativeDownloadHandler?.postMessage) {
-    nativeDownloadHandler.postMessage({
-      url,
-      fileName,
-    });
-    return;
-  }
-
-  try {
-    const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-    const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
-    const resolvedApiUrl = new URL(apiUrl, apiBaseUrl).toString();
-
-    if (isAppleTouchDownloadEnvironment()) {
-      window.location.href = resolvedApiUrl;
-      return;
-    }
-
-    let response = await fetch(resolvedApiUrl);
-
-    if (!response.ok && /^https?:\/\//i.test(url)) {
-      response = await fetch(url, { mode: "cors" });
-    }
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const objectUrl = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = resolvedFileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.URL.revokeObjectURL(objectUrl);
-  } catch (error) {
-    console.error("Download failed:", error.message);
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+function openTrackingFile(url, fileName) {
+  const viewUrl = buildFileViewUrl(url, fileName || "documento");
+  openExternalBrowserUrl(viewUrl);
 }
 
 function renderEmptyState(message) {
@@ -1108,14 +1121,14 @@ function renderTrackingFilesSection(order) {
                           data-image-note="${escapeHtml(footerText)}"
                           aria-label="Ampliar imagen del tracking"
                         >
-                          <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
+                          <img src="${escapeHtml(buildFileViewUrl(item.url, item.name || item.caption || "imagen"))}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
                         </button>
                         <button
                           class="tracking-media-download-icon"
                           type="button"
                           data-download-url="${escapeHtml(item.url)}"
                           data-download-name="${escapeHtml(item.name || item.caption || "imagen")}"
-                          aria-label="Descargar imagen"
+                          aria-label="Ver imagen"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
@@ -1167,11 +1180,11 @@ function renderTrackingFilesSection(order) {
                         type="button"
                         data-download-url="${escapeHtml(item.url)}"
                         data-download-name="${escapeHtml(fileName)}"
-                        aria-label="Descargar ${escapeHtml(fileName)}"
+                        aria-label="Ver ${escapeHtml(fileName)}"
                       >
                         <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
                         <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
-                        <span class="tracking-document-cta">Descargar</span>
+                        <span class="tracking-document-cta">Ver</span>
                       </button>
                       <div class="tracking-file-meta">
                         <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
@@ -1238,7 +1251,7 @@ trackingResults.addEventListener("click", (event) => {
     const url = downloadButton.getAttribute("data-download-url");
     const name = downloadButton.getAttribute("data-download-name") || "documento";
     if (url) {
-      downloadDocument(url, name);
+      openTrackingFile(url, name);
     }
     return;
   }
