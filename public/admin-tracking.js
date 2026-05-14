@@ -998,7 +998,6 @@ function findExactMatch(matches) {
 
 function updateUrlForOrder(order, options = {}) {
   const url = new URL(window.location.href);
-  const historyMethod = options.mode === "push" ? "pushState" : "replaceState";
 
   if (!order) {
     url.searchParams.delete("orderId");
@@ -1006,7 +1005,7 @@ function updateUrlForOrder(order, options = {}) {
     url.searchParams.delete("vin");
     url.searchParams.delete("client");
     url.searchParams.delete("internal");
-    window.history[historyMethod]({ orderId: "" }, document.title, url.toString());
+    window.history.replaceState({ orderId: "" }, document.title, url.toString());
     return;
   }
 
@@ -1015,7 +1014,7 @@ function updateUrlForOrder(order, options = {}) {
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.delete("internal");
-  window.history[historyMethod]({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
+  window.history.replaceState({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
 }
 
 function hasTrackingSelectionInUrl() {
@@ -1024,7 +1023,7 @@ function hasTrackingSelectionInUrl() {
 }
 
 function replaceCurrentHistoryWithTrackingList() {
-  updateUrlForOrder(null, { mode: "replace" });
+  updateUrlForOrder(null);
   restoreTrackingSelectionFromUrl();
 }
 
@@ -2093,7 +2092,6 @@ function renderStates() {
 }
 
 function selectOrder(orderId, options = {}) {
-  const shouldPushListSelection = !selectedOrderId && !hasTrackingSelectionInUrl() && !isRestoringTrackingHistory;
   selectedOrderId = String(orderId || "").trim();
   expandedStateKey = "";
   expandedOverviewStateKey = "";
@@ -2107,7 +2105,7 @@ function selectOrder(orderId, options = {}) {
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
   if (options.updateUrl !== false) {
-    updateUrlForOrder(selectedOrder, { mode: shouldPushListSelection ? "push" : "replace" });
+    updateUrlForOrder(selectedOrder);
   }
   applySelectedOrderToInputs(selectedOrder);
   renderOrderSummary(selectedOrder);
