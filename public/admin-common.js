@@ -45,8 +45,16 @@ function enableAdminUppercaseView() {
 enableAdminUppercaseView();
 
 function syncAdminViewportMetrics() {
-  const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
-  const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0);
+  const viewportWidth = Math.round(Math.max(
+    window.visualViewport?.width || 0,
+    window.innerWidth || 0,
+    document.documentElement.clientWidth || 0
+  ));
+  const viewportHeight = Math.round(Math.max(
+    window.visualViewport?.height || 0,
+    window.innerHeight || 0,
+    document.documentElement.clientHeight || 0
+  ));
 
   if (viewportWidth > 0) {
     document.documentElement.style.setProperty("--admin-visual-width", `${viewportWidth}px`);

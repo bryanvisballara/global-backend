@@ -1155,12 +1155,12 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   body.admin-app-view.admin-drawer-ready .dashboard-shell,
   body.admin-app-view.admin-ipad-drawer .dashboard-shell,
   body.admin-app-view.admin-ipad-drawer.admin-drawer-ready .dashboard-shell {
-    width: calc(var(--admin-visual-width, 100dvw) / 0.75) !important;
-    max-width: calc(var(--admin-visual-width, 100dvw) / 0.75) !important;
+    width: var(--admin-visual-width, 100dvw) !important;
+    max-width: var(--admin-visual-width, 100dvw) !important;
     min-width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    zoom: 0.75 !important;
+    zoom: 1 !important;
     transform: none !important;
     transform-origin: top left !important;
   }
@@ -1177,6 +1177,12 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
     min-width: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  body.admin-app-view .admin-dashboard-main > *,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-main > * {
+    max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
