@@ -998,6 +998,7 @@ function findExactMatch(matches) {
 
 function updateUrlForOrder(order, options = {}) {
   const url = new URL(window.location.href);
+  const historyMethod = options.mode === "push" ? "pushState" : "replaceState";
 
   if (!order) {
     url.searchParams.delete("orderId");
@@ -1005,7 +1006,7 @@ function updateUrlForOrder(order, options = {}) {
     url.searchParams.delete("vin");
     url.searchParams.delete("client");
     url.searchParams.delete("internal");
-    window.history.replaceState({ orderId: "" }, document.title, url.toString());
+    window.history[historyMethod]({ orderId: "" }, document.title, url.toString());
     return;
   }
 
@@ -1014,7 +1015,12 @@ function updateUrlForOrder(order, options = {}) {
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.delete("internal");
-  window.history.replaceState({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
+  window.history[historyMethod]({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
+}
+
+function hasTrackingSelectionInUrl() {
+  const filters = getUrlFilters();
+  return Boolean(filters.orderId || filters.tracking || filters.vin || filters.client || filters.internal);
 }
 
 function applySelectedOrderToInputs(order) {
@@ -2082,6 +2088,7 @@ function renderStates() {
 }
 
 function selectOrder(orderId, options = {}) {
+  const shouldPushListSelection = !selectedOrderId && !hasTrackingSelectionInUrl() && !isRestoringTrackingHistory;
   selectedOrderId = String(orderId || "").trim();
   expandedStateKey = "";
   expandedOverviewStateKey = "";
@@ -2095,7 +2102,7 @@ function selectOrder(orderId, options = {}) {
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
   if (options.updateUrl !== false) {
-    updateUrlForOrder(selectedOrder);
+    updateUrlForOrder(selectedOrder, { mode: shouldPushListSelection ? "push" : "replace" });
   }
   applySelectedOrderToInputs(selectedOrder);
   renderOrderSummary(selectedOrder);
@@ -3585,7 +3592,12 @@ async function loadTrackingPage() {
 
 window.addEventListener("popstate", () => {
   if (window.location.pathname === trackingHistoryPath) {
-    window.history.back();
+    if (hasTrackingSelectionInUrl()) {
+      window.history.back();
+      return;
+    }
+
+    restoreTrackingSelectionFromUrl();
   }
 });
 
