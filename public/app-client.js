@@ -51,36 +51,6 @@ function resolveAuthenticatedLandingPage(role = "") {
     : resolveAppPagePath("admin.html");
 }
 
-function isNativeAppShell() {
-  return String(window.location.pathname || "").startsWith("/app/");
-}
-
-function getNativeAdminBlockedMessage() {
-  return "La app móvil es solo para clientes. Para administrar pedidos, usa el panel web desde el navegador.";
-}
-
-async function clearBlockedNativeAdminSession(token = "") {
-  clearAuthState();
-
-  try {
-    await fetch(`${apiBaseUrl}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-  } catch {
-    // Local and biometric auth state are already cleared; the cookie will be replaced on next valid login.
-  }
-}
-
-async function blockNativeAdminSession(token = "") {
-  await clearBlockedNativeAdminSession(token);
-  setFeedback(getNativeAdminBlockedMessage(), "error");
-}
-
 function isDirectApiHostCandidate(hostname = "") {
   const normalizedHostname = String(hostname || "").trim().toLowerCase();
 
@@ -412,11 +382,6 @@ function persistAuthenticatedSession(token, role) {
 async function completeAuthenticatedSession({ token, role, user }) {
   const resolvedRole = user?.role || role || "";
 
-  if (isNativeAppShell() && isAdministrativeRole(resolvedRole)) {
-    await blockNativeAdminSession(token);
-    return;
-  }
-
   persistAuthenticatedSession(token, resolvedRole);
 
   try {
@@ -510,11 +475,6 @@ async function redirectAuthenticatedUser() {
 
     if (!resolvedRole) {
       throw new Error("Stored session is missing role information");
-    }
-
-    if (isNativeAppShell() && isAdministrativeRole(resolvedRole)) {
-      await blockNativeAdminSession(resolvedToken);
-      return;
     }
 
     persistAuthenticatedSession(resolvedToken, resolvedRole);
