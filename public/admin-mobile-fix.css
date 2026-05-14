@@ -1191,13 +1191,15 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
   body.admin-app-view.admin-ipad-drawer.admin-sidebar-open .admin-sidebar {
     width: min(420px, calc(100dvw - 28px)) !important;
     max-width: calc(100dvw - 28px) !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 16px !important;
+    height: calc(100dvh - 28px) !important;
+    max-height: calc(100dvh - 28px) !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    gap: 14px !important;
     padding: 20px 18px !important;
     contain: none !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
   }
 
   body.admin-app-view.admin-ipad-drawer .admin-sidebar-brand {
@@ -1239,9 +1241,14 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
 
   body.admin-app-view.admin-ipad-drawer .admin-sidebar-nav {
     display: grid !important;
-    gap: 14px !important;
+    align-content: start !important;
+    gap: 12px !important;
     width: 100% !important;
-    overflow: visible !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-right: 2px !important;
+    overscroll-behavior: contain !important;
   }
 
   body.admin-app-view.admin-ipad-drawer .admin-sidebar-section {
@@ -1270,7 +1277,7 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
     display: flex !important;
     align-items: center !important;
     min-height: 46px !important;
-    padding: 11px 12px !important;
+    padding: 10px 12px !important;
     border-radius: 12px !important;
     font-size: 0.86rem !important;
     line-height: 1.16 !important;
@@ -1282,17 +1289,19 @@ body.admin-app-view.admin-ipad-drawer .admin-logout-button {
 
   body.admin-app-view.admin-ipad-drawer .admin-sidebar-footer {
     display: grid !important;
-    gap: 10px !important;
+    gap: 8px !important;
     width: 100% !important;
-    margin-top: auto !important;
-    padding-top: 14px !important;
+    margin-top: 0 !important;
+    padding-top: 12px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: inherit !important;
   }
 
   body.admin-app-view.admin-ipad-drawer .admin-badge-sidebar {
     display: grid !important;
     gap: 4px !important;
     width: 100% !important;
-    padding: 12px !important;
+    padding: 10px 12px !important;
     overflow: visible !important;
   }
 }
