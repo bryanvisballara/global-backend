@@ -25,15 +25,22 @@
   const stageTemplates = Array.isArray(trackingTemplates) && trackingTemplates.length
     ? trackingTemplates
     : fallbackTrackingTemplates;
+  const completedStageCard = { key: "completed", label: "Completado" };
 
-  const ordersList = document.getElementById("state-orders-list");
+  const ordersTableBody = document.getElementById("state-orders-table-body");
+  const ordersTableCount = document.getElementById("state-orders-table-count");
   const feedback = document.getElementById("state-feedback");
   const stateKeyChip = document.getElementById("state-key-chip");
   const statePageTitle = document.getElementById("state-page-title");
   const statePageLead = document.getElementById("state-page-lead");
   const stateTotalCount = document.getElementById("state-total-count");
   const stateLabelSummary = document.getElementById("state-label-summary");
+  let orders = [];
+  let currentAdminRole = "";
+  let currentAdminEmail = "";
   let initOverlayWatchdog = null;
+
+  const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 
   function escapeHtml(value) {
     return String(value || "")
@@ -80,6 +87,87 @@
 
   function normalizeText(value) {
     return String(value || "").trim();
+  }
+
+  function setEmptyResults(message) {
+    if (!ordersTableBody) {
+      return;
+    }
+
+    ordersTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">${escapeHtml(message)}</div></td></tr>`;
+  }
+
+  function getOrderIdentifier(order) {
+    return String(order?._id || order?.id || "").trim();
+  }
+
+  function isDeletionManagerRole(role) {
+    return ["manager", "gerenteUSA"].includes(String(role || "").trim());
+  }
+
+  function hasPendingDeletionRequest(order) {
+    return String(order?.deletionRequest?.status || "").trim().toLowerCase() === "pending";
+  }
+
+  function getClientDisplayName(order) {
+    return normalizeText(order?.client?.name || "Cliente sin asignar") || "Cliente sin asignar";
+  }
+
+  function buildOrderDetailUrl(order) {
+    const orderId = getOrderIdentifier(order);
+    const trackingValue = String(order?.trackingNumber || "").trim();
+    const vinValue = String(order?.vehicle?.vin || "").trim();
+    const clientValue = String(getClientDisplayName(order) || "").trim();
+
+    return `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
+  }
+
+  function formatOrderLabel(order) {
+    return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  }
+
+  function formatDateLabel(dateValue) {
+    if (!dateValue) {
+      return "Sin fecha";
+    }
+
+    if (typeof adminFormatDate === "function") {
+      return adminFormatDate(dateValue);
+    }
+
+    const resolvedDate = new Date(dateValue);
+
+    if (Number.isNaN(resolvedDate.getTime())) {
+      return "Sin fecha";
+    }
+
+    return resolvedDate.toLocaleDateString("es-CO", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function isAnthonyGlobalOwner() {
+    return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  }
+
+  function shouldShowOrderRegionBadge() {
+    return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || isAnthonyGlobalOwner();
+  }
+
+  function renderOrderRegionBadge(order) {
+    if (!shouldShowOrderRegionBadge()) {
+      return "";
+    }
+
+    const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+    if (!["latam", "usa"].includes(orderRegion)) {
+      return "";
+    }
+
+    return `<span class="tracking-order-region-badge is-${escapeHtml(orderRegion)}">${escapeHtml(orderRegion.toUpperCase())}</span>`;
   }
 
   function getOrderTrackingEvents(order) {
@@ -163,6 +251,8 @@
 
     const data = await adminFetchJson("/api/auth/me", { loadingMessage: false });
     const user = data.user || {};
+    currentAdminRole = String(user.role || "").trim();
+    currentAdminEmail = String(user.email || "").trim().toLowerCase();
     const nameElement = document.getElementById("admin-name");
     const emailElement = document.getElementById("admin-email");
 
@@ -181,7 +271,19 @@
   }
 
   function getStageByKey(stageKey) {
+    if (stageKey === completedStageCard.key) {
+      return completedStageCard;
+    }
+
     return stageTemplates.find((stage) => stage.key === stageKey) || null;
+  }
+
+  function isOrderCompleted(order) {
+    if (String(order?.status || "").trim().toLowerCase() === "completed") {
+      return true;
+    }
+
+    return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === stageTemplates.length - 1);
   }
 
   function getOrderTrackingSteps(order) {
@@ -189,6 +291,7 @@
     const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || stageTemplates[index]?.key || ""), step]));
     const trackingEvents = getOrderTrackingEvents(order);
     const trackingEventsByKey = new Map();
+    const isCompletedOrder = isOrderCompleted(order);
 
     trackingEvents.forEach((event) => {
       if (!trackingEventsByKey.has(event.stateKey)) {
@@ -227,32 +330,38 @@
               updatedAt: update?.updatedAt || null,
             }))
           : []);
-      const hasEventUpdates = eventUpdates.length > 0;
       const latestUpdate = getLatestTrackingUpdate(updates);
-      const derivedConfirmed = hasEventUpdates
-        ? Boolean(latestUpdate?.completed)
-        : Boolean(typeof sourceStep?.confirmed === "boolean" ? sourceStep.confirmed : latestUpdate?.completed);
-      const derivedInProgress = hasEventUpdates
-        ? Boolean(latestUpdate?.completed ? false : latestUpdate?.inProgress)
-        : Boolean(
-            typeof sourceStep?.inProgress === "boolean"
-              ? sourceStep.inProgress && !derivedConfirmed
-              : latestUpdate?.completed
-                ? false
-                : latestUpdate?.inProgress
-          );
+      const derivedConfirmed =
+        Boolean(sourceStep?.confirmed) ||
+        updates.some((update) => Boolean(update?.completed));
+      const derivedInProgress =
+        !derivedConfirmed &&
+        (Boolean(sourceStep?.inProgress) ||
+          updates.some((update) => Boolean(update?.inProgress) && !Boolean(update?.completed)));
 
       return {
         key: template.key,
         label: String(sourceStep?.label || template.label),
-        confirmed: derivedConfirmed,
-        inProgress: derivedInProgress,
+        confirmed: isCompletedOrder ? true : derivedConfirmed,
+        inProgress: isCompletedOrder ? false : derivedInProgress,
+        updates,
+        updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
+        confirmedAt: sourceStep?.confirmedAt || (isCompletedOrder ? order?.updatedAt || order?.createdAt || null : null),
       };
     });
 
     const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
     const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
     const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+
+    if (isCompletedOrder) {
+      return normalizedSteps.map((step) => ({
+        ...step,
+        confirmed: true,
+        inProgress: false,
+        confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+      }));
+    }
 
     return normalizedSteps.map((step, index) => ({
       ...step,
@@ -281,7 +390,19 @@
     return stageTemplates[firstPendingIndex]?.key || null;
   }
 
+  function resolveStateBucketKey(order) {
+    if (isOrderCompleted(order)) {
+      return completedStageCard.key;
+    }
+
+    return resolveCurrentStageKey(order);
+  }
+
   function renderCurrentStageLabel(order) {
+    if (resolveStateBucketKey(order) === completedStageCard.key) {
+      return "E10: Completado";
+    }
+
     const currentStageKey = resolveCurrentStageKey(order);
     const currentStageIndex = stageTemplates.findIndex((stage) => stage.key === currentStageKey);
 
@@ -293,9 +414,38 @@
     return `E${currentStageIndex + 1}: ${currentStageLabel}`;
   }
 
+  function getCurrentStageMeta(order) {
+    const currentStageKey = resolveStateBucketKey(order);
+
+    if (currentStageKey === completedStageCard.key) {
+      return {
+        key: completedStageCard.key,
+        index: stageTemplates.length,
+        code: `E${stageTemplates.length + 1}`,
+        label: completedStageCard.label,
+      };
+    }
+
+    const stageIndex = stageTemplates.findIndex((stage) => stage.key === currentStageKey);
+
+    if (stageIndex === -1) {
+      return { key: "", index: -1, code: "-", label: "Sin etapa" };
+    }
+
+    return {
+      key: currentStageKey,
+      index: stageIndex,
+      code: `E${stageIndex + 1}`,
+      label: String(stageTemplates[stageIndex]?.label || "Estado"),
+    };
+  }
+
   function renderOrderTrackingSummary(order) {
     const steps = getOrderTrackingSteps(order);
     const currentStageKey = resolveCurrentStageKey(order);
+    const completedStateChip = resolveStateBucketKey(order) === completedStageCard.key
+      ? `<span class="order-step-chip is-confirmed">E10 ${escapeHtml(completedStageCard.label)}</span>`
+      : "";
 
     return steps
       .map((step, index) => {
@@ -306,56 +456,155 @@
             : "is-pending";
         return `<span class="order-step-chip ${statusClass}">E${index + 1} ${escapeHtml(step?.label || "Estado")}</span>`;
       })
-      .join("");
+      .join("") + completedStateChip;
   }
 
   function renderOrders(orders) {
+    if (ordersTableCount) {
+      ordersTableCount.textContent = `${orders.length} pedido(s)`;
+    }
+
     if (!orders.length) {
-      renderEmptyState(ordersList, "No hay vehículos en este estado actualmente.");
+      setEmptyResults("No hay pedidos en este estado actualmente.");
       return;
     }
 
-    ordersList.innerHTML = orders
+    ordersTableBody.innerHTML = orders
       .map((order) => {
-        const vehicle = order.vehicle || {};
-        const client = order.client || {};
-        const mediaCount = Array.isArray(order.media) ? order.media.length : 0;
-        const orderId = String(order._id || order.id || "").trim();
-        const trackingValue = String(order.trackingNumber || "").trim();
-        const vinValue = String(vehicle.vin || "").trim();
-        const clientNameValue = String(client.name || "").trim();
-        const internalIdentifierValue = String(vehicle.internalIdentifier || vehicle.description || "").trim();
-        const trackingEditorUrl = `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientNameValue)}&internal=${encodeURIComponent(internalIdentifierValue)}`;
+        const orderId = getOrderIdentifier(order);
+        const trackingValue = String(order?.trackingNumber || "").trim();
+        const vinValue = String(order?.vehicle?.vin || "").trim();
+        const detailUrl = buildOrderDetailUrl(order);
+        const stageMeta = getCurrentStageMeta(order);
+        const vehicleLabel = formatOrderLabel(order);
+        const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
+        const pendingDeletion = hasPendingDeletionRequest(order);
+        const deleteLabel = pendingDeletion ? "Solicitud pendiente" : "Eliminar pedido";
 
         return `
-          <a class="state-order-item state-order-link" href="${trackingEditorUrl}">
-            <header class="state-order-header">
-              <h3>${escapeHtml(vehicle.brand || "Vehículo")} ${escapeHtml(vehicle.model || "")}</h3>
-              <span class="section-tag">Tracking ${escapeHtml(order.trackingNumber || "-")}</span>
-            </header>
-
-            <div class="state-order-grid">
-              <p><strong>Versión:</strong> ${escapeHtml(vehicle.version || "Sin versión")}</p>
-              <p><strong>Año:</strong> ${escapeHtml(vehicle.year || "-")}</p>
-              <p><strong>VIN:</strong> ${escapeHtml(vehicle.vin || "-")}</p>
-              <p><strong>Color:</strong> ${escapeHtml(vehicle.color || "-")}</p>
-              <p><strong>Cliente:</strong> ${escapeHtml(client.name || "Sin asignar")}</p>
-              <p><strong>Email cliente:</strong> ${escapeHtml(client.email || "-")}</p>
-              <p><strong>Teléfono:</strong> ${escapeHtml(client.phone || "-")}</p>
-              <p><strong>Estado pedido:</strong> ${escapeHtml(order.status || "-")}</p>
-              <p><strong>Compra:</strong> ${escapeHtml(adminFormatDate(order.purchaseDate))}</p>
-              <p><strong>Llegada estimada:</strong> ${escapeHtml(adminFormatDate(order.expectedArrivalDate))}</p>
-              <p><strong>Media del pedido:</strong> ${escapeHtml(mediaCount)} archivo(s)</p>
-              <p><strong>ID interno:</strong> ${escapeHtml(vehicle.internalIdentifier || "-")}</p>
-              <p><strong>Estado tracking actual:</strong> ${escapeHtml(renderCurrentStageLabel(order))}</p>
-            </div>
-
-            <p class="state-order-notes"><strong>Notas:</strong> ${escapeHtml(order.notes || "Sin notas internas")}</p>
-            <div class="order-steps-row">${renderOrderTrackingSummary(order)}</div>
-          </a>
+          <tr
+            class="tracking-order-row"
+            data-order-row-select="true"
+            data-order-id="${escapeHtml(orderId)}"
+            tabindex="0"
+            aria-label="Seleccionar pedido ${escapeHtml(trackingValue || vehicleLabel || orderId)}"
+          >
+            <td data-label="Tracking">
+              <div class="tracking-order-link-stack">
+                <button class="tracking-order-link-button" type="button" data-order-detail-link="${escapeHtml(detailUrl)}" data-order-id="${escapeHtml(orderId)}">
+                  ${escapeHtml(trackingValue || "-")}
+                </button>
+                ${renderOrderRegionBadge(order)}
+              </div>
+            </td>
+            <td data-label="VIN">${escapeHtml(vinValue || "Sin VIN")}</td>
+            <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
+            <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
+            <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
+            <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+            <td data-label="Fecha">${escapeHtml(rowDate)}</td>
+            <td data-label="Acción" class="tracking-order-actions-cell">
+              <div class="tracking-order-actions">
+                <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
+                <button class="tracking-order-action-button is-danger" type="button" data-order-delete="${escapeHtml(orderId)}" ${pendingDeletion ? 'disabled aria-disabled="true"' : ""} aria-label="${escapeHtml(deleteLabel)} ${escapeHtml(trackingValue || orderId)}">&times;</button>
+              </div>
+            </td>
+          </tr>
         `;
       })
       .join("");
+  }
+
+  async function handleDeleteOrderAction(orderId) {
+    const order = orders.find((item) => getOrderIdentifier(item) === String(orderId || "").trim()) || null;
+
+    if (!order) {
+      setFeedback(feedback, "No se pudo identificar el pedido.", "error");
+      return;
+    }
+
+    if (hasPendingDeletionRequest(order)) {
+      setFeedback(feedback, "Este pedido ya tiene una solicitud de eliminación pendiente.", "error");
+      return;
+    }
+
+    try {
+      if (isDeletionManagerRole(currentAdminRole)) {
+        if (!window.confirm("¿Seguro que deseas eliminar este pedido?")) {
+          return;
+        }
+
+        await adminFetchJson(`/api/admin/orders/${getOrderIdentifier(order)}/deletion-request`, {
+          method: "POST",
+          body: JSON.stringify({}),
+          loadingMessage: false,
+        });
+
+        await loadPage();
+        setFeedback(feedback, "Pedido eliminado correctamente.", "success");
+        return;
+      }
+
+      const reason = normalizeText(window.prompt("Indica el motivo de la solicitud de eliminación:", "") || "");
+
+      if (!reason) {
+        return;
+      }
+
+      await adminFetchJson(`/api/admin/orders/${getOrderIdentifier(order)}/deletion-request`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+        loadingMessage: false,
+      });
+
+      await loadPage();
+      setFeedback(feedback, "Solicitud de eliminación enviada correctamente.", "success");
+    } catch (error) {
+      setFeedback(feedback, error.message || "No se pudo procesar la eliminación del pedido.", "error");
+    }
+  }
+
+  function handleStateOrdersClick(event) {
+    const detailButton = event.target.closest("[data-order-detail-link]");
+
+    if (detailButton) {
+      const href = normalizeText(detailButton.dataset.orderDetailLink || "");
+
+      if (href) {
+        window.location.href = href;
+      }
+
+      return;
+    }
+
+    const editButton = event.target.closest("[data-order-edit]");
+
+    if (editButton) {
+      const order = orders.find((item) => getOrderIdentifier(item) === String(editButton.dataset.orderEdit || "").trim()) || null;
+
+      if (order) {
+        window.location.href = buildOrderDetailUrl(order);
+      }
+
+      return;
+    }
+
+    const deleteButton = event.target.closest("[data-order-delete]");
+
+    if (deleteButton) {
+      handleDeleteOrderAction(String(deleteButton.dataset.orderDelete || "")).catch(() => null);
+      return;
+    }
+
+    const orderRow = event.target.closest("[data-order-row-select]");
+
+    if (orderRow) {
+      const order = orders.find((item) => getOrderIdentifier(item) === String(orderRow.dataset.orderId || "").trim()) || null;
+
+      if (order) {
+        window.location.href = buildOrderDetailUrl(order);
+      }
+    }
   }
 
   async function loadPage() {
@@ -371,13 +620,15 @@
 
       if (!selectedStage) {
         setFeedback(feedback, "Estado inválido. Vuelve al dashboard y selecciona un estado válido.", "error");
-        renderEmptyState(ordersList, "No se pudo determinar el estado solicitado.");
+        setEmptyResults("No se pudo determinar el estado solicitado.");
         return;
       }
 
       stateKeyChip.textContent = selectedStage.label;
-      statePageTitle.textContent = `Vehículos en estado: ${selectedStage.label}`;
-      statePageLead.textContent = "Listado de vehículos filtrados por su estado actual en tracking.";
+      statePageTitle.textContent = `Pedidos en estado: ${selectedStage.label}`;
+      statePageLead.textContent = selectedStateKey === completedStageCard.key
+        ? "Listado de pedidos finalizados para LATAM y USA."
+        : "Listado de pedidos filtrados por su estado actual en tracking.";
       stateLabelSummary.textContent = selectedStage.label;
 
       if (typeof adminFetchJson !== "function") {
@@ -385,15 +636,15 @@
       }
 
       const ordersData = await adminFetchJson("/api/admin/orders", { loadingMessage: false });
-      const orders = normalizeCollectionPayload(ordersData, ["orders"]);
-      const filteredOrders = orders.filter((order) => resolveCurrentStageKey(order) === selectedStateKey);
+      orders = normalizeCollectionPayload(ordersData, ["orders"]);
+      const filteredOrders = orders.filter((order) => resolveStateBucketKey(order) === selectedStateKey);
 
       stateTotalCount.textContent = String(filteredOrders.length);
       renderOrders(filteredOrders);
-      setFeedback(feedback, `Se cargaron ${filteredOrders.length} vehículo(s) en este estado.`, "success");
+      setFeedback(feedback, `Se cargaron ${filteredOrders.length} pedido(s) en este estado.`, "success");
     } catch (error) {
       setFeedback(feedback, error.message || "No se pudo cargar el estado.", "error");
-      renderEmptyState(ordersList, "No fue posible cargar los vehículos de este estado.");
+      setEmptyResults("No fue posible cargar los pedidos de este estado.");
     } finally {
       stopInitOverlayWatchdog();
       forceClearLoadingState();
@@ -404,6 +655,7 @@
   initOverlayWatchdog = window.setInterval(forceClearLoadingState, 600);
   window.addEventListener("pageshow", forceClearLoadingState);
   window.addEventListener("load", forceClearLoadingState);
+  ordersTableBody?.addEventListener("click", handleStateOrdersClick);
 
   loadPage().catch((error) => {
     stopInitOverlayWatchdog();
