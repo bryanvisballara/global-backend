@@ -414,8 +414,18 @@ app.use((req, res, next) => {
 app.use(
   express.static(publicDirectory, {
     setHeaders(res, filePath) {
-      if (filePath.endsWith(".html")) {
+      const normalizedFilePath = filePath.replace(/\\/g, "/");
+      const fileName = path.basename(normalizedFilePath);
+
+      if (
+        filePath.endsWith(".html") ||
+        fileName === "app-client.js" ||
+        fileName === "admin-common.js" ||
+        fileName === "admin-mobile-fix.css"
+      ) {
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
       }
     },
   })
@@ -425,8 +435,18 @@ app.use(
   "/app",
   express.static(publicDirectory, {
     setHeaders(res, filePath) {
-      if (filePath.endsWith(".html")) {
+      const normalizedFilePath = filePath.replace(/\\/g, "/");
+      const fileName = path.basename(normalizedFilePath);
+
+      if (
+        filePath.endsWith(".html") ||
+        fileName === "app-client.js" ||
+        fileName === "admin-common.js" ||
+        fileName === "admin-mobile-fix.css"
+      ) {
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
       }
     },
   })
