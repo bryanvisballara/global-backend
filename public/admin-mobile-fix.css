@@ -562,6 +562,71 @@ body.admin-app-view {
     overflow-wrap: anywhere !important;
   }
 
+  body.admin-app-view .admin-sidebar {
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    contain: inline-size !important;
+  }
+
+  body.admin-app-view .admin-sidebar,
+  body.admin-app-view .admin-sidebar *,
+  body.admin-app-view .admin-sidebar *::before,
+  body.admin-app-view .admin-sidebar *::after {
+    box-sizing: border-box !important;
+  }
+
+  body.admin-app-view .admin-sidebar-brand {
+    display: grid !important;
+    grid-template-columns: 28px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    align-items: center !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  body.admin-app-view .admin-sidebar-logo {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    padding: 4px !important;
+    border-radius: 8px !important;
+  }
+
+  body.admin-app-view .admin-sidebar .section-tag,
+  body.admin-app-view .admin-sidebar-brand strong,
+  body.admin-app-view .admin-sidebar-section-label,
+  body.admin-app-view .admin-nav-link,
+  body.admin-app-view .admin-badge-sidebar,
+  body.admin-app-view .admin-badge-sidebar span,
+  body.admin-app-view .admin-badge-sidebar strong,
+  body.admin-app-view .admin-logout-button {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    text-overflow: clip !important;
+  }
+
+  body.admin-app-view .admin-sidebar .section-tag {
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    padding: 4px 5px !important;
+  }
+
+  body.admin-app-view .admin-nav-link,
+  body.admin-app-view .admin-logout-button {
+    border-radius: 8px !important;
+    font-size: 0.52rem !important;
+    line-height: 1.05 !important;
+    padding: 5px 6px !important;
+  }
+
   @supports not (zoom: 0.75) {
     body.admin-app-view .dashboard-shell,
     body.admin-app-view.admin-drawer-ready .dashboard-shell {
