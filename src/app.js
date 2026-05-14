@@ -272,7 +272,7 @@ function getRemoteFileStream(fileUrl, redirectCount = 0) {
   });
 }
 
-async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
+async function proxyDownloadFile(req, res, fallbackFileName = "documento", options = {}) {
   try {
     const fileUrl = String(req.query.url || "").trim();
 
@@ -282,7 +282,8 @@ async function proxyDownloadFile(req, res, fallbackFileName = "documento") {
 
     const isPdfDownload = isPdfDownloadRequest(fileUrl, req.query.fileName || fallbackFileName);
     const requestedFileName = resolveDownloadFileName(fileUrl, req.query.fileName, isPdfDownload ? "document.pdf" : fallbackFileName);
-    res.setHeader("Content-Disposition", `attachment; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
+    const dispositionType = options.inline ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${dispositionType}; filename="${requestedFileName}"; filename*=UTF-8''${encodeURIComponent(requestedFileName)}`);
     res.setHeader("Cache-Control", "public, max-age=3600");
 
     if (isPdfDownload) {
@@ -493,6 +494,7 @@ app.get("/api/uploads/download/:fileName", async (req, res) => {
 
 app.get("/api/downloads/file", (req, res) => proxyDownloadFile(req, res));
 app.get("/api/downloads/pdf", (req, res) => proxyDownloadFile(req, res, "document.pdf"));
+app.get("/api/downloads/view", (req, res) => proxyDownloadFile(req, res, "documento", { inline: true }));
 
 app.get("/", (req, res) => {
   res.redirect("/index.html");
