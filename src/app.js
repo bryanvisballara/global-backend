@@ -419,7 +419,9 @@ app.use(
 
       if (
         filePath.endsWith(".html") ||
+        fileName === "styles.css" ||
         fileName === "app-client.js" ||
+        fileName === "admin-dashboard.js" ||
         fileName === "admin-common.js" ||
         fileName === "admin-mobile-fix.css"
       ) {
@@ -440,7 +442,9 @@ app.use(
 
       if (
         filePath.endsWith(".html") ||
+        fileName === "styles.css" ||
         fileName === "app-client.js" ||
+        fileName === "admin-dashboard.js" ||
         fileName === "admin-common.js" ||
         fileName === "admin-mobile-fix.css"
       ) {

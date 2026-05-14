@@ -8767,6 +8767,41 @@ body.admin-app-view .dashboard-tracking-link:hover {
   background: #f3f3f3;
 }
 
+.tracking-order-link-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tracking-order-region-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 1px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: #202229;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.14);
+}
+
+.tracking-order-region-badge.is-latam,
+.tracking-order-region-badge.is-usa {
+  background: #202229;
+  color: #ffffff;
+}
+
 body.admin-app-view,
 body.admin-app-view *,
 body.admin-app-view *::placeholder {
