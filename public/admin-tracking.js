@@ -1938,8 +1938,8 @@ function renderOrderDocumentUploadCard() {
           </label>
           <label>
             <span>Archivo(s) *</span>
-            <input name="mediaFiles" class="tracking-document-file-input" type="file" multiple required />
-            <small>Puedes seleccionar varios archivos a la vez.</small>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept="image/*,.pdf,.zip,application/pdf,application/zip,application/x-zip-compressed" multiple required />
+            <small>Puedes seleccionar varias imagenes, PDF o ZIP a la vez.</small>
           </label>
         </div>
         <label>

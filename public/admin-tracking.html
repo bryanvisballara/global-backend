@@ -519,8 +519,8 @@
                 </div>
                 <div class="tracking-state-upload-grid two-up">
                   <label>
-                    <span>Subir documento (PDF)</span>
-                    <input type="file" data-bootstrap-field="documentFile" accept=".pdf,application/pdf" />
+                    <span>Subir documento</span>
+                    <input type="file" data-bootstrap-field="documentFile" accept="image/*,.pdf,.zip,application/pdf,application/zip,application/x-zip-compressed" />
                     ${renderBootstrapSavedFileList(mediaBuckets.document, state.key)}
                   </label>
                   <label>
@@ -815,7 +815,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260514-adminpdf26"></script>
+    <script src="/admin-tracking.js?v=20260514-docformats27"></script>
     <script src="/admin-orders.js?v=20260504-orders-brokerpicker16"></script>
   </body>
 </html>
