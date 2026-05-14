@@ -441,9 +441,13 @@ body.admin-app-view {
   }
 }
 
-@media (min-width: 761px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+@media (min-width: 761px) and (max-width: 1366px) {
   body.admin-app-view {
+    width: 100vw !important;
+    min-width: 100vw !important;
+    min-height: 100dvh !important;
     overflow-x: hidden !important;
+    overflow-y: auto !important;
   }
 
   body.admin-app-view .dashboard-shell,
@@ -451,6 +455,7 @@ body.admin-app-view {
     width: calc(100vw / 0.75) !important;
     max-width: none !important;
     min-height: calc(100dvh / 0.75) !important;
+    padding: 0 !important;
     margin: 0 !important;
     zoom: 0.75 !important;
     transform-origin: top left !important;
@@ -467,9 +472,24 @@ body.admin-app-view {
     max-width: none !important;
   }
 
+  body.admin-app-view .dashboard-stage,
+  body.admin-app-view.admin-drawer-ready .dashboard-stage,
+  body.admin-app-view .admin-dashboard-stage {
+    min-height: calc(100dvh / 0.75) !important;
+  }
+
+  body.admin-app-view .admin-dashboard-layout,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-layout,
+  body.admin-app-view .admin-dashboard-main,
+  body.admin-app-view.admin-drawer-ready .admin-dashboard-main {
+    min-height: calc(100dvh / 0.75) !important;
+  }
+
   @supports not (zoom: 0.75) {
     body.admin-app-view .dashboard-shell,
     body.admin-app-view.admin-drawer-ready .dashboard-shell {
+      width: calc(100vw / 0.75) !important;
+      min-height: calc(100dvh / 0.75) !important;
       transform: scale(0.75) !important;
       transform-origin: top left !important;
     }
