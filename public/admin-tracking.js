@@ -295,6 +295,7 @@ const orderDeleteRequestFeedback = document.getElementById("order-delete-request
 let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
 let pendingTrackingDeleteAction = null;
+let searchResultsRenderTimer = 0;
 
 const searchConfigs = [
   {
@@ -328,6 +329,24 @@ const searchConfigs = [
     },
   },
 ];
+
+function isAppleTouchInputEnvironment() {
+  const userAgent = String(navigator.userAgent || "");
+  const platform = String(navigator.platform || "");
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
+function disableDatalistsOnAppleTouch() {
+  if (!isAppleTouchInputEnvironment()) {
+    return;
+  }
+
+  searchConfigs.forEach((config) => {
+    config.input?.removeAttribute("list");
+  });
+}
+
+disableDatalistsOnAppleTouch();
 
 let orders = [];
 let selectedOrderId = "";
@@ -493,7 +512,7 @@ function renderCreateOrderClientOptions() {
 
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")} · ${escapeHtml(client.email || "Sin email")}</option>`),
+    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())} · ${escapeHtml(String(client.email || "Sin email").toUpperCase())}</option>`),
   ].join("");
 
   if (createOrderClientSummary) {
@@ -1149,6 +1168,13 @@ function renderSearchResults(matches) {
       </table>
     </div>
   `;
+}
+
+function scheduleSearchResultsRender() {
+  window.clearTimeout(searchResultsRenderTimer);
+  searchResultsRenderTimer = window.setTimeout(() => {
+    renderSearchResults(getFilteredOrders());
+  }, isAppleTouchInputEnvironment() ? 140 : 0);
 }
 
 function getStateDraftDefaults(state) {
@@ -3243,7 +3269,7 @@ window.addEventListener("admin-order-updated", async (event) => {
 
 searchConfigs.forEach((config) => {
   config.input.addEventListener("input", () => {
-    renderSearchResults(getFilteredOrders());
+    scheduleSearchResultsRender();
   });
 });
 

@@ -53,6 +53,19 @@ function normalizeCollectionPayload(payload, keys = []) {
   return [];
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function uppercaseDisplay(value, fallback = "") {
+  return String(value || fallback || "").toUpperCase();
+}
+
 async function fetchOrdersPageJson(path, options = {}) {
   const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
   const isFormDataBody = options.body instanceof FormData;
@@ -211,7 +224,7 @@ if (true) {
 
     clientSelect.innerHTML = [
       '<option value="">Selecciona cliente</option>',
-      ...clients.map((client) => `<option value="${client._id || client.id}">${client.name} · ${client.email}</option>`),
+      ...clients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))} · ${escapeHtml(uppercaseDisplay(client.email, "Sin email"))}</option>`),
     ].join("");
 
     if (clientSummary) {

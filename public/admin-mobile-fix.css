@@ -49,6 +49,17 @@ body.admin-app-view.admin-ipad-drawer.admin-drawer-ready.admin-sidebar-open .adm
   pointer-events: none !important;
 }
 
+body.admin-app-view .client-modal:not([hidden]),
+body.admin-app-view .tracking-modal:not([hidden]) {
+  z-index: 5000 !important;
+  pointer-events: auto !important;
+}
+
+body.admin-app-view .client-modal-card,
+body.admin-app-view .tracking-modal-card {
+  z-index: 5001 !important;
+}
+
 body.admin-app-view.admin-ipad-drawer .admin-sidebar-section-label,
 body.admin-app-view.admin-ipad-drawer .admin-badge-sidebar span {
   font-size: 0.68rem !important;
