@@ -362,6 +362,7 @@ const savingStates = new Set();
 const stateDrafts = new Map();
 let createOrderClients = [];
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+const COMPLETED_TIMELINE_STAGE = { key: "completed", label: "Completado" };
 const ORDER_DOCUMENT_TYPES = [
   { value: "FACTURA", label: "FACTURA" },
   { value: "BL", label: "BL" },
@@ -547,12 +548,36 @@ function getActiveOrders() {
   return orders.filter((order) => order?.status === "active");
 }
 
+function getSearchableOrders() {
+  const selectedState = String(trackingStateFilter?.value || "").trim();
+  const baseOrders = selectedState === COMPLETED_TIMELINE_STAGE.key
+    ? orders.filter((order) => resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key)
+    : getActiveOrders();
+  const pinnedOrder = selectedOrderId
+    ? orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null
+    : null;
+
+  if (!pinnedOrder || baseOrders.some((order) => getOrderIdentifier(order) === getOrderIdentifier(pinnedOrder))) {
+    return baseOrders;
+  }
+
+  return [pinnedOrder, ...baseOrders];
+}
+
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
 }
 
 function isAnthonyGlobalOwner() {
   return normalizeRole(currentAdminRole) === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+}
+
+function isOrderCompleted(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
+  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
 }
 
 function hasGlobalLatamOrderPrivileges() {
@@ -862,6 +887,10 @@ function resolveCurrentStageKey(order) {
   return firstPendingStep?.key || adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key || "";
 }
 
+function resolveStateBucketKey(order) {
+  return isOrderCompleted(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
+}
+
 function getCurrentStageMeta(order) {
   const currentStageKey = resolveCurrentStageKey(order);
   const stageIndex = adminTrackingTemplates.findIndex((stage) => stage.key === currentStageKey);
@@ -935,12 +964,12 @@ function renderStageTransitionCardMarkup(order) {
 }
 
 function populateSearchSelects() {
-  const activeOrders = getActiveOrders();
+  const searchableOrders = getSearchableOrders();
 
   searchConfigs.forEach((config) => {
     const values = new Set();
 
-    activeOrders.forEach((order) => {
+    searchableOrders.forEach((order) => {
       getConfigSearchValues(config, order).forEach((rawValue) => {
         values.add(rawValue);
       });
@@ -954,7 +983,8 @@ function populateSearchSelects() {
   const stateOptions = ['<option value="">Todos los estados</option>'].concat(
     adminTrackingTemplates.map(
       (stage, index) => `<option value="${escapeHtml(stage.key)}">${escapeHtml(`${getStateCode(index)}: ${stage.label}`)}</option>`
-    )
+    ),
+    `<option value="${escapeHtml(COMPLETED_TIMELINE_STAGE.key)}">${escapeHtml(`E${adminTrackingTemplates.length + 1}: ${COMPLETED_TIMELINE_STAGE.label}`)}</option>`
   );
 
   if (trackingStateFilter) {
@@ -966,12 +996,12 @@ function populateSearchSelects() {
 }
 
 function getFilteredOrders() {
-  const activeOrders = getActiveOrders();
+  const searchableOrders = getSearchableOrders();
   const selectedState = String(trackingStateFilter?.value || "").trim();
   const dateFrom = trackingDateFromFilter?.value ? normalizeToDateStart(trackingDateFromFilter.value) : null;
   const dateTo = trackingDateToFilter?.value ? normalizeToDateEnd(trackingDateToFilter.value) : null;
 
-  return activeOrders.filter((order) => {
+  return searchableOrders.filter((order) => {
     const matchesSearch = searchConfigs.every((config) => {
       const query = normalizeSearchValue(config.input.value);
 
@@ -986,7 +1016,7 @@ function getFilteredOrders() {
       return false;
     }
 
-    const currentStageKey = resolveCurrentStageKey(order);
+    const currentStageKey = resolveStateBucketKey(order);
 
     if (selectedState && currentStageKey !== selectedState) {
       return false;
