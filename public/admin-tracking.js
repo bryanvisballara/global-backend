@@ -62,6 +62,7 @@ async function loadTrackingPageSession() {
   const user = data.user || {};
   currentAdminRole = String(user.role || "");
   currentAdminEmail = String(user.email || "").trim().toLowerCase();
+  currentAdminId = String(user._id || user.id || "").trim();
 
   if (user.role) {
     localStorage.setItem("globalAppRole", user.role);
@@ -354,6 +355,7 @@ let isRestoringTrackingHistory = false;
 const trackingHistoryPath = window.location.pathname;
 let currentAdminRole = "";
 let currentAdminEmail = "";
+let currentAdminId = "";
 let expandedStateKey = "";
 let expandedOverviewStateKey = "";
 let initOverlayWatchdog = null;
@@ -584,15 +586,14 @@ function hasGlobalLatamOrderPrivileges() {
   return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
 }
 
-function getTrackingStateIndex(stateKey) {
-  return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
+function getOrderRegion(order) {
+  return String(order?.orderRegion || "latam").trim().toLowerCase();
 }
 
-function canEditStateForRole(role, stateKey) {
+function canManageTrackingForOrder(role, order) {
   const normalizedRole = normalizeRole(role);
-  const stateIndex = getTrackingStateIndex(stateKey);
 
-  if (!normalizedRole || stateIndex === -1) {
+  if (!normalizedRole || !order) {
     return false;
   }
 
@@ -600,18 +601,60 @@ function canEditStateForRole(role, stateKey) {
     return true;
   }
 
-  if (["adminusa", "gerenteusa"].includes(normalizedRole)) {
-    return stateIndex <= 3;
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
   }
 
-  if (hasGlobalLatamOrderPrivileges()) {
-    return true;
+  const orderRegion = getOrderRegion(order);
+  const currentStageMeta = getCurrentStageMeta(order);
+
+  if (["adminusa", "gerenteusa"].includes(normalizedRole)) {
+    if (orderRegion === "usa") {
+      return true;
+    }
+
+    return currentStageMeta.index >= 0 && currentStageMeta.index <= 2;
+  }
+
+  if (["admin", "manager"].includes(normalizedRole)) {
+    return orderRegion === "latam";
   }
 
   return false;
 }
 
-function canTransitionTrackingState(currentIndex, targetIndex) {
+function getTrackingStateIndex(stateKey) {
+  return adminTrackingTemplates.findIndex((template) => template.key === String(stateKey || "").trim());
+}
+
+function canEditStateForRole(role, stateKey, order = getSelectedOrder()) {
+  const normalizedRole = normalizeRole(role);
+  const stateIndex = getTrackingStateIndex(stateKey);
+
+  if (!normalizedRole || stateIndex === -1 || !canManageTrackingForOrder(normalizedRole, order)) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner()) {
+    return true;
+  }
+
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+  if (getOrderRegion(order) === "usa") {
+    return stateIndex <= 3;
+  }
+
+  if (["adminusa", "gerenteusa"].includes(normalizedRole)) {
+    return stateIndex <= 2;
+  }
+
+  return stateIndex >= 3;
+}
+
+function canTransitionTrackingState(currentIndex, targetIndex, order = getSelectedOrder()) {
   if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
     return false;
   }
@@ -620,15 +663,23 @@ function canTransitionTrackingState(currentIndex, targetIndex) {
     return true;
   }
 
+  if (hasGlobalLatamOrderPrivileges()) {
+    return getOrderRegion(order) === "latam";
+  }
+
+  if (!canManageTrackingForOrder(currentAdminRole, order)) {
+    return false;
+  }
+
+  if (getOrderRegion(order) === "usa") {
+    return currentIndex <= 2 && targetIndex <= 3;
+  }
+
   if (["adminusa", "gerenteusa"].includes(normalizeRole(currentAdminRole))) {
     return currentIndex <= 2 && targetIndex <= 3;
   }
 
-  if (hasGlobalLatamOrderPrivileges()) {
-    return true;
-  }
-
-  return false;
+  return currentIndex === 2 && targetIndex === 3;
 }
 
 function canAdvanceTrackingState(states = [], stateIndex = -1) {
@@ -942,8 +993,8 @@ function renderStageTransitionCardMarkup(order) {
   }
 
   const currentStageMeta = getCurrentStageMeta(order);
-  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1);
-  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1);
+  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1, order);
+  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1, order);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
