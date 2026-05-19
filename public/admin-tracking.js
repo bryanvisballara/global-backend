@@ -740,14 +740,14 @@ function getOrderTrackingEvents(order) {
         clientVisible: Boolean(event?.clientVisible),
         inProgress: Boolean(event?.completed ? false : event?.inProgress),
         completed: Boolean(event?.completed),
-        createdAt: event?.createdAt || null,
-        updatedAt: event?.updatedAt || event?.createdAt || null,
+        createdAt: event?.createdAt || event?.updatedAt || null,
+        updatedAt: event?.createdAt || event?.updatedAt || null,
       };
     })
     .filter((event) => event.stateKey)
     .sort((left, right) => {
-      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      const leftTime = new Date(getOriginalDate(left) || 0).getTime();
+      const rightTime = new Date(getOriginalDate(right) || 0).getTime();
 
       if (rightTime !== leftTime) {
         return rightTime - leftTime;
@@ -1602,8 +1602,8 @@ function getIndexedUpdates(step) {
       updateIndex,
     }))
     .sort((left, right) => {
-      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      const leftTime = new Date(getOriginalDate(left) || 0).getTime();
+      const rightTime = new Date(getOriginalDate(right) || 0).getTime();
       return rightTime - leftTime;
     });
 }
