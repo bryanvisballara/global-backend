@@ -2617,6 +2617,97 @@ async function toggleOrderDocumentVisibility(documentId, nextVisible) {
   }
 }
 
+function openTrackingEditModal({ title = "Editar", copy = "", fields = [], submitLabel = "Guardar cambios" } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.createElement("section");
+    modal.className = "tracking-modal tracking-edit-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.innerHTML = `
+      <div class="tracking-modal-backdrop" data-close-tracking-edit-modal></div>
+      <form class="tracking-modal-card tracking-edit-modal-card" data-tracking-edit-form>
+        <div class="tracking-edit-modal-header">
+          <div>
+            <span>Editar información</span>
+            <strong>${escapeHtml(title)}</strong>
+          </div>
+          <button class="tracking-edit-modal-close" type="button" data-close-tracking-edit-modal aria-label="Cerrar">&times;</button>
+        </div>
+        ${copy ? `<p class="tracking-edit-modal-copy">${escapeHtml(copy)}</p>` : ""}
+        <div class="tracking-edit-modal-fields">
+          ${fields.map((field) => {
+            const name = escapeHtml(field.name || "");
+            const label = escapeHtml(field.label || "Campo");
+            const value = String(field.value || "");
+
+            if (field.type === "select") {
+              return `
+                <label>
+                  <span>${label}</span>
+                  <select name="${name}" class="tracking-native-select">
+                    ${(field.options || []).map((option) => {
+                      const optionValue = String(option.value || "");
+                      return `<option value="${escapeHtml(optionValue)}"${optionValue === value ? " selected" : ""}>${escapeHtml(option.label || optionValue)}</option>`;
+                    }).join("")}
+                  </select>
+                </label>
+              `;
+            }
+
+            if (field.type === "textarea") {
+              return `
+                <label>
+                  <span>${label}</span>
+                  <textarea name="${name}" rows="${Number(field.rows || 4)}" class="tracking-native-select tracking-native-textarea" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(value)}</textarea>
+                </label>
+              `;
+            }
+
+            return `
+              <label>
+                <span>${label}</span>
+                <input name="${name}" class="tracking-native-select" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || "")}" />
+              </label>
+            `;
+          }).join("")}
+        </div>
+        <div class="tracking-modal-actions">
+          <button class="secondary-button" type="button" data-close-tracking-edit-modal>Cancelar</button>
+          <button class="primary-button" type="submit">${escapeHtml(submitLabel)}</button>
+        </div>
+      </form>
+    `;
+
+    const close = (value = null) => {
+      modal.remove();
+      document.body.classList.remove("modal-open");
+      resolve(value);
+    };
+
+    modal.addEventListener("click", (event) => {
+      if (event.target.closest("[data-close-tracking-edit-modal]")) {
+        close(null);
+      }
+    });
+
+    modal.querySelector("[data-tracking-edit-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const values = {};
+      fields.forEach((field) => {
+        values[field.name] = String(formData.get(field.name) || "").trim();
+      });
+      close(values);
+    });
+
+    document.body.appendChild(modal);
+    document.body.classList.add("modal-open");
+    window.setTimeout(() => {
+      modal.querySelector("input, textarea, select, button")?.focus({ preventScroll: true });
+    }, 0);
+  });
+}
+
 async function editTrackingEvent(eventId, currentTitle = "", currentDescription = "") {
   const selectedOrder = getSelectedOrder();
 
@@ -2625,21 +2716,23 @@ async function editTrackingEvent(eventId, currentTitle = "", currentDescription 
     return;
   }
 
-  const title = window.prompt("Editar título del evento", currentTitle || "");
+  const values = await openTrackingEditModal({
+    title: "Evento de tracking",
+    copy: "Actualiza el título y la descripción que verán los administradores y, cuando corresponda, el cliente.",
+    submitLabel: "Guardar evento",
+    fields: [
+      { name: "title", label: "Título", value: currentTitle, placeholder: "Ej: Vehículo reservado" },
+      { name: "notes", label: "Descripción", type: "textarea", rows: 5, value: currentDescription, placeholder: "Describe el avance del pedido" },
+    ],
+  });
 
-  if (title === null) {
-    return;
-  }
-
-  const description = window.prompt("Editar descripción del evento", currentDescription || "");
-
-  if (description === null) {
+  if (!values) {
     return;
   }
 
   const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-events/${encodeURIComponent(eventId)}`, {
     method: "PATCH",
-    body: JSON.stringify({ title, notes: description }),
+    body: JSON.stringify({ title: values.title, notes: values.notes }),
   });
 
   orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));

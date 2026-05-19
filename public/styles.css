@@ -4304,6 +4304,72 @@ body.modal-open {
   line-height: 1.6;
 }
 
+.tracking-edit-modal-card {
+  width: min(560px, calc(100vw - 32px));
+  gap: 18px;
+  padding: 26px;
+}
+
+.tracking-edit-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tracking-edit-modal-header span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracking-edit-modal-header strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.tracking-edit-modal-close {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tracking-edit-modal-copy {
+  margin: -4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.tracking-edit-modal-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-edit-modal-fields label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-edit-modal-fields label span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .client-state-card {
   padding: 0;
 }
