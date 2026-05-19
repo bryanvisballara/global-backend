@@ -3342,7 +3342,6 @@ async function toggleTrackingEventVisibility(req, res) {
     const previousConfirmedStep = getLatestConfirmedVisibleStep(order.trackingSteps, targetEvent.stepKey);
 
     targetEvent.clientVisible = requestedClientVisible;
-    targetEvent.updatedAt = new Date();
     await targetEvent.save();
 
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
@@ -3407,7 +3406,6 @@ async function updateTrackingEvent(req, res) {
 
     targetEvent.title = String(req.body.title || "").trim();
     targetEvent.notes = String(req.body.notes ?? req.body.description ?? "").trim();
-    targetEvent.updatedAt = new Date();
     await targetEvent.save();
 
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
@@ -3483,7 +3481,6 @@ async function deleteTrackingUpdate(req, res) {
         reviewedAt: null,
         rejectionReason: "",
       };
-      targetEvent.updatedAt = new Date();
       await targetEvent.save();
 
       const updatedOrder = await persistTrackingOrderState(orderResult, order);
@@ -3568,7 +3565,6 @@ async function reviewTrackingEventDeletionRequest(req, res) {
       reviewedAt: new Date(),
       rejectionReason,
     };
-    targetEvent.updatedAt = new Date();
     await targetEvent.save();
 
     return res.status(200).json({

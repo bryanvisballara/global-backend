@@ -52,6 +52,10 @@ function buildTrackingEventStateFields(stepKey = "", source = {}) {
   };
 }
 
+function getTrackingEventOriginalTimestamp(event) {
+  return event?.createdAt || event?.updatedAt || null;
+}
+
 function normalizeEventMedia(media = []) {
   if (!Array.isArray(media)) {
     return [];
@@ -73,6 +77,8 @@ function normalizeEventMedia(media = []) {
 }
 
 function mapTrackingEventToUpdate(event) {
+  const originalTimestamp = getTrackingEventOriginalTimestamp(event);
+
   return {
     eventId: String(event?._id || event?.id || ""),
     title: String(event?.title || "").trim(),
@@ -82,13 +88,14 @@ function mapTrackingEventToUpdate(event) {
     clientVisible: Boolean(event?.clientVisible),
     inProgress: Boolean(event?.completed ? false : event?.inProgress),
     completed: Boolean(event?.completed),
-    createdAt: event?.createdAt || null,
-    updatedAt: event?.updatedAt || event?.createdAt || null,
+    createdAt: originalTimestamp,
+    updatedAt: originalTimestamp,
   };
 }
 
 function mapTrackingEventForResponse(event, updateIndex = -1) {
   const stateFields = buildTrackingEventStateFields(event?.stepKey, event);
+  const originalTimestamp = getTrackingEventOriginalTimestamp(event);
 
   return {
     eventId: String(event?._id || event?.id || ""),
@@ -107,8 +114,8 @@ function mapTrackingEventForResponse(event, updateIndex = -1) {
     clientVisible: Boolean(event?.clientVisible),
     inProgress: Boolean(event?.completed ? false : event?.inProgress),
     completed: Boolean(event?.completed),
-    createdAt: event?.createdAt || null,
-    updatedAt: event?.updatedAt || event?.createdAt || null,
+    createdAt: originalTimestamp,
+    updatedAt: originalTimestamp,
   };
 }
 
@@ -170,8 +177,8 @@ function buildTrackingEventsCollection(events = []) {
       return mapTrackingEventForResponse(event, nextUpdateIndex);
     })
     .sort((left, right) => {
-      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      const leftTime = new Date(left.createdAt || 0).getTime();
+      const rightTime = new Date(right.createdAt || 0).getTime();
 
       if (rightTime !== leftTime) {
         return rightTime - leftTime;

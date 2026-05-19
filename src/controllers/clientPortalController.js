@@ -659,8 +659,8 @@ function sanitizeOrderForClient(order) {
       clientVisible: true,
       inProgress: Boolean(event?.completed ? false : event?.inProgress),
       completed: Boolean(event?.completed),
-      createdAt: event?.createdAt || null,
-      updatedAt: event?.updatedAt || event?.createdAt || null,
+      createdAt: event?.createdAt || event?.updatedAt || null,
+      updatedAt: event?.createdAt || event?.updatedAt || null,
     });
   });
 
@@ -668,8 +668,8 @@ function sanitizeOrderForClient(order) {
   serializedOrder.trackingSteps = normalizeTrackingStates([])
     .map((step) => {
       const visibleUpdates = (updatesByStepKey.get(step.key) || []).sort((left, right) => {
-        const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-        const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+        const leftTime = new Date(left.createdAt || left.updatedAt || 0).getTime();
+        const rightTime = new Date(right.createdAt || right.updatedAt || 0).getTime();
         return leftTime - rightTime;
       });
       const latestUpdate = visibleUpdates[visibleUpdates.length - 1] || null;
