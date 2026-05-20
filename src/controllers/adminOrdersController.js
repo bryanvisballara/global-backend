@@ -1902,9 +1902,9 @@ async function createOrder(req, res) {
 
     if (
       orderRegion === "latam" &&
-      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto Miami"].includes(String(vehicle.destination).trim())
+      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto La Guaira", "Puerto Miami"].includes(String(vehicle.destination).trim())
     ) {
-      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla or Puerto Miami" });
+      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla, Puerto La Guaira or Puerto Miami" });
     }
 
     const client = await ClientModel.findById(clientId);
@@ -2224,9 +2224,9 @@ async function updateOrder(req, res) {
     if (
       nextDestination &&
       effectiveOrderRegion === "latam" &&
-      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto Miami"].includes(String(nextDestination).trim())
+      !["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto La Guaira", "Puerto Miami"].includes(String(nextDestination).trim())
     ) {
-      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla or Puerto Miami" });
+      return res.status(400).json({ message: "destination must be Puerto Santa Marta, Puerto Cartagena, Puerto Barranquilla, Puerto La Guaira or Puerto Miami" });
     }
 
     if (trackingNumberProvided && normalizeTrackingNumber(order.trackingNumber) !== nextTrackingNumber) {

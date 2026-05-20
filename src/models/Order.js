@@ -339,7 +339,7 @@ const orderSchema = new mongoose.Schema(
       },
       destination: {
         type: String,
-        enum: ["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla"],
+        enum: ["Puerto Santa Marta", "Puerto Cartagena", "Puerto Barranquilla", "Puerto La Guaira"],
         trim: true,
       },
       plate: {
