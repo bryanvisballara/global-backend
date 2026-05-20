@@ -224,7 +224,7 @@ if (true) {
 
     clientSelect.innerHTML = [
       '<option value="">Selecciona cliente</option>',
-      ...clients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))} · ${escapeHtml(uppercaseDisplay(client.email, "Sin email"))}</option>`),
+      ...clients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))}</option>`),
     ].join("");
 
     if (clientSummary) {

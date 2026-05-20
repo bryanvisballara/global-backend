@@ -515,7 +515,7 @@ function renderCreateOrderClientOptions() {
 
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())} · ${escapeHtml(String(client.email || "Sin email").toUpperCase())}</option>`),
+    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())}</option>`),
   ].join("");
 
   if (createOrderClientSummary) {
