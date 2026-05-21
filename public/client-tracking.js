@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260521-zipfile03";
+const TRACKING_PAGE_VERSION = "20260521-zipfile04";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -340,7 +340,10 @@ function formatDate(dateValue) {
 }
 
 function getFileExtension(value) {
-  const normalizedValue = String(value || "").trim().toLowerCase().split(/[?#]/)[0];
+  const rawValue = String(value || "").trim().toLowerCase();
+  const normalizedValue = /^(https?:)?\/\//.test(rawValue) || rawValue.includes("/") || rawValue.includes("?")
+    ? rawValue.split(/[?#]/)[0]
+    : rawValue;
   const fileSegment = normalizedValue.split("/").pop() || normalizedValue;
 
   if (!fileSegment.includes(".")) {
