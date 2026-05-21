@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260504-clientevents15";
+const TRACKING_PAGE_VERSION = "20260521-zipfile01";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -340,16 +340,41 @@ function formatDate(dateValue) {
 }
 
 function getFileExtension(value) {
-  const normalizedValue = String(value || "").trim().toLowerCase();
+  const normalizedValue = String(value || "").trim().toLowerCase().split(/[?#]/)[0];
+  const fileSegment = normalizedValue.split("/").pop() || normalizedValue;
 
-  if (!normalizedValue.includes(".")) {
+  if (!fileSegment.includes(".")) {
     return "";
   }
 
-  return normalizedValue.split(".").pop() || "";
+  return (fileSegment.split(".").pop() || "").replace(/[^a-z0-9]/g, "");
+}
+
+function getMediaExtension(item = {}) {
+  return getFileExtension(item?.name || item?.caption || item?.url || "");
+}
+
+function isPdfLikeDocument(item = {}) {
+  const mimeType = String(item?.mimeType || "").trim().toLowerCase();
+  return mimeType === "application/pdf" || getMediaExtension(item) === "pdf";
+}
+
+function isZipLikeDocument(item = {}) {
+  const mimeType = String(item?.mimeType || "").trim().toLowerCase();
+  const extension = getMediaExtension(item);
+  return ["zip", "x-zip", "x-zip-compressed"].some((value) => mimeType.includes(value)) || extension === "zip";
+}
+
+function isPhotoDocumentType(item = {}) {
+  const documentType = String(item?.documentType || "").trim().toUpperCase();
+  return ["FOTO", "FOTOS", "IMAGEN", "IMAGENES", "IMÁGENES", "PHOTO", "PHOTOS"].includes(documentType);
 }
 
 function isImageLikeDocument(item = {}) {
+  if (isPdfLikeDocument(item) || isZipLikeDocument(item)) {
+    return false;
+  }
+
   if (item?.type === "image") {
     return true;
   }
@@ -364,8 +389,92 @@ function isImageLikeDocument(item = {}) {
     return true;
   }
 
-  const extension = getFileExtension(item?.name || item?.caption || item?.url || "");
-  return ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension);
+  const extension = getMediaExtension(item);
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "heic", "heif"].includes(extension)) {
+    return true;
+  }
+
+  return isPhotoDocumentType(item);
+}
+
+function inferTrackingFileType(item = {}) {
+  if (item?.type === "video" || item?.category === "video") {
+    return "video";
+  }
+
+  return isImageLikeDocument(item) ? "image" : "document";
+}
+
+function getDisplayFileExtension(item = {}) {
+  const extension = getMediaExtension(item);
+
+  if (extension) {
+    return extension.toUpperCase();
+  }
+
+  if (isPdfLikeDocument(item)) {
+    return "PDF";
+  }
+
+  if (isZipLikeDocument(item)) {
+    return "ZIP";
+  }
+
+  return isImageLikeDocument(item) ? "IMG" : "ARCHIVO";
+}
+
+function buildFileViewUrl(url, fileName = "documento") {
+  const resolvedFileName = String(fileName || "documento").trim() || "documento";
+  const viewPath = `/api/downloads/view?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+  return new URL(viewPath, apiBaseUrl).toString();
+}
+
+function openExternalBrowserUrl(url, pendingWindow = null) {
+  const resolvedUrl = String(url || "").trim();
+
+  if (!resolvedUrl) {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.close();
+    }
+    return false;
+  }
+
+  const nativeExternalLinkHandler = window.webkit?.messageHandlers?.globalImportsExternalLink;
+
+  if (nativeExternalLinkHandler?.postMessage) {
+    try {
+      if (pendingWindow && !pendingWindow.closed) {
+        pendingWindow.close();
+      }
+
+      nativeExternalLinkHandler.postMessage({ url: resolvedUrl });
+      return true;
+    } catch (error) {
+      console.warn("No se pudo abrir el archivo en el navegador externo.", error);
+    }
+  }
+
+  if (pendingWindow && !pendingWindow.closed) {
+    pendingWindow.opener = null;
+    pendingWindow.location.replace(resolvedUrl);
+    return true;
+  }
+
+  const openedWindow = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+
+  if (openedWindow) {
+    openedWindow.opener = null;
+    return true;
+  }
+
+  const externalLink = document.createElement("a");
+  externalLink.href = resolvedUrl;
+  externalLink.target = "_blank";
+  externalLink.rel = "noopener noreferrer external";
+  (document.body || document.documentElement).appendChild(externalLink);
+  externalLink.click();
+  externalLink.remove();
+  return true;
 }
 
 function buildEmbeddedVideoUrl(rawUrl) {
@@ -438,12 +547,45 @@ function renderVideoElement(url, title = "Video") {
   return `<video controls playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>`;
 }
 
+function renderZipFileCard(item = {}, footerText = "") {
+  const fileName = item.name || item.caption || "archivo.zip";
+  const safeFileName = escapeHtml(fileName);
+  const metaMarkup = footerText
+    ? `
+      <div class="tracking-file-meta">
+        <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+      </div>
+    `
+    : "";
+
+  return `
+    <article class="tracking-file-card document tracking-zip-file-card">
+      <div class="tracking-zip-preview">
+        <span class="tracking-zip-badge">ZIP</span>
+        <strong>ARCHIVO .ZIP</strong>
+        <small>${safeFileName}</small>
+      </div>
+      <button
+        class="tracking-zip-download-button"
+        type="button"
+        data-download-url="${escapeHtml(item.url)}"
+        data-download-name="${safeFileName}"
+        aria-label="Descargar ${safeFileName}"
+      >
+        Descargar
+      </button>
+      <p class="tracking-zip-help">Presiona en descargar para ver el contenido del archivo.</p>
+      ${metaMarkup}
+    </article>
+  `;
+}
+
 function renderMediaItems(media = []) {
   if (!media.length) {
     return "";
   }
 
-  const isImageItem = (item) => item && item.type !== "video" && item.type !== "document" && item.category !== "document";
+  const isImageItem = (item) => item && item.type !== "video" && isImageLikeDocument(item);
   const onlyImages = media.every((item) => isImageItem(item));
 
   const renderImageCard = (item) => `
@@ -453,13 +595,13 @@ function renderMediaItems(media = []) {
         type="button"
         data-download-url="${escapeHtml(item.url)}"
         data-download-name="${escapeHtml(item.name || item.caption || "imagen")}" 
-        aria-label="Descargar imagen"
+        aria-label="Ver imagen"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
         </svg>
       </button>
-      <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Adjunto")}" loading="lazy" />
+      <img src="${escapeHtml(buildFileViewUrl(item.url, item.name || item.caption || "imagen"))}" alt="${escapeHtml(item.caption || item.name || "Adjunto")}" loading="lazy" />
     </article>
   `;
 
@@ -501,20 +643,25 @@ function renderMediaItems(media = []) {
             `;
           }
 
-          if (item.type === "document" || item.category === "document") {
+          if (inferTrackingFileType(item) === "document") {
             const fileName = item.name || item.caption || "documento";
-            const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
+            const extension = getDisplayFileExtension(item);
+
+            if (isZipLikeDocument(item)) {
+              return renderZipFileCard(item);
+            }
+
             return `
               <button
                 class="tracking-document-download"
                 type="button"
                 data-download-url="${escapeHtml(item.url)}"
                 data-download-name="${escapeHtml(fileName)}"
-                aria-label="Descargar ${escapeHtml(fileName)}"
+                aria-label="Ver ${escapeHtml(fileName)}"
               >
                 <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
                 <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
-                <span class="tracking-document-cta">Descargar</span>
+                <span class="tracking-document-cta">Ver</span>
               </button>
             `;
           }
@@ -559,8 +706,8 @@ function bindTrackingCarousels(scope = trackingResults) {
 
 function buildStateMediaBuckets(media = []) {
   return {
-    document: media.filter((item) => item.category === "document" || item.type === "document"),
-    photoSingle: media.filter((item) => item.category === "photo-single"),
+    document: media.filter((item) => (item.category === "document" || item.type === "document") && !isImageLikeDocument(item)),
+    photoSingle: media.filter((item) => item.category === "photo-single" || (item.category === "document" && isImageLikeDocument(item))),
     photoCarousel: media.filter((item) => item.category === "photo-carousel" || (item.type === "image" && !item.category)),
     video: media.filter((item) => item.category === "video" || item.type === "video"),
   };
@@ -614,50 +761,9 @@ function renderCategorizedMediaSections(media = []) {
   `;
 }
 
-async function downloadDocument(url, fileName) {
-  const nativeDownloadHandler = window.webkit?.messageHandlers?.globalImportsDownload;
-
-  if (nativeDownloadHandler?.postMessage) {
-    nativeDownloadHandler.postMessage({
-      url,
-      fileName,
-    });
-    return;
-  }
-
-  try {
-    const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-    const apiUrl = `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
-    const resolvedApiUrl = new URL(apiUrl, apiBaseUrl).toString();
-
-    if (isAppleTouchDownloadEnvironment()) {
-      window.location.href = resolvedApiUrl;
-      return;
-    }
-
-    let response = await fetch(resolvedApiUrl);
-
-    if (!response.ok && /^https?:\/\//i.test(url)) {
-      response = await fetch(url, { mode: "cors" });
-    }
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const objectUrl = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = resolvedFileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.URL.revokeObjectURL(objectUrl);
-  } catch (error) {
-    console.error("Download failed:", error.message);
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+function openTrackingFile(url, fileName) {
+  const viewUrl = buildFileViewUrl(url, fileName || "documento");
+  openExternalBrowserUrl(viewUrl);
 }
 
 function renderEmptyState(message) {
@@ -698,8 +804,8 @@ function buildTrackingStepsFromEvents(order) {
   return TRACKING_TIMELINE_STATES.map((stateTemplate) => {
     const sourceStep = sourceStepsByKey.get(stateTemplate.key) || null;
     const stepEvents = (eventsByStepKey.get(stateTemplate.key) || []).sort((left, right) => {
-      const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
-      const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+      const leftTime = new Date(left.createdAt || left.updatedAt || 0).getTime();
+      const rightTime = new Date(right.createdAt || right.updatedAt || 0).getTime();
       return leftTime - rightTime;
     });
     const latestEvent = stepEvents[stepEvents.length - 1] || null;
@@ -802,8 +908,8 @@ function buildTrackingEventRows(order) {
       const stageLabel = event.label || matchedState?.label || "Etapa";
 
       return {
-        key: `${event.key}-${event.updatedAt || event.createdAt || index}`,
-        date: event.updatedAt || event.createdAt || null,
+        key: `${event.key}-${event.createdAt || event.updatedAt || index}`,
+        date: event.createdAt || event.updatedAt || null,
         stage: matchedStateIndex >= 0 ? `E${matchedStateIndex + 1} - ${stageLabel}` : stageLabel,
         title,
         description: hasDescription ? descriptionSource : "Sin descripción por ahora.",
@@ -868,17 +974,17 @@ function buildTrackingFiles(order) {
       return (Array.isArray(event.media) ? event.media : [])
         .filter((item) => item?.url && item.type !== "video" && item.category !== "video")
         .map((item, mediaIndex) => ({
-          key: `${event.key}-${event.updatedAt || event.createdAt || eventIndex}-${mediaIndex}`,
+          key: `${event.key}-${event.createdAt || event.updatedAt || eventIndex}-${mediaIndex}`,
           url: item.url,
-          type: isImageLikeDocument(item)
-            ? "image"
-            : (item.type || (item.category === "document" ? "document" : "image")),
+          type: inferTrackingFileType(item),
           category: item.category || "",
           name: String(item.name || "").trim(),
           caption: String(item.caption || item.name || stageLabel || "Archivo").trim(),
+          mimeType: String(item.mimeType || "").trim(),
+          documentType: String(item.documentType || "").trim(),
           note: "",
           stageLabel,
-          date: event.updatedAt || event.createdAt || null,
+          date: item.createdAt || event.createdAt || event.updatedAt || null,
         }));
     });
 
@@ -887,13 +993,15 @@ function buildTrackingFiles(order) {
     .map((item, index) => ({
       key: `order-document-${String(item.documentId || index)}`,
       url: item.url,
-      type: isImageLikeDocument(item) ? "image" : "document",
+      type: inferTrackingFileType(item),
       category: item.category || "document",
       name: String(item.name || "").trim(),
       caption: String(item.caption || item.name || item.documentType || "Archivo").trim(),
+      mimeType: String(item.mimeType || "").trim(),
+      documentType: String(item.documentType || "").trim(),
       note: String(item.note || "").trim(),
       stageLabel: "Documentos del pedido",
-      date: item.updatedAt || item.createdAt || null,
+      date: item.createdAt || item.updatedAt || null,
     }));
 
   return eventFiles
@@ -1108,14 +1216,14 @@ function renderTrackingFilesSection(order) {
                           data-image-note="${escapeHtml(footerText)}"
                           aria-label="Ampliar imagen del tracking"
                         >
-                          <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
+                          <img src="${escapeHtml(buildFileViewUrl(item.url, item.name || item.caption || "imagen"))}" alt="${escapeHtml(item.caption || item.name || "Archivo del pedido")}" loading="lazy" />
                         </button>
                         <button
                           class="tracking-media-download-icon"
                           type="button"
                           data-download-url="${escapeHtml(item.url)}"
                           data-download-name="${escapeHtml(item.name || item.caption || "imagen")}"
-                          aria-label="Descargar imagen"
+                          aria-label="Ver imagen"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"></path>
@@ -1158,7 +1266,11 @@ function renderTrackingFilesSection(order) {
                 .map((item) => {
                   const footerText = item.note || item.caption || item.stageLabel || "Archivo";
                   const fileName = item.name || item.caption || "documento";
-                  const extension = fileName.includes(".") ? fileName.split(".").pop() : "PDF";
+                  const extension = getDisplayFileExtension(item);
+
+                  if (isZipLikeDocument(item)) {
+                    return renderZipFileCard(item, footerText);
+                  }
 
                   return `
                     <article class="tracking-file-card document">
@@ -1167,11 +1279,11 @@ function renderTrackingFilesSection(order) {
                         type="button"
                         data-download-url="${escapeHtml(item.url)}"
                         data-download-name="${escapeHtml(fileName)}"
-                        aria-label="Descargar ${escapeHtml(fileName)}"
+                        aria-label="Ver ${escapeHtml(fileName)}"
                       >
                         <span class="tracking-document-pill">${escapeHtml(String(extension).toUpperCase())}</span>
                         <span class="tracking-document-name">${escapeHtml(item.caption || item.name || "Documento")}</span>
-                        <span class="tracking-document-cta">Descargar</span>
+                        <span class="tracking-document-cta">Ver</span>
                       </button>
                       <div class="tracking-file-meta">
                         <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
@@ -1238,7 +1350,7 @@ trackingResults.addEventListener("click", (event) => {
     const url = downloadButton.getAttribute("data-download-url");
     const name = downloadButton.getAttribute("data-download-name") || "documento";
     if (url) {
-      downloadDocument(url, name);
+      openTrackingFile(url, name);
     }
     return;
   }

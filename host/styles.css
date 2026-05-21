@@ -1479,13 +1479,13 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 
 .admin-dashboard-meta {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
   margin-top: 22px;
 }
 
 .admin-meta-pill {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
@@ -1512,15 +1512,15 @@ body.admin-drawer-ready .admin-sidebar-backdrop {
 .admin-meta-pill span {
   display: block;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
 }
 
 .admin-meta-pill strong {
   display: block;
-  margin-top: 10px;
-  font-size: 1.8rem;
+  margin-top: 8px;
+  font-size: 1.65rem;
   line-height: 1;
 }
 
@@ -3174,6 +3174,98 @@ body.admin-app-view #order-broker-field {
   letter-spacing: 0;
 }
 
+.tracking-zip-file-card {
+  padding: 16px;
+  gap: 12px;
+  background:
+    linear-gradient(135deg, rgba(72, 151, 255, 0.16), rgba(216, 170, 82, 0.08)),
+    linear-gradient(180deg, rgba(18, 21, 28, 0.98), rgba(10, 12, 18, 0.98));
+}
+
+.tracking-zip-preview {
+  min-height: 154px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 20px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(137, 184, 255, 0.22);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(137, 184, 255, 0.24), transparent 58%),
+    rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.tracking-zip-preview strong {
+  color: #ffffff;
+  font-size: 1.18rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.tracking-zip-preview small {
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.tracking-zip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  border: 1px solid rgba(137, 184, 255, 0.44);
+  background: rgba(137, 184, 255, 0.14);
+  color: #9fc8ff;
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.tracking-zip-download-button {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f4d28f, #d8aa52);
+  color: #17130a;
+  font-size: 0.92rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 14px 24px rgba(216, 170, 82, 0.18);
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.tracking-zip-download-button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.tracking-zip-download-button:active {
+  transform: translateY(0);
+}
+
+.tracking-zip-help {
+  margin: -2px 4px 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.tracking-zip-file-card .tracking-file-meta {
+  min-height: auto;
+  margin: 0 -16px -16px;
+}
+
 .tracking-image-modal-open {
   overflow: hidden;
 }
@@ -3924,7 +4016,7 @@ body.admin-app-view .request-card-top strong {
 }
 
 .admin-tracking-events-actions-cell {
-  width: 112px;
+  width: 164px;
 }
 
 .admin-tracking-event-actions {
@@ -3957,6 +4049,33 @@ body.admin-app-view .request-card-top strong {
   color: #ffd1d1;
 }
 
+.tracking-event-edit-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(216, 170, 82, 0.34);
+  background: rgba(216, 170, 82, 0.12);
+  color: #f3cd84;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+
+.tracking-event-edit-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.tracking-event-edit-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(216, 170, 82, 0.6);
+  background: rgba(216, 170, 82, 0.18);
+  color: #ffe2aa;
+}
+
 .tracking-delete-update-card {
   max-width: 440px;
 }
@@ -3977,6 +4096,72 @@ body.admin-app-view .request-card-top strong {
 .tracking-modal-actions .secondary-button {
   width: 100%;
   min-height: 52px;
+}
+
+.tracking-edit-modal-card {
+  width: min(560px, calc(100vw - 32px));
+  gap: 18px;
+  padding: 26px;
+}
+
+.tracking-edit-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tracking-edit-modal-header span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tracking-edit-modal-header strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.tracking-edit-modal-close {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tracking-edit-modal-copy {
+  margin: -4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.tracking-edit-modal-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-edit-modal-fields label {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-edit-modal-fields label span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .tracking-search-results,
