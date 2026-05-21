@@ -3161,7 +3161,7 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-zip-help {
-  margin: -2px 4px 0;
+  margin: 2px 4px 8px;
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.82rem;
   line-height: 1.45;
@@ -3174,7 +3174,7 @@ body.tracking-detail-mode #tracking-form {
 }
 
 .tracking-files-carousel-item.tracking-zip-file-card {
-  min-height: 430px;
+  min-height: 470px;
   align-content: center;
 }
 
