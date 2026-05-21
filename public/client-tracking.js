@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260521-zipfile02";
+const TRACKING_PAGE_VERSION = "20260521-zipfile03";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -547,9 +547,10 @@ function renderVideoElement(url, title = "Video") {
   return `<video controls playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>`;
 }
 
-function renderZipFileCard(item = {}, footerText = "") {
+function renderZipFileCard(item = {}, footerText = "", extraClassName = "") {
   const fileName = item.name || item.caption || "archivo.zip";
   const safeFileName = escapeHtml(fileName);
+  const articleClassName = `tracking-file-card document tracking-zip-file-card ${extraClassName}`.trim();
   const metaMarkup = footerText
     ? `
       <div class="tracking-file-meta">
@@ -559,7 +560,7 @@ function renderZipFileCard(item = {}, footerText = "") {
     : "";
 
   return `
-    <article class="tracking-file-card document tracking-zip-file-card">
+    <article class="${escapeHtml(articleClassName)}">
       <div class="tracking-zip-preview">
         <span class="tracking-zip-badge">ZIP</span>
         <strong>ARCHIVO .ZIP</strong>
@@ -1174,8 +1175,8 @@ function renderTrackingEventsTable(order) {
 
 function renderTrackingFilesSection(order) {
   const files = buildTrackingFiles(order);
-  const imageFiles = files.filter((item) => item.type === "image");
-  const documentFiles = files.filter((item) => item.type === "document");
+  const carouselFiles = files.filter((item) => item.type === "image" || isZipLikeDocument(item));
+  const documentFiles = files.filter((item) => item.type === "document" && !isZipLikeDocument(item));
 
   if (!files.length) {
     return `
@@ -1198,13 +1199,17 @@ function renderTrackingFilesSection(order) {
         <p class="tracking-files-intro">Aquí verás los archivos que tu asesor comparta contigo durante el proceso.</p>
       </div>
       <div class="tracking-files-gallery">
-        ${imageFiles.length
+        ${carouselFiles.length
           ? `
             <div class="tracking-files-carousel-shell tracking-carousel-shell">
               <div class="tracking-carousel-strip tracking-files-carousel" data-tracking-carousel>
-                ${imageFiles
+                ${carouselFiles
                   .map((item) => {
                     const footerText = item.note || item.caption || item.stageLabel || "Archivo";
+
+                    if (isZipLikeDocument(item)) {
+                      return renderZipFileCard(item, footerText, "tracking-carousel-item tracking-files-carousel-item");
+                    }
 
                     return `
                       <article class="tracking-file-card image tracking-carousel-item tracking-files-carousel-item">
@@ -1237,10 +1242,10 @@ function renderTrackingFilesSection(order) {
                   })
                   .join("")}
               </div>
-              ${imageFiles.length > 1
+              ${carouselFiles.length > 1
                 ? `
                   <div class="tracking-carousel-indicators">
-                    ${imageFiles
+                    ${carouselFiles
                       .map(
                         (_, index) => `
                           <button

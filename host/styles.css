@@ -3266,6 +3266,11 @@ body.admin-app-view #order-broker-field {
   margin: 0 -16px -16px;
 }
 
+.tracking-files-carousel-item.tracking-zip-file-card {
+  min-height: 430px;
+  align-content: center;
+}
+
 .tracking-image-modal-open {
   overflow: hidden;
 }
