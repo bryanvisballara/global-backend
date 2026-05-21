@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260514-filedate20";
+const TRACKING_PAGE_VERSION = "20260521-zipfile02";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -351,7 +351,7 @@ function getFileExtension(value) {
 }
 
 function getMediaExtension(item = {}) {
-  return getFileExtension(item?.name || item?.caption || item?.url || "");
+  return getFileExtension(item?.name || item?.caption || item?.url || item?.originalCloudinaryUrl || "");
 }
 
 function isPdfLikeDocument(item = {}) {
@@ -371,6 +371,10 @@ function isPhotoDocumentType(item = {}) {
 }
 
 function isImageLikeDocument(item = {}) {
+  if (isPdfLikeDocument(item) || isZipLikeDocument(item)) {
+    return false;
+  }
+
   if (item?.type === "image") {
     return true;
   }
@@ -390,7 +394,7 @@ function isImageLikeDocument(item = {}) {
     return true;
   }
 
-  return isPhotoDocumentType(item) && !isPdfLikeDocument(item) && !isZipLikeDocument(item);
+  return isPhotoDocumentType(item);
 }
 
 function inferTrackingFileType(item = {}) {
@@ -543,6 +547,39 @@ function renderVideoElement(url, title = "Video") {
   return `<video controls playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>`;
 }
 
+function renderZipFileCard(item = {}, footerText = "") {
+  const fileName = item.name || item.caption || "archivo.zip";
+  const safeFileName = escapeHtml(fileName);
+  const metaMarkup = footerText
+    ? `
+      <div class="tracking-file-meta">
+        <p class="tracking-file-caption">${escapeHtml(footerText)}</p>
+      </div>
+    `
+    : "";
+
+  return `
+    <article class="tracking-file-card document tracking-zip-file-card">
+      <div class="tracking-zip-preview">
+        <span class="tracking-zip-badge">ZIP</span>
+        <strong>ARCHIVO .ZIP</strong>
+        <small>${safeFileName}</small>
+      </div>
+      <button
+        class="tracking-zip-download-button"
+        type="button"
+        data-download-url="${escapeHtml(item.url)}"
+        data-download-name="${safeFileName}"
+        aria-label="Descargar ${safeFileName}"
+      >
+        Descargar
+      </button>
+      <p class="tracking-zip-help">Presiona en descargar para ver el contenido del archivo.</p>
+      ${metaMarkup}
+    </article>
+  `;
+}
+
 function renderMediaItems(media = []) {
   if (!media.length) {
     return "";
@@ -609,6 +646,11 @@ function renderMediaItems(media = []) {
           if (inferTrackingFileType(item) === "document") {
             const fileName = item.name || item.caption || "documento";
             const extension = getDisplayFileExtension(item);
+
+            if (isZipLikeDocument(item)) {
+              return renderZipFileCard(item);
+            }
+
             return `
               <button
                 class="tracking-document-download"
@@ -1225,6 +1267,10 @@ function renderTrackingFilesSection(order) {
                   const footerText = item.note || item.caption || item.stageLabel || "Archivo";
                   const fileName = item.name || item.caption || "documento";
                   const extension = getDisplayFileExtension(item);
+
+                  if (isZipLikeDocument(item)) {
+                    return renderZipFileCard(item, footerText);
+                  }
 
                   return `
                     <article class="tracking-file-card document">

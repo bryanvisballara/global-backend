@@ -3081,6 +3081,98 @@ body.tracking-detail-mode #tracking-form {
   letter-spacing: 0;
 }
 
+.tracking-zip-file-card {
+  padding: 16px;
+  gap: 12px;
+  background:
+    linear-gradient(135deg, rgba(72, 151, 255, 0.16), rgba(216, 170, 82, 0.08)),
+    linear-gradient(180deg, rgba(18, 21, 28, 0.98), rgba(10, 12, 18, 0.98));
+}
+
+.tracking-zip-preview {
+  min-height: 154px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 20px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(137, 184, 255, 0.22);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(137, 184, 255, 0.24), transparent 58%),
+    rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.tracking-zip-preview strong {
+  color: #ffffff;
+  font-size: 1.18rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.tracking-zip-preview small {
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.tracking-zip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  border: 1px solid rgba(137, 184, 255, 0.44);
+  background: rgba(137, 184, 255, 0.14);
+  color: #9fc8ff;
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.tracking-zip-download-button {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f4d28f, #d8aa52);
+  color: #17130a;
+  font-size: 0.92rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 14px 24px rgba(216, 170, 82, 0.18);
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.tracking-zip-download-button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.tracking-zip-download-button:active {
+  transform: translateY(0);
+}
+
+.tracking-zip-help {
+  margin: -2px 4px 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.tracking-zip-file-card .tracking-file-meta {
+  min-height: auto;
+  margin: 0 -16px -16px;
+}
+
 .tracking-image-modal-open {
   overflow: hidden;
 }

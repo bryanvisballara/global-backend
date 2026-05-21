@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260521-zipfile01";
+const TRACKING_PAGE_VERSION = "20260521-zipfile02";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
@@ -351,7 +351,7 @@ function getFileExtension(value) {
 }
 
 function getMediaExtension(item = {}) {
-  return getFileExtension(item?.name || item?.caption || item?.url || "");
+  return getFileExtension(item?.name || item?.caption || item?.url || item?.originalCloudinaryUrl || "");
 }
 
 function isPdfLikeDocument(item = {}) {

@@ -90,6 +90,12 @@ function isPdfFile(file = {}) {
   return mimeType === "application/pdf" || originalName.endsWith(".pdf");
 }
 
+function isZipFile(file = {}) {
+  const mimeType = String(file?.mimetype || "").trim().toLowerCase();
+  const originalName = String(file?.originalname || "").trim().toLowerCase();
+  return mimeType.includes("zip") || originalName.endsWith(".zip");
+}
+
 function resolveRequestOrigin(req) {
   const forwardedProto = String(req?.headers?.["x-forwarded-proto"] || "")
     .split(",")
@@ -1224,6 +1230,10 @@ function parseBooleanValue(value, fallback = false) {
 }
 
 function inferFileMediaType(file, result) {
+  if (isPdfFile(file) || isZipFile(file)) {
+    return "document";
+  }
+
   if (file?.mimetype?.startsWith("video/") || result?.resource_type === "video") {
     return "video";
   }
@@ -1780,7 +1790,7 @@ async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) 
 
       return {
         type: inferFileMediaType(file, result),
-        category: metadata.category || (result.resource_type === "video" ? "video" : file.mimetype === "application/pdf" ? "document" : "photo-carousel"),
+        category: metadata.category || (result.resource_type === "video" ? "video" : isPdfFile(file) || isZipFile(file) ? "document" : "photo-carousel"),
         url: result.secure_url,
         name: file.originalname,
         caption: metadata.caption || (file.originalname ? String(file.originalname).replace(/\.[^.]+$/, "") : undefined),
