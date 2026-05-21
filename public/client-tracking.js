@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
-const TRACKING_PAGE_VERSION = "20260521-zipfile04";
+const TRACKING_PAGE_VERSION = "20260521-zipfile05";
 const PULL_REFRESH_THRESHOLD = 78;
 const trackingForm = document.getElementById("tracking-page-form");
 const trackingInput = document.getElementById("tracking-page-input");
