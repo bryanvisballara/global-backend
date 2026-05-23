@@ -552,9 +552,9 @@ function getActiveOrders() {
 
 function getSearchableOrders() {
   const selectedState = String(trackingStateFilter?.value || "").trim();
-  const baseOrders = selectedState === COMPLETED_TIMELINE_STAGE.key
-    ? orders.filter((order) => resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key)
-    : getActiveOrders();
+  const baseOrders = selectedState
+    ? orders.filter((order) => resolveStateBucketKey(order) === selectedState)
+    : orders;
   const pinnedOrder = selectedOrderId
     ? orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null
     : null;
@@ -1157,11 +1157,15 @@ function resolveInitialOrderId(filters) {
     return "";
   }
 
-  const match = getActiveOrders().find((order) => {
-    if (filters.orderId && getOrderIdentifier(order) === filters.orderId) {
-      return true;
-    }
+  if (filters.orderId) {
+    const exactOrder = orders.find((order) => getOrderIdentifier(order) === filters.orderId) || null;
 
+    if (exactOrder) {
+      return getOrderIdentifier(exactOrder);
+    }
+  }
+
+  const match = getSearchableOrders().find((order) => {
     if (filters.tracking && normalizeSearchValue(order?.trackingNumber) === filters.tracking) {
       return true;
     }
@@ -1186,7 +1190,7 @@ function resolveInitialOrderId(filters) {
 
 function renderSearchResults(matches) {
   if (!matches.length) {
-    trackingSearchResults.innerHTML = '<div class="empty-state">No encontramos pedidos activos con esos filtros.</div>';
+    trackingSearchResults.innerHTML = '<div class="empty-state">No encontramos pedidos con esos filtros.</div>';
     return;
   }
 
@@ -1212,6 +1216,7 @@ function renderSearchResults(matches) {
             const vinValue = String(order?.vehicle?.vin || "").trim();
             const detailUrl = buildOrderDetailUrl(order);
             const stageMeta = getCurrentStageMeta(order);
+            const completedOrder = resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key;
             const vehicleLabel = formatOrderLabel(order);
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
             const pendingDeletion = hasPendingDeletionRequest(order);
@@ -1219,7 +1224,7 @@ function renderSearchResults(matches) {
 
             return `
               <tr
-                class="tracking-order-row ${orderId === selectedOrderId ? "selected" : ""}"
+                class="tracking-order-row ${orderId === selectedOrderId ? "selected" : ""} ${completedOrder ? "is-completed-order" : ""}"
                 data-order-row-select="true"
                 data-order-id="${escapeHtml(orderId)}"
                 tabindex="0"
@@ -2919,13 +2924,29 @@ function handleSearchClick() {
     updateUrlForOrder(null);
     renderOrderSummary(null);
     renderStates();
-    adminSetFeedback(trackingFeedback, "No hay pedidos activos que coincidan con esos filtros.", "error");
+    adminSetFeedback(trackingFeedback, "No hay pedidos que coincidan con esos filtros.", "error");
     return;
   }
 
   const exactMatch = findExactMatch(matches);
 
-  if (exactMatch || matches.length === 1) {
+  if (matches.length === 1) {
+    selectOrder(getOrderIdentifier(matches[0]));
+    adminSetFeedback(trackingFeedback, "Pedido listo para gestionar sus estados.", "success");
+    return;
+  }
+
+  const exactMatches = matches.filter((order) => searchConfigs.every((config) => {
+    const query = normalizeSearchValue(config.input.value);
+
+    if (!query) {
+      return true;
+    }
+
+    return getConfigSearchValues(config, order).some((value) => normalizeSearchValue(value) === query);
+  }));
+
+  if (exactMatch && exactMatches.length === 1) {
     selectOrder(getOrderIdentifier(exactMatch || matches[0]));
     adminSetFeedback(trackingFeedback, "Pedido listo para gestionar sus estados.", "success");
     return;
