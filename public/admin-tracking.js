@@ -588,6 +588,15 @@ function isOrderCompleted(order) {
   return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
 }
 
+function isOrderInCompletedStage(order) {
+  if (isOrderCompleted(order)) {
+    return true;
+  }
+
+  const trackingSteps = getOrderTrackingSteps(order);
+  return trackingSteps.length === adminTrackingTemplates.length && trackingSteps.every((step) => step.confirmed);
+}
+
 function hasGlobalLatamOrderPrivileges() {
   return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
 }
@@ -996,7 +1005,7 @@ function resolveCurrentStageKey(order) {
 }
 
 function resolveStateBucketKey(order) {
-  return isOrderCompleted(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
+  return isOrderInCompletedStage(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
 }
 
 function getCurrentStageMeta(order) {
@@ -1288,7 +1297,7 @@ function renderSearchResults(matches) {
             const vinValue = String(order?.vehicle?.vin || "").trim();
             const detailUrl = buildOrderDetailUrl(order);
             const stageMeta = getCurrentStageMeta(order);
-            const completedOrder = resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key;
+            const completedOrder = isOrderInCompletedStage(order);
             const vehicleLabel = formatOrderLabel(order);
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
             const pendingDeletion = hasPendingDeletionRequest(order);

@@ -8935,6 +8935,7 @@ body.admin-app-view .tracking-data-table tbody tr.is-completed-order:nth-child(e
 }
 
 body.admin-app-view .tracking-data-table tbody tr.is-completed-order td {
+  background: #edf8ef !important;
   border-bottom-color: rgba(28, 112, 55, 0.16);
 }
 
