@@ -192,7 +192,13 @@ function getConfigInputValue(config, order) {
 }
 
 function formatOrderLabel(order) {
-  return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  const vehicle = order?.vehicle || {};
+  const vehicleName = `${vehicle.brand || "Vehículo"} ${vehicle.model || ""}${vehicle.version ? ` ${vehicle.version}` : ""} ${vehicle.year || ""}`.trim();
+  const exteriorColor = normalizeText(vehicle.exteriorColor || vehicle.color || "");
+  const interiorColor = normalizeText(vehicle.interiorColor || "");
+  const colorLabel = [exteriorColor, interiorColor].filter(Boolean).join("/");
+
+  return [vehicleName, colorLabel].filter(Boolean).join(" ");
 }
 
 function formatDateLabel(value) {
