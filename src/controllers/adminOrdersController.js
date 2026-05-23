@@ -508,7 +508,7 @@ function canFinalizeTrackingOrder(requester, order, currentIndex, orderRegion = 
   }
 
   if (normalizedRegion === "usa") {
-    return isUsaAdministrativeRole(normalizedRole) && currentIndex === 3 && isOrderCreatedByRequester(order, requester);
+    return ["adminusa", "gerenteusa"].includes(normalizedRole) && currentIndex === 3;
   }
 
   return currentIndex === TRACKING_STATE_TEMPLATES.length - 1 && ["admin", "manager"].includes(normalizedRole);

@@ -3504,6 +3504,23 @@ body.admin-uppercase-view *::placeholder {
   font-weight: 800;
 }
 
+.tracking-stage-transition-complete-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.tracking-stage-transition-complete-button {
+  min-width: 260px;
+  background: linear-gradient(180deg, #79ddb5, #49ba8d);
+  border-color: rgba(73, 186, 141, 0.45);
+  color: #08311f;
+}
+
+.tracking-stage-transition-complete-button:hover {
+  background: linear-gradient(180deg, #88e4bf, #55c397);
+}
+
 .tracking-events-editor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
