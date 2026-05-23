@@ -869,7 +869,40 @@ function getOrderTrackingSteps(order) {
     };
   });
 
-  const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
+  let latestEventActiveIndex = -1;
+  let latestEventActiveTime = -1;
+
+  trackingEvents.forEach((event) => {
+    if (!event.inProgress || event.completed || event.stateIndex < 0) {
+      return;
+    }
+
+    const eventTime = new Date(getOriginalDate(event) || 0).getTime();
+    const safeEventTime = Number.isNaN(eventTime) ? 0 : eventTime;
+
+    if (safeEventTime >= latestEventActiveTime) {
+      latestEventActiveIndex = event.stateIndex;
+      latestEventActiveTime = safeEventTime;
+    }
+  });
+
+  if (latestEventActiveIndex >= 0) {
+    normalizedSteps.forEach((step, index) => {
+      if (index < latestEventActiveIndex) {
+        step.confirmed = true;
+        step.inProgress = false;
+      } else if (index === latestEventActiveIndex) {
+        step.confirmed = false;
+        step.inProgress = true;
+      } else if (!step.confirmed) {
+        step.inProgress = false;
+      }
+    });
+  }
+
+  const explicitActiveIndex = latestEventActiveIndex >= 0
+    ? latestEventActiveIndex
+    : normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
   const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
   const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
 

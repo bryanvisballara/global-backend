@@ -217,7 +217,83 @@ function buildCollectionTrackingSteps(events = [], sourceTrackingSteps = []) {
     ? sourceTrackingSteps
     : buildTrackingStates();
 
-  return mergeTrackingStepsWithEvents(baseSteps, buildStepEventMap(events), true);
+  return reconcileCollectionTrackingProgression(
+    mergeTrackingStepsWithEvents(baseSteps, buildStepEventMap(events), true)
+  );
+}
+
+function getUpdateTimestamp(update) {
+  const timestamp = new Date(update?.updatedAt || update?.createdAt || 0).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getLatestUpdate(updates = [], matcher = null) {
+  return (Array.isArray(updates) ? updates : [])
+    .filter((update) => (typeof matcher === "function" ? matcher(update) : true))
+    .reduce((latestUpdate, currentUpdate) => {
+      if (!latestUpdate) {
+        return currentUpdate;
+      }
+
+      return getUpdateTimestamp(currentUpdate) >= getUpdateTimestamp(latestUpdate)
+        ? currentUpdate
+        : latestUpdate;
+    }, null);
+}
+
+function reconcileCollectionTrackingProgression(steps = []) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return steps;
+  }
+
+  let activeIndex = -1;
+  let activeTimestamp = -1;
+
+  steps.forEach((step, index) => {
+    const updates = Array.isArray(step?.updates) ? step.updates : [];
+    const latestCompletedUpdate = getLatestUpdate(updates, (update) => update?.completed);
+    const latestInProgressUpdate = getLatestUpdate(updates, (update) => update?.inProgress && !update?.completed);
+
+    if (latestCompletedUpdate) {
+      step.confirmed = true;
+      step.inProgress = false;
+      step.confirmedAt = step.confirmedAt || latestCompletedUpdate.updatedAt || latestCompletedUpdate.createdAt || null;
+    }
+
+    if (latestInProgressUpdate) {
+      const progressTimestamp = getUpdateTimestamp(latestInProgressUpdate);
+
+      if (progressTimestamp >= activeTimestamp) {
+        activeIndex = index;
+        activeTimestamp = progressTimestamp;
+      }
+    }
+  });
+
+  if (activeIndex < 0) {
+    return steps;
+  }
+
+  steps.forEach((step, index) => {
+    if (index < activeIndex) {
+      step.confirmed = true;
+      step.inProgress = false;
+      return;
+    }
+
+    if (index === activeIndex) {
+      step.confirmed = false;
+      step.inProgress = true;
+      step.confirmedAt = null;
+      return;
+    }
+
+    if (!step.confirmed) {
+      step.inProgress = false;
+    }
+  });
+
+  return steps;
 }
 
 function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = new Map(), preferCollectionOnly = false) {
