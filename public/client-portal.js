@@ -1155,6 +1155,16 @@ function hasOpenClientModal() {
   ].some((modal) => modal && !modal.hidden);
 }
 
+function setFeedSocialOpenState(isOpen) {
+  document.body.classList.toggle("feed-social-open", Boolean(isOpen));
+}
+
+function syncFeedSocialOpenState() {
+  setFeedSocialOpenState(Boolean(
+    (feedLikesModal && !feedLikesModal.hidden) || (feedCommentsModal && !feedCommentsModal.hidden)
+  ));
+}
+
 function openFeedLikesSheet(postId) {
   const post = findFeedPost(postId);
 
@@ -1167,6 +1177,7 @@ function openFeedLikesSheet(postId) {
   renderFeedPersonList(feedLikesList, post.likes || [], "Todavía no hay likes.");
   feedLikesModal.classList.remove("is-raised");
   feedLikesModal.hidden = false;
+  setFeedSocialOpenState(true);
   document.body.classList.add("modal-open");
 }
 
@@ -1183,6 +1194,7 @@ function openFeedCommentLikesSheet(postId, commentId) {
   renderFeedPersonList(feedLikesList, comment.likes || [], "Todavía no hay likes.");
   feedLikesModal.classList.add("is-raised");
   feedLikesModal.hidden = false;
+  setFeedSocialOpenState(true);
   document.body.classList.add("modal-open");
 }
 
@@ -1201,8 +1213,8 @@ function openFeedCommentsSheet(postId) {
   setFeedActionMessage("");
   renderFeedCommentsList(post);
   feedCommentsModal.hidden = false;
+  setFeedSocialOpenState(true);
   document.body.classList.add("modal-open");
-  feedCommentInput?.focus();
 }
 
 function closeFeedSocialSheets() {
@@ -1225,6 +1237,7 @@ function closeFeedSocialSheets() {
   }
 
   setFeedActionMessage("");
+  syncFeedSocialOpenState();
   document.body.classList.toggle("modal-open", hasOpenClientModal());
 }
 
@@ -1237,6 +1250,7 @@ function closeFeedLikesSheet() {
     feedLikesModal.hidden = true;
   }
 
+  syncFeedSocialOpenState();
   document.body.classList.toggle("modal-open", hasOpenClientModal());
 }
 

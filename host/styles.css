@@ -5111,6 +5111,10 @@ body.modal-open {
   overflow: hidden;
 }
 
+body.feed-social-open .client-views {
+  z-index: 80;
+}
+
 .tracking-modal {
   position: fixed;
   inset: 0;
@@ -6905,6 +6909,9 @@ body .tracking-search-page .page-hero h1 {
 .feed-social-sheet {
   display: grid;
   gap: 14px;
+  bottom: calc(106px + env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 136px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow: hidden;
 }
 
 .feed-social-modal.is-raised {
@@ -6931,9 +6938,11 @@ body .tracking-search-page .page-hero h1 {
 .feed-social-list {
   display: grid;
   gap: 12px;
-  max-height: min(48vh, 420px);
+  min-height: 0;
+  max-height: min(42dvh, 380px);
   overflow-y: auto;
   padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .feed-social-person,
@@ -7013,6 +7022,7 @@ body .tracking-search-page .page-hero h1 {
   gap: 10px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .feed-comment-form textarea {
