@@ -6844,10 +6844,56 @@ body .tracking-search-page .page-hero h1 {
 .feed-action-count {
   min-width: 22px;
   padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
   color: #aeb3bd;
   font-size: 0.94rem;
   font-weight: 800;
   text-align: left;
+}
+
+.feed-media-shell,
+.feed-story-copy {
+  position: relative;
+}
+
+.feed-like-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 8;
+  transform: translate(-50%, -50%) scale(0.42);
+  color: #ff3048;
+  font-size: clamp(4.4rem, 22vw, 8rem);
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 10px 34px rgba(0, 0, 0, 0.46);
+  animation: feedLikeBurst 720ms cubic-bezier(0.18, 0.8, 0.24, 1) forwards;
+}
+
+@keyframes feedLikeBurst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.42);
+  }
+
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+
+  56% {
+    opacity: 0.96;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.38);
+  }
 }
 
 .feed-action-button:disabled,

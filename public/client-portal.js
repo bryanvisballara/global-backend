@@ -953,16 +953,81 @@ function findFeedPost(postId) {
   return state.feedPosts.find((post) => getFeedPostId(post) === normalizedPostId) || null;
 }
 
-function replaceFeedItem(updatedItem) {
+function getFeedArticleElement(postId) {
+  const normalizedPostId = String(postId || "");
+  return Array.from(feedContainer.querySelectorAll("[data-feed-post-id]")).find(
+    (element) => String(element.dataset.feedPostId || "") === normalizedPostId
+  ) || null;
+}
+
+function syncFeedArticleSocialState(post) {
+  const postId = getFeedPostId(post);
+  const article = getFeedArticleElement(postId);
+
+  if (!article) {
+    return;
+  }
+
+  const likes = Array.isArray(post.likes) ? post.likes : [];
+  const likesCount = Number(post.likesCount ?? likes.length ?? 0);
+  const commentsCount = Number(post.commentsCount ?? post.comments?.length ?? 0);
+  const likeButton = article.querySelector("[data-feed-like]");
+  const likeIcon = likeButton?.querySelector(".feed-action-icon");
+  const likesCounter = article.querySelector("[data-feed-likes-open].feed-action-count");
+  const commentsCounter = article.querySelector("[data-feed-comments-open].feed-action-count");
+
+  if (likeButton) {
+    likeButton.classList.toggle("is-liked", Boolean(post.likedByMe));
+    likeButton.disabled = pendingFeedLikeIdsRef.has(postId);
+  }
+
+  if (likeIcon) {
+    likeIcon.textContent = post.likedByMe ? "♥" : "♡";
+  }
+
+  if (likesCounter) {
+    likesCounter.textContent = String(likesCount);
+  }
+
+  if (commentsCounter) {
+    commentsCounter.textContent = String(commentsCount);
+  }
+}
+
+function replaceFeedItem(updatedItem, options = {}) {
   const updatedPostId = getFeedPostId(updatedItem);
+  const shouldRender = options.render !== false;
 
   if (!updatedPostId) {
     return;
   }
 
   state.feedPosts = state.feedPosts.map((post) => (getFeedPostId(post) === updatedPostId ? updatedItem : post));
-  renderFeed();
+
+  if (shouldRender) {
+    renderFeed();
+  } else {
+    syncFeedArticleSocialState(updatedItem);
+  }
+
   renderActiveFeedSocialSheet();
+}
+
+function playFeedLikeAnimation(postId) {
+  const article = getFeedArticleElement(postId);
+  const target = article?.querySelector(".feed-media-shell") || article?.querySelector(".feed-story-copy");
+
+  if (!target) {
+    return;
+  }
+
+  target.querySelectorAll(".feed-like-burst").forEach((element) => element.remove());
+  const burst = document.createElement("span");
+  burst.className = "feed-like-burst";
+  burst.setAttribute("aria-hidden", "true");
+  burst.textContent = "♥";
+  target.appendChild(burst);
+  window.setTimeout(() => burst.remove(), 760);
 }
 
 function formatFeedSocialCount(count, singular, plural) {
@@ -1581,19 +1646,32 @@ async function handleFeedPostLike(postId) {
     return;
   }
 
+  const currentPost = findFeedPost(postId);
+  const shouldAnimateLike = !currentPost?.likedByMe;
+  const likeButton = getFeedArticleElement(postId)?.querySelector("[data-feed-like]");
+
+  if (shouldAnimateLike) {
+    playFeedLikeAnimation(postId);
+  }
+
   pendingFeedLikeIdsRef.add(postId);
-  renderFeed();
+  if (likeButton) {
+    likeButton.disabled = true;
+  }
 
   try {
     const data = await toggleFeedPostLike(postId);
     if (data.post) {
-      replaceFeedItem(data.post);
+      replaceFeedItem(data.post, { render: false });
     }
   } catch (error) {
     feedLoadingState.textContent = error.message || "No se pudo actualizar el like.";
   } finally {
     pendingFeedLikeIdsRef.delete(postId);
-    renderFeed();
+    const updatedPost = findFeedPost(postId);
+    if (updatedPost) {
+      syncFeedArticleSocialState(updatedPost);
+    }
     renderActiveFeedSocialSheet();
   }
 }
