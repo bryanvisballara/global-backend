@@ -6799,8 +6799,8 @@ body .tracking-search-page .page-hero h1 {
 .feed-action-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 12px;
   margin-top: 12px;
   margin-bottom: 12px;
 }
@@ -6838,6 +6838,17 @@ body .tracking-search-page .page-hero h1 {
 .feed-action-icon {
   font-size: 1.72rem;
   line-height: 1;
+}
+
+.feed-comment-main-icon svg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .feed-action-button.is-liked {

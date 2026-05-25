@@ -1350,7 +1350,11 @@ function renderFeed() {
             </div>
             <div class="feed-action-group">
               <button class="feed-action-button" type="button" data-feed-comments-open="${postKey}" aria-label="Comentar">
-                <span class="feed-action-icon" aria-hidden="true">☰</span>
+                <span class="feed-action-icon feed-comment-main-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M5.1 18.4c-1.7-1.6-2.6-3.7-2.6-6.1 0-5 4.2-8.8 9.5-8.8s9.5 3.8 9.5 8.8S17.3 21 12 21c-1.3 0-2.6-.2-3.8-.7L3 21.2l1.2-4.1c.3.5.6.9.9 1.3Z" />
+                  </svg>
+                </span>
               </button>
               <button class="feed-action-count" type="button" data-feed-comments-open="${postKey}" aria-label="Ver comentarios">
                 ${commentsCount}
