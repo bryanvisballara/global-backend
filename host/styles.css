@@ -6760,8 +6760,7 @@ body .tracking-search-page .page-hero h1 {
 
 .feed-card-copy {
   margin-top: 0;
-  text-align: justify;
-  text-align-last: start;
+  font-size: 0.94rem;
 }
 
 .feed-card-copy.is-collapsed {
