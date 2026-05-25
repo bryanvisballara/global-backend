@@ -4,12 +4,16 @@ const {
   createDocuSignPreagreementSigningUrl,
   createAuthenticatedClientRequest,
   createClientMaintenanceVehicle,
+  createClientPostComment,
   deleteClientMaintenanceVehicle,
+  deleteClientPostComment,
   dismissClientNotification,
   getClientDashboard,
   listClientVirtualDealershipVehicles,
   listClientPosts,
   registerClientPushDevice,
+  toggleClientPostCommentLike,
+  toggleClientPostLike,
   updateClientMaintenanceVehicle,
   updateClientMaintenance,
 } = require("../controllers/clientPortalController");
@@ -20,6 +24,10 @@ router.use(requireAuth, requireRole("client"));
 
 router.get("/dashboard", getClientDashboard);
 router.get("/posts", listClientPosts);
+router.post("/posts/:postId/like", toggleClientPostLike);
+router.post("/posts/:postId/comments", createClientPostComment);
+router.delete("/posts/:postId/comments/:commentId", deleteClientPostComment);
+router.post("/posts/:postId/comments/:commentId/like", toggleClientPostCommentLike);
 router.get("/virtual-dealership", listClientVirtualDealershipVehicles);
 router.post("/maintenance-vehicles", createClientMaintenanceVehicle);
 router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle);

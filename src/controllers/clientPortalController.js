@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 // Webhook público para Wompi
 async function wompiWebhookHandler(req, res) {
   try {
@@ -121,6 +122,72 @@ function getRequiredDocuSignConfig() {
     returnUrl: String(process.env.DOCUSIGN_RETURN_URL || "").trim(),
     consentRedirectUrl: String(process.env.DOCUSIGN_CONSENT_REDIRECT_URL || "").trim(),
   };
+}
+
+function resolveClientActor(req) {
+  return {
+    userId: String(req.user?._id || ""),
+    name: String(req.user?.name || req.user?.email || "Cliente").trim() || "Cliente",
+  };
+}
+
+function isSameUserId(left, right) {
+  return String(left || "") === String(right || "");
+}
+
+function serializeFeedLike(like = {}) {
+  return {
+    userId: String(like.user || like.userId || ""),
+    name: String(like.name || "Cliente").trim() || "Cliente",
+    createdAt: like.createdAt || null,
+  };
+}
+
+function serializeFeedComment(comment = {}, viewerId = "") {
+  const likes = Array.isArray(comment.likes) ? comment.likes.map(serializeFeedLike) : [];
+
+  return {
+    id: String(comment._id || comment.id || ""),
+    userId: String(comment.user || comment.userId || ""),
+    name: String(comment.name || "Cliente").trim() || "Cliente",
+    body: String(comment.body || ""),
+    createdAt: comment.createdAt || null,
+    updatedAt: comment.updatedAt || null,
+    likedByMe: likes.some((like) => isSameUserId(like.userId, viewerId)),
+    likesCount: likes.length,
+    likes,
+    canDelete: isSameUserId(comment.user, viewerId),
+  };
+}
+
+function serializeClientPost(post, viewerId = "") {
+  const sourcePost = typeof post?.toObject === "function" ? post.toObject() : post;
+  const likes = Array.isArray(sourcePost?.likes) ? sourcePost.likes.map(serializeFeedLike) : [];
+  const comments = Array.isArray(sourcePost?.comments)
+    ? sourcePost.comments.map((comment) => serializeFeedComment(comment, viewerId))
+    : [];
+
+  return {
+    ...sourcePost,
+    _id: String(sourcePost?._id || ""),
+    likedByMe: likes.some((like) => isSameUserId(like.userId, viewerId)),
+    likesCount: likes.length,
+    likes,
+    commentsCount: comments.length,
+    comments,
+  };
+}
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ""));
+}
+
+async function findPublishedPostById(postId) {
+  if (!isValidObjectId(postId)) {
+    return null;
+  }
+
+  return Post.findOne({ _id: postId, status: "published" }).populate("publishedBy", "name email role");
 }
 
 function buildDocuSignConsentUrl(config) {
@@ -1122,6 +1189,7 @@ async function listClientPosts(req, res) {
 
     const offset = normalizePaginationValue(req.query.offset, 0, 1000);
     const limit = normalizePaginationValue(req.query.limit, 5, 10);
+    const { userId } = resolveClientActor(req);
 
     const posts = await Post.find({ status: "published" })
       .populate("publishedBy", "name email role")
@@ -1132,7 +1200,7 @@ async function listClientPosts(req, res) {
     const hasMore = posts.length > limit;
 
     return res.status(200).json({
-      posts: hasMore ? posts.slice(0, limit) : posts,
+      posts: (hasMore ? posts.slice(0, limit) : posts).map((post) => serializeClientPost(post, userId)),
       pagination: {
         offset,
         limit,
@@ -1142,6 +1210,130 @@ async function listClientPosts(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ message: "Error fetching client posts" });
+  }
+}
+
+async function toggleClientPostLike(req, res) {
+  try {
+    const { postId } = req.params;
+    const actor = resolveClientActor(req);
+    const post = await findPublishedPostById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Publicación no encontrada." });
+    }
+
+    const likes = Array.isArray(post.likes) ? post.likes : [];
+    const existingLikeIndex = likes.findIndex((like) => isSameUserId(like.user, actor.userId));
+
+    if (existingLikeIndex >= 0) {
+      likes.splice(existingLikeIndex, 1);
+    } else {
+      likes.push({ user: req.user._id, name: actor.name, createdAt: new Date() });
+    }
+
+    post.likes = likes;
+    await post.save();
+    await post.populate("publishedBy", "name email role");
+
+    return res.status(200).json({ post: serializeClientPost(post, actor.userId) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "No se pudo actualizar el like." });
+  }
+}
+
+async function createClientPostComment(req, res) {
+  try {
+    const { postId } = req.params;
+    const actor = resolveClientActor(req);
+    const body = String(req.body?.body || "").trim();
+
+    if (!body) {
+      return res.status(400).json({ message: "Escribe un comentario antes de publicar." });
+    }
+
+    if (body.length > 800) {
+      return res.status(400).json({ message: "El comentario no puede superar 800 caracteres." });
+    }
+
+    const post = await findPublishedPostById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Publicación no encontrada." });
+    }
+
+    post.comments.push({ user: req.user._id, name: actor.name, body });
+    await post.save();
+    await post.populate("publishedBy", "name email role");
+
+    return res.status(201).json({ post: serializeClientPost(post, actor.userId) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "No se pudo publicar el comentario." });
+  }
+}
+
+async function deleteClientPostComment(req, res) {
+  try {
+    const { postId, commentId } = req.params;
+    const actor = resolveClientActor(req);
+    const post = await findPublishedPostById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Publicación no encontrada." });
+    }
+
+    const comment = post.comments.id(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comentario no encontrado." });
+    }
+
+    if (!isSameUserId(comment.user, actor.userId)) {
+      return res.status(403).json({ message: "Solo puedes eliminar tus propios comentarios." });
+    }
+
+    comment.deleteOne();
+    await post.save();
+    await post.populate("publishedBy", "name email role");
+
+    return res.status(200).json({ post: serializeClientPost(post, actor.userId) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "No se pudo eliminar el comentario." });
+  }
+}
+
+async function toggleClientPostCommentLike(req, res) {
+  try {
+    const { postId, commentId } = req.params;
+    const actor = resolveClientActor(req);
+    const post = await findPublishedPostById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Publicación no encontrada." });
+    }
+
+    const comment = post.comments.id(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comentario no encontrado." });
+    }
+
+    const likes = Array.isArray(comment.likes) ? comment.likes : [];
+    const existingLikeIndex = likes.findIndex((like) => isSameUserId(like.user, actor.userId));
+
+    if (existingLikeIndex >= 0) {
+      likes.splice(existingLikeIndex, 1);
+    } else {
+      likes.push({ user: req.user._id, name: actor.name, createdAt: new Date() });
+    }
+
+    comment.likes = likes;
+    await post.save();
+    await post.populate("publishedBy", "name email role");
+
+    return res.status(200).json({ post: serializeClientPost(post, actor.userId) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "No se pudo actualizar el like del comentario." });
   }
 }
 
@@ -1552,7 +1744,9 @@ module.exports = {
   getWompiConfig,
   createDocuSignPreagreementSigningUrl,
   createAuthenticatedClientRequest,
+  createClientPostComment,
   dismissClientNotification,
+  deleteClientPostComment,
   createClientMaintenanceVehicle,
   updateClientMaintenanceVehicle,
   deleteClientMaintenanceVehicle,
@@ -1561,5 +1755,7 @@ module.exports = {
   listClientPosts,
   listClientVirtualDealershipVehicles,
   registerClientPushDevice,
+  toggleClientPostCommentLike,
+  toggleClientPostLike,
   updateClientMaintenance,
 };

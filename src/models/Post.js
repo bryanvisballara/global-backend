@@ -21,6 +21,54 @@ const mediaItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const postLikeSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
+const postCommentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    body: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 800,
+    },
+    likes: {
+      type: [postLikeSchema],
+      default: [],
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
 const postSchema = new mongoose.Schema(
   {
     title: {
@@ -65,6 +113,14 @@ const postSchema = new mongoose.Schema(
     pushNotificationSentAt: {
       type: Date,
       default: null,
+    },
+    likes: {
+      type: [postLikeSchema],
+      default: [],
+    },
+    comments: {
+      type: [postCommentSchema],
+      default: [],
     },
   },
   {

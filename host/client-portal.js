@@ -32,6 +32,13 @@ const state = {
   feedHasMore: true,
   isFetchingFeed: false,
   isRefreshingFeed: false,
+  selectedLikesPostId: "",
+  selectedCommentLikesId: "",
+  selectedCommentsPostId: "",
+  commentDraft: "",
+  feedActionMessage: "",
+  pendingFeedLikeIds: new Set(),
+  pendingFeedCommentLikeKeys: new Set(),
   virtualDealershipVehicles: [],
   virtualDealershipVisibleCount: 0,
   virtualDealershipExpandedDetails: new Set(),
@@ -44,6 +51,8 @@ const PULL_REFRESH_THRESHOLD = 78;
 const TRACKING_HISTORY_MAX_ITEMS = 12;
 const TRACKING_PAGE_VERSION = "20260416-clientevents04";
 const CLIENT_IMAGE_CACHE_SW_URL = "/sw.js";
+const pendingFeedLikeIdsRef = state.pendingFeedLikeIds;
+const pendingFeedCommentLikeKeysRef = state.pendingFeedCommentLikeKeys;
 
 function buildTrackingPageUrl(trackingNumber = "") {
   const trackingUrl = new URL("/client-tracking.html", window.location.origin);
@@ -262,6 +271,14 @@ const refreshIndicator = document.getElementById("feed-refresh-indicator");
 const refreshLabel = document.getElementById("feed-refresh-label");
 const feedLoadMoreSentinel = document.getElementById("feed-load-more-sentinel");
 const feedLoadingState = document.getElementById("feed-loading-state");
+const feedLikesModal = document.getElementById("feed-likes-modal");
+const feedLikesList = document.getElementById("feed-likes-list");
+const feedCommentsModal = document.getElementById("feed-comments-modal");
+const feedCommentsList = document.getElementById("feed-comments-list");
+const feedCommentForm = document.getElementById("feed-comment-form");
+const feedCommentInput = document.getElementById("feed-comment-input");
+const feedCommentSubmit = document.getElementById("feed-comment-submit");
+const feedActionMessage = document.getElementById("feed-action-message");
 
 let feedObserver = null;
 let virtualDealershipObserver = null;
@@ -594,6 +611,32 @@ function fetchJson(path, options = {}) {
   });
 }
 
+function postJson(path, payload = null, options = {}) {
+  return fetchJson(path, {
+    method: "POST",
+    body: payload ? JSON.stringify(payload) : undefined,
+    ...options,
+  });
+}
+
+function toggleFeedPostLike(postId) {
+  return postJson(`/api/client/posts/${encodeURIComponent(postId)}/like`);
+}
+
+function createFeedComment(postId, payload) {
+  return postJson(`/api/client/posts/${encodeURIComponent(postId)}/comments`, payload);
+}
+
+function deleteFeedComment(postId, commentId) {
+  return fetchJson(`/api/client/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}
+
+function toggleFeedCommentLike(postId, commentId) {
+  return postJson(`/api/client/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/like`);
+}
+
 async function registerNativePushToken(pushInfo) {
   if (!pushInfo?.token || state.registeredPushToken === pushInfo.token) {
     return;
@@ -900,6 +943,237 @@ function updateSummary() {
   }
 }
 
+function getFeedPostId(post = {}) {
+  return String(post._id || post.id || "");
+}
+
+function findFeedPost(postId) {
+  const normalizedPostId = String(postId || "");
+  return state.feedPosts.find((post) => getFeedPostId(post) === normalizedPostId) || null;
+}
+
+function replaceFeedItem(updatedItem) {
+  const updatedPostId = getFeedPostId(updatedItem);
+
+  if (!updatedPostId) {
+    return;
+  }
+
+  state.feedPosts = state.feedPosts.map((post) => (getFeedPostId(post) === updatedPostId ? updatedItem : post));
+  renderFeed();
+  renderActiveFeedSocialSheet();
+}
+
+function formatFeedSocialCount(count, singular, plural) {
+  const total = Number(count || 0);
+  return `${total} ${total === 1 ? singular : plural}`;
+}
+
+function renderFeedLikesPreview(likes = []) {
+  if (!likes.length) {
+    return "Sé el primero en dar me gusta";
+  }
+
+  const firstName = String(likes[0]?.name || "Cliente").trim() || "Cliente";
+  const remainingCount = likes.length - 1;
+
+  return remainingCount > 0
+    ? `A ${firstName} y ${remainingCount} más les gusta`
+    : `A ${firstName} le gusta`;
+}
+
+function setFeedActionMessage(message = "", type = "") {
+  state.feedActionMessage = message;
+
+  if (!feedActionMessage) {
+    return;
+  }
+
+  feedActionMessage.textContent = message;
+  feedActionMessage.className = `feedback${type ? ` ${type}` : ""}`;
+}
+
+function renderFeedPersonList(container, likes = [], emptyMessage = "Todavía no hay likes.") {
+  if (!container) {
+    return;
+  }
+
+  if (!likes.length) {
+    container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+    return;
+  }
+
+  container.innerHTML = likes
+    .map((like) => {
+      const name = String(like?.name || "Cliente").trim() || "Cliente";
+      return `
+        <div class="feed-social-person">
+          <span>${escapeHtml(name.charAt(0).toUpperCase())}</span>
+          <strong>${escapeHtml(name)}</strong>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderFeedCommentsList(post) {
+  if (!feedCommentsList) {
+    return;
+  }
+
+  const comments = Array.isArray(post?.comments) ? post.comments : [];
+
+  if (!comments.length) {
+    feedCommentsList.innerHTML = `<div class="empty-state">Sé el primero en comentar.</div>`;
+    return;
+  }
+
+  feedCommentsList.innerHTML = comments
+    .map((comment) => {
+      const commentId = String(comment?.id || comment?._id || "");
+      const likeKey = `${getFeedPostId(post)}:${commentId}`;
+      const isPending = pendingFeedCommentLikeKeysRef.has(likeKey);
+      const likedClass = comment?.likedByMe ? " is-liked" : "";
+      const disabledAttr = isPending ? " disabled" : "";
+      const deleteMarkup = comment?.canDelete
+        ? `<button class="feed-comment-delete" type="button" data-feed-comment-delete="${escapeHtml(commentId)}">Eliminar</button>`
+        : "";
+
+      return `
+        <article class="feed-comment-item">
+          <div class="feed-comment-avatar">${escapeHtml(String(comment?.name || "C").charAt(0).toUpperCase())}</div>
+          <div class="feed-comment-body">
+            <div class="feed-comment-bubble">
+              <strong>${escapeHtml(comment?.name || "Cliente")}</strong>
+              <p>${escapeHtml(comment?.body || "")}</p>
+            </div>
+            <div class="feed-comment-actions">
+              <button class="feed-comment-like${likedClass}" type="button" data-feed-comment-like="${escapeHtml(commentId)}"${disabledAttr}>
+                ${comment?.likedByMe ? "Te gusta" : "Me gusta"}
+              </button>
+              <button class="feed-comment-likes-count" type="button" data-feed-comment-likes-open="${escapeHtml(commentId)}">
+                ${formatFeedSocialCount(comment?.likesCount || 0, "like", "likes")}
+              </button>
+              ${deleteMarkup}
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderActiveFeedSocialSheet() {
+  if (state.selectedLikesPostId) {
+    const post = findFeedPost(state.selectedLikesPostId);
+    const comment = state.selectedCommentLikesId
+      ? (post?.comments || []).find((item) => String(item?.id || item?._id || "") === state.selectedCommentLikesId)
+      : null;
+    renderFeedPersonList(feedLikesList, comment ? comment.likes || [] : post?.likes || [], "Todavía no hay likes.");
+  }
+
+  if (state.selectedCommentsPostId) {
+    const post = findFeedPost(state.selectedCommentsPostId);
+    renderFeedCommentsList(post);
+  }
+}
+
+function hasOpenClientModal() {
+  return [
+    feedLikesModal,
+    feedCommentsModal,
+    maintenanceVehicleModal,
+    notificationsModal,
+    virtualDealershipImageModal,
+    virtualDealershipVideoModal,
+  ].some((modal) => modal && !modal.hidden);
+}
+
+function openFeedLikesSheet(postId) {
+  const post = findFeedPost(postId);
+
+  if (!post || !feedLikesModal) {
+    return;
+  }
+
+  state.selectedLikesPostId = getFeedPostId(post);
+  state.selectedCommentLikesId = "";
+  renderFeedPersonList(feedLikesList, post.likes || [], "Todavía no hay likes.");
+  feedLikesModal.classList.remove("is-raised");
+  feedLikesModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function openFeedCommentLikesSheet(postId, commentId) {
+  const post = findFeedPost(postId);
+  const comment = (post?.comments || []).find((item) => String(item?.id || item?._id || "") === String(commentId || ""));
+
+  if (!post || !comment || !feedLikesModal) {
+    return;
+  }
+
+  state.selectedLikesPostId = getFeedPostId(post);
+  state.selectedCommentLikesId = String(commentId || "");
+  renderFeedPersonList(feedLikesList, comment.likes || [], "Todavía no hay likes.");
+  feedLikesModal.classList.add("is-raised");
+  feedLikesModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function openFeedCommentsSheet(postId) {
+  const post = findFeedPost(postId);
+
+  if (!post || !feedCommentsModal) {
+    return;
+  }
+
+  state.selectedCommentsPostId = getFeedPostId(post);
+  state.commentDraft = "";
+  if (feedCommentInput) {
+    feedCommentInput.value = "";
+  }
+  setFeedActionMessage("");
+  renderFeedCommentsList(post);
+  feedCommentsModal.hidden = false;
+  document.body.classList.add("modal-open");
+  feedCommentInput?.focus();
+}
+
+function closeFeedSocialSheets() {
+  state.selectedLikesPostId = "";
+  state.selectedCommentLikesId = "";
+  state.selectedCommentsPostId = "";
+  state.commentDraft = "";
+
+  if (feedLikesModal) {
+    feedLikesModal.classList.remove("is-raised");
+    feedLikesModal.hidden = true;
+  }
+
+  if (feedCommentsModal) {
+    feedCommentsModal.hidden = true;
+  }
+
+  if (feedCommentInput) {
+    feedCommentInput.value = "";
+  }
+
+  setFeedActionMessage("");
+  document.body.classList.toggle("modal-open", hasOpenClientModal());
+}
+
+function closeFeedLikesSheet() {
+  state.selectedLikesPostId = "";
+  state.selectedCommentLikesId = "";
+
+  if (feedLikesModal) {
+    feedLikesModal.classList.remove("is-raised");
+    feedLikesModal.hidden = true;
+  }
+
+  document.body.classList.toggle("modal-open", hasOpenClientModal());
+}
+
 function renderFeed() {
   if (!state.feedPosts.length && !state.isFetchingFeed) {
     renderEmptyState(feedContainer, "Todavía no hay publicaciones activas para tu feed.");
@@ -955,6 +1229,14 @@ function renderFeed() {
         minute: "2-digit",
       });
       const postKey = escapeHtml(post._id || `feed-post-${index}`);
+      const rawPostKey = getFeedPostId(post) || `feed-post-${index}`;
+      const likes = Array.isArray(post.likes) ? post.likes : [];
+      const likesCount = Number(post.likesCount ?? likes.length ?? 0);
+      const commentsCount = Number(post.commentsCount ?? post.comments?.length ?? 0);
+      const isLikePending = pendingFeedLikeIdsRef.has(rawPostKey);
+      const likeButtonLabel = post.likedByMe ? "Te gusta" : "Me gusta";
+      const likeButtonClass = post.likedByMe ? " is-liked" : "";
+      const likeButtonDisabled = isLikePending ? " disabled" : "";
 
       return `
         <article class="feed-card" data-feed-post-id="${postKey}">
@@ -985,6 +1267,24 @@ function renderFeed() {
                 <span class="feed-card-toggle-label">ver más</span>
               </button>
             </div>
+          </div>
+          <div class="feed-social-summary">
+            <button class="feed-social-summary-button" type="button" data-feed-likes-open="${postKey}">
+              ${escapeHtml(renderFeedLikesPreview(likes))}
+            </button>
+            <button class="feed-social-summary-button" type="button" data-feed-comments-open="${postKey}">
+              ${formatFeedSocialCount(commentsCount, "comentario", "comentarios")}
+            </button>
+          </div>
+          <div class="feed-action-row">
+            <button class="feed-action-button${likeButtonClass}" type="button" data-feed-like="${postKey}"${likeButtonDisabled}>
+              <span aria-hidden="true">♡</span>
+              <strong>${likeButtonLabel}</strong>
+            </button>
+            <button class="feed-action-button" type="button" data-feed-comments-open="${postKey}">
+              <span aria-hidden="true">☰</span>
+              <strong>Comentar</strong>
+            </button>
           </div>
         </article>
       `;
@@ -1275,7 +1575,135 @@ function setupVirtualDealershipInfiniteScroll() {
   virtualDealershipObserver.observe(virtualDealershipLoadMoreSentinel);
 }
 
+async function handleFeedPostLike(postId) {
+  if (!postId || pendingFeedLikeIdsRef.has(postId)) {
+    return;
+  }
+
+  pendingFeedLikeIdsRef.add(postId);
+  renderFeed();
+
+  try {
+    const data = await toggleFeedPostLike(postId);
+    if (data.post) {
+      replaceFeedItem(data.post);
+    }
+  } catch (error) {
+    feedLoadingState.textContent = error.message || "No se pudo actualizar el like.";
+  } finally {
+    pendingFeedLikeIdsRef.delete(postId);
+    renderFeed();
+    renderActiveFeedSocialSheet();
+  }
+}
+
+async function handleCreateFeedComment(event) {
+  event.preventDefault();
+
+  const postId = state.selectedCommentsPostId;
+  const body = String(feedCommentInput?.value || "").trim();
+
+  if (!postId) {
+    return;
+  }
+
+  if (!body) {
+    setFeedActionMessage("Escribe un comentario antes de publicar.", "error");
+    return;
+  }
+
+  if (body.length > 800) {
+    setFeedActionMessage("El comentario no puede superar 800 caracteres.", "error");
+    return;
+  }
+
+  if (feedCommentSubmit) {
+    feedCommentSubmit.disabled = true;
+  }
+  setFeedActionMessage("Publicando comentario...");
+
+  try {
+    const data = await createFeedComment(postId, { body });
+    if (data.post) {
+      replaceFeedItem(data.post);
+    }
+    if (feedCommentInput) {
+      feedCommentInput.value = "";
+    }
+    state.commentDraft = "";
+    setFeedActionMessage("Comentario publicado.", "success");
+  } catch (error) {
+    setFeedActionMessage(error.message || "No se pudo publicar el comentario.", "error");
+  } finally {
+    if (feedCommentSubmit) {
+      feedCommentSubmit.disabled = false;
+    }
+  }
+}
+
+async function handleDeleteFeedComment(postId, commentId) {
+  if (!postId || !commentId) {
+    return;
+  }
+
+  setFeedActionMessage("Eliminando comentario...");
+
+  try {
+    const data = await deleteFeedComment(postId, commentId);
+    if (data.post) {
+      replaceFeedItem(data.post);
+    }
+    setFeedActionMessage("Comentario eliminado.", "success");
+  } catch (error) {
+    setFeedActionMessage(error.message || "No se pudo eliminar el comentario.", "error");
+  }
+}
+
+async function handleFeedCommentLike(postId, commentId) {
+  const likeKey = `${postId}:${commentId}`;
+
+  if (!postId || !commentId || pendingFeedCommentLikeKeysRef.has(likeKey)) {
+    return;
+  }
+
+  pendingFeedCommentLikeKeysRef.add(likeKey);
+  renderActiveFeedSocialSheet();
+
+  try {
+    const data = await toggleFeedCommentLike(postId, commentId);
+    if (data.post) {
+      replaceFeedItem(data.post);
+    }
+  } catch (error) {
+    setFeedActionMessage(error.message || "No se pudo actualizar el like.", "error");
+  } finally {
+    pendingFeedCommentLikeKeysRef.delete(likeKey);
+    renderActiveFeedSocialSheet();
+  }
+}
+
 feedContainer.addEventListener("click", (event) => {
+  const likeButton = event.target.closest("[data-feed-like]");
+
+  if (likeButton) {
+    handleFeedPostLike(likeButton.dataset.feedLike).catch(() => null);
+    return;
+  }
+
+  const likesOpenButton = event.target.closest("[data-feed-likes-open]");
+
+  if (likesOpenButton) {
+    openFeedLikesSheet(likesOpenButton.dataset.feedLikesOpen);
+    return;
+  }
+
+  const commentsOpenButton = event.target.closest("[data-feed-comments-open]");
+
+  if (commentsOpenButton) {
+    openFeedCommentsSheet(commentsOpenButton.dataset.feedCommentsOpen);
+    return;
+  }
+
   const carouselDot = event.target.closest("[data-feed-carousel-dot]");
 
   if (carouselDot) {
@@ -1310,6 +1738,48 @@ feedContainer.addEventListener("click", (event) => {
   copyElement.classList.toggle("is-collapsed", !willExpand);
   toggleButton.classList.toggle("is-expanded", willExpand);
   toggleButton.querySelector(".feed-card-toggle-label").textContent = willExpand ? "ver menos" : "ver más";
+});
+
+feedCommentForm?.addEventListener("submit", handleCreateFeedComment);
+
+feedCommentInput?.addEventListener("input", () => {
+  state.commentDraft = feedCommentInput.value;
+});
+
+feedCommentsList?.addEventListener("click", (event) => {
+  const postId = state.selectedCommentsPostId;
+  const deleteButton = event.target.closest("[data-feed-comment-delete]");
+
+  if (deleteButton) {
+    handleDeleteFeedComment(postId, deleteButton.dataset.feedCommentDelete).catch(() => null);
+    return;
+  }
+
+  const likeButton = event.target.closest("[data-feed-comment-like]");
+
+  if (likeButton) {
+    handleFeedCommentLike(postId, likeButton.dataset.feedCommentLike).catch(() => null);
+    return;
+  }
+
+  const likesOpenButton = event.target.closest("[data-feed-comment-likes-open]");
+
+  if (likesOpenButton) {
+    openFeedCommentLikesSheet(postId, likesOpenButton.dataset.feedCommentLikesOpen);
+  }
+});
+
+document.querySelectorAll("[data-feed-social-close]").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    const modal = event.target.closest(".feed-social-modal");
+
+    if (modal === feedLikesModal && feedCommentsModal && !feedCommentsModal.hidden) {
+      closeFeedLikesSheet();
+      return;
+    }
+
+    closeFeedSocialSheets();
+  });
 });
 
 function handlePullStart(event) {

@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260430-clientnexa05" />
+    <link rel="stylesheet" href="/styles.css?v=20260525-feed-social1" />
   </head>
   <body>
     <main class="client-shell">
@@ -70,6 +70,33 @@
             <div id="feed-load-more-sentinel" class="feed-load-more-sentinel" aria-hidden="true"></div>
             <p id="feed-loading-state" class="feed-loading-state"></p>
           </section>
+
+          <div id="feed-likes-modal" class="client-modal feed-social-modal" hidden>
+            <div class="client-modal-overlay" data-feed-social-close></div>
+            <section class="client-modal-card feed-social-sheet" role="dialog" aria-modal="true" aria-labelledby="feed-likes-title">
+              <header class="client-modal-header feed-social-header">
+                <h2 id="feed-likes-title">Me gusta</h2>
+                <button class="feed-social-close" type="button" data-feed-social-close aria-label="Cerrar">×</button>
+              </header>
+              <div id="feed-likes-list" class="feed-social-list"></div>
+            </section>
+          </div>
+
+          <div id="feed-comments-modal" class="client-modal feed-social-modal" hidden>
+            <div class="client-modal-overlay" data-feed-social-close></div>
+            <section class="client-modal-card feed-social-sheet" role="dialog" aria-modal="true" aria-labelledby="feed-comments-title">
+              <header class="client-modal-header feed-social-header">
+                <h2 id="feed-comments-title">Comentarios</h2>
+                <button class="feed-social-close" type="button" data-feed-social-close aria-label="Cerrar">×</button>
+              </header>
+              <div id="feed-comments-list" class="feed-social-list feed-comments-list"></div>
+              <form id="feed-comment-form" class="feed-comment-form">
+                <textarea id="feed-comment-input" name="body" maxlength="800" rows="2" placeholder="Escribe un comentario"></textarea>
+                <button id="feed-comment-submit" type="submit">Publicar</button>
+              </form>
+              <p id="feed-action-message" class="feedback" aria-live="polite"></p>
+            </section>
+          </div>
 
           <section class="client-view" data-view="tracking">
             <div class="client-section-head">
@@ -469,6 +496,6 @@
       </section>
     </div>
 
-    <script src="/client-portal.js?v=20260501-clientapp10"></script>
+    <script src="/client-portal.js?v=20260525-feed-social1"></script>
   </body>
 </html>
