@@ -961,6 +961,14 @@ function getFeedArticleElement(postId) {
   ) || null;
 }
 
+function getFeedHeartIcon(isLiked) {
+  return `
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path d="M12 21.2c-.4-.3-8.8-5.5-8.8-11.6 0-3 2.2-5.2 5-5.2 1.6 0 3 .8 3.8 2.1.8-1.3 2.2-2.1 3.8-2.1 2.8 0 5 2.2 5 5.2 0 6.1-8.4 11.3-8.8 11.6Z" />
+    </svg>
+  `;
+}
+
 function syncFeedArticleSocialState(post) {
   const postId = getFeedPostId(post);
   const article = getFeedArticleElement(postId);
@@ -973,7 +981,7 @@ function syncFeedArticleSocialState(post) {
   const likesCount = Number(post.likesCount ?? likes.length ?? 0);
   const commentsCount = Number(post.commentsCount ?? post.comments?.length ?? 0);
   const likeButton = article.querySelector("[data-feed-like]");
-  const likeIcon = likeButton?.querySelector(".feed-action-icon");
+  const likeIcon = likeButton?.querySelector(".feed-heart-icon");
   const likesCounter = article.querySelector("[data-feed-likes-open].feed-action-count");
   const commentsCounter = article.querySelector("[data-feed-comments-open].feed-action-count");
 
@@ -983,7 +991,7 @@ function syncFeedArticleSocialState(post) {
   }
 
   if (likeIcon) {
-    likeIcon.textContent = post.likedByMe ? "♥" : "♡";
+    likeIcon.innerHTML = getFeedHeartIcon(Boolean(post.likedByMe));
   }
 
   if (likesCounter) {
@@ -1024,9 +1032,9 @@ function playFeedLikeAnimation(postId) {
 
   target.querySelectorAll(".feed-like-burst").forEach((element) => element.remove());
   const burst = document.createElement("span");
-  burst.className = "feed-like-burst";
+  burst.className = "feed-like-burst feed-heart-icon";
   burst.setAttribute("aria-hidden", "true");
-  burst.textContent = "♥";
+  burst.innerHTML = getFeedHeartIcon(true);
   target.appendChild(burst);
   window.setTimeout(() => burst.remove(), 760);
 }
@@ -1116,7 +1124,7 @@ function renderFeedCommentsList(post) {
             </div>
             <div class="feed-comment-actions">
               <button class="feed-comment-like${likedClass}" type="button" data-feed-comment-like="${escapeHtml(commentId)}" aria-label="Me gusta"${disabledAttr}>
-                <span aria-hidden="true">${comment?.likedByMe ? "♥" : "♡"}</span>
+                <span class="feed-comment-heart-icon" aria-hidden="true">${getFeedHeartIcon(Boolean(comment?.likedByMe))}</span>
               </button>
               <button class="feed-comment-likes-count" type="button" data-feed-comment-likes-open="${escapeHtml(commentId)}">
                 ${formatFeedSocialCount(comment?.likesCount || 0, "like", "likes")}
@@ -1317,7 +1325,7 @@ function renderFeed() {
       const isLikePending = pendingFeedLikeIdsRef.has(rawPostKey);
       const likeButtonClass = post.likedByMe ? " is-liked" : "";
       const likeButtonDisabled = isLikePending ? " disabled" : "";
-      const heartIcon = post.likedByMe ? "♥" : "♡";
+      const heartIcon = getFeedHeartIcon(Boolean(post.likedByMe));
 
       return `
         <article class="feed-card" data-feed-post-id="${postKey}">
@@ -1342,7 +1350,7 @@ function renderFeed() {
           <div class="feed-action-row">
             <div class="feed-action-group">
               <button class="feed-action-button${likeButtonClass}" type="button" data-feed-like="${postKey}"${likeButtonDisabled} aria-label="Me gusta">
-                <span class="feed-action-icon" aria-hidden="true">${heartIcon}</span>
+                <span class="feed-action-icon feed-heart-icon" aria-hidden="true">${heartIcon}</span>
               </button>
               <button class="feed-action-count" type="button" data-feed-likes-open="${postKey}" aria-label="Ver likes">
                 ${likesCount}
@@ -1352,7 +1360,7 @@ function renderFeed() {
               <button class="feed-action-button" type="button" data-feed-comments-open="${postKey}" aria-label="Comentar">
                 <span class="feed-action-icon feed-comment-main-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M5.1 18.4c-1.7-1.6-2.6-3.7-2.6-6.1 0-5 4.2-8.8 9.5-8.8s9.5 3.8 9.5 8.8S17.3 21 12 21c-1.3 0-2.6-.2-3.8-.7L3 21.2l1.2-4.1c.3.5.6.9.9 1.3Z" />
+                    <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.7 8.7 0 0 1-3.7-.8L3 21l1.8-5.5a8.7 8.7 0 0 1-.8-3.7A8.5 8.5 0 0 1 12.5 3h.5a8 8 0 0 1 8 8v.5Z" />
                   </svg>
                 </span>
               </button>

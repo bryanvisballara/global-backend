@@ -6115,7 +6115,7 @@ body .tracking-search-page .page-hero h1 {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 8px;
   margin-top: 12px;
   margin-bottom: 12px;
 }
@@ -6136,29 +6136,48 @@ body .tracking-search-page .page-hero h1 {
 .feed-action-group {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .feed-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
   color: #e6e8ec;
   font-weight: 800;
 }
 
 .feed-action-icon {
-  font-size: 1.72rem;
-  line-height: 1;
+  display: block;
+  width: 31px;
+  height: 31px;
+  line-height: 0;
+  flex: 0 0 auto;
+}
+
+.feed-action-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.feed-heart-icon svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feed-action-button.is-liked .feed-heart-icon svg path {
+  fill: currentColor;
 }
 
 .feed-comment-main-icon svg {
-  display: block;
-  width: 30px;
-  height: 30px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -6194,9 +6213,10 @@ body .tracking-search-page .page-hero h1 {
   left: 50%;
   top: 50%;
   z-index: 8;
+  width: clamp(4.4rem, 22vw, 8rem);
+  height: clamp(4.4rem, 22vw, 8rem);
   transform: translate(-50%, -50%) scale(0.42);
   color: #ff3048;
-  font-size: clamp(4.4rem, 22vw, 8rem);
   line-height: 1;
   opacity: 0;
   pointer-events: none;
@@ -6343,8 +6363,32 @@ body .tracking-search-page .page-hero h1 {
 }
 
 .feed-comment-like span {
-  font-size: 1.42rem;
-  line-height: 1;
+  display: block;
+  width: 22px;
+  height: 22px;
+  line-height: 0;
+}
+
+.feed-comment-like svg,
+.feed-like-burst svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.feed-comment-heart-icon svg path,
+.feed-like-burst.feed-heart-icon svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feed-comment-like.is-liked .feed-comment-heart-icon svg path,
+.feed-like-burst.feed-heart-icon svg path {
+  fill: currentColor;
 }
 
 .feed-comment-like.is-liked {
