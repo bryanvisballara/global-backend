@@ -6998,7 +6998,7 @@ body .tracking-search-page .page-hero h1 {
 .feed-comment-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   margin-top: 6px;
   padding-left: 8px;
@@ -7007,7 +7007,25 @@ body .tracking-search-page .page-hero h1 {
   font-weight: 800;
 }
 
-.feed-comment-like.is-liked,
+.feed-comment-like {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: #cfd3dc;
+}
+
+.feed-comment-like span {
+  font-size: 1.42rem;
+  line-height: 1;
+}
+
+.feed-comment-like.is-liked {
+  color: #ff3b4f;
+  background: rgba(255, 59, 79, 0.12);
+}
+
 .feed-comment-likes-count {
   color: #f4d28f;
 }

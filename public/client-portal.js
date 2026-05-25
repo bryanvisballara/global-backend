@@ -1114,8 +1114,8 @@ function renderFeedCommentsList(post) {
               <p>${escapeHtml(comment?.body || "")}</p>
             </div>
             <div class="feed-comment-actions">
-              <button class="feed-comment-like${likedClass}" type="button" data-feed-comment-like="${escapeHtml(commentId)}"${disabledAttr}>
-                ${comment?.likedByMe ? "Te gusta" : "Me gusta"}
+              <button class="feed-comment-like${likedClass}" type="button" data-feed-comment-like="${escapeHtml(commentId)}" aria-label="Me gusta"${disabledAttr}>
+                <span aria-hidden="true">${comment?.likedByMe ? "♥" : "♡"}</span>
               </button>
               <button class="feed-comment-likes-count" type="button" data-feed-comment-likes-open="${escapeHtml(commentId)}">
                 ${formatFeedSocialCount(comment?.likesCount || 0, "like", "likes")}
