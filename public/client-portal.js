@@ -962,8 +962,8 @@ function getFeedArticleElement(postId) {
 
 function getFeedHeartIcon(isLiked) {
   return `
-    <svg viewBox="0 0 24 24" focusable="false">
-      <path d="M12 21.2c-.4-.3-8.8-5.5-8.8-11.6 0-3 2.2-5.2 5-5.2 1.6 0 3 .8 3.8 2.1.8-1.3 2.2-2.1 3.8-2.1 2.8 0 5 2.2 5 5.2 0 6.1-8.4 11.3-8.8 11.6Z" />
+    <svg class="${isLiked ? "is-filled" : "is-outline"}" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false">
+      <path d="M12 20.1 4.5 12.6A4.7 4.7 0 0 1 11.2 6l.8.9.8-.9a4.7 4.7 0 0 1 6.7 6.6L12 20.1Z" />
     </svg>
   `;
 }

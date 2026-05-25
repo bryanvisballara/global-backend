@@ -6853,9 +6853,14 @@ body .tracking-search-page .page-hero h1 {
 .feed-heart-icon svg path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.feed-action-button .feed-heart-icon svg.is-outline {
+  transform: scale(0.92);
+  transform-origin: center;
 }
 
 .feed-action-button.is-liked .feed-heart-icon svg path {
