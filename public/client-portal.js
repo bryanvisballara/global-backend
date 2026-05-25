@@ -285,6 +285,8 @@ let virtualDealershipObserver = null;
 let touchStartY = 0;
 let pullDistance = 0;
 let isPulling = false;
+let lastFeedTapAt = 0;
+let lastFeedTapPostId = "";
 let wheelUpRefreshAccumulator = 0;
 let lastWheelRefreshAt = 0;
 let trackingHistory = [];
@@ -1233,9 +1235,9 @@ function renderFeed() {
       const likesCount = Number(post.likesCount ?? likes.length ?? 0);
       const commentsCount = Number(post.commentsCount ?? post.comments?.length ?? 0);
       const isLikePending = pendingFeedLikeIdsRef.has(rawPostKey);
-      const likeButtonLabel = post.likedByMe ? "Te gusta" : "Me gusta";
       const likeButtonClass = post.likedByMe ? " is-liked" : "";
       const likeButtonDisabled = isLikePending ? " disabled" : "";
+      const heartIcon = post.likedByMe ? "♥" : "♡";
 
       return `
         <article class="feed-card" data-feed-post-id="${postKey}">
@@ -1252,12 +1254,30 @@ function renderFeed() {
             </div>
           </div>
           ${mediaMarkup ? `
-            <div class="feed-media-shell">
+            <div class="feed-media-shell" data-feed-like-zone>
               <div class="feed-media-strip ${post.media?.length > 1 ? "is-carousel" : ""}" ${post.media?.length > 1 ? 'data-feed-carousel' : ""}>${mediaMarkup}</div>
               ${carouselDotsMarkup}
             </div>
           ` : ""}
-          <div class="feed-story-copy">
+          <div class="feed-action-row">
+            <div class="feed-action-group">
+              <button class="feed-action-button${likeButtonClass}" type="button" data-feed-like="${postKey}"${likeButtonDisabled} aria-label="Me gusta">
+                <span class="feed-action-icon" aria-hidden="true">${heartIcon}</span>
+              </button>
+              <button class="feed-action-count" type="button" data-feed-likes-open="${postKey}" aria-label="Ver likes">
+                ${likesCount}
+              </button>
+            </div>
+            <div class="feed-action-group">
+              <button class="feed-action-button" type="button" data-feed-comments-open="${postKey}" aria-label="Comentar">
+                <span class="feed-action-icon" aria-hidden="true">☰</span>
+              </button>
+              <button class="feed-action-count" type="button" data-feed-comments-open="${postKey}" aria-label="Ver comentarios">
+                ${commentsCount}
+              </button>
+            </div>
+          </div>
+          <div class="feed-story-copy" data-feed-like-zone>
             <h3>${escapeHtml(post.title)}</h3>
             <div class="feed-card-copy-shell">
               <p class="feed-card-copy is-collapsed" data-feed-copy>${escapeHtml(post.body)}</p>
@@ -1266,24 +1286,6 @@ function renderFeed() {
                 <span class="feed-card-toggle-label">ver más</span>
               </button>
             </div>
-          </div>
-          <div class="feed-social-summary">
-            <button class="feed-social-summary-button" type="button" data-feed-likes-open="${postKey}">
-              ${escapeHtml(renderFeedLikesPreview(likes))}
-            </button>
-            <button class="feed-social-summary-button" type="button" data-feed-comments-open="${postKey}">
-              ${formatFeedSocialCount(commentsCount, "comentario", "comentarios")}
-            </button>
-          </div>
-          <div class="feed-action-row">
-            <button class="feed-action-button${likeButtonClass}" type="button" data-feed-like="${postKey}"${likeButtonDisabled}>
-              <span aria-hidden="true">♡</span>
-              <strong>${likeButtonLabel}</strong>
-            </button>
-            <button class="feed-action-button" type="button" data-feed-comments-open="${postKey}">
-              <span aria-hidden="true">☰</span>
-              <strong>Comentar</strong>
-            </button>
           </div>
         </article>
       `;
@@ -1680,6 +1682,63 @@ async function handleFeedCommentLike(postId, commentId) {
     renderActiveFeedSocialSheet();
   }
 }
+
+function shouldIgnoreFeedLikeGesture(target) {
+  return Boolean(target.closest("button, a, input, textarea, select, label, iframe"));
+}
+
+function getFeedLikeZonePostId(target) {
+  if (shouldIgnoreFeedLikeGesture(target)) {
+    return "";
+  }
+
+  const likeZone = target.closest("[data-feed-like-zone]");
+  const article = likeZone?.closest("[data-feed-post-id]");
+  return String(article?.dataset.feedPostId || "");
+}
+
+function registerFeedDoubleTapLike(postId) {
+  if (!postId) {
+    return;
+  }
+
+  handleFeedPostLike(postId).catch(() => null);
+}
+
+feedContainer.addEventListener("dblclick", (event) => {
+  const postId = getFeedLikeZonePostId(event.target);
+
+  if (!postId) {
+    return;
+  }
+
+  event.preventDefault();
+  registerFeedDoubleTapLike(postId);
+});
+
+feedContainer.addEventListener("touchend", (event) => {
+  if (pullDistance > 8 || event.changedTouches.length !== 1) {
+    return;
+  }
+
+  const postId = getFeedLikeZonePostId(event.target);
+
+  if (!postId) {
+    return;
+  }
+
+  const now = Date.now();
+  const isDoubleTap = postId === lastFeedTapPostId && now - lastFeedTapAt <= 340;
+
+  lastFeedTapAt = now;
+  lastFeedTapPostId = postId;
+
+  if (isDoubleTap) {
+    lastFeedTapAt = 0;
+    lastFeedTapPostId = "";
+    registerFeedDoubleTapLike(postId);
+  }
+}, { passive: true });
 
 feedContainer.addEventListener("click", (event) => {
   const likeButton = event.target.closest("[data-feed-like]");

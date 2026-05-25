@@ -6107,26 +6107,17 @@ body .tracking-search-page .page-hero h1 {
   display: none;
 }
 
-.feed-social-summary,
 .feed-action-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  margin-bottom: 12px;
 }
 
-.feed-social-summary {
-  border-top: 0;
-  padding-top: 0;
-  color: #aeb3bd;
-  font-size: 0.86rem;
-}
-
-.feed-social-summary-button,
 .feed-action-button,
+.feed-action-count,
 .feed-comment-like,
 .feed-comment-likes-count,
 .feed-comment-delete,
@@ -6138,36 +6129,40 @@ body .tracking-search-page .page-hero h1 {
   cursor: pointer;
 }
 
-.feed-social-summary-button {
-  padding: 0;
-  color: #aeb3bd;
-  text-align: left;
-}
-
-.feed-social-summary-button:last-child {
-  text-align: right;
+.feed-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .feed-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 42px;
-  flex: 1;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
   color: #e6e8ec;
   font-weight: 800;
 }
 
-.feed-action-button span {
-  font-size: 1.2rem;
+.feed-action-icon {
+  font-size: 1.72rem;
   line-height: 1;
 }
 
 .feed-action-button.is-liked {
-  color: #f4d28f;
-  background: rgba(216, 170, 82, 0.12);
+  color: #ff3b4f;
+  background: rgba(255, 59, 79, 0.12);
+}
+
+.feed-action-count {
+  min-width: 22px;
+  padding: 0 2px;
+  color: #aeb3bd;
+  font-size: 0.94rem;
+  font-weight: 800;
+  text-align: left;
 }
 
 .feed-action-button:disabled,
