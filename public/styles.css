@@ -6437,13 +6437,31 @@ body .tracking-search-page .page-hero h1 {
 }
 
 .feed-comment-form button {
-  min-height: 48px;
+  width: 50px;
+  min-width: 50px;
+  height: 50px;
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-radius: 10px;
-  padding: 0 14px;
-  background: #f4d28f;
+  border-radius: 999px;
+  padding: 0;
+  background: linear-gradient(135deg, #f8db98 0%, #d8aa52 100%);
+  box-shadow: 0 10px 24px rgba(216, 170, 82, 0.28);
   color: #111111;
-  font-weight: 900;
+  flex: 0 0 50px;
+}
+
+.feed-comment-submit svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .feed-comment-form button:disabled {

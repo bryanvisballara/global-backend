@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260525-feed-social8" />
+    <link rel="stylesheet" href="/styles.css?v=20260525-feed-social9" />
   </head>
   <body>
     <main class="client-shell">
@@ -92,7 +92,12 @@
               <div id="feed-comments-list" class="feed-social-list feed-comments-list"></div>
               <form id="feed-comment-form" class="feed-comment-form">
                 <textarea id="feed-comment-input" name="body" maxlength="800" rows="2" placeholder="Escribe un comentario"></textarea>
-                <button id="feed-comment-submit" type="submit">Publicar</button>
+                <button id="feed-comment-submit" class="feed-comment-submit" type="submit" aria-label="Publicar comentario">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 19V5" />
+                    <path d="m5.5 11.5 6.5-6.5 6.5 6.5" />
+                  </svg>
+                </button>
               </form>
               <p id="feed-action-message" class="feedback" aria-live="polite"></p>
             </section>
@@ -496,6 +501,6 @@
       </section>
     </div>
 
-    <script src="/client-portal.js?v=20260525-feed-social8"></script>
+    <script src="/client-portal.js?v=20260525-feed-social9"></script>
   </body>
 </html>
