@@ -4,12 +4,13 @@ function wrapDarkEmailDocument(content) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="supported-color-schemes" content="dark" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <style>
       :root {
-        color-scheme: dark;
-        supported-color-schemes: dark;
+        color-scheme: light dark;
+        supported-color-schemes: light dark;
       }
 
       html,
@@ -34,10 +35,62 @@ function wrapDarkEmailDocument(content) {
       .email-root a {
         -webkit-text-fill-color: currentColor !important;
       }
+
+      .email-root [style*="color:#ffffff"],
+      .email-root [style*="color: #ffffff"] {
+        color: #fffffe !important;
+        -webkit-text-fill-color: #fffffe !important;
+      }
+
+      .email-root [style*="color:#f7f7f4"],
+      .email-root [style*="color: #f7f7f4"],
+      .email-root [style*="color:#f6f4ef"],
+      .email-root [style*="color: #f6f4ef"],
+      .email-root [style*="color:#f2eee5"],
+      .email-root [style*="color: #f2eee5"] {
+        color: #fffaf0 !important;
+        -webkit-text-fill-color: #fffaf0 !important;
+      }
+
+      .email-root [style*="color:#c9c3b8"],
+      .email-root [style*="color: #c9c3b8"],
+      .email-root [style*="color:#b8b3aa"],
+      .email-root [style*="color: #b8b3aa"] {
+        color: #e8e0d4 !important;
+        -webkit-text-fill-color: #e8e0d4 !important;
+      }
+
+      .email-root [style*="color:#a9a49a"],
+      .email-root [style*="color: #a9a49a"],
+      .email-root [style*="color:#8f908f"],
+      .email-root [style*="color: #8f908f"] {
+        color: #d7d0c5 !important;
+        -webkit-text-fill-color: #d7d0c5 !important;
+      }
+
+      .email-root [style*="color:#f1d9a6"],
+      .email-root [style*="color: #f1d9a6"] {
+        color: #ffd985 !important;
+        -webkit-text-fill-color: #ffd985 !important;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body,
+        .email-root {
+          background: #060606 !important;
+        }
+      }
+
+      [data-ogsc] body,
+      [data-ogsc] .email-root,
+      [data-ogsb] body,
+      [data-ogsb] .email-root {
+        background: #060606 !important;
+      }
     </style>
   </head>
-  <body style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">
-    <div class="email-root" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">${content}</div>
+  <body bgcolor="#060606" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">
+    <div class="email-root" bgcolor="#060606" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">${content}</div>
   </body>
 </html>`;
 }
