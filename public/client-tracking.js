@@ -155,10 +155,12 @@ async function registerNativePushToken(pushInfo) {
       provider: pushInfo.provider || "apns",
       appVersion: pushInfo.appVersion || "ios-webview",
       bundleId: pushInfo.bundleId || "",
+      apsEnvironment: pushInfo.apsEnvironment || "",
     }),
   });
 
   registeredPushToken = pushInfo.token;
+  console.info("[push][tracking] Native push token registered for authenticated client.");
 }
 
 function syncNativePushToken() {
@@ -1472,6 +1474,10 @@ async function handleTrackingSearch() {
   setFeedback("");
   updateUrl(order.trackingNumber);
   renderTrackingResult(order);
+
+  if (hasAuthenticatedClientSession()) {
+    syncNativePushToken();
+  }
 }
 
 async function loadTrackingPage() {

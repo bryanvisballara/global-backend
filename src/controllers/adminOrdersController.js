@@ -12,7 +12,6 @@ const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/
 const { TRACKING_STATE_TEMPLATES, normalizeTrackingStates } = require("../constants/trackingSteps");
 const { addMonths } = require("../utils/date");
 const {
-  ADMIN_NOTIFICATION_ROLES,
   buildAdminNotificationUserQuery,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
@@ -71,7 +70,34 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "other",
 ]);
 const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
+const DEFAULT_ADMIN_TRACKING_EMAIL_RECIPIENT_NAME_PATTERNS = [/alejandro/i, /erick/i, /erik/i];
 const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
+
+function resolveAdminTrackingEmailAllowlistEmails() {
+  return String(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveAdminTrackingEmailRecipientQuery() {
+  const allowlistEmails = resolveAdminTrackingEmailAllowlistEmails();
+
+  if (allowlistEmails.length) {
+    return {
+      isActive: true,
+      email: { $in: allowlistEmails },
+    };
+  }
+
+  return {
+    isActive: true,
+    email: { $exists: true, $ne: null },
+    $or: DEFAULT_ADMIN_TRACKING_EMAIL_RECIPIENT_NAME_PATTERNS.map((pattern) => ({
+      name: { $regex: pattern },
+    })),
+  };
+}
 
 function normalizeFileNameForStorage(value) {
   return String(value || "archivo")
@@ -1082,11 +1108,7 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
     return { sent: 0, failed: 0 };
   }
 
-  const admins = await User.find({
-    isActive: true,
-    role: { $in: ADMIN_NOTIFICATION_ROLES },
-    email: { $exists: true, $ne: null },
-  }).select("name email");
+  const admins = await User.find(resolveAdminTrackingEmailRecipientQuery()).select("name email");
 
   if (!admins.length) {
     return { sent: 0, failed: 0 };

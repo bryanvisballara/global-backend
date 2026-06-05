@@ -85,10 +85,14 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            prepareWebShell()
+            prepareWebShell(initialURL: pendingPushDestinationURL())
         }
         .onChange(of: webAppURL) {
             loadCurrentURL()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .globalImportsPushNavigationRequested)) { notification in
+            guard let payload = notification.object as? [String: String] else { return }
+            navigateToPushDestination(payload: payload)
         }
         .animation(.easeOut(duration: 0.24), value: webViewStore.isLoading)
         .sheet(isPresented: $showSettings) {
@@ -146,7 +150,7 @@ struct ContentView: View {
         loadCurrentURL(forceReload: false)
     }
 
-    private func prepareWebShell() {
+    private func prepareWebShell(initialURL: URL? = nil) {
         let hasNewShellVersion = storedWebShellVersion == webShellVersion
 
         if !hasNewShellVersion {
@@ -154,6 +158,11 @@ struct ContentView: View {
             webAppURL = defaultWebAppURL()
 
             webViewStore.resetWebsiteData {
+                if let initialURL {
+                    webViewStore.load(initialURL, forceReload: true)
+                    return
+                }
+
                 loadCurrentURL(forceReload: true)
             }
             return
@@ -162,6 +171,11 @@ struct ContentView: View {
         let normalizedURL = normalizedWebAppURL(webAppURL)
         if normalizedURL != webAppURL {
             webAppURL = normalizedURL
+            return
+        }
+
+        if let initialURL {
+            webViewStore.load(initialURL, forceReload: true)
             return
         }
 
@@ -210,6 +224,45 @@ struct ContentView: View {
     private func loadCurrentURL(forceReload: Bool) {
         guard let resolvedURL else { return }
         webViewStore.load(resolvedURL, forceReload: forceReload)
+    }
+
+    private func pendingPushDestinationURL() -> URL? {
+        guard let payload = PushNavigationCenter.shared.consumePendingPayload() else {
+            return nil
+        }
+
+        return pushDestinationURL(payload: payload)
+    }
+
+    private func navigateToPushDestination(payload: [String: String]) {
+        guard let targetURL = pushDestinationURL(payload: payload) else {
+            return
+        }
+
+        webViewStore.load(targetURL, forceReload: true)
+    }
+
+    private func pushDestinationURL(payload: [String: String]) -> URL? {
+        let trackingNumber = (payload["trackingNumber"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trackingNumber.isEmpty else {
+            return nil
+        }
+
+        guard var components = URLComponents(string: normalizedWebAppURL(webAppURL)) else {
+            return nil
+        }
+
+        components.path = components.path.hasPrefix("/app/")
+            ? "/app/client-tracking.html"
+            : "/client-tracking.html"
+        components.queryItems = [
+            URLQueryItem(name: "tracking", value: trackingNumber),
+            URLQueryItem(name: "source", value: "push"),
+        ]
+        components.fragment = nil
+
+        return components.url
     }
 }
 

@@ -82,12 +82,13 @@ Variables necesarias para correos transaccionales con Brevo:
 - `BREVO_API_KEY`
 - `PUBLIC_APP_URL` para construir enlaces del portal en correos de tracking y recuperación
 - `ADMIN_TRACKING_EMAILS_ENABLED` opcional, por defecto `true`; usar `false` solo para pausar correos de tracking a administradores
+- `ADMIN_TRACKING_EMAIL_ALLOWLIST` opcional; si se define, solo esos correos reciben alertas de tracking admin. Si queda vacío, solo Alejandro y Erick reciben esos correos
 
 ## Tracking: push + correo
 
 - Cuando un cliente autenticado consulta un tracking, su usuario queda asociado como suscriptor del pedido.
 - Cada actualización de un estado de tracking envía push notification y correo al email registrado del cliente/suscriptor.
-- Cada actualización de tracking hecha por un admin también envía correo vía Brevo a todos los administradores activos.
+- Cada actualización de tracking hecha por un admin también envía correo vía Brevo solo a Alejandro y Erick (o a la lista definida en `ADMIN_TRACKING_EMAIL_ALLOWLIST`).
 - El correo de tracking se envía vía Brevo con remitente `orders@globalimportsus.com`.
 
 ## Publicaciones admin -> feed cliente

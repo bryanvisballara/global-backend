@@ -160,7 +160,7 @@ async function sendNotificationToDevices(devices = [], notification) {
           skipped += 1;
         } else {
           console.warn(
-            `[push] APNs rejected notification for token ${String(device.token || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")}`
+            `[push] APNs rejected notification for token ${String(device.token || "unknown")} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
           );
           skipped += 1;
         }
@@ -259,11 +259,25 @@ function getApnsTopic(device = {}) {
   return String(device?.bundleId || process.env.APNS_BUNDLE_ID || "").trim();
 }
 
+function resolveApnsHost(device = {}) {
+  const deviceEnvironment = String(device?.apsEnvironment || "").trim().toLowerCase();
+
+  if (deviceEnvironment === "development" || deviceEnvironment === "sandbox") {
+    return "https://api.sandbox.push.apple.com";
+  }
+
+  if (deviceEnvironment === "production") {
+    return "https://api.push.apple.com";
+  }
+
+  return process.env.APNS_USE_PRODUCTION === "true"
+    ? "https://api.push.apple.com"
+    : "https://api.sandbox.push.apple.com";
+}
+
 function sendApnsNotification(device, notification) {
   return new Promise((resolve, reject) => {
-    const host = process.env.APNS_USE_PRODUCTION === "true"
-      ? "https://api.push.apple.com"
-      : "https://api.sandbox.push.apple.com";
+    const host = resolveApnsHost(device);
     const topic = getApnsTopic(device);
     const client = http2.connect(host);
 

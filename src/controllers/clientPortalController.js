@@ -1128,6 +1128,10 @@ async function registerClientPushDevice(req, res) {
     const provider = String(req.body.provider || "").trim().toLowerCase();
     const appVersion = req.body.appVersion ? String(req.body.appVersion).trim() : undefined;
     const bundleId = String(req.body?.bundleId || "").trim();
+    const rawApsEnvironment = String(req.body?.apsEnvironment || "").trim().toLowerCase();
+    const apsEnvironment = ["development", "production"].includes(rawApsEnvironment)
+      ? rawApsEnvironment
+      : undefined;
 
     if (!token || !platform || !provider) {
       return res.status(400).json({ message: "token, platform and provider are required" });
@@ -1158,6 +1162,7 @@ async function registerClientPushDevice(req, res) {
       provider,
       appVersion,
       bundleId,
+      ...(apsEnvironment ? { apsEnvironment } : {}),
       lastRegisteredAt: new Date(),
     };
 
@@ -1171,7 +1176,7 @@ async function registerClientPushDevice(req, res) {
     await req.user.save();
 
     console.info(
-      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} devices=${req.user.pushDevices.length}`
+      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} apsEnvironment=${apsEnvironment || "unknown"} devices=${req.user.pushDevices.length}`
     );
 
     return res.status(200).json({

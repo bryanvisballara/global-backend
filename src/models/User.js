@@ -27,6 +27,11 @@ const pushDeviceSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    apsEnvironment: {
+      type: String,
+      enum: ["development", "production"],
+      trim: true,
+    },
     lastRegisteredAt: {
       type: Date,
       default: Date.now,
