@@ -136,6 +136,7 @@ function buildAdminNotificationUserQuery(orderRegion = "latam") {
 
 async function sendNotificationToDevices(devices = [], notification) {
   const invalidTokens = [];
+  const environmentUpdates = new Map();
   let sent = 0;
   let skipped = 0;
 
@@ -155,12 +156,20 @@ async function sendNotificationToDevices(devices = [], notification) {
 
         if (result.ok) {
           sent += 1;
-        } else if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
+
+          if (result.resolvedApsEnvironment && device.token) {
+            environmentUpdates.set(device.token, result.resolvedApsEnvironment);
+          }
+
+          continue;
+        }
+
+        if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
           invalidTokens.push(device.token);
           skipped += 1;
         } else {
           console.warn(
-            `[push] APNs rejected notification for token ${String(device.token || "unknown")} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
+            `[push] APNs rejected notification for token ${String(device.token || "unknown")} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} primaryReason=${String(result.primaryReason || "none")} primaryHost=${String(result.primaryHost || "none")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
           );
           skipped += 1;
         }
@@ -203,7 +212,53 @@ async function sendNotificationToDevices(devices = [], notification) {
     await removeInvalidDeviceTokens(invalidTokens);
   }
 
-  return { sent, skipped };
+  return {
+    sent,
+    skipped,
+    environmentUpdates: Array.from(environmentUpdates.entries()).map(([token, apsEnvironment]) => ({
+      token,
+      apsEnvironment,
+    })),
+  };
+}
+
+async function applyPushDeviceEnvironmentUpdates(user, environmentUpdates = []) {
+  if (!user || !Array.isArray(user.pushDevices) || !environmentUpdates.length) {
+    return false;
+  }
+
+  const updatesByToken = new Map(
+    environmentUpdates
+      .filter((entry) => entry?.token && entry?.apsEnvironment)
+      .map((entry) => [String(entry.token), String(entry.apsEnvironment)])
+  );
+
+  if (!updatesByToken.size) {
+    return false;
+  }
+
+  let changed = false;
+
+  user.pushDevices = user.pushDevices.map((device) => {
+    const nextEnvironment = updatesByToken.get(String(device?.token || ""));
+
+    if (!nextEnvironment || device.apsEnvironment === nextEnvironment) {
+      return device;
+    }
+
+    changed = true;
+    return {
+      ...device,
+      apsEnvironment: nextEnvironment,
+      lastRegisteredAt: device.lastRegisteredAt || new Date(),
+    };
+  });
+
+  if (changed) {
+    await user.save();
+  }
+
+  return changed;
 }
 
 function isApnsConfigured() {
@@ -275,9 +330,20 @@ function resolveApnsHost(device = {}) {
     : "https://api.sandbox.push.apple.com";
 }
 
-function sendApnsNotification(device, notification) {
+function hostToApsEnvironment(host = "") {
+  return String(host || "").includes("sandbox")
+    ? "development"
+    : "production";
+}
+
+function alternateApnsHost(host = "") {
+  return String(host || "").includes("sandbox")
+    ? "https://api.push.apple.com"
+    : "https://api.sandbox.push.apple.com";
+}
+
+function sendApnsNotificationToHost(device, notification, host) {
   return new Promise((resolve, reject) => {
-    const host = resolveApnsHost(device);
     const topic = getApnsTopic(device);
     const client = http2.connect(host);
 
@@ -306,7 +372,7 @@ function sendApnsNotification(device, notification) {
       client.close();
 
       if (statusCode >= 200 && statusCode < 300) {
-        resolve({ ok: true });
+        resolve({ ok: true, host, topic, resolvedApsEnvironment: hostToApsEnvironment(host) });
         return;
       }
 
@@ -345,6 +411,37 @@ function sendApnsNotification(device, notification) {
       })
     );
   });
+}
+
+async function sendApnsNotification(device, notification) {
+  const primaryHost = resolveApnsHost(device);
+  const primaryResult = await sendApnsNotificationToHost(device, notification, primaryHost);
+
+  if (primaryResult.ok) {
+    return primaryResult;
+  }
+
+  const shouldRetryAlternateHost = ["BadEnvironmentKeyInToken", "BadDeviceToken"].includes(primaryResult.reason);
+
+  if (!shouldRetryAlternateHost) {
+    return primaryResult;
+  }
+
+  const alternateHost = alternateApnsHost(primaryHost);
+  const alternateResult = await sendApnsNotificationToHost(device, notification, alternateHost);
+
+  if (alternateResult.ok) {
+    console.info(
+      `[push] APNs retried token ${String(device.token || "unknown")} on alternate host ${alternateHost} after ${primaryResult.reason} on ${primaryHost}.`
+    );
+    return alternateResult;
+  }
+
+  return {
+    ...alternateResult,
+    primaryReason: primaryResult.reason,
+    primaryHost,
+  };
 }
 
 function isFcmConfigured() {
@@ -732,6 +829,7 @@ async function sendTrackingUpdateNotifications(order, step, previousStep = null)
     await user.save();
 
     const result = await sendNotificationToDevices(user.pushDevices, notification);
+    await applyPushDeviceEnvironmentUpdates(user, result.environmentUpdates);
     console.info(
       `[push][tracking] Result tracking ${trackingNumber || "unknown"} recipient ${String(user?._id || "unknown")} ${String(user?.email || "").trim().toLowerCase()}: devices=${user.pushDevices.length} sent=${Number(result.sent || 0)} skipped=${Number(result.skipped || 0)}.`
     );

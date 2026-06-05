@@ -101,21 +101,38 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
         loadError = errorMessage
     }
 
+    private func resolveApsEnvironment() -> String {
+        if let entitlement = copyEntitlementValue(named: "aps-environment") {
+            return entitlement == "development" ? "development" : "production"
+        }
+
+        #if DEBUG
+        return "development"
+        #else
+        return "production"
+        #endif
+    }
+
+    private func copyEntitlementValue(named name: String) -> String? {
+        guard let task = SecTaskCreateFromSelf(nil) else {
+            return nil
+        }
+
+        let value = SecTaskCopyValueForEntitlement(task, name as CFString, nil)
+        return value as? String
+    }
+
     private func injectPushTokenIfNeeded() {
         guard !latestPushToken.isEmpty else { return }
 
-        NSLog("[push][ios] Injecting APNs token into WKWebView")
+        let apsEnvironment = resolveApsEnvironment()
+        NSLog("[push][ios] Injecting APNs token into WKWebView (apsEnvironment=%@)", apsEnvironment)
 
         let escapedToken = latestPushToken.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         let bundleId = Bundle.main.bundleIdentifier ?? ""
         let escapedBundleId = bundleId.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
-        #if DEBUG
-        let apsEnvironment = "development"
-        #else
-        let apsEnvironment = "production"
-        #endif
         let script = """
         window.__globalImportsNativePush = {
           token: \"\(escapedToken)\",
