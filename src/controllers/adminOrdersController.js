@@ -12,6 +12,7 @@ const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/
 const { TRACKING_STATE_TEMPLATES, normalizeTrackingStates } = require("../constants/trackingSteps");
 const { addMonths } = require("../utils/date");
 const {
+  ADMIN_NOTIFICATION_ROLES,
   buildAdminNotificationUserQuery,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
@@ -69,7 +70,7 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "vehicle-payment",
   "other",
 ]);
-const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "false").trim().toLowerCase() === "true";
+const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
 const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
 
 function normalizeFileNameForStorage(value) {
@@ -1082,7 +1083,8 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
   }
 
   const admins = await User.find({
-    ...buildAdminNotificationUserQuery(orderRegion),
+    isActive: true,
+    role: { $in: ADMIN_NOTIFICATION_ROLES },
     email: { $exists: true, $ne: null },
   }).select("name email");
 
