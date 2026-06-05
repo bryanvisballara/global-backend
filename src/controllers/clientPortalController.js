@@ -1154,7 +1154,13 @@ async function registerClientPushDevice(req, res) {
       }
     );
 
-    const nextDevices = Array.isArray(req.user.pushDevices) ? [...req.user.pushDevices] : [];
+    const nextDevices = (Array.isArray(req.user.pushDevices) ? req.user.pushDevices : []).filter((item) => {
+      if (platform === "ios" && provider === "apns") {
+        return !(item?.platform === "ios" && item?.provider === "apns");
+      }
+
+      return item?.token !== token;
+    });
     const existingDeviceIndex = nextDevices.findIndex((item) => item.token === token);
     const nextDevice = {
       token,
@@ -1176,7 +1182,7 @@ async function registerClientPushDevice(req, res) {
     await req.user.save();
 
     console.info(
-      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} apsEnvironment=${apsEnvironment || "unknown"} devices=${req.user.pushDevices.length}`
+      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} apsEnvironment=${apsEnvironment || "unknown"} token=${String(token).slice(0, 8)}... devices=${req.user.pushDevices.length}`
     );
 
     return res.status(200).json({

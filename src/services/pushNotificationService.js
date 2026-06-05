@@ -167,9 +167,15 @@ async function sendNotificationToDevices(devices = [], notification) {
         if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
           invalidTokens.push(device.token);
           skipped += 1;
+        } else if (Array.isArray(result.attemptedHosts) && result.attemptedHosts.length > 1) {
+          invalidTokens.push(device.token);
+          skipped += 1;
+          console.warn(
+            `[push] Removing stale APNs token ${previewPushToken(device.token)} after failed attempts on ${result.attemptedHosts.join(", ")}.`
+          );
         } else {
           console.warn(
-            `[push] APNs rejected notification for token ${String(device.token || "unknown")} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} primaryReason=${String(result.primaryReason || "none")} primaryHost=${String(result.primaryHost || "none")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
+            `[push] APNs rejected notification for token ${previewPushToken(device.token)} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} primaryReason=${String(result.primaryReason || "none")} primaryHost=${String(result.primaryHost || "none")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
           );
           skipped += 1;
         }
@@ -342,6 +348,27 @@ function alternateApnsHost(host = "") {
     : "https://api.sandbox.push.apple.com";
 }
 
+function resolveApnsHostsToTry(device = {}) {
+  const productionHost = "https://api.push.apple.com";
+  const sandboxHost = "https://api.sandbox.push.apple.com";
+
+  if (process.env.APNS_USE_PRODUCTION === "true") {
+    return [productionHost, sandboxHost];
+  }
+
+  const preferredHost = resolveApnsHost(device);
+  const alternateHost = alternateApnsHost(preferredHost);
+
+  return preferredHost === alternateHost
+    ? [preferredHost]
+    : [preferredHost, alternateHost];
+}
+
+function previewPushToken(token = "") {
+  const normalizedToken = String(token || "").trim();
+  return normalizedToken ? `${normalizedToken.slice(0, 8)}...` : "unknown";
+}
+
 function sendApnsNotificationToHost(device, notification, host) {
   return new Promise((resolve, reject) => {
     const topic = getApnsTopic(device);
@@ -414,33 +441,39 @@ function sendApnsNotificationToHost(device, notification, host) {
 }
 
 async function sendApnsNotification(device, notification) {
-  const primaryHost = resolveApnsHost(device);
-  const primaryResult = await sendApnsNotificationToHost(device, notification, primaryHost);
+  const hostsToTry = resolveApnsHostsToTry(device);
+  let lastResult = null;
+  let firstFailureReason = "";
 
-  if (primaryResult.ok) {
-    return primaryResult;
-  }
+  for (let index = 0; index < hostsToTry.length; index += 1) {
+    const host = hostsToTry[index];
+    const result = await sendApnsNotificationToHost(device, notification, host);
+    lastResult = result;
 
-  const shouldRetryAlternateHost = ["BadEnvironmentKeyInToken", "BadDeviceToken"].includes(primaryResult.reason);
+    if (result.ok) {
+      if (index > 0) {
+        console.info(
+          `[push] APNs delivered token ${previewPushToken(device.token)} using fallback host ${host} after ${firstFailureReason || "initial failure"} on ${hostsToTry[0]}.`
+        );
+      }
 
-  if (!shouldRetryAlternateHost) {
-    return primaryResult;
-  }
+      return result;
+    }
 
-  const alternateHost = alternateApnsHost(primaryHost);
-  const alternateResult = await sendApnsNotificationToHost(device, notification, alternateHost);
+    if (!firstFailureReason) {
+      firstFailureReason = String(result.reason || "APNs request failed");
+    }
 
-  if (alternateResult.ok) {
-    console.info(
-      `[push] APNs retried token ${String(device.token || "unknown")} on alternate host ${alternateHost} after ${primaryResult.reason} on ${primaryHost}.`
+    console.warn(
+      `[push] APNs attempt failed for token ${previewPushToken(device.token)} host=${host} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
     );
-    return alternateResult;
   }
 
   return {
-    ...alternateResult,
-    primaryReason: primaryResult.reason,
-    primaryHost,
+    ...lastResult,
+    attemptedHosts: hostsToTry,
+    primaryHost: hostsToTry[0],
+    primaryReason: firstFailureReason || lastResult?.reason || "APNs request failed",
   };
 }
 
