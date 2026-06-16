@@ -3331,7 +3331,14 @@ async function finalizeTrackingOrder(req, res) {
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
       preferCollectionOnly: true,
     });
-    syncTrackingStepProgression(order.trackingSteps, -1);
+    order.trackingSteps.forEach((step) => {
+      if (!step) {
+        return;
+      }
+
+      step.confirmed = true;
+      step.inProgress = false;
+    });
     order.trackingSteps.forEach((step) => syncTrackingStepDerivedFields(step));
 
     const updatedOrder = await persistTrackingOrderState(orderResult, order);

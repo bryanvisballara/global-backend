@@ -241,8 +241,26 @@ function normalizeRole(role) {
 }
 
 function isOrderCompleted(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
   const trackingEvents = getOrderTrackingEvents(order);
-  const hasActiveProgressEvent = trackingEvents.some((event) => event.inProgress && !event.completed);
+  const hasActiveProgressEvent = trackingEvents.some((event) => {
+    if (!event.inProgress || event.completed) {
+      return false;
+    }
+
+    const eventTime = new Date(getOriginalDate(event) || 0).getTime();
+    const latestCompletedTime = trackingEvents
+      .filter((item) => item.stateKey === event.stateKey && item.completed)
+      .reduce((latestTime, item) => {
+        const completedTime = new Date(getOriginalDate(item) || 0).getTime();
+        return completedTime >= latestTime ? completedTime : latestTime;
+      }, -1);
+
+    return latestCompletedTime < eventTime;
+  });
 
   if (hasActiveProgressEvent) {
     return false;
@@ -251,7 +269,7 @@ function isOrderCompleted(order) {
   const rawSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
 
   if (rawSteps.length < adminTrackingTemplates.length) {
-    return String(order?.status || "").trim().toLowerCase() === "completed";
+    return false;
   }
 
   return adminTrackingTemplates.every((template, index) => {
@@ -1277,6 +1295,21 @@ function getOrderTrackingSteps(order) {
     };
   });
 
+  const rawStepsAllConfirmed = adminTrackingTemplates.every((template) => {
+    const sourceStep = stepsByKey.get(template.key) || {};
+    return Boolean(sourceStep?.confirmed);
+  });
+  const orderStatusCompleted = String(order?.status || "").trim().toLowerCase() === "completed";
+
+  if (orderStatusCompleted || rawStepsAllConfirmed) {
+    return normalizedSteps.map((step) => ({
+      ...step,
+      confirmed: true,
+      inProgress: false,
+      confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+    }));
+  }
+
   let latestEventActiveIndex = -1;
   let latestEventActiveTime = -1;
 
@@ -1287,6 +1320,16 @@ function getOrderTrackingSteps(order) {
 
     const eventTime = new Date(getOriginalDate(event) || 0).getTime();
     const safeEventTime = Number.isNaN(eventTime) ? 0 : eventTime;
+    const latestCompletedTime = trackingEvents
+      .filter((item) => item.stateKey === event.stateKey && item.completed)
+      .reduce((latestTime, item) => {
+        const completedTime = new Date(getOriginalDate(item) || 0).getTime();
+        return completedTime >= latestTime ? completedTime : latestTime;
+      }, -1);
+
+    if (latestCompletedTime >= safeEventTime) {
+      return;
+    }
 
     if (safeEventTime >= latestEventActiveTime) {
       latestEventActiveIndex = event.stateIndex;
@@ -3671,7 +3714,7 @@ async function finalizeSelectedOrder() {
   renderStates();
   renderSearchResults(getFilteredOrders());
 
-  adminSetFeedback(trackingFeedback, "Pedido finalizado correctamente. Todas las etapas quedaron completadas.", "success");
+  setTrackingPageFeedback("Pedido finalizado correctamente. Todas las etapas quedaron completadas.", "success");
 }
 
 function openSuccessModal(options = {}) {
