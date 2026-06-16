@@ -106,7 +106,7 @@ installZoomGuards();
 
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
-  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
+  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso", "sequoia-game"]);
 
   if (allowedViews.has(urlView)) {
     return urlView;
@@ -197,6 +197,8 @@ const orderVehicleCarousel = document.getElementById("order-vehicle-carousel");
 const orderActionCards = document.getElementById("order-experience-actions");
 const orderOptionsBackButton = document.getElementById("order-options-back");
 const orderConfigBackButton = document.getElementById("order-config-back");
+const openSequoiaGameButton = document.getElementById("open-sequoia-game-button");
+const sequoiaGameRoot = document.getElementById("sequoia-game-root");
 const sequoiaConfigImageFrame = document.getElementById("sequoia-config-image-frame");
 const sequoiaConfigMainImage = document.getElementById("sequoia-config-main-image");
 const sequoiaVisionHint = document.getElementById("sequoia-vision-hint");
@@ -723,6 +725,20 @@ function persistTrackingHistory() {
   }
 }
 
+function removeTrackingHistoryItem(trackingNumber) {
+  const normalizedTrackingNumber = String(trackingNumber || "").toUpperCase().trim();
+
+  if (!normalizedTrackingNumber) {
+    return;
+  }
+
+  trackingHistory = trackingHistory.filter(
+    (item) => item.trackingNumber !== normalizedTrackingNumber
+  );
+  persistTrackingHistory();
+  renderTrackingHistory();
+}
+
 function renderTrackingHistory() {
   if (!trackingOrdersList) {
     return;
@@ -745,11 +761,21 @@ function renderTrackingHistory() {
   trackingOrdersList.innerHTML = trackingHistory
     .map(
       (item) => `
-        <button type="button" class="tracking-orders-item" data-tracking-history="${escapeHtml(item.trackingNumber)}">
-          <strong>Guía ${escapeHtml(item.trackingNumber)}</strong>
-          <span>${escapeHtml(item.vehicleLabel || "Pedido guardado")}</span>
-          <span>Buscado el ${escapeHtml(formatDate(item.searchedAt))}</span>
-        </button>
+        <article class="tracking-orders-item">
+          <button type="button" class="tracking-orders-item-button" data-tracking-history="${escapeHtml(item.trackingNumber)}">
+            <strong>Guía ${escapeHtml(item.trackingNumber)}</strong>
+            <span>${escapeHtml(item.vehicleLabel || "Pedido guardado")}</span>
+            <span>Buscado el ${escapeHtml(formatDate(item.searchedAt))}</span>
+          </button>
+          <button
+            type="button"
+            class="tracking-orders-item-remove"
+            data-tracking-history-remove="${escapeHtml(item.trackingNumber)}"
+            aria-label="Quitar guía ${escapeHtml(item.trackingNumber)} del historial"
+          >
+            ×
+          </button>
+        </article>
       `
     )
     .join("");
@@ -3682,6 +3708,13 @@ function setActiveView(viewName, options = {}) {
   if (nextViewName === "pago-exitoso") {
     initPagoExitosoView();
   }
+
+  if (nextViewName === "sequoia-game") {
+    window.SequoiaFlappyGame?.mount(sequoiaGameRoot);
+    window.SequoiaFlappyGame?.resume();
+  } else {
+    window.SequoiaFlappyGame?.pause();
+  }
 }
 
 function openNotifications() {
@@ -3758,6 +3791,10 @@ navButtons.forEach((button) => {
   });
 });
 
+openSequoiaGameButton?.addEventListener("click", () => {
+  setActiveView("sequoia-game", { direction: "forward" });
+});
+
 trackingForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   goToTrackingPage();
@@ -3772,6 +3809,15 @@ trackingTabOrdersButton?.addEventListener("click", () => {
 });
 
 trackingOrdersList?.addEventListener("click", (event) => {
+  const removeButton = event.target.closest("[data-tracking-history-remove]");
+
+  if (removeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    removeTrackingHistoryItem(removeButton.getAttribute("data-tracking-history-remove"));
+    return;
+  }
+
   const trackingButton = event.target.closest("[data-tracking-history]");
 
   if (!trackingButton) {

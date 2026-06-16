@@ -14,7 +14,8 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260525-feed-social11" />
+    <link rel="stylesheet" href="/styles.css?v=20260616-tracking-history-remove01" />
+    <link rel="stylesheet" href="/client-sequoia-game.css?v=20260616-sequoiafly02" />
   </head>
   <body>
     <main class="client-shell">
@@ -58,6 +59,13 @@
           <div>
             <h1 id="client-greeting">Tu experiencia Global Imports</h1>
             <p class="client-hero-subtitle">Bienvenido a la juguetería de los adultos.</p>
+            <article class="sequoia-game-hero-card">
+              <strong>Sequoia Fly</strong>
+              <p>Vuela con tu Sequoia y esquiva semáforos en un mini juego estilo arcade.</p>
+              <div class="sequoia-game-launch">
+                <button id="open-sequoia-game-button" class="primary-button" type="button">Jugar ahora</button>
+              </div>
+            </article>
           </div>
         </section>
 
@@ -326,6 +334,17 @@
             <div id="pago-exito-body" style="max-width:480px; margin: 24px auto; text-align:center;"></div>
           </section>
 
+          <section class="client-view sequoia-game-view" data-view="sequoia-game">
+            <div class="client-section-head">
+              <div>
+                <p class="section-tag">Mini juego</p>
+                <h2>Sequoia Fly</h2>
+                <p class="dashboard-lead">Toca para volar, evita los semáforos y supera tu récord.</p>
+              </div>
+            </div>
+            <div id="sequoia-game-root"></div>
+          </section>
+
         </section>
 
         <nav class="client-bottom-nav" aria-label="Navegación principal del cliente">
@@ -501,6 +520,7 @@
       </section>
     </div>
 
-    <script src="/client-portal.js?v=20260525-feed-social11"></script>
+    <script src="/client-sequoia-game.js?v=20260616-sequoiafly02"></script>
+    <script src="/client-portal.js?v=20260616-tracking-history-remove01"></script>
   </body>
 </html>

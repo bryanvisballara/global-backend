@@ -2066,6 +2066,16 @@ body.admin-posts-page #view-published-button {
   padding-inline: 26px;
 }
 
+body.admin-posts-page.admin-uppercase-view .posts-composer-form input[name="title"],
+body.admin-posts-page.admin-uppercase-view .posts-composer-form textarea[name="body"] {
+  text-transform: none !important;
+}
+
+body.admin-posts-page.admin-uppercase-view .posts-composer-form input[name="title"]::placeholder,
+body.admin-posts-page.admin-uppercase-view .posts-composer-form textarea[name="body"]::placeholder {
+  text-transform: none !important;
+}
+
 .modal-copy {
   margin: 6px 0 0;
   color: var(--muted);
@@ -7316,6 +7326,13 @@ body .tracking-search-page .page-hero h1 {
 }
 
 .tracking-orders-item {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.tracking-orders-item-button {
+  flex: 1;
   width: 100%;
   text-align: left;
   padding: 12px;
@@ -7327,13 +7344,31 @@ body .tracking-search-page .page-hero h1 {
   gap: 4px;
 }
 
-.tracking-orders-item strong {
+.tracking-orders-item-button strong {
   font-size: 0.95rem;
 }
 
-.tracking-orders-item span {
+.tracking-orders-item-button span {
   color: rgba(245, 245, 245, 0.84);
   font-size: 0.84rem;
+}
+
+.tracking-orders-item-remove {
+  flex-shrink: 0;
+  width: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.18);
+  color: rgba(245, 245, 245, 0.84);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tracking-orders-item-remove:hover,
+.tracking-orders-item-remove:focus-visible {
+  border-color: rgba(216, 170, 82, 0.64);
+  color: #f4ead3;
 }
 
 .tracking-search-form {

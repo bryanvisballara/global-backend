@@ -723,6 +723,20 @@ function persistTrackingHistory() {
   }
 }
 
+function removeTrackingHistoryItem(trackingNumber) {
+  const normalizedTrackingNumber = String(trackingNumber || "").toUpperCase().trim();
+
+  if (!normalizedTrackingNumber) {
+    return;
+  }
+
+  trackingHistory = trackingHistory.filter(
+    (item) => item.trackingNumber !== normalizedTrackingNumber
+  );
+  persistTrackingHistory();
+  renderTrackingHistory();
+}
+
 function renderTrackingHistory() {
   if (!trackingOrdersList) {
     return;
@@ -745,11 +759,21 @@ function renderTrackingHistory() {
   trackingOrdersList.innerHTML = trackingHistory
     .map(
       (item) => `
-        <button type="button" class="tracking-orders-item" data-tracking-history="${escapeHtml(item.trackingNumber)}">
-          <strong>Guía ${escapeHtml(item.trackingNumber)}</strong>
-          <span>${escapeHtml(item.vehicleLabel || "Pedido guardado")}</span>
-          <span>Buscado el ${escapeHtml(formatDate(item.searchedAt))}</span>
-        </button>
+        <article class="tracking-orders-item">
+          <button type="button" class="tracking-orders-item-button" data-tracking-history="${escapeHtml(item.trackingNumber)}">
+            <strong>Guía ${escapeHtml(item.trackingNumber)}</strong>
+            <span>${escapeHtml(item.vehicleLabel || "Pedido guardado")}</span>
+            <span>Buscado el ${escapeHtml(formatDate(item.searchedAt))}</span>
+          </button>
+          <button
+            type="button"
+            class="tracking-orders-item-remove"
+            data-tracking-history-remove="${escapeHtml(item.trackingNumber)}"
+            aria-label="Quitar guía ${escapeHtml(item.trackingNumber)} del historial"
+          >
+            ×
+          </button>
+        </article>
       `
     )
     .join("");
@@ -3773,6 +3797,15 @@ trackingTabOrdersButton?.addEventListener("click", () => {
 });
 
 trackingOrdersList?.addEventListener("click", (event) => {
+  const removeButton = event.target.closest("[data-tracking-history-remove]");
+
+  if (removeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    removeTrackingHistoryItem(removeButton.getAttribute("data-tracking-history-remove"));
+    return;
+  }
+
   const trackingButton = event.target.closest("[data-tracking-history]");
 
   if (!trackingButton) {
