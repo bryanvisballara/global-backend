@@ -6,6 +6,7 @@
   const BACKGROUND_URL = "/sequoia-game-bg.png?v=20260616-gamebg01";
   const TRAFFIC_RED_URL = "/srojo.png";
   const TRAFFIC_GREEN_URL = "/sverde.png";
+  const FLAP_SOUND_URL = "/global-hero-flap.wav?v=20260616-flapsound01";
 
   const DEFAULTS = {
     gravity: 0.42,
@@ -243,6 +244,14 @@
     trafficRed.src = TRAFFIC_RED_URL;
     const trafficGreen = new Image();
     trafficGreen.src = TRAFFIC_GREEN_URL;
+    const flapSoundTemplate = new Audio(FLAP_SOUND_URL);
+    flapSoundTemplate.preload = "auto";
+
+    function playFlapSound() {
+      const sound = flapSoundTemplate.cloneNode();
+      sound.volume = 0.85;
+      sound.play().catch(() => {});
+    }
 
     let width = 360;
     let height = 640;
@@ -445,6 +454,8 @@
     }
 
     function flap() {
+      playFlapSound();
+
       if (state.mode === "ready") {
         state.mode = "playing";
         state.car.vy = DEFAULTS.flapVelocity;
