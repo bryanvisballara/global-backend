@@ -106,7 +106,7 @@ installZoomGuards();
 
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
-  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
+  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso", "sequoia-game"]);
 
   if (allowedViews.has(urlView)) {
     return urlView;
@@ -174,8 +174,8 @@ if (!getToken()) {
   redirectToLogin();
 }
 
-if (["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(getRole())) {
-  window.location.href = getRole() === "brokerUSA" ? "/admin-tracking.html" : "/admin.html";
+if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(getRole())) {
+  window.location.href = "/admin.html";
 }
 
 const viewNodes = Array.from(document.querySelectorAll(".client-view"));
@@ -197,6 +197,7 @@ const orderVehicleCarousel = document.getElementById("order-vehicle-carousel");
 const orderActionCards = document.getElementById("order-experience-actions");
 const orderOptionsBackButton = document.getElementById("order-options-back");
 const orderConfigBackButton = document.getElementById("order-config-back");
+const sequoiaGameRoot = document.getElementById("sequoia-game-root");
 const sequoiaConfigImageFrame = document.getElementById("sequoia-config-image-frame");
 const sequoiaConfigMainImage = document.getElementById("sequoia-config-main-image");
 const sequoiaVisionHint = document.getElementById("sequoia-vision-hint");
@@ -335,7 +336,6 @@ const ORDER_ACTION_IMAGES_BY_VEHICLE = {
 };
 
 const GLOBAL_WHATSAPP_NUMBER = "3016698126";
-const GLOBAL_WHATSAPP_FALLBACK_DELAY_MS = 900;
 const SEQUOIA_ORDER_RESERVATION_AMOUNT = 1000000;
 const SEQUOIA_DELIVERY_OPTIONS = {
   barranquilla: { label: "Barranquilla", fee: 0 },
@@ -652,6 +652,7 @@ async function registerNativePushToken(pushInfo) {
       provider: pushInfo.provider || "apns",
       appVersion: pushInfo.appVersion || "ios-webview",
       bundleId: pushInfo.bundleId || "",
+      apsEnvironment: pushInfo.apsEnvironment || "",
     }),
   });
 
@@ -671,7 +672,7 @@ function syncNativePushToken() {
 }
 
 function setFeedback(element, message, type = "") {
-  if (!element) {
+  if (!element) {s
     return;
   }
 
@@ -2746,7 +2747,6 @@ function openSequoiaWhatsappChat(message) {
   const normalizedMessage = String(message || "").trim();
   const webUrl = buildSequoiaWhatsappUrl(normalizedMessage);
   openExternalBrowserUrl(webUrl);
-
   return webUrl;
 }
 
@@ -3706,6 +3706,16 @@ function setActiveView(viewName, options = {}) {
   }
   if (nextViewName === "pago-exitoso") {
     initPagoExitosoView();
+  }
+
+  if (nextViewName === "sequoia-game") {
+    window.SequoiaFlappyGame?.mount(sequoiaGameRoot, {
+      authenticated: true,
+      getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
+    });
+    window.SequoiaFlappyGame?.resume();
+  } else {
+    window.SequoiaFlappyGame?.pause();
   }
 }
 

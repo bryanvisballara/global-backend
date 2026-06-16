@@ -197,7 +197,6 @@ const orderVehicleCarousel = document.getElementById("order-vehicle-carousel");
 const orderActionCards = document.getElementById("order-experience-actions");
 const orderOptionsBackButton = document.getElementById("order-options-back");
 const orderConfigBackButton = document.getElementById("order-config-back");
-const openSequoiaGameButton = document.getElementById("open-sequoia-game-button");
 const sequoiaGameRoot = document.getElementById("sequoia-game-root");
 const sequoiaConfigImageFrame = document.getElementById("sequoia-config-image-frame");
 const sequoiaConfigMainImage = document.getElementById("sequoia-config-main-image");
@@ -3792,10 +3791,6 @@ navButtons.forEach((button) => {
       });
     }
   });
-});
-
-openSequoiaGameButton?.addEventListener("click", () => {
-  setActiveView("sequoia-game", { direction: "forward" });
 });
 
 trackingForm?.addEventListener("submit", (event) => {
