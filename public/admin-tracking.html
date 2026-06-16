@@ -211,7 +211,7 @@
             </label>
             <div class="tracking-create-order-actions">
               <button class="secondary-button" type="button" data-close-create-order-modal onclick="window.__closeCreateOrderModal?.(); return false;">Cancelar</button>
-              <button id="tracking-create-order-submit" class="primary-button" type="submit">Crear pedido</button>
+              <button id="tracking-create-order-submit" class="primary-button" type="button" onclick="window.__triggerAdminOrderSubmit?.(); return false;">Crear pedido</button>
             </div>
             <p id="order-feedback" class="feedback" aria-live="polite"></p>
           </form>
@@ -816,7 +816,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260523-e10rows1"></script>
-    <script src="/admin-orders.js?v=20260520-clientname19"></script>
+    <script src="/admin-tracking.js?v=20260616-ordercreate01"></script>
+    <script src="/admin-orders.js?v=20260616-ordercreate01"></script>
   </body>
 </html>

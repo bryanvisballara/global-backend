@@ -294,6 +294,9 @@ const createOrderModalTitle = document.getElementById("tracking-create-order-tit
 const createOrderModalCopy = document.getElementById("tracking-create-order-copy");
 const createOrderSubmitButton = document.getElementById("tracking-create-order-submit");
 const createOrderFeedback = document.getElementById("order-feedback");
+const createOrderBrokerField = document.getElementById("order-broker-field");
+let createOrderBrokerSelect = document.getElementById("order-broker-select");
+const createOrderBrokerSummary = document.getElementById("order-broker-summary");
 const orderDeleteRequestModal = document.getElementById("order-delete-request-modal");
 const orderDeleteRequestForm = document.getElementById("order-delete-request-form");
 const orderDeleteRequestSummary = document.getElementById("order-delete-request-summary");
@@ -369,6 +372,7 @@ const expandedOverviewEventIds = new Set();
 const savingStates = new Set();
 const stateDrafts = new Map();
 let createOrderClients = [];
+let createOrderBrokers = [];
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const COMPLETED_TIMELINE_STAGE = { key: "completed", label: "Completado" };
 const ORDER_DOCUMENT_TYPES = [
@@ -504,36 +508,143 @@ createOrderGenerateTrackingButton?.addEventListener("click", () => {
   regenerateTrackingFromModal();
 });
 
+function canAssignBrokerToOrders() {
+  return ["gerenteusa", "adminusa"].includes(normalizeRole(currentAdminRole));
+}
+
+function ensureCreateOrderBrokerSelect() {
+  if (!createOrderBrokerField) {
+    return null;
+  }
+
+  let selectElement = createOrderBrokerField.querySelector("#order-broker-select");
+
+  if (!selectElement) {
+    selectElement = document.createElement("select");
+    selectElement.id = "order-broker-select";
+    selectElement.name = "assignedBrokerId";
+    selectElement.innerHTML = '<option value="">Sin broker asignado</option>';
+
+    const summaryElement = createOrderBrokerField.querySelector("#order-broker-summary");
+
+    if (summaryElement) {
+      createOrderBrokerField.insertBefore(selectElement, summaryElement);
+    } else {
+      createOrderBrokerField.appendChild(selectElement);
+    }
+  }
+
+  return selectElement;
+}
+
 function renderCreateOrderClientOptions() {
   if (!createOrderClientSelect) {
     return;
   }
 
-  if (!createOrderClients.length) {
+  const canEditClient = String(createOrderForm?.dataset.mode || "") !== "edit" || hasGlobalLatamOrderPrivileges();
+  const fallbackOrderRegion = ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole))
+    ? "usa"
+    : "latam";
+  const orderRegion = String(createOrderForm?.dataset.orderRegion || fallbackOrderRegion).trim().toLowerCase();
+  const compatibleClients = canEditClient && String(createOrderForm?.dataset.mode || "") === "edit" && isAnthonyGlobalOwner()
+    ? [...createOrderClients]
+    : createOrderClients.filter((client) => {
+        const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
+        return clientRegion === orderRegion;
+      });
+  const previousValue = String(createOrderClientSelect.value || "").trim();
+  createOrderClientSelect.disabled = !canEditClient;
+
+  if (!compatibleClients.length) {
     createOrderClientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
 
     if (createOrderClientSummary) {
-      createOrderClientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+      createOrderClientSummary.textContent = canEditClient
+        ? "No hay clientes disponibles para este pedido."
+        : "Solo Global Latam puede cambiar el cliente de un pedido.";
     }
 
     return;
   }
 
+  const sortedClients = [...compatibleClients].sort((left, right) => (
+    String(left?.name || "Cliente").localeCompare(String(right?.name || "Cliente"), "es", { sensitivity: "base" })
+  ));
+
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...createOrderClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())}</option>`),
+    ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())}</option>`),
   ].join("");
 
+  if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
+    createOrderClientSelect.value = previousValue;
+  }
+
   if (createOrderClientSummary) {
-    createOrderClientSummary.textContent = `${createOrderClients.length} cliente(s) disponible(s).`;
+    createOrderClientSummary.textContent = !canEditClient
+      ? "Solo Global Latam puede cambiar el cliente de un pedido."
+      : String(createOrderForm?.dataset.mode || "") === "edit" && isAnthonyGlobalOwner()
+        ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
+        : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
+  }
+}
+
+function renderCreateOrderBrokerOptions() {
+  createOrderBrokerSelect = createOrderBrokerSelect || ensureCreateOrderBrokerSelect();
+
+  if (!createOrderBrokerField || !createOrderBrokerSelect) {
+    return;
+  }
+
+  const canAssignBroker = canAssignBrokerToOrders();
+  createOrderBrokerField.hidden = !canAssignBroker;
+  createOrderBrokerSelect.disabled = !canAssignBroker;
+
+  if (!canAssignBroker) {
+    createOrderBrokerSelect.innerHTML = '<option value="">Sin broker asignado</option>';
+    return;
+  }
+
+  const previousValue = String(createOrderBrokerSelect.value || "").trim();
+
+  const sortedBrokers = [...createOrderBrokers].sort((left, right) => (
+    String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
+  ));
+
+  createOrderBrokerSelect.innerHTML = [
+    '<option value="">Sin broker asignado</option>',
+    ...sortedBrokers.map((broker) => `<option value="${escapeHtml(broker._id || broker.id || "")}">${escapeHtml(broker.name || broker.email || "Broker USA")}</option>`),
+  ].join("");
+
+  if (previousValue && sortedBrokers.some((broker) => String(broker?._id || broker?.id || "").trim() === previousValue)) {
+    createOrderBrokerSelect.value = previousValue;
+  }
+
+  if (createOrderBrokerSummary) {
+    createOrderBrokerSummary.textContent = sortedBrokers.length
+      ? `${sortedBrokers.length} broker(s) USA disponible(s).`
+      : "No hay brokers USA creados todavía.";
   }
 }
 
 async function loadCreateOrderModalData() {
-  const clientsData = await fetchTrackingPageJson("/api/admin/clients");
+  const [clientsData, adminsData] = await Promise.all([
+    fetchTrackingPageJson("/api/admin/clients"),
+    fetchTrackingPageJson("/api/admin/users/admins"),
+  ]);
   createOrderClients = normalizeCollectionPayload(clientsData, ["clients"]);
+  createOrderBrokers = normalizeCollectionPayload(adminsData, ["users"]).filter((user) => normalizeRole(user?.role) === "brokerusa");
   renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
   applyCreateOrderTrackingNumber();
+
+  if (typeof window.__syncEmbeddedOrderFormContext === "function") {
+    window.__syncEmbeddedOrderFormContext({
+      clients: createOrderClients,
+      brokers: createOrderBrokers,
+    });
+  }
 }
 
 function syncTrackingPageMode(order) {
@@ -3207,6 +3318,9 @@ function setCreateOrderModalMode(mode, order = null) {
   if (createOrderSubmitButton) {
     createOrderSubmitButton.textContent = normalizedMode === "edit" ? "Guardar cambios" : "Crear pedido";
   }
+
+  renderCreateOrderClientOptions();
+  renderCreateOrderBrokerOptions();
 }
 
 function resolveCreateOrderFieldValue(field, value) {
@@ -3267,7 +3381,6 @@ function fillCreateOrderFormFromOrder(order) {
 function resetCreateOrderFormState() {
   createOrderForm?.reset();
   setCreateOrderModalMode("create");
-  renderCreateOrderClientOptions();
   applyCreateOrderTrackingNumber();
   adminSetFeedback(createOrderFeedback, "");
 }
@@ -3512,6 +3625,19 @@ trackingDeleteUpdateConfirm?.addEventListener("click", () => {
 });
 
 openCreateOrderModalButton?.addEventListener("click", openCreateOrderModal);
+
+createOrderSubmitButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+
+  if (typeof window.__triggerAdminOrderSubmit === "function") {
+    void window.__triggerAdminOrderSubmit();
+    return;
+  }
+
+  if (typeof window.__submitAdminOrder === "function") {
+    void window.__submitAdminOrder(event);
+  }
+});
 
 createOrderModal?.addEventListener("click", (event) => {
   if (event.target.hasAttribute("data-close-create-order-modal")) {

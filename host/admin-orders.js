@@ -24,6 +24,24 @@ function buildLegacyPurchaseDate() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+function normalizeAdminPathname(pathname = window.location.pathname) {
+  return String(pathname || "").replace(/\/+$/, "").toLowerCase();
+}
+
+function isEmbeddedTrackingOrderFormPage() {
+  const pathname = normalizeAdminPathname();
+
+  return pathname.endsWith("/admin-tracking.html")
+    && Boolean(document.getElementById("tracking-create-order-modal"));
+}
+
+function resolveAdminHtmlPath(fileName) {
+  const pathname = normalizeAdminPathname();
+  const useAppPrefix = pathname.startsWith("/app/") || pathname === "/app";
+
+  return `${useAppPrefix ? "/app" : ""}/${fileName}`.replace(/\/{2,}/g, "/");
+}
+
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
 }
@@ -35,6 +53,10 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function uppercaseDisplay(value, fallback = "") {
+  return String(value || fallback || "").toUpperCase();
 }
 
 function attachNativeSelectPicker(selectElement) {
@@ -187,9 +209,10 @@ if (true) {
   const successDescription = document.getElementById("order-success-description");
   const successMeta = document.getElementById("order-success-meta");
   const orderSubmitButton = document.getElementById("tracking-create-order-submit")
+    || orderForm?.querySelector('button[type="submit"], button[type="button"]#tracking-create-order-submit')
     || orderForm?.querySelector('button[type="submit"]')
     || null;
-  const isEmbeddedTrackingOrderForm = window.location.pathname === "/admin-tracking.html" && Boolean(document.getElementById("tracking-create-order-modal"));
+  const isEmbeddedTrackingOrderForm = isEmbeddedTrackingOrderFormPage();
   let orders = [];
   let clients = [];
   let brokers = [];
@@ -231,6 +254,27 @@ if (true) {
 
   function canEditOrderClient() {
     return getOrderFormMode() !== "edit" || hasGlobalLatamOrderPrivileges();
+  }
+
+  function focusInvalidOrderField(fieldName, message) {
+    adminSetFeedback(orderFeedback, message, "error");
+
+    const field = orderForm?.elements?.namedItem(fieldName);
+
+    if (field && typeof field.scrollIntoView === "function") {
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    if (field && typeof field.focus === "function") {
+      try {
+        field.focus({ preventScroll: true });
+      } catch {
+        // Ignore focus errors on readonly controls.
+      }
+    }
+
+    orderFeedback?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    forceClearLoadingState();
   }
 
   function forceClearLoadingState() {
@@ -331,7 +375,7 @@ if (true) {
 
     clientSelect.innerHTML = [
       '<option value="">Selecciona cliente</option>',
-      ...compatibleClients.map((client) => `<option value="${client._id || client.id}">${client.name} · ${client.email}</option>`),
+      ...compatibleClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))}</option>`),
     ].join("");
 
     if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
@@ -505,8 +549,8 @@ if (true) {
       currentAdminRole = String(user?.role || "").trim();
       currentAdminEmail = String(user?.email || "").trim().toLowerCase();
 
-      if (normalizeRole(currentAdminRole) === "brokerusa" && window.location.pathname === "/admin-orders.html") {
-        window.location.replace("/admin-tracking.html");
+      if (normalizeRole(currentAdminRole) === "brokerusa" && normalizeAdminPathname().endsWith("/admin-orders.html")) {
+        window.location.replace(resolveAdminHtmlPath("admin-tracking.html"));
         return;
       }
 
@@ -599,8 +643,7 @@ if (true) {
 
     for (const [fieldName, message] of requiredFields) {
       if (!String(formData.get(fieldName) || "").trim()) {
-        adminSetFeedback(orderFeedback, message, "error");
-        forceClearLoadingState();
+        focusInvalidOrderField(fieldName, message);
         return false;
       }
     }
@@ -700,7 +743,34 @@ if (true) {
     return submitAdminOrder();
   }
 
-  orderForm.addEventListener("invalid", (event) => {
+  window.__submitAdminOrder = submitAdminOrder;
+  window.__triggerAdminOrderSubmit = triggerAdminOrderSubmit;
+  window.__loadOrderFormData = loadOrdersPage;
+  window.__syncEmbeddedOrderFormContext = function syncEmbeddedOrderFormContext({ clients: nextClients = null, brokers: nextBrokers = null } = {}) {
+    if (Array.isArray(nextClients)) {
+      clients = nextClients;
+    }
+
+    if (Array.isArray(nextBrokers)) {
+      brokers = nextBrokers;
+    }
+
+    renderClientOptions();
+    renderBrokerOptions();
+  };
+
+  orderSubmitButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    void submitAdminOrder(event);
+  });
+
+  if (orderForm) {
+    Array.from(orderForm.querySelectorAll("select")).forEach((selectElement) => {
+      attachNativeSelectPicker(selectElement);
+    });
+  }
+
+  orderForm?.addEventListener("invalid", (event) => {
     const invalidField = event.target;
 
     if (!(invalidField instanceof HTMLInputElement || invalidField instanceof HTMLSelectElement || invalidField instanceof HTMLTextAreaElement)) {
@@ -710,11 +780,7 @@ if (true) {
     adminSetFeedback(orderFeedback, invalidField.validationMessage || "Revisa los campos obligatorios.", "error");
   }, true);
 
-  window.__submitAdminOrder = submitAdminOrder;
-  window.__triggerAdminOrderSubmit = triggerAdminOrderSubmit;
-  window.__loadOrderFormData = loadOrdersPage;
-
-  if (!isEmbeddedTrackingOrderForm) {
+  if (!isEmbeddedTrackingOrderForm && orderForm) {
     orderForm.addEventListener("submit", submitAdminOrder);
   }
 

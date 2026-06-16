@@ -1,3 +1,4 @@
+(() => {
 const {
   attachLogout: adminAttachLogout,
   resetLoadingOverlay: adminResetLoadingOverlay,
@@ -21,6 +22,101 @@ function buildLegacyPurchaseDate() {
   const day = String(now.getDate()).padStart(2, "0");
 
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function normalizeAdminPathname(pathname = window.location.pathname) {
+  return String(pathname || "").replace(/\/+$/, "").toLowerCase();
+}
+
+function isEmbeddedTrackingOrderFormPage() {
+  const pathname = normalizeAdminPathname();
+
+  return pathname.endsWith("/admin-tracking.html")
+    && Boolean(document.getElementById("tracking-create-order-modal"));
+}
+
+function resolveAdminHtmlPath(fileName) {
+  const pathname = normalizeAdminPathname();
+  const useAppPrefix = pathname.startsWith("/app/") || pathname === "/app";
+
+  return `${useAppPrefix ? "/app" : ""}/${fileName}`.replace(/\/{2,}/g, "/");
+}
+
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function uppercaseDisplay(value, fallback = "") {
+  return String(value || fallback || "").toUpperCase();
+}
+
+function attachNativeSelectPicker(selectElement) {
+  if (!selectElement || selectElement.dataset.pickerBound === "true") {
+    return;
+  }
+
+  const collapseManualPicker = () => {
+    if (selectElement.dataset.manualExpanded !== "true") {
+      return;
+    }
+
+    selectElement.size = 1;
+    selectElement.dataset.manualExpanded = "false";
+    selectElement.classList.remove("is-picker-expanded");
+  };
+
+  const openPicker = (event) => {
+    if (selectElement.disabled) {
+      return;
+    }
+
+    const optionCount = Array.from(selectElement.options || []).length;
+    const useManualPicker = window.matchMedia("(max-width: 900px)").matches;
+
+    if (useManualPicker) {
+      if (optionCount <= 1) {
+        return;
+      }
+
+      const nextExpanded = selectElement.dataset.manualExpanded !== "true";
+      selectElement.size = nextExpanded ? Math.min(Math.max(optionCount, 2), 6) : 1;
+      selectElement.dataset.manualExpanded = nextExpanded ? "true" : "false";
+      selectElement.classList.toggle("is-picker-expanded", nextExpanded);
+      event?.preventDefault?.();
+
+      if (nextExpanded) {
+        selectElement.focus({ preventScroll: true });
+      }
+
+      return;
+    }
+
+    if (typeof selectElement.showPicker !== "function") {
+      return;
+    }
+
+    try {
+      selectElement.showPicker();
+    } catch {
+      // Ignore browsers that block imperative picker opening.
+    }
+  };
+
+  selectElement.addEventListener("click", openPicker);
+  selectElement.addEventListener("change", collapseManualPicker);
+  selectElement.addEventListener("blur", () => {
+    window.setTimeout(collapseManualPicker, 120);
+  });
+  selectElement.dataset.pickerBound = "true";
 }
 
 function normalizeCollectionPayload(payload, keys = []) {
@@ -51,19 +147,6 @@ function normalizeCollectionPayload(payload, keys = []) {
   }
 
   return [];
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function uppercaseDisplay(value, fallback = "") {
-  return String(value || fallback || "").toUpperCase();
 }
 
 async function fetchOrdersPageJson(path, options = {}) {
@@ -119,13 +202,25 @@ if (true) {
   const mediaSummary = document.getElementById("order-media-summary");
   const clientSelect = document.getElementById("order-client-select");
   const clientSummary = document.getElementById("order-client-summary");
+  const brokerField = document.getElementById("order-broker-field");
+  let brokerSelect = document.getElementById("order-broker-select");
+  const brokerSummary = document.getElementById("order-broker-summary");
   const successModal = document.getElementById("order-success-modal");
   const successDescription = document.getElementById("order-success-description");
   const successMeta = document.getElementById("order-success-meta");
-  const orderSubmitButton = orderForm?.querySelector('button[type="submit"]') || null;
+  const orderSubmitButton = document.getElementById("tracking-create-order-submit")
+    || orderForm?.querySelector('button[type="submit"], button[type="button"]#tracking-create-order-submit')
+    || orderForm?.querySelector('button[type="submit"]')
+    || null;
+  const isEmbeddedTrackingOrderForm = isEmbeddedTrackingOrderFormPage();
   let orders = [];
   let clients = [];
+  let brokers = [];
+  let currentAdminRole = "";
+  let currentAdminEmail = "";
   let initOverlayWatchdog = null;
+
+  const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 
   if (orderForm) {
     orderForm.noValidate = true;
@@ -137,6 +232,49 @@ if (true) {
 
   function getEditingOrderId() {
     return String(orderForm?.dataset.orderId || "").trim();
+  }
+
+  function getOrderFormRegion() {
+    const explicitRegion = String(orderForm?.dataset.orderRegion || "").trim().toLowerCase();
+
+    if (explicitRegion) {
+      return explicitRegion;
+    }
+
+    return ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam";
+  }
+
+  function isAnthonyGlobalOwner() {
+    return String(currentAdminRole || "").trim() === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
+  }
+
+  function hasGlobalLatamOrderPrivileges() {
+    return ["admin", "manager"].includes(normalizeRole(currentAdminRole));
+  }
+
+  function canEditOrderClient() {
+    return getOrderFormMode() !== "edit" || hasGlobalLatamOrderPrivileges();
+  }
+
+  function focusInvalidOrderField(fieldName, message) {
+    adminSetFeedback(orderFeedback, message, "error");
+
+    const field = orderForm?.elements?.namedItem(fieldName);
+
+    if (field && typeof field.scrollIntoView === "function") {
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    if (field && typeof field.focus === "function") {
+      try {
+        field.focus({ preventScroll: true });
+      } catch {
+        // Ignore focus errors on readonly controls.
+      }
+    }
+
+    orderFeedback?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    forceClearLoadingState();
   }
 
   function forceClearLoadingState() {
@@ -212,11 +350,24 @@ if (true) {
       return;
     }
 
-    if (!clients.length) {
+    const orderRegion = getOrderFormRegion();
+    const editableClient = canEditOrderClient();
+    const compatibleClients = editableClient && getOrderFormMode() === "edit" && isAnthonyGlobalOwner()
+      ? [...clients]
+      : clients.filter((client) => {
+          const clientRegion = String(client?.clientRegion || orderRegion).trim().toLowerCase();
+          return clientRegion === orderRegion;
+        });
+    const previousValue = String(clientSelect.value || "").trim();
+    clientSelect.disabled = !editableClient;
+
+    if (!compatibleClients.length) {
       clientSelect.innerHTML = '<option value="">No hay clientes disponibles</option>';
 
       if (clientSummary) {
-        clientSummary.textContent = "Primero crea al menos un cliente en el módulo Clientes.";
+        clientSummary.textContent = editableClient
+          ? "No hay clientes disponibles para este pedido."
+          : "Solo Global Latam puede cambiar el cliente de un pedido.";
       }
 
       return;
@@ -224,11 +375,130 @@ if (true) {
 
     clientSelect.innerHTML = [
       '<option value="">Selecciona cliente</option>',
-      ...clients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))}</option>`),
+      ...compatibleClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(uppercaseDisplay(client.name, "Cliente"))}</option>`),
     ].join("");
 
+    if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
+      clientSelect.value = previousValue;
+    }
+
     if (clientSummary) {
-      clientSummary.textContent = `${clients.length} cliente(s) disponible(s).`;
+      clientSummary.textContent = !editableClient
+        ? "Solo Global Latam puede cambiar el cliente de un pedido."
+        : getOrderFormMode() === "edit" && isAnthonyGlobalOwner()
+          ? `${compatibleClients.length} cliente(s) globales disponible(s). Cambiar la región del cliente moverá el pedido.`
+          : `${compatibleClients.length} cliente(s) ${orderRegion.toUpperCase()} disponible(s).`;
+    }
+  }
+
+  function isClientCompatibleWithOrderRegion(clientId) {
+    const normalizedClientId = String(clientId || "").trim();
+
+    if (!normalizedClientId) {
+      return true;
+    }
+
+    if (isEmbeddedTrackingOrderForm && !clients.length) {
+      return Array.from(clientSelect?.options || []).some((option) => String(option.value || "").trim() === normalizedClientId);
+    }
+
+    const selectedClient = clients.find((client) => String(client?._id || client?.id || "").trim() === normalizedClientId) || null;
+
+    if (!selectedClient) {
+      return false;
+    }
+
+    if (isAnthonyGlobalOwner() && getOrderFormMode() === "edit") {
+      return true;
+    }
+
+    return String(selectedClient?.clientRegion || getOrderFormRegion()).trim().toLowerCase() === getOrderFormRegion();
+  }
+
+  function canAssignBrokerToOrders() {
+    const normalizedRole = normalizeRole(currentAdminRole);
+
+    if (!["gerenteusa", "adminusa"].includes(normalizedRole)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function ensureBrokerSelect() {
+    if (!brokerField) {
+      return null;
+    }
+
+    const legacyNodes = [
+      brokerField.querySelector("#order-broker-input"),
+      brokerField.querySelector("#order-broker-options"),
+      brokerField.querySelector("#order-broker-picker"),
+    ];
+
+    legacyNodes.forEach((node) => {
+      if (node) {
+        node.remove();
+      }
+    });
+
+    let selectElement = brokerField.querySelector("#order-broker-select");
+
+    if (!selectElement) {
+      selectElement = document.createElement("select");
+      selectElement.id = "order-broker-select";
+      selectElement.name = "assignedBrokerId";
+      selectElement.innerHTML = '<option value="">Sin broker asignado</option>';
+
+      const summaryElement = brokerField.querySelector("#order-broker-summary");
+
+      if (summaryElement) {
+        brokerField.insertBefore(selectElement, summaryElement);
+      } else {
+        brokerField.appendChild(selectElement);
+      }
+    }
+
+    return selectElement;
+  }
+
+  brokerSelect = brokerSelect || ensureBrokerSelect();
+
+  function renderBrokerOptions() {
+    brokerSelect = brokerSelect || ensureBrokerSelect();
+
+    if (!brokerField || !brokerSelect) {
+      return;
+    }
+
+    const canAssignBroker = canAssignBrokerToOrders();
+    brokerField.hidden = !canAssignBroker;
+    brokerSelect.disabled = !canAssignBroker;
+
+    if (!canAssignBroker) {
+      brokerSelect.innerHTML = '<option value="">Sin broker asignado</option>';
+      return;
+    }
+
+    const previousValue = String(brokerSelect.value || "").trim();
+
+    const sortedBrokers = [...brokers].sort((left, right) => (
+      String(left?.name || "Broker").localeCompare(String(right?.name || "Broker"), "es", { sensitivity: "base" })
+    ));
+
+    brokerSelect.innerHTML = [
+      '<option value="">Sin broker asignado</option>',
+      ...sortedBrokers.map((broker) => `<option value="${escapeHtml(broker._id || broker.id || "")}">${escapeHtml(broker.name || broker.email || "Broker USA")}</option>`),
+    ].join("");
+
+    if (previousValue && sortedBrokers.some((broker) => String(broker?._id || broker?.id || "").trim() === previousValue)) {
+      brokerSelect.value = previousValue;
+    }
+
+    if (brokerSummary) {
+      brokerSummary.textContent = sortedBrokers.length
+        ? `${sortedBrokers.length} broker(s) USA disponible(s).`
+        : "No hay brokers USA creados todavía.";
     }
   }
 
@@ -275,14 +545,33 @@ if (true) {
 
   async function loadOrdersPage() {
     try {
-      await loadOrdersPageSession();
-      const [ordersData, usersData] = await Promise.all([
+      const user = await loadOrdersPageSession();
+      currentAdminRole = String(user?.role || "").trim();
+      currentAdminEmail = String(user?.email || "").trim().toLowerCase();
+
+      if (normalizeRole(currentAdminRole) === "brokerusa" && normalizeAdminPathname().endsWith("/admin-orders.html")) {
+        window.location.replace(resolveAdminHtmlPath("admin-tracking.html"));
+        return;
+      }
+
+      if (orderForm) {
+        orderForm.dataset.orderRegion = ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(currentAdminRole)) ? "usa" : "latam";
+      }
+
+      if (isEmbeddedTrackingOrderForm) {
+        return;
+      }
+
+      const [ordersData, usersData, adminsData] = await Promise.all([
         fetchOrdersPageJson("/api/admin/orders"),
         fetchOrdersPageJson("/api/admin/clients"),
+        fetchOrdersPageJson("/api/admin/users/admins"),
       ]);
       orders = normalizeCollectionPayload(ordersData, ["orders"]);
       clients = normalizeCollectionPayload(usersData, ["clients"]);
+      brokers = normalizeCollectionPayload(adminsData, ["users"]).filter((candidate) => normalizeRole(candidate?.role) === "brokerusa");
       renderClientOptions();
+      renderBrokerOptions();
       window.__fillRandomTracking({ silent: true });
     } finally {
       stopInitOverlayWatchdog();
@@ -327,7 +616,14 @@ if (true) {
 
   async function submitAdminOrder(event) {
     event?.preventDefault?.();
+
+    if (normalizeRole(currentAdminRole) === "brokerusa") {
+      adminSetFeedback(orderFeedback, "Tu perfil solo puede subir archivos en pedidos asignados.", "error");
+      return false;
+    }
+
     const formData = new FormData(orderForm);
+    const isBrokerFieldVisible = Boolean(brokerField && !brokerField.hidden);
     const formMode = getOrderFormMode();
     const editingOrderId = getEditingOrderId();
     const trackingNumber = String(formData.get("trackingNumber") || "").trim().toUpperCase();
@@ -347,8 +643,7 @@ if (true) {
 
     for (const [fieldName, message] of requiredFields) {
       if (!String(formData.get(fieldName) || "").trim()) {
-        adminSetFeedback(orderFeedback, message, "error");
-        forceClearLoadingState();
+        focusInvalidOrderField(fieldName, message);
         return false;
       }
     }
@@ -363,6 +658,10 @@ if (true) {
       if (formMode === "edit") {
         if (!editingOrderId) {
           throw new Error("No se encontró el pedido que se va a editar.");
+        }
+
+        if (String(formData.get("clientId") || "").trim() && !canEditOrderClient()) {
+          throw new Error("Solo Global Latam puede cambiar el cliente de un pedido.");
         }
 
         const yearValue = Number.parseInt(String(formData.get("year") || "").trim(), 10);
@@ -385,6 +684,14 @@ if (true) {
           notes: String(formData.get("notes") || "").trim(),
         };
 
+        if (!isClientCompatibleWithOrderRegion(payload.clientId)) {
+          throw new Error(`Selecciona un cliente ${getOrderFormRegion().toUpperCase()} para este pedido.`);
+        }
+
+        if (isBrokerFieldVisible) {
+          payload.assignedBrokerId = String(formData.get("assignedBrokerId") || "").trim();
+        }
+
         const data = await fetchOrdersPageJson(`/api/admin/orders/${editingOrderId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
@@ -401,6 +708,10 @@ if (true) {
       formData.set("trackingNumber", trackingNumber);
       formData.set("purchaseDate", String(formData.get("purchaseDate") || "").trim() || buildLegacyPurchaseDate());
       formData.set("color", exteriorColor || interiorColor);
+
+      if (!isBrokerFieldVisible) {
+        formData.delete("assignedBrokerId");
+      }
 
       const data = await fetchOrdersPageJson("/api/admin/orders", {
         method: "POST",
@@ -428,7 +739,38 @@ if (true) {
     }
   }
 
-  orderForm.addEventListener("invalid", (event) => {
+  function triggerAdminOrderSubmit() {
+    return submitAdminOrder();
+  }
+
+  window.__submitAdminOrder = submitAdminOrder;
+  window.__triggerAdminOrderSubmit = triggerAdminOrderSubmit;
+  window.__loadOrderFormData = loadOrdersPage;
+  window.__syncEmbeddedOrderFormContext = function syncEmbeddedOrderFormContext({ clients: nextClients = null, brokers: nextBrokers = null } = {}) {
+    if (Array.isArray(nextClients)) {
+      clients = nextClients;
+    }
+
+    if (Array.isArray(nextBrokers)) {
+      brokers = nextBrokers;
+    }
+
+    renderClientOptions();
+    renderBrokerOptions();
+  };
+
+  orderSubmitButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    void submitAdminOrder(event);
+  });
+
+  if (orderForm) {
+    Array.from(orderForm.querySelectorAll("select")).forEach((selectElement) => {
+      attachNativeSelectPicker(selectElement);
+    });
+  }
+
+  orderForm?.addEventListener("invalid", (event) => {
     const invalidField = event.target;
 
     if (!(invalidField instanceof HTMLInputElement || invalidField instanceof HTMLSelectElement || invalidField instanceof HTMLTextAreaElement)) {
@@ -438,9 +780,9 @@ if (true) {
     adminSetFeedback(orderFeedback, invalidField.validationMessage || "Revisa los campos obligatorios.", "error");
   }, true);
 
-  window.__submitAdminOrder = submitAdminOrder;
-  window.__loadOrderFormData = loadOrdersPage;
-  orderForm.addEventListener("submit", submitAdminOrder);
+  if (!isEmbeddedTrackingOrderForm && orderForm) {
+    orderForm.addEventListener("submit", submitAdminOrder);
+  }
 
   renderMediaSummary([]);
 
@@ -455,3 +797,5 @@ if (true) {
     adminSetFeedback(orderFeedback, error.message, "error");
   });
 }
+
+})();
