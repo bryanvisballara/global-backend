@@ -1,3 +1,10 @@
+(() => {
+if (window.__adminPostsScriptInitialized) {
+  return;
+}
+
+window.__adminPostsScriptInitialized = true;
+
 const {
   attachLogout,
   fetchJson,
@@ -596,3 +603,4 @@ if (requireAdminAccess()) {
 
   window.__adminPostsInitialized = true;
 }
+})();

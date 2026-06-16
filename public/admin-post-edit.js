@@ -1,3 +1,10 @@
+(() => {
+if (window.__adminPostEditScriptInitialized) {
+  return;
+}
+
+window.__adminPostEditScriptInitialized = true;
+
 const {
   attachLogout,
   fetchJson,
@@ -95,13 +102,13 @@ if (requireAdminAccess()) {
     postIdInput.value = post._id || resolvedPostId;
     titleInput.value = post.title || "";
     bodyInput.value = post.body || "";
-    currentTitle.textContent = post.title || "Sin título";
+    currentTitle.textContent = post.title || "Sin t?tulo";
     currentBody.textContent = post.body || "Sin texto";
 
     if (post.format || post.publishedAt || post.createdAt) {
       metaContainer.innerHTML = `
         <div class="info-box modal-info-box">
-          <span>${post.format || "publicación"}</span>
+          <span>${post.format || "publicaci?n"}</span>
           <strong>Publicada: ${formatDateTimeInBogota(post.publishedAt || post.createdAt)}</strong>
         </div>
       `;
@@ -189,13 +196,13 @@ if (requireAdminAccess()) {
     }
 
     const data = await fetchJson("/api/admin/posts", {
-      loadingMessage: "Ubicando publicación...",
+      loadingMessage: "Ubicando publicaci?n...",
     });
 
     const matchedPost = findBestLegacyMatch(data.posts || []);
 
     if (!matchedPost?._id) {
-      throw new Error("No se pudo identificar la publicación a modificar.");
+      throw new Error("No se pudo identificar la publicaci?n a modificar.");
     }
 
     resolvedPostId = matchedPost._id;
@@ -210,16 +217,16 @@ if (requireAdminAccess()) {
     const effectivePostId = await resolvePostId();
 
     if (!effectivePostId) {
-      throw new Error("No se recibió la publicación a modificar.");
+      throw new Error("No se recibi? la publicaci?n a modificar.");
     }
 
     const data = await fetchJson(`/api/admin/posts/${effectivePostId}`, {
-      loadingMessage: "Cargando publicación...",
+      loadingMessage: "Cargando publicaci?n...",
     });
     const post = data.post;
 
     if (!post) {
-      throw new Error("No se encontró la publicación seleccionada.");
+      throw new Error("No se encontr? la publicaci?n seleccionada.");
     }
 
     fillForm(post);
@@ -233,7 +240,7 @@ if (requireAdminAccess()) {
       const effectivePostId = await resolvePostId();
 
       if (!effectivePostId) {
-        throw new Error("No se pudo identificar la publicación a modificar.");
+        throw new Error("No se pudo identificar la publicaci?n a modificar.");
       }
 
       const patchResponse = await fetch(`${resolveApiBaseUrl()}/api/admin/posts/${effectivePostId}`, {
@@ -251,16 +258,16 @@ if (requireAdminAccess()) {
       const data = await patchResponse.json();
 
       if (!patchResponse.ok) {
-        throw new Error(data.message || "No se pudo modificar la publicación.");
+        throw new Error(data.message || "No se pudo modificar la publicaci?n.");
       }
 
-      setFeedback(feedback, "Publicación modificada correctamente.", "success");
+      setFeedback(feedback, "Publicaci?n modificada correctamente.", "success");
       fillForm(data.post || {
         _id: effectivePostId,
         title: titleInput.value,
         body: bodyInput.value,
       });
-      successDescription.textContent = "La publicación fue modificada correctamente.";
+      successDescription.textContent = "La publicaci?n fue modificada correctamente.";
       toggleSuccessModal(true);
     } catch (error) {
       setFeedback(feedback, error.message, "error");
@@ -302,3 +309,4 @@ if (requireAdminAccess()) {
     setFeedback(feedback, error.message, "error");
   });
 }
+})();
