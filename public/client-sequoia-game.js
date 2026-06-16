@@ -3,7 +3,7 @@
   const PLAYER_NAME_KEY = "globalHeroPlayerName";
   const COVER_URL = "/assets/global-hero-cover.png";
   const SPRITE_URL = "/assets/lion-hero-fly.png";
-  const BACKGROUND_URL = "/assets/sequoia-game-bg.png";
+  const BACKGROUND_URL = "/assets/sequoia-game-bg.png?v=20260616-gamebg01";
   const TRAFFIC_RED_URL = "/assets/srojo.png";
   const TRAFFIC_GREEN_URL = "/assets/sverde.png";
 
@@ -318,7 +318,7 @@
         const offsetY = (height - drawHeight) / 2;
 
         ctx.drawImage(background, offsetX, offsetY, drawWidth, drawHeight);
-        ctx.fillStyle = "rgba(5, 7, 13, 0.42)";
+        ctx.fillStyle = "rgba(5, 7, 13, 0.18)";
         ctx.fillRect(0, 0, width, height);
       } else {
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
