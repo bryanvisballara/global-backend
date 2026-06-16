@@ -3143,7 +3143,10 @@ async function transitionTrackingState(req, res) {
     const now = new Date();
     const currentStep = order.trackingSteps[currentStepIndex];
     const targetStep = order.trackingSteps[targetStepIndex];
-    const currentStateMeta = TRACKING_STATE_TEMPLATES[currentStepIndex] || { key: currentStep.key, label: currentStep.label };
+    const currentStateMeta = TRACKING_STATE_TEMPLATES[currentStepIndex]
+      || (currentStep
+        ? { key: currentStep.key, label: currentStep.label }
+        : { key: "completed", label: "Completado" });
     const targetStateMeta = TRACKING_STATE_TEMPLATES[targetStepIndex] || { key: targetStep.key, label: targetStep.label };
     const transitionTitle = direction === "next"
       ? `Cambio de etapa a E${targetStepIndex + 1} — ${targetStateMeta.label}`
