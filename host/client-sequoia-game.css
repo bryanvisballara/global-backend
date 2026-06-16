@@ -1,0 +1,236 @@
+.sequoia-game-view {
+  display: grid;
+  gap: 0;
+  min-height: calc(100dvh - 120px);
+}
+
+.sequoia-game-view .client-section-head {
+  display: none;
+}
+
+.global-hero-hub {
+  position: relative;
+  width: 100%;
+  min-height: min(78dvh, 720px);
+}
+
+.global-hero-screen {
+  display: none;
+  width: 100%;
+  min-height: min(78dvh, 720px);
+}
+
+.global-hero-screen.is-active {
+  display: block;
+}
+
+.global-hero-menu {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #05070d;
+}
+
+.global-hero-cover {
+  display: block;
+  width: 100%;
+  height: min(78dvh, 720px);
+  object-fit: cover;
+  object-position: center top;
+}
+
+.global-hero-menu-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 28px 20px calc(24px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(5, 7, 13, 0) 0%, rgba(5, 7, 13, 0.55) 38%, rgba(5, 7, 13, 0.92) 100%);
+}
+
+.global-hero-menu-actions {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 320px);
+}
+
+.global-hero-play-button,
+.global-hero-ranking-button,
+.global-hero-back-button {
+  min-height: 52px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: "Manrope", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.global-hero-play-button {
+  border-color: rgba(216, 170, 82, 0.45);
+  background: linear-gradient(135deg, #d8aa52, #b8892f);
+  color: #111;
+}
+
+.global-hero-ranking-button,
+.global-hero-back-button {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.global-hero-game-mount,
+.sequoia-game-shell {
+  position: relative;
+  width: 100%;
+  min-height: min(78dvh, 720px);
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #05070d url("/assets/sequoia-game-bg.png") center / cover no-repeat;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sequoia-game-shell canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sequoia-game-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.global-hero-ranking {
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 7, 13, 0.94);
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+}
+
+.global-hero-ranking-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.global-hero-ranking-header h3 {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 1.35rem;
+}
+
+.global-hero-ranking-header p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.global-hero-ranking-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: min(58dvh, 560px);
+  overflow: auto;
+}
+
+.global-hero-ranking-item {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.global-hero-ranking-rank {
+  font-family: "Syne", sans-serif;
+  font-weight: 800;
+  color: #d8aa52;
+}
+
+.global-hero-ranking-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-hero-ranking-score {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+
+.global-hero-ranking-loading,
+.global-hero-ranking-empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.sequoia-game-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sequoia-game-launch .primary-button {
+  min-height: 48px;
+}
+
+.sequoia-game-hero-card {
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(216, 170, 82, 0.22);
+  background: linear-gradient(135deg, rgba(216, 170, 82, 0.12), rgba(255, 255, 255, 0.03));
+  overflow: hidden;
+}
+
+.sequoia-game-hero-card-cover {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+
+.sequoia-game-hero-card strong {
+  display: block;
+  font-family: "Syne", sans-serif;
+  font-size: 1.05rem;
+}
+
+.sequoia-game-hero-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

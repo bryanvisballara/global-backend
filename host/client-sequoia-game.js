@@ -1,5 +1,7 @@
 (() => {
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
+  const PLAYER_NAME_KEY = "globalHeroPlayerName";
+  const COVER_URL = "/assets/global-hero-cover.png";
   const SPRITE_URL = "/assets/lion-hero-fly.png";
   const BACKGROUND_URL = "/assets/sequoia-game-bg.png";
 
@@ -13,6 +15,38 @@
     groundHeight: 56,
   };
 
+  function resolveApiBaseUrl() {
+    const { origin, hostname } = window.location;
+    const isPrivateIpv4Address = /^(10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(
+      hostname
+    );
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      isPrivateIpv4Address ||
+      hostname === "global-backend-bdbx.onrender.com"
+    ) {
+      return origin;
+    }
+
+    return "https://global-backend-bdbx.onrender.com";
+  }
+
+  function getAuthToken() {
+    return localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function loadBestScore() {
     const value = Number.parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10);
     return Number.isFinite(value) ? value : 0;
@@ -24,6 +58,76 @@
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function resolvePlayerName(options = {}) {
+    const storedName = String(localStorage.getItem(PLAYER_NAME_KEY) || "").trim();
+    const optionName = String(options.playerName || "").trim();
+
+    if (optionName) {
+      return optionName.slice(0, 80);
+    }
+
+    if (storedName) {
+      return storedName.slice(0, 80);
+    }
+
+    const promptedName = window.prompt("Escribe tu nombre para el ranking:")?.trim();
+    if (promptedName) {
+      localStorage.setItem(PLAYER_NAME_KEY, promptedName.slice(0, 80));
+      return promptedName.slice(0, 80);
+    }
+
+    return "Jugador";
+  }
+
+  async function fetchLeaderboard(options = {}) {
+    const baseUrl = resolveApiBaseUrl();
+    const token = getAuthToken();
+    const useAuth = Boolean(options.authenticated && token);
+    const path = useAuth ? "/api/client/global-hero/leaderboard" : "/api/public/global-hero/leaderboard";
+    const headers = { "Content-Type": "application/json" };
+
+    if (useAuth) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${baseUrl}${path}`, { headers });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "No se pudo cargar el ranking");
+    }
+
+    return data;
+  }
+
+  async function submitScoreToLeaderboard(score, options = {}) {
+    const baseUrl = resolveApiBaseUrl();
+    const token = getAuthToken();
+    const useAuth = Boolean(options.authenticated && token);
+    const path = useAuth ? "/api/client/global-hero/scores" : "/api/public/global-hero/scores";
+    const headers = { "Content-Type": "application/json" };
+    const payload = { score };
+
+    if (useAuth) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      payload.playerName = resolvePlayerName(options);
+    }
+
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "No se pudo guardar el puntaje");
+    }
+
+    return data;
   }
 
   function drawPixelCloud(ctx, x, y, scale) {
@@ -70,12 +174,18 @@
     });
   }
 
-  function createGame(root) {
+  function createGame(root, options = {}) {
     const shell = document.createElement("div");
     shell.className = "sequoia-game-shell";
 
+    const backButton = document.createElement("button");
+    backButton.type = "button";
+    backButton.className = "sequoia-game-back";
+    backButton.textContent = "← Menú";
+    shell.appendChild(backButton);
+
     const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-label", "Sequoia Fly mini juego");
+    canvas.setAttribute("aria-label", "Global Hero mini juego");
     shell.appendChild(canvas);
     root.replaceChildren(shell);
 
@@ -93,6 +203,7 @@
     let lastSpawn = 0;
     let paused = false;
     let mounted = true;
+    let scoreSubmitted = false;
 
     const state = {
       mode: "ready",
@@ -132,6 +243,7 @@
       state.score = 0;
       state.pipes = [];
       lastSpawn = 0;
+      scoreSubmitted = false;
       resetCarPosition(true);
     }
 
@@ -265,9 +377,15 @@
 
     function endGame() {
       state.mode = "over";
+
       if (state.score > state.best) {
         state.best = state.score;
         saveBestScore(state.best);
+      }
+
+      if (!scoreSubmitted) {
+        scoreSubmitted = true;
+        options.onGameOver?.(state.score);
       }
     }
 
@@ -288,7 +406,7 @@
       state.car.vy = DEFAULTS.flapVelocity;
     }
 
-    function update(now, delta) {
+    function update(now) {
       state.clouds.forEach((cloud) => {
         cloud.x -= cloud.speed;
         if (cloud.x < -80) {
@@ -337,8 +455,7 @@
       }
 
       if (!paused) {
-        const delta = lastFrame ? now - lastFrame : 16;
-        update(now, delta);
+        update(now);
         render();
       }
 
@@ -347,6 +464,10 @@
     }
 
     function onPointerDown(event) {
+      if (event.target === backButton) {
+        return;
+      }
+
       event.preventDefault();
       flap();
     }
@@ -357,6 +478,10 @@
         flap();
       }
     }
+
+    backButton.addEventListener("click", () => {
+      options.onExit?.();
+    });
 
     shell.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
@@ -397,16 +522,177 @@
     };
   }
 
+  function renderRankingList(listElement, entries) {
+    if (!entries.length) {
+      listElement.innerHTML = '<p class="global-hero-ranking-empty">Aún no hay puntajes registrados.</p>';
+      return;
+    }
+
+    listElement.innerHTML = entries
+      .map(
+        (entry) => `
+          <li class="global-hero-ranking-item">
+            <span class="global-hero-ranking-rank">#${entry.rank}</span>
+            <span class="global-hero-ranking-name">${escapeHtml(entry.playerName)}</span>
+            <span class="global-hero-ranking-score">${entry.score} semáforos</span>
+          </li>
+        `
+      )
+      .join("");
+  }
+
+  function createHub(root, options = {}) {
+    root.className = "global-hero-hub";
+
+    const menuScreen = document.createElement("section");
+    menuScreen.className = "global-hero-screen global-hero-menu is-active";
+
+    const coverImage = document.createElement("img");
+    coverImage.className = "global-hero-cover";
+    coverImage.src = COVER_URL;
+    coverImage.alt = "Global Hero";
+    coverImage.decoding = "async";
+    coverImage.loading = "eager";
+
+    const menuOverlay = document.createElement("div");
+    menuOverlay.className = "global-hero-menu-overlay";
+
+    const menuActions = document.createElement("div");
+    menuActions.className = "global-hero-menu-actions";
+
+    const playButton = document.createElement("button");
+    playButton.type = "button";
+    playButton.className = "global-hero-play-button";
+    playButton.textContent = "Jugar ahora";
+
+    const rankingButton = document.createElement("button");
+    rankingButton.type = "button";
+    rankingButton.className = "global-hero-ranking-button";
+    rankingButton.textContent = "Ranking";
+
+    menuActions.append(playButton, rankingButton);
+    menuOverlay.appendChild(menuActions);
+    menuScreen.append(coverImage, menuOverlay);
+
+    const gameScreen = document.createElement("section");
+    gameScreen.className = "global-hero-screen global-hero-game";
+    const gameMount = document.createElement("div");
+    gameMount.className = "global-hero-game-mount";
+    gameScreen.appendChild(gameMount);
+
+    const rankingScreen = document.createElement("section");
+    rankingScreen.className = "global-hero-screen global-hero-ranking";
+
+    const rankingHeader = document.createElement("header");
+    rankingHeader.className = "global-hero-ranking-header";
+
+    const rankingBackButton = document.createElement("button");
+    rankingBackButton.type = "button";
+    rankingBackButton.className = "global-hero-back-button";
+    rankingBackButton.textContent = "← Volver";
+
+    const rankingTitle = document.createElement("h3");
+    rankingTitle.textContent = "Top 50 ranking";
+
+    const rankingSubtitle = document.createElement("p");
+    rankingSubtitle.textContent = "Más semáforos superados = mejor posición.";
+
+    const rankingList = document.createElement("ol");
+    rankingList.className = "global-hero-ranking-list";
+
+    rankingHeader.append(rankingBackButton, rankingTitle, rankingSubtitle);
+    rankingScreen.append(rankingHeader, rankingList);
+
+    root.replaceChildren(menuScreen, gameScreen, rankingScreen);
+
+    let activeScreen = "menu";
+    let gameInstance = null;
+
+    function showScreen(screenName) {
+      activeScreen = screenName;
+      menuScreen.classList.toggle("is-active", screenName === "menu");
+      gameScreen.classList.toggle("is-active", screenName === "game");
+      rankingScreen.classList.toggle("is-active", screenName === "ranking");
+    }
+
+    async function loadRanking() {
+      rankingList.innerHTML = '<p class="global-hero-ranking-loading">Cargando ranking...</p>';
+
+      try {
+        const data = await fetchLeaderboard(options);
+        renderRankingList(rankingList, data.entries || []);
+      } catch (error) {
+        rankingList.innerHTML = `<p class="global-hero-ranking-empty">${escapeHtml(error.message || "No se pudo cargar el ranking.")}</p>`;
+      }
+    }
+
+    function stopGame() {
+      if (gameInstance) {
+        gameInstance.destroy();
+        gameInstance = null;
+      }
+    }
+
+    function startGame() {
+      if (!options.authenticated || !options.playerName) {
+        resolvePlayerName(options);
+      }
+
+      stopGame();
+      showScreen("game");
+
+      gameInstance = createGame(gameMount, {
+        ...options,
+        onGameOver(score) {
+          submitScoreToLeaderboard(score, options).catch(() => null);
+        },
+        onExit() {
+          stopGame();
+          showScreen("menu");
+        },
+      });
+    }
+
+    playButton.addEventListener("click", startGame);
+
+    rankingButton.addEventListener("click", () => {
+      showScreen("ranking");
+      loadRanking();
+    });
+
+    rankingBackButton.addEventListener("click", () => {
+      showScreen("menu");
+    });
+
+    return {
+      pause() {
+        if (activeScreen === "game") {
+          gameInstance?.pause();
+        }
+      },
+      resume() {
+        if (activeScreen === "game") {
+          gameInstance?.resume();
+        }
+      },
+      destroy() {
+        stopGame();
+        root.replaceChildren();
+        root.className = "";
+      },
+    };
+  }
+
   let activeInstance = null;
 
   window.SequoiaFlappyGame = {
-    mount(rootElement) {
+    mount(rootElement, options = {}) {
       if (!rootElement) {
         return null;
       }
 
       this.unmount();
-      activeInstance = createGame(rootElement);
+      activeInstance = createHub(rootElement, options);
       return activeInstance;
     },
     unmount() {
