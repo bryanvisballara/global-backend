@@ -9,12 +9,35 @@ function serializeLeaderboardEntry(entry, rank) {
   };
 }
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildPlayerKeyExpression() {
+  return {
+    $cond: [
+      { $ifNull: ["$userId", false] },
+      { $concat: ["user:", { $toString: "$userId" }] },
+      { $concat: ["name:", { $toLower: { $trim: { input: "$playerName" } } }] },
+    ],
+  };
+}
+
 async function listGlobalHeroLeaderboard(req, res) {
   try {
-    const entries = await GlobalHeroScore.find({})
-      .sort({ score: -1, createdAt: -1 })
-      .limit(50)
-      .lean();
+    const entries = await GlobalHeroScore.aggregate([
+      { $sort: { score: -1, createdAt: -1 } },
+      {
+        $group: {
+          _id: buildPlayerKeyExpression(),
+          playerName: { $first: "$playerName" },
+          score: { $first: "$score" },
+          createdAt: { $first: "$createdAt" },
+        },
+      },
+      { $sort: { score: -1, createdAt: -1 } },
+      { $limit: 50 },
+    ]);
 
     return res.status(200).json({
       entries: entries.map((entry, index) => serializeLeaderboardEntry(entry, index + 1)),
@@ -38,11 +61,41 @@ async function submitGlobalHeroScore(req, res) {
       return res.status(400).json({ message: "Nombre de jugador requerido" });
     }
 
-    const entry = await GlobalHeroScore.create({
-      userId: req.user?._id || null,
-      playerName: playerName.slice(0, 80),
-      score,
-    });
+    const userId = req.user?._id || null;
+    const normalizedName = playerName.slice(0, 80);
+    const playerFilter = userId
+      ? { userId }
+      : {
+          userId: null,
+          playerName: { $regex: new RegExp(`^${escapeRegex(normalizedName)}$`, "i") },
+        };
+
+    const existingBest = await GlobalHeroScore.findOne(playerFilter).sort({ score: -1, createdAt: -1 });
+
+    if (existingBest && score <= existingBest.score) {
+      return res.status(200).json({
+        message: "Score saved",
+        entry: serializeLeaderboardEntry(existingBest.toObject(), null),
+      });
+    }
+
+    let entry;
+
+    if (existingBest) {
+      existingBest.score = score;
+      existingBest.playerName = normalizedName;
+      entry = await existingBest.save();
+      await GlobalHeroScore.deleteMany({
+        ...playerFilter,
+        _id: { $ne: entry._id },
+      });
+    } else {
+      entry = await GlobalHeroScore.create({
+        userId,
+        playerName: normalizedName,
+        score,
+      });
+    }
 
     return res.status(201).json({
       message: "Score saved",

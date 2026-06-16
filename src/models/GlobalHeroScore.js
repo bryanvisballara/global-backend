@@ -25,5 +25,7 @@ const globalHeroScoreSchema = new mongoose.Schema(
 );
 
 globalHeroScoreSchema.index({ score: -1, createdAt: -1 });
+globalHeroScoreSchema.index({ userId: 1, score: -1 });
+globalHeroScoreSchema.index({ userId: 1, playerName: 1 });
 
 module.exports = mongoose.model("GlobalHeroScore", globalHeroScoreSchema);
