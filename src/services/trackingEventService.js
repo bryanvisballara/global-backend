@@ -263,32 +263,48 @@ function reconcileCollectionTrackingProgression(steps = []) {
     return steps;
   }
 
-  let activeIndex = -1;
-  let activeTimestamp = -1;
-
-  steps.forEach((step, index) => {
+  steps.forEach((step) => {
     const updates = Array.isArray(step?.updates) ? step.updates : [];
     const latestCompletedUpdate = getLatestUpdate(updates, (update) => update?.completed);
-    const latestInProgressUpdate = getLatestUpdate(updates, (update) => update?.inProgress && !update?.completed);
 
     if (latestCompletedUpdate) {
       step.confirmed = true;
       step.inProgress = false;
       step.confirmedAt = step.confirmedAt || latestCompletedUpdate.updatedAt || latestCompletedUpdate.createdAt || null;
     }
+  });
 
-    if (latestInProgressUpdate) {
-      const progressTimestamp = getUpdateTimestamp(latestInProgressUpdate);
-      const completedTimestamp = latestCompletedUpdate
-        ? getUpdateTimestamp(latestCompletedUpdate)
-        : -1;
+  let highestConfirmedIndex = -1;
 
-      if (progressTimestamp > completedTimestamp && progressTimestamp >= activeTimestamp) {
-        activeIndex = index;
-        activeTimestamp = progressTimestamp;
-      }
+  steps.forEach((step, index) => {
+    if (step?.confirmed) {
+      highestConfirmedIndex = Math.max(highestConfirmedIndex, index);
     }
   });
+
+  let activeIndex = -1;
+
+  for (let index = highestConfirmedIndex + 1; index < steps.length; index += 1) {
+    if (!steps[index]?.confirmed) {
+      activeIndex = index;
+      break;
+    }
+  }
+
+  if (activeIndex < 0) {
+    steps.forEach((step, index) => {
+      if (index <= highestConfirmedIndex || step?.confirmed) {
+        return;
+      }
+
+      const updates = Array.isArray(step?.updates) ? step.updates : [];
+      const latestInProgressUpdate = getLatestUpdate(updates, (update) => update?.inProgress && !update?.completed);
+
+      if (step?.inProgress || latestInProgressUpdate) {
+        activeIndex = index;
+      }
+    });
+  }
 
   if (activeIndex < 0) {
     return steps;
@@ -342,8 +358,26 @@ function mergeTrackingStepsWithEvents(sourceTrackingSteps = [], stepEventMap = n
   return normalizeTrackingStates(mergedTrackingSteps);
 }
 
+function buildOrderEventFilter(orderId, orderRegion = "latam") {
+  const normalizedOrderRegion = String(orderRegion || "latam").trim().toLowerCase();
+  const regionMatchers = [{ orderRegion: normalizedOrderRegion }];
+
+  if (normalizedOrderRegion === "latam") {
+    regionMatchers.push(
+      { orderRegion: { $exists: false } },
+      { orderRegion: null },
+      { orderRegion: "" }
+    );
+  }
+
+  return {
+    orderId,
+    $or: regionMatchers,
+  };
+}
+
 function buildOrderEventsQuery(orderEntries = []) {
-  const orderIds = [];
+  const regionFilters = [];
 
   (orderEntries || []).forEach((entry) => {
     const orderId = entry?.order?._id || entry?.order?.id;
@@ -352,10 +386,14 @@ function buildOrderEventsQuery(orderEntries = []) {
       return;
     }
 
-    orderIds.push(orderId);
+    regionFilters.push(buildOrderEventFilter(orderId, entry?.orderRegion));
   });
 
-  return orderIds.length ? { orderId: { $in: orderIds } } : null;
+  if (!regionFilters.length) {
+    return null;
+  }
+
+  return { $or: regionFilters };
 }
 
 async function fetchTrackingStepEvents(orderId, orderRegion, stepKey) {
@@ -363,10 +401,10 @@ async function fetchTrackingStepEvents(orderId, orderRegion, stepKey) {
     return [];
   }
 
-  const events = await OrderTrackingEvent.find({
-    orderId,
-    stepKey,
-  }).sort({ createdAt: 1, _id: 1 });
+  const eventQuery = buildOrderEventFilter(orderId, orderRegion);
+  eventQuery.stepKey = stepKey;
+
+  const events = await OrderTrackingEvent.find(eventQuery).sort({ createdAt: 1, _id: 1 });
 
   return events.map((event) => {
     const stateFields = buildTrackingEventStateFields(event?.stepKey, event);
@@ -386,9 +424,7 @@ async function buildHydratedTrackingSteps(sourceTrackingSteps = [], orderId, ord
     return normalizeTrackingStates(sourceTrackingSteps || []);
   }
 
-  const events = await OrderTrackingEvent.find({
-    orderId,
-  })
+  const events = await OrderTrackingEvent.find(buildOrderEventFilter(orderId, orderRegion))
     .sort({ createdAt: 1, _id: 1 })
     .lean();
   const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
@@ -411,9 +447,7 @@ async function hydrateOrderTracking(order, orderRegion, options = {}) {
 
   const plainOrder = toPlainObject(order);
   const orderId = plainOrder._id || plainOrder.id;
-  const events = await OrderTrackingEvent.find({
-    orderId,
-  })
+  const events = await OrderTrackingEvent.find(buildOrderEventFilter(orderId, orderRegion))
     .sort({ createdAt: 1, _id: 1 })
     .lean();
   const normalizedEvents = await enrichTrackingEventsWithStateFields(events);
@@ -449,7 +483,7 @@ async function hydrateOrdersTracking(orderEntries = []) {
   const eventsByOrderKey = new Map();
 
   normalizedEvents.forEach((event) => {
-    const orderKey = resolveOrderIdKey(event?.orderId);
+    const orderKey = resolveOrderKey(event?.orderId, event?.orderRegion);
 
     if (!eventsByOrderKey.has(orderKey)) {
       eventsByOrderKey.set(orderKey, []);
@@ -460,7 +494,7 @@ async function hydrateOrdersTracking(orderEntries = []) {
 
   return normalizedEntries.map((entry) => {
     const plainOrder = toPlainObject(entry.order);
-    const orderKey = resolveOrderIdKey(plainOrder._id || plainOrder.id);
+    const orderKey = resolveOrderKey(plainOrder._id || plainOrder.id, entry.orderRegion);
     const orderEvents = eventsByOrderKey.get(orderKey) || [];
     const preferCollectionOnly = Boolean(entry.preferCollectionOnly ?? plainOrder.trackingEventCollectionEnabled);
 
