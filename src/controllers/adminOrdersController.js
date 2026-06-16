@@ -3110,7 +3110,13 @@ async function transitionTrackingState(req, res) {
     });
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
 
-    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
+    const isCompletedTrackingOrder = String(order.status || "").trim().toLowerCase() === "completed"
+      || order.trackingSteps.every((step) => Boolean(step?.confirmed));
+    let currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
+
+    if (direction === "previous" && isCompletedTrackingOrder) {
+      currentStepIndex = order.trackingSteps.length;
+    }
 
     if (currentStepIndex < 0) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
@@ -3265,9 +3271,22 @@ async function finalizeTrackingOrder(req, res) {
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
 
     const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
+    const isCompletedTrackingOrder = String(order.status || "").trim().toLowerCase() === "completed"
+      || order.trackingSteps.every((step) => Boolean(step?.confirmed));
 
     if (currentStepIndex < 0) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
+    }
+
+    if (isCompletedTrackingOrder) {
+      return res.status(200).json({
+        message: "Order already finalized",
+        notificationSummary: {
+          clientPushSent: 0,
+          clientPushSkipped: 0,
+        },
+        order: await serializeOrder(order, orderResult.region),
+      });
     }
 
     if (!canFinalizeTrackingOrder(req.user, order, currentStepIndex, orderResult.region)) {

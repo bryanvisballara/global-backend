@@ -1024,7 +1024,7 @@ function getEffectiveTransitionIndex(order) {
     currentStageMeta.key === COMPLETED_TIMELINE_STAGE.key
     || currentStageMeta.index >= adminTrackingTemplates.length
   ) {
-    return adminTrackingTemplates.length - 1;
+    return adminTrackingTemplates.length;
   }
 
   return currentStageMeta.index;
@@ -1063,6 +1063,10 @@ function canTransitionTrackingState(currentIndex, targetIndex, order = getSelect
 
 function canFinalizeTrackingOrder(order, currentIndex) {
   const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+  if (isTrackingTimelineFullyComplete(order, getOrderTrackingEvents(order))) {
+    return false;
+  }
 
   if (isAnthonyGlobalOwner()) {
     return currentIndex === adminTrackingTemplates.length - 1 || (orderRegion === "usa" && currentIndex === 3);
@@ -1562,11 +1566,15 @@ function renderStageTransitionCardMarkup(order) {
 
   const currentStageMeta = getCurrentStageMeta(order);
   const effectiveTransitionIndex = getEffectiveTransitionIndex(order);
+  const isCompletedTimeline = currentStageMeta.key === COMPLETED_TIMELINE_STAGE.key
+    || effectiveTransitionIndex >= adminTrackingTemplates.length;
   const previousEnabled = effectiveTransitionIndex > 0
     && canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex - 1, order);
-  const finalizeEnabled = canFinalizeTrackingOrder(order, effectiveTransitionIndex);
-  const nextEnabled = canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex + 1, order)
-    || (finalizeEnabled && effectiveTransitionIndex === adminTrackingTemplates.length - 1);
+  const finalizeEnabled = !isCompletedTimeline && canFinalizeTrackingOrder(order, effectiveTransitionIndex);
+  const nextEnabled = !isCompletedTimeline && (
+    canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex + 1, order)
+    || (finalizeEnabled && effectiveTransitionIndex === adminTrackingTemplates.length - 1)
+  );
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -3448,7 +3456,7 @@ async function transitionSelectedOrder(direction) {
 
     if (currentStepIndex < 0) {
       const firstPendingIndex = states.findIndex((state) => !state?.confirmed);
-      currentStepIndex = firstPendingIndex >= 0 ? firstPendingIndex : states.length - 1;
+      currentStepIndex = firstPendingIndex >= 0 ? firstPendingIndex : states.length;
     }
 
     if (currentStepIndex < 0) {
