@@ -8,6 +8,7 @@
   const TRAFFIC_GREEN_URL = "/sverde.png";
   const FLAP_SOUND_URL = "/global-hero-flap.wav?v=20260616-flapsound02";
   const PASS_SOUND_URL = "/global-hero-pass.mp3?v=20260616-passsound01";
+  const PLAY_SOUND_URL = "/0414.WAV?v=20260616-playsound01";
 
   function createGameSoundPlayer(soundUrl, volume = 0.85) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -139,6 +140,7 @@
 
   let sharedFlapSound = null;
   let sharedPassSound = null;
+  let sharedPlaySound = null;
 
   function getFlapSoundPlayer() {
     if (!sharedFlapSound) {
@@ -154,6 +156,14 @@
     }
 
     return sharedPassSound;
+  }
+
+  function getPlaySoundPlayer() {
+    if (!sharedPlaySound) {
+      sharedPlaySound = createGameSoundPlayer(PLAY_SOUND_URL, 0.95);
+    }
+
+    return sharedPlaySound;
   }
 
   const DEFAULTS = {
@@ -837,6 +847,7 @@
     let gameInstance = null;
     void getFlapSoundPlayer().unlock();
     void getPassSoundPlayer().unlock();
+    void getPlaySoundPlayer().unlock();
 
     function showScreen(screenName) {
       activeScreen = screenName;
@@ -889,6 +900,8 @@
     playButton.addEventListener("click", () => {
       void getFlapSoundPlayer().unlock();
       void getPassSoundPlayer().unlock();
+      void getPlaySoundPlayer().unlock();
+      getPlaySoundPlayer().play();
       startGame();
     });
 
