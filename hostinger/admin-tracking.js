@@ -239,37 +239,25 @@ function isOrderCompleted(order) {
     return true;
   }
 
-  const trackingEvents = getOrderTrackingEvents(order);
-  const hasActiveProgressEvent = trackingEvents.some((event) => {
-    if (!event.inProgress || event.completed) {
-      return false;
-    }
+  const lastTemplate = adminTrackingTemplates[adminTrackingTemplates.length - 1];
 
-    const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
-    const latestCompletedTime = trackingEvents
-      .filter((item) => item.stateKey === event.stateKey && item.completed)
-      .reduce((latestTime, item) => {
-        const completedTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-        return completedTime >= latestTime ? completedTime : latestTime;
-      }, -1);
-
-    return latestCompletedTime < eventTime;
-  });
-
-  if (hasActiveProgressEvent) {
+  if (!lastTemplate) {
     return false;
   }
 
-  const rawSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+  const latestLastStageEvent = getOrderTrackingEvents(order)
+    .filter((event) => event.stateKey === lastTemplate.key)
+    .reduce((latestEvent, event) => {
+      if (!latestEvent) {
+        return event;
+      }
 
-  if (rawSteps.length < adminTrackingTemplates.length) {
-    return false;
-  }
+      const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
+      const latestTime = new Date(latestEvent.updatedAt || latestEvent.createdAt || 0).getTime();
+      return eventTime >= latestTime ? event : latestEvent;
+    }, null);
 
-  return adminTrackingTemplates.every((template, index) => {
-    const step = rawSteps.find((item) => String(item?.key || "") === template.key) || rawSteps[index] || null;
-    return Boolean(step?.confirmed);
-  });
+  return Boolean(latestLastStageEvent?.completed);
 }
 
 function formatDateTimeLabel(value) {
@@ -1112,6 +1100,74 @@ function getLatestUpdate(step) {
   }, null);
 }
 
+function applyTrackingProgressionModel(steps, order = null) {
+  if (!Array.isArray(steps) || !steps.length) {
+    return steps;
+  }
+
+  const lastStep = steps[steps.length - 1];
+  const lastLatestUpdate = getLatestUpdate(lastStep);
+
+  if (lastLatestUpdate?.completed) {
+    return steps.map((step) => ({
+      ...step,
+      confirmed: true,
+      inProgress: false,
+      confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+    }));
+  }
+
+  let furthestCompletedIndex = -1;
+
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const latestUpdate = getLatestUpdate(steps[index]);
+
+    if (latestUpdate?.completed) {
+      furthestCompletedIndex = index;
+      break;
+    }
+  }
+
+  let activeIndex = -1;
+
+  for (let index = furthestCompletedIndex + 1; index < steps.length; index += 1) {
+    const latestUpdate = getLatestUpdate(steps[index]);
+
+    if (latestUpdate?.inProgress && !latestUpdate?.completed) {
+      activeIndex = index;
+      break;
+    }
+  }
+
+  if (activeIndex < 0) {
+    activeIndex = steps.findIndex((step, index) => index > furthestCompletedIndex && !step.confirmed);
+  }
+
+  return steps.map((step, index) => {
+    if (index <= furthestCompletedIndex) {
+      return {
+        ...step,
+        confirmed: true,
+        inProgress: false,
+      };
+    }
+
+    if (activeIndex >= 0 && index === activeIndex) {
+      return {
+        ...step,
+        confirmed: false,
+        inProgress: true,
+      };
+    }
+
+    return {
+      ...step,
+      confirmed: false,
+      inProgress: false,
+    };
+  });
+}
+
 function getTrackingTemplateMeta(stateKey) {
   const resolvedStateKey = String(stateKey || "").trim();
   const stateIndex = adminTrackingTemplates.findIndex((template) => template.key === resolvedStateKey);
@@ -1259,13 +1315,7 @@ function getOrderTrackingSteps(order) {
     };
   });
 
-  const rawStepsAllConfirmed = adminTrackingTemplates.every((template) => {
-    const sourceStep = stepsByKey.get(template.key) || {};
-    return Boolean(sourceStep?.confirmed);
-  });
-  const orderStatusCompleted = String(order?.status || "").trim().toLowerCase() === "completed";
-
-  if (orderStatusCompleted || rawStepsAllConfirmed) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
     return normalizedSteps.map((step) => ({
       ...step,
       confirmed: true,
@@ -1274,58 +1324,7 @@ function getOrderTrackingSteps(order) {
     }));
   }
 
-  let latestEventActiveIndex = -1;
-  let latestEventActiveTime = -1;
-
-  trackingEvents.forEach((event) => {
-    if (!event.inProgress || event.completed || event.stateIndex < 0) {
-      return;
-    }
-
-    const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
-    const safeEventTime = Number.isNaN(eventTime) ? 0 : eventTime;
-    const latestCompletedTime = trackingEvents
-      .filter((item) => item.stateKey === event.stateKey && item.completed)
-      .reduce((latestTime, item) => {
-        const completedTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-        return completedTime >= latestTime ? completedTime : latestTime;
-      }, -1);
-
-    if (latestCompletedTime >= safeEventTime) {
-      return;
-    }
-
-    if (safeEventTime >= latestEventActiveTime) {
-      latestEventActiveIndex = event.stateIndex;
-      latestEventActiveTime = safeEventTime;
-    }
-  });
-
-  if (latestEventActiveIndex >= 0) {
-    normalizedSteps.forEach((step, index) => {
-      if (index < latestEventActiveIndex) {
-        step.confirmed = true;
-        step.inProgress = false;
-      } else if (index === latestEventActiveIndex) {
-        step.confirmed = false;
-        step.inProgress = true;
-      } else {
-        step.confirmed = false;
-        step.inProgress = false;
-      }
-    });
-  }
-
-  const explicitActiveIndex = latestEventActiveIndex >= 0
-    ? latestEventActiveIndex
-    : normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
-  const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
-  const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
-
-  return normalizedSteps.map((step, index) => ({
-    ...step,
-    inProgress: !step.confirmed && index === activeIndex,
-  }));
+  return applyTrackingProgressionModel(normalizedSteps, order);
 }
 
 function getSelectedOrder() {
