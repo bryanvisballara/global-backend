@@ -25,6 +25,9 @@ const stageTemplates = Array.isArray(trackingTemplates) && trackingTemplates.len
   ? trackingTemplates
   : fallbackTrackingTemplates;
 const completedStageCard = { key: "completed", label: "Completado" };
+const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
+let currentAdminRole = "";
+let currentAdminEmail = "";
 
 const stageLabelByKey = {
   "order-received": "Orden recibida",
@@ -100,6 +103,27 @@ function isStepConfirmed(value) {
   }
 
   return false;
+}
+
+function getLatestTrackingUpdate(updates = []) {
+  if (!Array.isArray(updates) || !updates.length) {
+    return null;
+  }
+
+  return updates.reduce((latestUpdate, currentUpdate) => {
+    if (!latestUpdate) {
+      return currentUpdate;
+    }
+
+    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
+    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+
+    return currentTime >= latestTime ? currentUpdate : latestUpdate;
+  }, null);
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
 }
 
 function resolveDashboardApiBaseUrl() {
@@ -200,29 +224,66 @@ function getFirstName(fullName) {
   return String(fullName || "Administrador").trim().split(/\s+/)[0] || "Administrador";
 }
 
-function isUsaAdministrativeRole(role) {
-  return ["adminUSA", "gerenteUSA"].includes(String(role || ""));
+function isAnthonyGlobalOwner() {
+  return currentAdminRole === "manager" && currentAdminEmail === ANTHONY_GLOBAL_OWNER_EMAIL;
 }
 
-function getLatestTrackingUpdate(updates = []) {
-  if (!Array.isArray(updates) || !updates.length) {
-    return null;
+function shouldShowOrderRegionBadge() {
+  return ["adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || isAnthonyGlobalOwner();
+}
+
+function renderOrderRegionBadge(orderRegion) {
+  if (!shouldShowOrderRegionBadge()) {
+    return "";
   }
 
-  return updates.reduce((latestUpdate, currentUpdate) => {
-    if (!latestUpdate) {
-      return currentUpdate;
-    }
+  const normalizedOrderRegion = String(orderRegion || "latam").trim().toLowerCase();
 
-    const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
-    const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
+  if (!["latam", "usa"].includes(normalizedOrderRegion)) {
+    return "";
+  }
 
-    return currentTime >= latestTime ? currentUpdate : latestUpdate;
-  }, null);
+  return `<span class="tracking-order-region-badge is-${escapeHtml(normalizedOrderRegion)}">${escapeHtml(normalizedOrderRegion.toUpperCase())}</span>`;
 }
 
-function normalizeText(value) {
-  return String(value || "").trim();
+function isUsaAdministrativeRole(role) {
+  return ["adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
+}
+
+function getStateCode(index) {
+  return Number.isInteger(index) && index >= 0 ? `E${index + 1}` : "-";
+}
+
+function buildDashboardEventTitle({ title = "", stateCode = "-", stateLabel = "Estado", inProgress = false, completed = false } = {}) {
+  const normalizedTitle = normalizeText(title);
+
+  if (normalizedTitle) {
+    return normalizedTitle;
+  }
+
+  const baseTitle = `Cambio de etapa a ${normalizeText(stateCode) || "-"} - ${normalizeText(stateLabel) || "Estado"}`;
+
+  if (inProgress) {
+    return `${baseTitle}, Estado en curso`;
+  }
+
+  if (completed) {
+    return `${baseTitle}, Etapa completada`;
+  }
+
+  return baseTitle;
+}
+
+function isOrderCompleted(order) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
+  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === stageTemplates.length - 1);
+}
+
+function shouldIncludeGlobalTrackingEvent(event) {
+  return !(event.stateIndex === 0 && event.inProgress && !event.completed && !normalizeText(event.title));
 }
 
 function getOrderTrackingEvents(order) {
@@ -242,6 +303,8 @@ function getOrderTrackingEvents(order) {
         stateKey,
         stateLabel: String(event?.stateLabel || stageLabelByKey[stateKey] || stageTemplates[stageIndex]?.label || "Estado"),
         stateIndex: Number.isNaN(parsedStateIndex) ? stageIndex : parsedStateIndex,
+        stateCode: String(event?.stateCode || getStateCode(Number.isNaN(parsedStateIndex) ? stageIndex : parsedStateIndex)),
+        title: normalizeText(event?.title || ""),
         updateIndex: Number.isNaN(parsedUpdateIndex) ? -1 : parsedUpdateIndex,
         notes: normalizeText(event?.notes || ""),
         media: Array.isArray(event?.media) ? event.media.filter((item) => item?.url) : [],
@@ -318,20 +381,41 @@ function getOrderTrackingSteps(order) {
       label: String(sourceStep?.label || template.label),
       confirmed: derivedConfirmed,
       inProgress: derivedInProgress,
-      updates,
-      updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
-      confirmedAt: sourceStep?.confirmedAt || null,
     };
   });
 
-  const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
-  const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
-  const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+  const activeIndex = resolveDashboardActiveStepIndex(normalizedSteps);
 
   return normalizedSteps.map((step, index) => ({
     ...step,
     inProgress: !step.confirmed && index === activeIndex,
   }));
+}
+
+function resolveDashboardActiveStepIndex(normalizedSteps) {
+  let highestConfirmedIndex = -1;
+
+  normalizedSteps.forEach((step, index) => {
+    if (step?.confirmed) {
+      highestConfirmedIndex = Math.max(highestConfirmedIndex, index);
+    }
+  });
+
+  for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+    const step = normalizedSteps[index];
+
+    if (!step?.confirmed && step?.inProgress) {
+      return index;
+    }
+  }
+
+  for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+    if (!normalizedSteps[index]?.confirmed) {
+      return index;
+    }
+  }
+
+  return highestConfirmedIndex >= 0 ? highestConfirmedIndex : 0;
 }
 
 function resolveCurrentStageKey(order) {
@@ -356,7 +440,7 @@ function resolveCurrentStageKey(order) {
 }
 
 function resolveDistributionStageKey(order) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+  if (isOrderCompleted(order)) {
     return completedStageCard.key;
   }
 
@@ -364,6 +448,10 @@ function resolveDistributionStageKey(order) {
 }
 
 function resolveStageDisplayFromOrder(order) {
+  if (isOrderCompleted(order)) {
+    return `E${stageTemplates.length + 1}: ${completedStageCard.label}`;
+  }
+
   const stageKey = resolveCurrentStageKey(order);
 
   if (!stageKey) {
@@ -377,7 +465,7 @@ function resolveStageDisplayFromOrder(order) {
     return stageLabel;
   }
 
-  return `E${stageIndex + 1}: ${stageLabel}`;
+  return stageLabel;
 }
 
 function resolveStageDisplayFromStep(step) {
@@ -427,13 +515,18 @@ function renderGlobalEvents(events) {
     .map((event) => `
       <tr>
         <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(event.date))}</td>
-        <td data-label="Tracking">${event.detailUrl
-          ? `<a class="dashboard-tracking-link" href="${escapeHtml(event.detailUrl)}">${escapeHtml(event.trackingNumber || "-")}</a>`
-          : escapeHtml(event.trackingNumber || "-")}</td>
-        <td data-label="Estado">${escapeHtml(event.status || "-")}</td>
+        <td data-label="Tracking">
+          <div class="tracking-order-link-stack">
+            ${event.detailUrl
+              ? `<a class="dashboard-tracking-link" href="${escapeHtml(event.detailUrl)}">${escapeHtml(event.trackingNumber || "-")}</a>`
+              : `<span>${escapeHtml(event.trackingNumber || "-")}</span>`}
+            ${renderOrderRegionBadge(event.orderRegion)}
+          </div>
+        </td>
+        <td data-label="Estado">${escapeHtml(event.statusCode || "-")}</td>
+        <td data-label="Titulo">${escapeHtml(event.statusTitle || "-")}</td>
         <td data-label="Vehículo">${escapeHtml(event.vehicle || "-")}</td>
         <td data-label="Cliente">${escapeHtml(event.clientName || "-")}</td>
-        <td data-label="Ejecutado por">${escapeHtml(event.executedBy || "-")}</td>
       </tr>
     `)
     .join("");
@@ -446,37 +539,105 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
     const vinValue = String(order?.vehicle?.vin || "").trim();
     const vehicleLabel = `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}`.trim();
     const clientName = order?.client?.name || "-";
-    const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
-    const trackingEvents = getOrderTrackingEvents(order);
+    const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+    const detailUrl = `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
+    const trackingEvents = getOrderTrackingEvents(order).filter((event) => shouldIncludeGlobalTrackingEvent(event));
+    const isCompletedOrder = isOrderCompleted(order);
+    const completedStatusCode = `E${stageTemplates.length + 1}`;
+    const buildCompletedEvent = (dateValue) => ({
+      date: dateValue ? new Date(new Date(dateValue).getTime() + 1).toISOString() : null,
+      trackingNumber,
+      detailUrl,
+      statusCode: completedStatusCode,
+      statusTitle: `Pedido completado - ${completedStageCard.label}`,
+      vehicle: vehicleLabel,
+      clientName,
+      orderRegion,
+      sortStateIndex: stageTemplates.length,
+    });
 
     if (trackingEvents.length) {
-      return trackingEvents.map((event) => ({
+      const mappedEvents = trackingEvents.map((event) => ({
         date: event.updatedAt || event.createdAt,
         trackingNumber,
         detailUrl,
-        status: event.stateCode
-          ? `${event.stateCode}: ${event.stateLabel || "-"}`
-          : (event.stateLabel || "-"),
+        statusCode: event.stateCode || "-",
+        statusTitle: buildDashboardEventTitle(event),
         vehicle: vehicleLabel,
         clientName,
-        executedBy: order?.createdBy?.name || order?.createdBy?.email || "-",
+        orderRegion,
+        sortStateIndex: Number.isInteger(event.stateIndex) ? event.stateIndex : -1,
       }));
+
+      if (!isCompletedOrder) {
+        return mappedEvents;
+      }
+
+      const latestTrackingDate = trackingEvents.reduce((latestDate, event) => {
+        const eventDate = event.updatedAt || event.createdAt || null;
+
+        if (!eventDate) {
+          return latestDate;
+        }
+
+        if (!latestDate) {
+          return eventDate;
+        }
+
+        return new Date(eventDate).getTime() >= new Date(latestDate).getTime() ? eventDate : latestDate;
+      }, order?.updatedAt || null);
+
+      return mappedEvents.concat(buildCompletedEvent(latestTrackingDate || order?.updatedAt || order?.createdAt || null));
     }
 
-    return getOrderTrackingSteps(order)
+    const fallbackEvents = getOrderTrackingSteps(order)
+      .filter((step, index) => !(index === 0 && step?.inProgress && !step?.confirmed))
       .filter((step) => step?.updatedAt || step?.confirmedAt)
       .map((step, index) => ({
         date: step.updatedAt || step.confirmedAt,
         trackingNumber,
         detailUrl,
-        status: `E${index + 1}: ${resolveStageDisplayFromStep(step)}`,
+        statusCode: `E${index + 1}`,
+        statusTitle: buildDashboardEventTitle({
+          stateCode: getStateCode(index),
+          stateLabel: stageLabelByKey[step?.key] || step?.label || "Estado",
+          inProgress: Boolean(step?.inProgress),
+          completed: Boolean(step?.confirmed),
+        }),
         vehicle: vehicleLabel,
         clientName,
-        executedBy: order?.createdBy?.name || order?.createdBy?.email || "-",
+        orderRegion,
+        sortStateIndex: index,
       }));
+
+    if (!isCompletedOrder) {
+      return fallbackEvents;
+    }
+
+    const fallbackCompletionDate = fallbackEvents.reduce((latestDate, event) => {
+      if (!event?.date) {
+        return latestDate;
+      }
+
+      if (!latestDate) {
+        return event.date;
+      }
+
+      return new Date(event.date).getTime() >= new Date(latestDate).getTime() ? event.date : latestDate;
+    }, order?.updatedAt || null);
+
+    return fallbackEvents.concat(buildCompletedEvent(fallbackCompletionDate || order?.updatedAt || order?.createdAt || null));
   })
     .filter((event) => event && event.date)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => {
+      const timeDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+
+      if (timeDiff !== 0) {
+        return timeDiff;
+      }
+
+      return Number(b.sortStateIndex || -1) - Number(a.sortStateIndex || -1);
+    })
     .slice(0, 10);
 }
 
@@ -504,7 +665,7 @@ function renderStageDistribution(orders) {
     .map((stage, index) => {
       const count = countsByStage.get(stage.key) || 0;
       const label = stageLabelByKey[stage.key] || stage.label;
-      const targetUrl = `/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
+      const targetUrl = `/app/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
       return `
         <a class="stage-distribution-item stage-distribution-link${count > 0 ? " is-active" : ""}" href="${targetUrl}">
           <span>E${index + 1}</span>
@@ -538,6 +699,7 @@ if (true) {
   const adminFirstName = document.getElementById("admin-first-name");
   const adminNameTop = document.getElementById("admin-name-top");
   const clientsCount = document.getElementById("clients-count");
+  const usersCount = document.getElementById("users-count");
   const deletionRequestsCount = document.getElementById("deletion-requests-count");
   const requestsCount = document.getElementById("requests-count");
   const ordersCount = document.getElementById("orders-count");
@@ -576,12 +738,20 @@ if (true) {
         user = {};
       }
 
+      currentAdminRole = String(user?.role || "").trim();
+      currentAdminEmail = String(user?.email || "").trim().toLowerCase();
+
       if (adminFirstName) {
         adminFirstName.textContent = getFirstName(user?.name);
       }
 
       if (adminNameTop) {
         adminNameTop.textContent = user?.name || "Administrador";
+      }
+
+      if (String(user?.role || "") === "brokerUSA") {
+        window.location.replace("/app/admin-tracking.html");
+        return;
       }
 
       const adminRoleLabel = document.getElementById("admin-role-label");
@@ -592,6 +762,8 @@ if (true) {
             ? "Gerente USA"
             : user.role === "adminUSA"
               ? "Administrador USA"
+              : user.role === "brokerUSA"
+                ? "Broker USA"
               : user.role === "admin"
                 ? "Administrador"
                 : "Usuario";
@@ -600,8 +772,14 @@ if (true) {
 
       const isUsaRole = isUsaAdministrativeRole(user?.role);
       const canManageDeletionRequests = ["manager", "gerenteUSA"].includes(String(user?.role || ""));
+
       document.querySelectorAll(".admin-latam-only").forEach((element) => {
         element.style.display = isUsaRole ? "none" : "";
+      });
+
+      document.querySelectorAll(".admin-admin-creator-only").forEach((element) => {
+        element.hidden = !canManageDeletionRequests;
+        element.style.display = canManageDeletionRequests ? "" : "none";
       });
 
       if (isUsaRole) {
@@ -616,7 +794,9 @@ if (true) {
 
       const dashboardRequests = [
         { key: "clients", critical: true, promise: fetchDashboardJson("/api/admin/clients") },
+        { key: "users", critical: false, promise: fetchDashboardJson("/api/admin/users") },
         { key: "requests", critical: false, promise: isUsaRole ? Promise.resolve({ requests: [] }) : fetchDashboardJson("/api/admin/client-requests") },
+        { key: "deletionRequests", critical: false, promise: canManageDeletionRequests ? fetchDashboardJson(`/api/admin/orders/deletion-requests?ts=${Date.now()}`) : Promise.resolve({ orders: [], trackingEventRequests: [] }) },
         { key: "orders", critical: true, promise: fetchDashboardJson("/api/admin/orders") },
         { key: "maintenance", critical: false, promise: isUsaRole ? Promise.resolve({ maintenance: [] }) : fetchDashboardJson("/api/admin/maintenance") },
         { key: "posts", critical: false, promise: isUsaRole ? Promise.resolve({ posts: [] }) : fetchDashboardJson("/api/admin/posts") },
@@ -625,29 +805,38 @@ if (true) {
       const results = await Promise.allSettled(dashboardRequests.map((entry) => entry.promise));
 
       const clientsData = results[0].status === "fulfilled" ? results[0].value : {};
-      const requestsData = results[1].status === "fulfilled" ? results[1].value : {};
-      const ordersData = results[2].status === "fulfilled" ? results[2].value : {};
-      const maintenanceData = results[3].status === "fulfilled" ? results[3].value : {};
-      const postsData = results[4].status === "fulfilled" ? results[4].value : {};
+      const usersData = results[1].status === "fulfilled" ? results[1].value : {};
+      const requestsData = results[2].status === "fulfilled" ? results[2].value : {};
+      const deletionRequestsData = results[3].status === "fulfilled" ? results[3].value : {};
+      const ordersData = results[4].status === "fulfilled" ? results[4].value : {};
+      const maintenanceData = results[5].status === "fulfilled" ? results[5].value : {};
+      const postsData = results[6].status === "fulfilled" ? results[6].value : {};
 
       const clients = normalizeCollectionPayload(clientsData, ["clients"]);
+      const users = normalizeCollectionPayload(usersData, ["users"]);
       const requests = normalizeCollectionPayload(requestsData, ["requests", "clientRequests"]);
       const orders = normalizeCollectionPayload(ordersData, ["orders"]);
       const maintenance = normalizeCollectionPayload(maintenanceData, ["maintenance"]);
+      const clientMaintenanceVehicles = normalizeCollectionPayload(maintenanceData, ["clientMaintenanceVehicles"]);
+      const scheduledMaintenance = clientMaintenanceVehicles.filter(
+        (vehicle) => String(vehicle?.adminContactStatus || "").trim() === "appointment_scheduled"
+      );
       const posts = normalizeCollectionPayload(postsData, ["posts"]);
-      const deletionRequests = canManageDeletionRequests
-        ? orders.filter((order) => String(order?.deletionRequest?.status || "none").trim().toLowerCase() === "pending")
-        : [];
+      const deletionRequestsCountValue = canManageDeletionRequests
+        ? normalizeCollectionPayload(deletionRequestsData, ["orders"]).length
+          + normalizeCollectionPayload(deletionRequestsData, ["trackingEventRequests"]).length
+        : 0;
       const activeOrders = orders.filter((order) => order.status === "active");
       const completedOrders = orders.filter((order) => order.status === "completed");
 
       setElementText(clientsCount, clients.length);
-      setElementText(deletionRequestsCount, deletionRequests.length);
+      setElementText(usersCount, users.length);
+      setElementText(deletionRequestsCount, deletionRequestsCountValue);
       setElementText(requestsCount, requests.length);
       setElementText(ordersCount, orders.length);
       setElementText(activeOrdersCount, activeOrders.length);
       setElementText(completedOrdersCount, completedOrders.length);
-      setElementText(maintenanceCount, maintenance.length);
+      setElementText(maintenanceCount, scheduledMaintenance.length);
       setElementText(postsCount, posts.length);
 
       if (distributionCaption) {

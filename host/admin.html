@@ -15,7 +15,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
-    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260414-adminmobile01" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260514-ipadsafe26" />
     <style>
       .global-loading-overlay {
         display: none !important;
@@ -80,6 +80,10 @@
                   <button class="admin-meta-pill admin-meta-pill-btn" type="button" data-href="/admin-clients.html">
                     <span>Clientes</span>
                     <strong id="clients-count">0</strong>
+                  </button>
+                  <button class="admin-meta-pill admin-meta-pill-btn" type="button" data-href="/admin-users.html">
+                    <span>Usuarios</span>
+                    <strong id="users-count">0</strong>
                   </button>
                   <button class="admin-meta-pill admin-meta-pill-btn admin-admin-creator-only" type="button" data-href="/admin-order-deletion-requests.html" hidden>
                     <span>Solicitudes de eliminacion</span>
@@ -164,9 +168,9 @@
                       <th>Fecha</th>
                       <th>Tracking</th>
                       <th>Estado</th>
+                      <th>Titulo</th>
                       <th>Vehiculo</th>
                       <th>Cliente</th>
-                      <th>Ejecutado por</th>
                     </tr>
                   </thead>
                   <tbody id="dashboard-global-events-body">
@@ -183,7 +187,7 @@
       </section>
     </main>
 
-    <script src="/admin-common.js?v=20260430-adminnav03"></script>
+    <script src="/admin-common.js?v=20260514-viewport07"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
@@ -198,6 +202,6 @@
         window.addEventListener("load", clearPageLoadingState);
       })();
     </script>
-    <script src="/admin-dashboard.js?v=20260430-dashboard24"></script>
+    <script src="/admin-dashboard.js?v=20260616-stagefix01"></script>
   </body>
 </html>

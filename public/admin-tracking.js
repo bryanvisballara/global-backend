@@ -1000,21 +1000,22 @@ function applyTrackingProgressionModel(steps, order = null, trackingEvents = [])
 
   let furthestCompletedIndex = -1;
 
-  for (let index = steps.length - 1; index >= 0; index -= 1) {
-    const latestUpdate = getLatestUpdate(steps[index]);
+  steps.forEach((step, index) => {
+    const latestUpdate = getLatestUpdate(step);
 
-    if (latestUpdate?.completed) {
-      furthestCompletedIndex = index;
-      break;
+    if (step.confirmed || latestUpdate?.completed) {
+      furthestCompletedIndex = Math.max(furthestCompletedIndex, index);
     }
-  }
+  });
 
   let activeIndex = -1;
 
   for (let index = furthestCompletedIndex + 1; index < steps.length; index += 1) {
     const latestUpdate = getLatestUpdate(steps[index]);
+    const hasExplicitProgress = Boolean(steps[index]?.inProgress && !steps[index]?.confirmed)
+      || Boolean(latestUpdate?.inProgress && !latestUpdate?.completed);
 
-    if (latestUpdate?.inProgress && !latestUpdate?.completed) {
+    if (hasExplicitProgress) {
       activeIndex = index;
       break;
     }
@@ -1024,8 +1025,12 @@ function applyTrackingProgressionModel(steps, order = null, trackingEvents = [])
     activeIndex = steps.findIndex((step, index) => index > furthestCompletedIndex && !step.confirmed);
   }
 
+  if (activeIndex < 0) {
+    return steps;
+  }
+
   return steps.map((step, index) => {
-    if (index <= furthestCompletedIndex) {
+    if (index < activeIndex) {
       return {
         ...step,
         confirmed: true,
@@ -1033,7 +1038,7 @@ function applyTrackingProgressionModel(steps, order = null, trackingEvents = [])
       };
     }
 
-    if (activeIndex >= 0 && index === activeIndex) {
+    if (index === activeIndex) {
       return {
         ...step,
         confirmed: false,

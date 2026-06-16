@@ -384,14 +384,38 @@ function getOrderTrackingSteps(order) {
     };
   });
 
-  const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
-  const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
-  const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+  const activeIndex = resolveDashboardActiveStepIndex(normalizedSteps);
 
   return normalizedSteps.map((step, index) => ({
     ...step,
     inProgress: !step.confirmed && index === activeIndex,
   }));
+}
+
+function resolveDashboardActiveStepIndex(normalizedSteps) {
+  let highestConfirmedIndex = -1;
+
+  normalizedSteps.forEach((step, index) => {
+    if (step?.confirmed) {
+      highestConfirmedIndex = Math.max(highestConfirmedIndex, index);
+    }
+  });
+
+  for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+    const step = normalizedSteps[index];
+
+    if (!step?.confirmed && step?.inProgress) {
+      return index;
+    }
+  }
+
+  for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+    if (!normalizedSteps[index]?.confirmed) {
+      return index;
+    }
+  }
+
+  return highestConfirmedIndex >= 0 ? highestConfirmedIndex : 0;
 }
 
 function resolveCurrentStageKey(order) {

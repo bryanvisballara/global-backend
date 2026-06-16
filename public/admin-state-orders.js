@@ -286,6 +286,32 @@
     return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === stageTemplates.length - 1);
   }
 
+  function resolveActiveStepIndex(normalizedSteps) {
+    let highestConfirmedIndex = -1;
+
+    normalizedSteps.forEach((step, index) => {
+      if (isStepConfirmed(step?.confirmed)) {
+        highestConfirmedIndex = Math.max(highestConfirmedIndex, index);
+      }
+    });
+
+    for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+      const step = normalizedSteps[index];
+
+      if (!isStepConfirmed(step?.confirmed) && step?.inProgress) {
+        return index;
+      }
+    }
+
+    for (let index = highestConfirmedIndex + 1; index < normalizedSteps.length; index += 1) {
+      if (!isStepConfirmed(normalizedSteps[index]?.confirmed)) {
+        return index;
+      }
+    }
+
+    return highestConfirmedIndex >= 0 ? highestConfirmedIndex : 0;
+  }
+
   function getOrderTrackingSteps(order) {
     const orderSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
     const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || stageTemplates[index]?.key || ""), step]));
@@ -350,9 +376,7 @@
       };
     });
 
-    const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
-    const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
-    const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
+    const activeIndex = resolveActiveStepIndex(normalizedSteps);
 
     if (isCompletedOrder) {
       return normalizedSteps.map((step) => ({
