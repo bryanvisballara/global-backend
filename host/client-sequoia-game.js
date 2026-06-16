@@ -6,7 +6,145 @@
   const BACKGROUND_URL = "/sequoia-game-bg.png?v=20260616-gamebg01";
   const TRAFFIC_RED_URL = "/srojo.png";
   const TRAFFIC_GREEN_URL = "/sverde.png";
-  const FLAP_SOUND_URL = "/global-hero-flap.wav?v=20260616-flapsound01";
+  const FLAP_SOUND_URL = "/global-hero-flap.wav?v=20260616-flapsound02";
+
+  function createFlapSoundPlayer(soundUrl) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioContext = null;
+    let gainNode = null;
+    let flapBuffer = null;
+    let loadPromise = null;
+    let fallbackPool = [];
+    let fallbackPoolIndex = 0;
+
+    function ensureContext() {
+      if (!AudioContextClass) {
+        return null;
+      }
+
+      if (!audioContext) {
+        audioContext = new AudioContextClass();
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.85;
+        gainNode.connect(audioContext.destination);
+      }
+
+      return audioContext;
+    }
+
+    function ensureFallbackPool() {
+      if (fallbackPool.length) {
+        return fallbackPool;
+      }
+
+      fallbackPool = Array.from({ length: 6 }, () => {
+        const audio = new Audio(soundUrl);
+        audio.preload = "auto";
+        audio.load();
+        return audio;
+      });
+
+      return fallbackPool;
+    }
+
+    function loadSound() {
+      if (loadPromise) {
+        return loadPromise;
+      }
+
+      loadPromise = fetch(soundUrl)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          return response.arrayBuffer();
+        })
+        .then((arrayBuffer) => {
+          const context = ensureContext();
+
+          if (!context) {
+            return null;
+          }
+
+          return context.decodeAudioData(arrayBuffer.slice(0));
+        })
+        .then((buffer) => {
+          flapBuffer = buffer;
+          return buffer;
+        })
+        .catch(() => null);
+
+      return loadPromise;
+    }
+
+    function playFallback() {
+      const pool = ensureFallbackPool();
+      const audio = pool[fallbackPoolIndex % pool.length];
+      fallbackPoolIndex = (fallbackPoolIndex + 1) % pool.length;
+
+      if (!audio) {
+        return;
+      }
+
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    }
+
+    function playBuffer() {
+      if (!audioContext || !flapBuffer || !gainNode) {
+        playFallback();
+        return;
+      }
+
+      const source = audioContext.createBufferSource();
+      source.buffer = flapBuffer;
+      source.connect(gainNode);
+      source.start(0);
+    }
+
+    function play() {
+      const context = ensureContext();
+
+      if (!context || !flapBuffer) {
+        playFallback();
+        return;
+      }
+
+      if (context.state === "suspended") {
+        context.resume().then(playBuffer).catch(playFallback);
+        return;
+      }
+
+      playBuffer();
+    }
+
+    async function unlock() {
+      const context = ensureContext();
+
+      if (context && context.state === "suspended") {
+        await context.resume().catch(() => {});
+      }
+
+      if (!flapBuffer) {
+        await loadSound();
+      }
+    }
+
+    loadSound();
+
+    return { play, unlock };
+  }
+
+  let sharedFlapSound = null;
+
+  function getFlapSoundPlayer() {
+    if (!sharedFlapSound) {
+      sharedFlapSound = createFlapSoundPlayer(FLAP_SOUND_URL);
+    }
+
+    return sharedFlapSound;
+  }
 
   const DEFAULTS = {
     gravity: 0.42,
@@ -244,13 +382,10 @@
     trafficRed.src = TRAFFIC_RED_URL;
     const trafficGreen = new Image();
     trafficGreen.src = TRAFFIC_GREEN_URL;
-    const flapSoundTemplate = new Audio(FLAP_SOUND_URL);
-    flapSoundTemplate.preload = "auto";
+    const flapSound = getFlapSoundPlayer();
 
     function playFlapSound() {
-      const sound = flapSoundTemplate.cloneNode();
-      sound.volume = 0.85;
-      sound.play().catch(() => {});
+      flapSound.play();
     }
 
     let width = 360;
@@ -535,12 +670,14 @@
       }
 
       event.preventDefault();
+      flapSound.unlock();
       flap();
     }
 
     function onKeyDown(event) {
       if (event.code === "Space" || event.code === "ArrowUp") {
         event.preventDefault();
+        flapSound.unlock();
         flap();
       }
     }
@@ -681,6 +818,7 @@
 
     let activeScreen = "menu";
     let gameInstance = null;
+    void getFlapSoundPlayer().unlock();
 
     function showScreen(screenName) {
       activeScreen = screenName;
@@ -730,7 +868,10 @@
       });
     }
 
-    playButton.addEventListener("click", startGame);
+    playButton.addEventListener("click", () => {
+      void getFlapSoundPlayer().unlock();
+      startGame();
+    });
 
     rankingButton.addEventListener("click", () => {
       showScreen("ranking");
