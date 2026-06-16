@@ -530,6 +530,7 @@ function canTransitionTrackingStep(requester, currentIndex, targetIndex, orderRe
 
 function canFinalizeTrackingOrder(requester, order, currentIndex, orderRegion = "latam") {
   const normalizedRole = normalizeRequesterRole(requester);
+  const normalizedRoleKey = normalizedRole.toLowerCase();
   const normalizedRegion = String(orderRegion || "latam").trim().toLowerCase();
 
   if (isAnthonyGlobalOwner(requester)) {
@@ -541,7 +542,7 @@ function canFinalizeTrackingOrder(requester, order, currentIndex, orderRegion = 
   }
 
   if (normalizedRegion === "usa") {
-    return ["adminusa", "gerenteusa"].includes(normalizedRole) && currentIndex === 3;
+    return ["adminusa", "gerenteusa"].includes(normalizedRoleKey) && currentIndex === 3;
   }
 
   return currentIndex === TRACKING_STATE_TEMPLATES.length - 1 && ["admin", "manager"].includes(normalizedRole);
