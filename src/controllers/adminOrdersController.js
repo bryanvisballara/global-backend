@@ -470,9 +470,15 @@ function canCreateTrackingUpdate(requester, stepKey, orderRegion = "latam") {
   return false;
 }
 
-function getCurrentTrackingStepIndex(steps = []) {
+function getCurrentTrackingStepIndex(steps = [], orderStatus = "") {
   if (!Array.isArray(steps) || !steps.length) {
     return -1;
+  }
+
+  const normalizedOrderStatus = String(orderStatus || "").trim().toLowerCase();
+
+  if (normalizedOrderStatus === "completed" || steps.every((step) => Boolean(step?.confirmed))) {
+    return steps.length - 1;
   }
 
   const explicitIndex = steps.findIndex((step) => Boolean(step?.inProgress) && !Boolean(step?.confirmed));
@@ -2843,7 +2849,7 @@ async function updateTrackingState(req, res) {
       preferCollectionOnly: true,
     });
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
-    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps);
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
 
     const stepIndex = order.trackingSteps.findIndex((step) => step.key === stepKey);
 
@@ -2887,7 +2893,7 @@ async function updateTrackingState(req, res) {
 
     if (
       requestedConfirmed
-      && stepIndex === getCurrentTrackingStepIndex(order.trackingSteps)
+      && stepIndex === getCurrentTrackingStepIndex(order.trackingSteps, order.status)
       && canFinalizeTrackingOrder(req.user, order, stepIndex, orderResult.region)
     ) {
       return finalizeTrackingOrder(req, res);
@@ -3104,7 +3110,7 @@ async function transitionTrackingState(req, res) {
     });
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
 
-    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps);
+    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
 
     if (currentStepIndex < 0) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
@@ -3155,8 +3161,32 @@ async function transitionTrackingState(req, res) {
         timestamp: now,
       });
     } else {
-      currentStep.confirmed = false;
-      currentStep.inProgress = false;
+      for (let stepIndex = targetStepIndex + 1; stepIndex <= currentStepIndex; stepIndex += 1) {
+        const step = order.trackingSteps[stepIndex];
+
+        if (!step) {
+          continue;
+        }
+
+        step.confirmed = false;
+        step.inProgress = false;
+
+        const revertStateMeta = TRACKING_STATE_TEMPLATES[stepIndex] || { key: step.key, label: step.label };
+
+        await createTrackingEvent({
+          orderId: order._id,
+          orderRegion: orderResult.region,
+          stepKey: step.key,
+          title: `Etapa revertida al retroceder a E${targetStepIndex + 1} — ${targetStateMeta.label}`,
+          location: transitionLocation,
+          notes: `La etapa ${revertStateMeta.label} se revirtio al retroceder el pedido.`,
+          media: [],
+          clientVisible: false,
+          inProgress: false,
+          completed: false,
+          timestamp: new Date(now.getTime() + (stepIndex - targetStepIndex) * 1000),
+        });
+      }
     }
 
     targetStep.confirmed = false;
@@ -3234,7 +3264,7 @@ async function finalizeTrackingOrder(req, res) {
     });
     order.trackingSteps = (order.trackingSteps || []).map((trackingStep) => syncTrackingStepFlagsFromLatestUpdate(trackingStep));
 
-    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps);
+    const currentStepIndex = getCurrentTrackingStepIndex(order.trackingSteps, order.status);
 
     if (currentStepIndex < 0) {
       return res.status(409).json({ message: "No se pudo determinar la etapa actual del pedido" });
@@ -3366,7 +3396,7 @@ async function toggleTrackingEventVisibility(req, res) {
       return res.status(404).json({ message: "Subestado no encontrado" });
     }
 
-    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || [], order.status);
 
     if (!canModifyTrackingStep(req.user, targetEvent.stepKey, orderResult.region, currentTrackingIndex)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
@@ -3432,7 +3462,7 @@ async function updateTrackingEvent(req, res) {
       return res.status(404).json({ message: "Subestado no encontrado" });
     }
 
-    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || [], order.status);
 
     if (!canModifyTrackingStep(req.user, targetEvent.stepKey, orderResult.region, currentTrackingIndex)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });
@@ -3482,7 +3512,7 @@ async function deleteTrackingUpdate(req, res) {
       return res.status(404).json({ message: "Tracking state not found" });
     }
 
-    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || []);
+    const currentTrackingIndex = getCurrentTrackingStepIndex(order.trackingSteps || [], order.status);
 
     if (!canModifyTrackingStep(req.user, stepKey, orderResult.region, currentTrackingIndex)) {
       return res.status(403).json({ message: "No tienes permisos para modificar este estado" });

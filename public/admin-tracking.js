@@ -258,6 +258,21 @@ document.body.classList.add("tracking-search-page");
 
 const trackingRoot = document.getElementById("tracking-form");
 const trackingFeedback = document.getElementById("tracking-feedback");
+let trackingDetailFeedbackState = { message: "", type: "" };
+
+function setTrackingPageFeedback(message, type = "") {
+  trackingDetailFeedbackState = {
+    message: String(message || ""),
+    type: String(type || ""),
+  };
+  adminSetFeedback(trackingFeedback, message, type);
+
+  const detailFeedback = document.getElementById("tracking-detail-feedback");
+
+  if (detailFeedback) {
+    adminSetFeedback(detailFeedback, message, type);
+  }
+}
 const trackingOrderInput = document.getElementById("tracking-order-id");
 const trackingPreview = document.getElementById("tracking-preview");
 const trackingEditorFields = document.getElementById("tracking-editor-fields");
@@ -780,8 +795,32 @@ function canEditStateForRole(role, stateKey, order = getSelectedOrder()) {
   return stateIndex >= 3;
 }
 
+function normalizeTransitionIndex(index) {
+  if (index >= adminTrackingTemplates.length) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return index;
+}
+
+function getEffectiveTransitionIndex(order) {
+  const currentStageMeta = getCurrentStageMeta(order);
+
+  if (
+    currentStageMeta.key === COMPLETED_TIMELINE_STAGE.key
+    || currentStageMeta.index >= adminTrackingTemplates.length
+  ) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return currentStageMeta.index;
+}
+
 function canTransitionTrackingState(currentIndex, targetIndex, order = getSelectedOrder()) {
-  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
+  const normalizedCurrentIndex = normalizeTransitionIndex(currentIndex);
+  const normalizedTargetIndex = normalizeTransitionIndex(targetIndex);
+
+  if (normalizedCurrentIndex < 0 || normalizedTargetIndex < 0 || normalizedTargetIndex >= adminTrackingTemplates.length) {
     return false;
   }
 
@@ -798,14 +837,14 @@ function canTransitionTrackingState(currentIndex, targetIndex, order = getSelect
   }
 
   if (getOrderRegion(order) === "usa") {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
   if (["adminusa", "gerenteusa"].includes(normalizeRole(currentAdminRole))) {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
-  return currentIndex === 2 && targetIndex === 3;
+  return normalizedCurrentIndex === 2 && normalizedTargetIndex === 3;
 }
 
 function canFinalizeTrackingOrder(order, currentIndex) {
@@ -1120,7 +1159,17 @@ function resolveStateBucketKey(order) {
 }
 
 function getCurrentStageMeta(order) {
-  const currentStageKey = resolveCurrentStageKey(order);
+  const currentStageKey = resolveStateBucketKey(order);
+
+  if (currentStageKey === COMPLETED_TIMELINE_STAGE.key) {
+    return {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      index: adminTrackingTemplates.length,
+      code: getStateCode(adminTrackingTemplates.length),
+      label: COMPLETED_TIMELINE_STAGE.label,
+    };
+  }
+
   const stageIndex = adminTrackingTemplates.findIndex((stage) => stage.key === currentStageKey);
 
   if (stageIndex === -1) {
@@ -1176,10 +1225,12 @@ function renderStageTransitionCardMarkup(order) {
   }
 
   const currentStageMeta = getCurrentStageMeta(order);
-  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1, order);
-  const finalizeEnabled = canFinalizeTrackingOrder(order, currentStageMeta.index);
-  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1, order)
-    || (finalizeEnabled && currentStageMeta.index === adminTrackingTemplates.length - 1);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(order);
+  const previousEnabled = effectiveTransitionIndex > 0
+    && canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex - 1, order);
+  const finalizeEnabled = canFinalizeTrackingOrder(order, effectiveTransitionIndex);
+  const nextEnabled = canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex + 1, order)
+    || (finalizeEnabled && effectiveTransitionIndex === adminTrackingTemplates.length - 1);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -2310,6 +2361,7 @@ function renderTrackingOverview(order) {
 
   trackingPreview.innerHTML = `
     <div class="tracking-overview-stack">
+      <p id="tracking-detail-feedback" class="feedback${trackingDetailFeedbackState.type ? ` ${trackingDetailFeedbackState.type}` : ""}" aria-live="polite">${escapeHtml(trackingDetailFeedbackState.message)}</p>
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
           <header class="state-order-header tracking-overview-header">
@@ -2999,12 +3051,12 @@ async function transitionSelectedOrder(direction) {
     return;
   }
 
-  const currentStageMeta = getCurrentStageMeta(selectedOrder);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(selectedOrder);
 
   if (
     direction === "next"
-    && currentStageMeta.index === adminTrackingTemplates.length - 1
-    && canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)
+    && effectiveTransitionIndex === adminTrackingTemplates.length - 1
+    && canFinalizeTrackingOrder(selectedOrder, effectiveTransitionIndex)
   ) {
     await finalizeSelectedOrder();
     return;
@@ -3012,7 +3064,12 @@ async function transitionSelectedOrder(direction) {
 
   const runLegacyTransition = async () => {
     const states = getOrderTrackingSteps(selectedOrder);
-    const currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+    let currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+
+    if (currentStepIndex < 0) {
+      const firstPendingIndex = states.findIndex((state) => !state?.confirmed);
+      currentStepIndex = firstPendingIndex >= 0 ? firstPendingIndex : states.length - 1;
+    }
 
     if (currentStepIndex < 0) {
       throw new Error("No se pudo determinar la etapa actual del pedido.");
@@ -3105,8 +3162,7 @@ async function transitionSelectedOrder(direction) {
   renderStates();
   renderSearchResults(getFilteredOrders());
 
-  adminSetFeedback(
-    trackingFeedback,
+  setTrackingPageFeedback(
     direction === "next"
       ? "Etapa actualizada y cliente notificado por push/correo."
       : "Transición aplicada correctamente.",
@@ -3797,8 +3853,13 @@ function handleTrackingPageClick(event) {
   const transitionButton = event.target.closest("[data-transition-direction]");
 
   if (transitionButton) {
+    if (transitionButton.disabled) {
+      setTrackingPageFeedback("No tienes permisos para mover este pedido en esa direccion.", "error");
+      return;
+    }
+
     transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
-      adminSetFeedback(trackingFeedback, error.message, "error");
+      setTrackingPageFeedback(error.message, "error");
     });
     return;
   }

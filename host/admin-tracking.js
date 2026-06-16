@@ -197,7 +197,13 @@ function getConfigInputValue(config, order) {
 }
 
 function formatOrderLabel(order) {
-  return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  const vehicle = order?.vehicle || {};
+  const vehicleName = `${vehicle.brand || "Vehículo"} ${vehicle.model || ""}${vehicle.version ? ` ${vehicle.version}` : ""} ${vehicle.year || ""}`.trim();
+  const exteriorColor = normalizeText(vehicle.exteriorColor || vehicle.color || "");
+  const interiorColor = normalizeText(vehicle.interiorColor || "");
+  const colorLabel = [exteriorColor, interiorColor].filter(Boolean).join("/");
+
+  return [vehicleName, colorLabel].filter(Boolean).join(" ");
 }
 
 function formatDateLabel(value) {
@@ -242,6 +248,23 @@ function isOrderCompleted(order) {
   return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
 }
 
+function isOrderInCompletedStage(order) {
+  if (isOrderCompleted(order)) {
+    return true;
+  }
+
+  const rawTrackingSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+
+  if (rawTrackingSteps.length < adminTrackingTemplates.length) {
+    return false;
+  }
+
+  return adminTrackingTemplates.every((template, index) => {
+    const step = rawTrackingSteps.find((item) => String(item?.key || "") === template.key) || rawTrackingSteps[index] || null;
+    return Boolean(step?.confirmed);
+  });
+}
+
 function formatDateTimeLabel(value) {
   if (!value) {
     return "Sin fecha";
@@ -254,6 +277,10 @@ function formatDateTimeLabel(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getOriginalDate(value = {}) {
+  return value?.createdAt || value?.updatedAt || null;
 }
 
 function normalizeToDateStart(value) {
@@ -292,6 +319,21 @@ document.body.classList.toggle("host-windows-desktop", isWindowsDesktopEnvironme
 
 const trackingRoot = document.getElementById("tracking-form");
 const trackingFeedback = document.getElementById("tracking-feedback");
+let trackingDetailFeedbackState = { message: "", type: "" };
+
+function setTrackingPageFeedback(message, type = "") {
+  trackingDetailFeedbackState = {
+    message: String(message || ""),
+    type: String(type || ""),
+  };
+  adminSetFeedback(trackingFeedback, message, type);
+
+  const detailFeedback = document.getElementById("tracking-detail-feedback");
+
+  if (detailFeedback) {
+    adminSetFeedback(detailFeedback, message, type);
+  }
+}
 const trackingOrderInput = document.getElementById("tracking-order-id");
 const trackingPreview = document.getElementById("tracking-preview");
 const trackingEditorFields = document.getElementById("tracking-editor-fields");
@@ -447,6 +489,7 @@ let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
 let pendingTrackingDeleteAction = null;
 let pendingBrokerDocumentOrderId = "";
+let searchResultsRenderTimer = 0;
 
 const searchConfigs = [
   {
@@ -481,8 +524,28 @@ const searchConfigs = [
   },
 ];
 
+function isAppleTouchInputEnvironment() {
+  const userAgent = String(navigator.userAgent || "");
+  const platform = String(navigator.platform || "");
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
+function disableDatalistsOnAppleTouch() {
+  if (!isAppleTouchInputEnvironment()) {
+    return;
+  }
+
+  searchConfigs.forEach((config) => {
+    config.input?.removeAttribute("list");
+  });
+}
+
+disableDatalistsOnAppleTouch();
+
 let orders = [];
 let selectedOrderId = "";
+let isRestoringTrackingHistory = false;
+const trackingHistoryPath = window.location.pathname;
 let currentAdminRole = "";
 let currentAdminEmail = "";
 let currentAdminId = "";
@@ -698,7 +761,7 @@ function renderCreateOrderClientOptions() {
 
   createOrderClientSelect.innerHTML = [
     '<option value="">Selecciona cliente</option>',
-    ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(client.name || "Cliente")}</option>`),
+    ...sortedClients.map((client) => `<option value="${escapeHtml(client._id || client.id || "")}">${escapeHtml(String(client.name || "Cliente").toUpperCase())}</option>`),
   ].join("");
 
   if (previousValue && compatibleClients.some((client) => String(client._id || client.id || "").trim() === previousValue)) {
@@ -794,9 +857,9 @@ function getActiveOrders() {
 
 function getSearchableOrders() {
   const selectedState = String(trackingStateFilter?.value || "").trim();
-  const baseOrders = selectedState === COMPLETED_TIMELINE_STAGE.key
-    ? orders.filter((order) => resolveStateBucketKey(order) === COMPLETED_TIMELINE_STAGE.key)
-    : getActiveOrders();
+  const baseOrders = selectedState
+    ? orders.filter((order) => resolveStateBucketKey(order) === selectedState)
+    : orders;
   const pinnedOrder = selectedOrderId
     ? orders.find((order) => getOrderIdentifier(order) === selectedOrderId) || null
     : null;
@@ -976,8 +1039,32 @@ function canEditStateForRole(role, stateKey, order = getSelectedOrder()) {
   return stateIndex >= 3;
 }
 
+function normalizeTransitionIndex(index) {
+  if (index >= adminTrackingTemplates.length) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return index;
+}
+
+function getEffectiveTransitionIndex(order) {
+  const currentStageMeta = getCurrentStageMeta(order);
+
+  if (
+    currentStageMeta.key === COMPLETED_TIMELINE_STAGE.key
+    || currentStageMeta.index >= adminTrackingTemplates.length
+  ) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return currentStageMeta.index;
+}
+
 function canTransitionTrackingState(currentIndex, targetIndex, order = getSelectedOrder()) {
-  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
+  const normalizedCurrentIndex = normalizeTransitionIndex(currentIndex);
+  const normalizedTargetIndex = normalizeTransitionIndex(targetIndex);
+
+  if (normalizedCurrentIndex < 0 || normalizedTargetIndex < 0 || normalizedTargetIndex >= adminTrackingTemplates.length) {
     return false;
   }
 
@@ -994,14 +1081,14 @@ function canTransitionTrackingState(currentIndex, targetIndex, order = getSelect
   }
 
   if (getOrderRegion(order) === "usa") {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
   if (["adminUSA", "gerenteUSA"].includes(currentAdminRole)) {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
-  return currentIndex === 2 && targetIndex === 3;
+  return normalizedCurrentIndex === 2 && normalizedTargetIndex === 3;
 }
 
 function canFinalizeTrackingOrder(order, currentIndex) {
@@ -1186,7 +1273,40 @@ function getOrderTrackingSteps(order) {
     };
   });
 
-  const explicitActiveIndex = normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
+  let latestEventActiveIndex = -1;
+  let latestEventActiveTime = -1;
+
+  trackingEvents.forEach((event) => {
+    if (!event.inProgress || event.completed || event.stateIndex < 0) {
+      return;
+    }
+
+    const eventTime = new Date(getOriginalDate(event) || 0).getTime();
+    const safeEventTime = Number.isNaN(eventTime) ? 0 : eventTime;
+
+    if (safeEventTime >= latestEventActiveTime) {
+      latestEventActiveIndex = event.stateIndex;
+      latestEventActiveTime = safeEventTime;
+    }
+  });
+
+  if (latestEventActiveIndex >= 0) {
+    normalizedSteps.forEach((step, index) => {
+      if (index < latestEventActiveIndex) {
+        step.confirmed = true;
+        step.inProgress = false;
+      } else if (index === latestEventActiveIndex) {
+        step.confirmed = false;
+        step.inProgress = true;
+      } else if (!step.confirmed) {
+        step.inProgress = false;
+      }
+    });
+  }
+
+  const explicitActiveIndex = latestEventActiveIndex >= 0
+    ? latestEventActiveIndex
+    : normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
   const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
   const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
 
@@ -1222,7 +1342,8 @@ function getStateCode(index) {
 
 function buildDocumentDownloadUrl(url, fileName) {
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
-  return `/api/downloads/file?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
+  const endpoint = /\.pdf$/i.test(resolvedFileName) || /\.pdf(?:$|[?#])/i.test(String(url || "")) ? "/api/downloads/pdf" : "/api/downloads/file";
+  return `${endpoint}?url=${encodeURIComponent(url)}&fileName=${encodeURIComponent(resolvedFileName)}`;
 }
 
 function isAppleTouchDownloadEnvironment() {
@@ -1232,12 +1353,16 @@ function isAppleTouchDownloadEnvironment() {
 }
 
 async function downloadDocumentFile(downloadUrl, fileName) {
+  const nativeDownloadHandler = window.webkit?.messageHandlers?.globalImportsDownload;
   const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
   const resolvedUrl = new URL(String(downloadUrl || ""), resolveTrackingApiBaseUrl());
   const resolvedFileName = String(fileName || "documento.pdf").trim() || "documento.pdf";
 
-  if (isAppleTouchDownloadEnvironment()) {
-    window.location.href = resolvedUrl.toString();
+  if (nativeDownloadHandler?.postMessage) {
+    nativeDownloadHandler.postMessage({
+      url: resolvedUrl.toString(),
+      fileName: resolvedFileName,
+    });
     return;
   }
 
@@ -1284,7 +1409,7 @@ function resolveCurrentStageKey(order) {
 }
 
 function resolveStateBucketKey(order) {
-  return isOrderCompleted(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
+  return isOrderInCompletedStage(order) ? COMPLETED_TIMELINE_STAGE.key : resolveCurrentStageKey(order);
 }
 
 function getCurrentStageMeta(order) {
@@ -1373,10 +1498,12 @@ function renderStageTransitionCardMarkup(order) {
   }
 
   const currentStageMeta = getCurrentStageMeta(order);
-  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1, order);
-  const finalizeEnabled = canFinalizeTrackingOrder(order, currentStageMeta.index);
-  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1, order)
-    || (finalizeEnabled && currentStageMeta.index === adminTrackingTemplates.length - 1);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(order);
+  const previousEnabled = effectiveTransitionIndex > 0
+    && canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex - 1, order);
+  const finalizeEnabled = canFinalizeTrackingOrder(order, effectiveTransitionIndex);
+  const nextEnabled = canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex + 1, order)
+    || (finalizeEnabled && effectiveTransitionIndex === adminTrackingTemplates.length - 1);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -1500,7 +1627,7 @@ function findExactMatch(matches) {
   })) || null;
 }
 
-function updateUrlForOrder(order) {
+function updateUrlForOrder(order, options = {}) {
   const url = new URL(window.location.href);
 
   if (!order) {
@@ -1509,7 +1636,7 @@ function updateUrlForOrder(order) {
     url.searchParams.delete("vin");
     url.searchParams.delete("client");
     url.searchParams.delete("internal");
-    window.history.replaceState({}, document.title, url.toString());
+    window.history.replaceState({ orderId: "" }, document.title, url.toString());
     return;
   }
 
@@ -1518,7 +1645,17 @@ function updateUrlForOrder(order) {
   url.searchParams.set("vin", String(order?.vehicle?.vin || ""));
   url.searchParams.set("client", getClientDisplayName(order));
   url.searchParams.delete("internal");
-  window.history.replaceState({}, document.title, url.toString());
+  window.history.replaceState({ orderId: getOrderIdentifier(order) }, document.title, url.toString());
+}
+
+function hasTrackingSelectionInUrl() {
+  const filters = getUrlFilters();
+  return Boolean(filters.orderId || filters.tracking || filters.vin || filters.client || filters.internal);
+}
+
+function replaceCurrentHistoryWithTrackingList() {
+  updateUrlForOrder(null);
+  restoreTrackingSelectionFromUrl();
 }
 
 function applySelectedOrderToInputs(order) {
@@ -1597,10 +1734,11 @@ function renderSearchResults(matches) {
               const vinValue = String(order?.vehicle?.vin || "").trim();
               const stageMeta = getCurrentStageMeta(order);
               const vehicleLabel = formatOrderLabel(order);
+              const completedOrder = isOrderInCompletedStage(order);
               const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
 
               return `
-                <tr class="tracking-order-row is-broker-view">
+                <tr class="tracking-order-row is-broker-view ${completedOrder ? "is-completed-order" : ""}">
                   <td data-label="Tracking">
                     <div class="tracking-order-link-stack">
                       <span class="tracking-order-static-value">${escapeHtml(trackingValue || "-")}</span>
@@ -1652,6 +1790,7 @@ function renderSearchResults(matches) {
             const detailUrl = buildOrderDetailUrl(order);
             const stageMeta = getCurrentStageMeta(order);
             const vehicleLabel = formatOrderLabel(order);
+            const completedOrder = isOrderInCompletedStage(order);
             const rowDate = formatDateLabel(order?.purchaseDate || order?.createdAt);
             const pendingDeletion = hasPendingDeletionRequest(order);
             const deleteLabel = pendingDeletion ? "Solicitud pendiente" : "Eliminar pedido";
@@ -1667,7 +1806,7 @@ function renderSearchResults(matches) {
 
             return `
               <tr
-                class="tracking-order-row ${orderId === selectedOrderId ? "selected" : ""}"
+                class="tracking-order-row ${orderId === selectedOrderId ? "selected" : ""} ${completedOrder ? "is-completed-order" : ""}"
                 data-order-row-select="true"
                 data-order-id="${escapeHtml(orderId)}"
                 tabindex="0"
@@ -1697,6 +1836,13 @@ function renderSearchResults(matches) {
       </table>
     </div>
   `;
+}
+
+function scheduleSearchResultsRender() {
+  window.clearTimeout(searchResultsRenderTimer);
+  searchResultsRenderTimer = window.setTimeout(() => {
+    renderSearchResults(getFilteredOrders());
+  }, isAppleTouchInputEnvironment() ? 140 : 0);
 }
 
 function getStateDraftDefaults(state) {
@@ -1787,6 +1933,25 @@ function renderDeleteEventTableButton(stateKey, updateIndex, eventId = "") {
       title="Borrar evento"
       aria-label="Borrar evento"
     >&times;</button>
+  `;
+}
+
+function renderEditEventTableButton(row) {
+  return `
+    <button
+      type="button"
+      class="tracking-event-edit-button"
+      data-edit-update="true"
+      data-state-key="${escapeHtml(row.stateKey)}"
+      data-update-index="${row.updateIndex}"
+      data-event-id="${escapeHtml(row.eventId)}"
+      data-current-title="${escapeHtml(row.title)}"
+      data-current-description="${escapeHtml(row.description === "-" ? "" : row.description)}"
+      title="Editar evento"
+      aria-label="Editar evento"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.9V20h3.1L18.4 8.7l-3.1-3.1L4 16.9Zm16.8-10.6c.4-.4.4-1 0-1.4l-1.7-1.7a1 1 0 0 0-1.4 0l-1.3 1.3 3.1 3.1 1.3-1.3Z"></path></svg>
+    </button>
   `;
 }
 
@@ -2076,7 +2241,7 @@ function renderStateUpdates(step) {
           <div class="tracking-state-history-header">
             <div>
               <strong>${escapeHtml(getUpdateStatusLabel(update))}</strong>
-              <p>${escapeHtml(formatDateTimeLabel(update.updatedAt || update.createdAt))}</p>
+              <p>${escapeHtml(formatDateTimeLabel(getOriginalDate(update)))}</p>
             </div>
             <div class="tracking-stage-event-actions">
               ${renderVisibilityButton(step.key, update.updateIndex, !update.clientVisible, update.clientVisible, update.eventId)}
@@ -2103,7 +2268,7 @@ function buildRecentEvents(order) {
           stateKey: event.stateKey,
           stateCode: event.stateCode,
           stateLabel: event.stateLabel,
-          latestDate: event.updatedAt || event.createdAt || null,
+          latestDate: getOriginalDate(event),
           items: [],
         });
       }
@@ -2117,7 +2282,7 @@ function buildRecentEvents(order) {
         updateIndex: event.updateIndex,
         stateCode: event.stateCode,
         stateLabel: event.stateLabel,
-        date: event.updatedAt || event.createdAt || null,
+        date: getOriginalDate(event),
         title: getUpdateStatusLabel(event),
         description: event.notes || "Sin descripción registrada.",
         clientVisible: event.clientVisible,
@@ -2125,10 +2290,10 @@ function buildRecentEvents(order) {
       });
 
       const stageGroupTime = new Date(stageGroup.latestDate || 0).getTime();
-      const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
+      const eventTime = new Date(getOriginalDate(event) || 0).getTime();
 
       if (eventTime > stageGroupTime) {
-        stageGroup.latestDate = event.updatedAt || event.createdAt || null;
+        stageGroup.latestDate = getOriginalDate(event);
       }
     });
 
@@ -2152,7 +2317,7 @@ function buildRecentEvents(order) {
           updateIndex: update.updateIndex,
           stateCode,
           stateLabel: step.label,
-          date: update.updatedAt || update.createdAt || null,
+          date: getOriginalDate(update),
           title: getUpdateStatusLabel(update),
           description: update.notes || "Sin descripción registrada.",
           clientVisible: Boolean(update.clientVisible),
@@ -2261,7 +2426,7 @@ function buildAdminEventTableRows(order) {
     eventId: event.eventId,
     stateKey: event.stateKey,
     updateIndex: event.updateIndex,
-    date: event.updatedAt || event.createdAt || null,
+    date: getOriginalDate(event),
     stage: event.stateCode || "-",
     title: event.title || getUpdateStatusLabel(event),
     location: event.location || "-",
@@ -2301,6 +2466,7 @@ function renderAdminEventsTable(order) {
               <td data-label="Acciones" class="admin-tracking-events-actions-cell">
                 <div class="admin-tracking-event-actions">
                   ${renderVisibilityButton(row.stateKey, row.updateIndex, !row.clientVisible, row.clientVisible, row.eventId)}
+                  ${renderEditEventTableButton(row)}
                   ${renderDeleteEventTableButton(row.stateKey, row.updateIndex, row.eventId)}
                 </div>
               </td>
@@ -2374,6 +2540,7 @@ function getOrderDocuments(order) {
     .filter((item) => item?.url && (item?.category === "document" || item?.type === "document"))
     .map((item) => ({
       documentId: String(item.documentId || "").trim(),
+      documentTypeValue: normalizeText(item.documentType || "OTRO").toUpperCase() || "OTRO",
       documentType: getOrderDocumentTypeLabel(item.documentType || "OTRO"),
       name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
       note: normalizeText(item.note || ""),
@@ -2381,8 +2548,9 @@ function getOrderDocuments(order) {
       clientVisible: Boolean(item.clientVisible),
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || item.createdAt || null,
+      uploadedAt: getOriginalDate(item),
     }))
-    .sort((left, right) => new Date(right.updatedAt || right.createdAt || 0).getTime() - new Date(left.updatedAt || left.createdAt || 0).getTime());
+    .sort((left, right) => new Date(right.uploadedAt || 0).getTime() - new Date(left.uploadedAt || 0).getTime());
 }
 
 function renderOrderDocumentVisibilityButton(documentId, nextVisible, isVisible) {
@@ -2416,6 +2584,23 @@ function renderOrderDocumentDeleteButton(documentId) {
   `;
 }
 
+function renderOrderDocumentEditButton(document) {
+  return `
+    <button
+      type="button"
+      class="tracking-event-edit-button"
+      data-edit-order-document="true"
+      data-document-id="${escapeHtml(document.documentId)}"
+      data-current-type="${escapeHtml(document.documentTypeValue)}"
+      data-current-note="${escapeHtml(document.note || "")}"
+      title="Editar documento"
+      aria-label="Editar documento"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.9V20h3.1L18.4 8.7l-3.1-3.1L4 16.9Zm16.8-10.6c.4-.4.4-1 0-1.4l-1.7-1.7a1 1 0 0 0-1.4 0l-1.3 1.3 3.1 3.1 1.3-1.3Z"></path></svg>
+    </button>
+  `;
+}
+
 function renderOrderDocumentsTable(order) {
   const documents = getOrderDocuments(order);
 
@@ -2445,11 +2630,12 @@ function renderOrderDocumentsTable(order) {
                 </div>
               </td>
               <td data-label="Nota">${escapeHtml(document.note || "-")}</td>
-              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(document.updatedAt || document.createdAt))}</td>
+              <td data-label="Fecha">${escapeHtml(formatDateTimeLabel(document.uploadedAt))}</td>
               <td data-label="Acciones" class="admin-tracking-events-actions-cell">
                 ${canManageOrderDocumentActions(order)
                   ? `<div class="admin-tracking-event-actions">
                       ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
+                      ${renderOrderDocumentEditButton(document)}
                       ${renderOrderDocumentDeleteButton(document.documentId)}
                     </div>`
                   : '<span class="admin-user-delete-placeholder">-</span>'}
@@ -2489,8 +2675,8 @@ function renderOrderDocumentUploadCard() {
           </label>
           <label>
             <span>Archivo(s) *</span>
-            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.rtf,.txt,.zip" multiple required />
-            <small>Puedes seleccionar varias imagenes o documentos a la vez, incluyendo ZIP.</small>
+            <input name="mediaFiles" class="tracking-document-file-input" type="file" accept="image/*,.pdf,.zip,application/pdf,application/zip,application/x-zip-compressed" multiple required />
+            <small>Puedes seleccionar varias imagenes, PDF o ZIP a la vez.</small>
           </label>
         </div>
         <label>
@@ -2632,6 +2818,7 @@ function renderTrackingOverview(order) {
 
   trackingPreview.innerHTML = `
     <div class="tracking-overview-stack">
+      <p id="tracking-detail-feedback" class="feedback${trackingDetailFeedbackState.type ? ` ${trackingDetailFeedbackState.type}` : ""}" aria-live="polite">${escapeHtml(trackingDetailFeedbackState.message)}</p>
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
           <header class="state-order-header tracking-overview-header" style="display:block;width:100%;text-align:center;">
@@ -2742,7 +2929,7 @@ function renderStates() {
   renderTrackingOverview(selectedOrder);
 }
 
-function selectOrder(orderId) {
+function selectOrder(orderId, options = {}) {
   selectedOrderId = String(orderId || "").trim();
   expandedStateKey = "";
   expandedOverviewStateKey = "";
@@ -2755,7 +2942,9 @@ function selectOrder(orderId) {
 
   const selectedOrder = getSelectedOrder();
   syncTrackingPageMode(selectedOrder);
-  updateUrlForOrder(selectedOrder);
+  if (options.updateUrl !== false) {
+    updateUrlForOrder(selectedOrder);
+  }
   applySelectedOrderToInputs(selectedOrder);
   renderOrderSummary(selectedOrder);
   renderStates();
@@ -2794,6 +2983,56 @@ function clearSearchFilters() {
   renderStates();
   renderSearchResults(getFilteredOrders());
   adminSetFeedback(trackingFeedback, "Filtros limpiados. Mostrando todos los pedidos activos.", "success");
+}
+
+function restoreTrackingSelectionFromUrl() {
+  const filters = getUrlFilters();
+  const orderId = resolveInitialOrderId(filters);
+
+  isRestoringTrackingHistory = true;
+
+  try {
+    searchConfigs[0].input.value = filters.tracking || "";
+    searchConfigs[1].input.value = filters.vin || "";
+    searchConfigs[2].input.value = filters.client || filters.internal || "";
+
+    if (filters.tracking) {
+      searchConfigs[0].input.value = filters.tracking;
+    }
+
+    if (filters.vin) {
+      searchConfigs[1].input.value = filters.vin;
+    }
+
+    if (filters.internal) {
+      searchConfigs[2].input.value = filters.client || filters.internal;
+    } else if (filters.client) {
+      searchConfigs[2].input.value = filters.client;
+    }
+
+    renderSearchResults(getFilteredOrders());
+
+    if (orderId) {
+      selectOrder(orderId, { updateUrl: false });
+      return;
+    }
+
+    selectedOrderId = "";
+    trackingOrderInput.value = "";
+    if (trackingEditorFields) {
+      trackingEditorFields.hidden = true;
+    }
+    expandedStateKey = "";
+    expandedOverviewStateKey = "";
+    expandedOverviewEventIds.clear();
+    clearStateDrafts();
+    syncTrackingPageMode(null);
+    renderOrderSummary(null);
+    renderStates();
+    renderSearchResults(getFilteredOrders());
+  } finally {
+    isRestoringTrackingHistory = false;
+  }
 }
 
 async function toggleUpdateVisibility(stateKey, updateIndex, nextVisible, eventId = "") {
@@ -3109,6 +3348,165 @@ async function toggleOrderDocumentVisibility(documentId, nextVisible) {
   }
 }
 
+function openTrackingEditModal({ title = "Editar", copy = "", fields = [], submitLabel = "Guardar cambios" } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.createElement("section");
+    modal.className = "tracking-modal tracking-edit-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.innerHTML = `
+      <div class="tracking-modal-backdrop" data-close-tracking-edit-modal></div>
+      <form class="tracking-modal-card tracking-edit-modal-card" data-tracking-edit-form>
+        <div class="tracking-edit-modal-header">
+          <div>
+            <span>Editar información</span>
+            <strong>${escapeHtml(title)}</strong>
+          </div>
+          <button class="tracking-edit-modal-close" type="button" data-close-tracking-edit-modal aria-label="Cerrar">&times;</button>
+        </div>
+        ${copy ? `<p class="tracking-edit-modal-copy">${escapeHtml(copy)}</p>` : ""}
+        <div class="tracking-edit-modal-fields">
+          ${fields.map((field) => {
+            const name = escapeHtml(field.name || "");
+            const label = escapeHtml(field.label || "Campo");
+            const value = String(field.value || "");
+
+            if (field.type === "select") {
+              return `
+                <label>
+                  <span>${label}</span>
+                  <select name="${name}" class="tracking-native-select">
+                    ${(field.options || []).map((option) => {
+                      const optionValue = String(option.value || "");
+                      return `<option value="${escapeHtml(optionValue)}"${optionValue === value ? " selected" : ""}>${escapeHtml(option.label || optionValue)}</option>`;
+                    }).join("")}
+                  </select>
+                </label>
+              `;
+            }
+
+            if (field.type === "textarea") {
+              return `
+                <label>
+                  <span>${label}</span>
+                  <textarea name="${name}" rows="${Number(field.rows || 4)}" class="tracking-native-select tracking-native-textarea" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(value)}</textarea>
+                </label>
+              `;
+            }
+
+            return `
+              <label>
+                <span>${label}</span>
+                <input name="${name}" class="tracking-native-select" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || "")}" />
+              </label>
+            `;
+          }).join("")}
+        </div>
+        <div class="tracking-modal-actions">
+          <button class="secondary-button" type="button" data-close-tracking-edit-modal>Cancelar</button>
+          <button class="primary-button" type="submit">${escapeHtml(submitLabel)}</button>
+        </div>
+      </form>
+    `;
+
+    const close = (value = null) => {
+      modal.remove();
+      document.body.classList.remove("modal-open");
+      resolve(value);
+    };
+
+    modal.addEventListener("click", (event) => {
+      if (event.target.closest("[data-close-tracking-edit-modal]")) {
+        close(null);
+      }
+    });
+
+    modal.querySelector("[data-tracking-edit-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const values = {};
+      fields.forEach((field) => {
+        values[field.name] = String(formData.get(field.name) || "").trim();
+      });
+      close(values);
+    });
+
+    document.body.appendChild(modal);
+    document.body.classList.add("modal-open");
+    window.setTimeout(() => {
+      modal.querySelector("input, textarea, select, button")?.focus({ preventScroll: true });
+    }, 0);
+  });
+}
+
+async function editTrackingEvent(eventId, currentTitle = "", currentDescription = "") {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !eventId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const values = await openTrackingEditModal({
+    title: "Evento de tracking",
+    copy: "Actualiza el título y la descripción que verán los administradores y, cuando corresponda, el cliente.",
+    submitLabel: "Guardar evento",
+    fields: [
+      { name: "title", label: "Título", value: currentTitle, placeholder: "Ej: Vehículo reservado" },
+      { name: "notes", label: "Descripción", type: "textarea", rows: 5, value: currentDescription, placeholder: "Describe el avance del pedido" },
+    ],
+  });
+
+  if (!values) {
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title: values.title, notes: values.notes }),
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Evento actualizado correctamente.", "success");
+}
+
+async function editOrderDocument(documentId, currentType = "OTRO", currentNote = "") {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !documentId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const values = await openTrackingEditModal({
+    title: "Documento del pedido",
+    copy: "Ajusta la clasificación del archivo y la nota interna para identificarlo mejor.",
+    submitLabel: "Guardar documento",
+    fields: [
+      { name: "documentType", label: "Tipo de archivo", type: "select", value: currentType || "OTRO", options: ORDER_DOCUMENT_TYPES },
+      { name: "note", label: "Notas", type: "textarea", rows: 4, value: currentNote, placeholder: "Agrega una nota corta" },
+    ],
+  });
+
+  if (!values) {
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents/${encodeURIComponent(documentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ documentType: values.documentType, note: values.note }),
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Documento actualizado correctamente.", "success");
+}
+
 async function deleteOrderDocument(documentId) {
   const selectedOrder = getSelectedOrder();
 
@@ -3136,12 +3534,12 @@ async function transitionSelectedOrder(direction) {
     return;
   }
 
-  const currentStageMeta = getCurrentStageMeta(selectedOrder);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(selectedOrder);
 
   if (
     direction === "next"
-    && currentStageMeta.index === adminTrackingTemplates.length - 1
-    && canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)
+    && effectiveTransitionIndex === adminTrackingTemplates.length - 1
+    && canFinalizeTrackingOrder(selectedOrder, effectiveTransitionIndex)
   ) {
     await finalizeSelectedOrder();
     return;
@@ -3149,7 +3547,12 @@ async function transitionSelectedOrder(direction) {
 
   const runLegacyTransition = async () => {
     const states = getOrderTrackingSteps(selectedOrder);
-    const currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+    let currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+
+    if (currentStepIndex < 0) {
+      const firstPendingIndex = states.findIndex((state) => !state?.confirmed);
+      currentStepIndex = firstPendingIndex >= 0 ? firstPendingIndex : states.length - 1;
+    }
 
     if (currentStepIndex < 0) {
       throw new Error("No se pudo determinar la etapa actual del pedido.");
@@ -3242,8 +3645,7 @@ async function transitionSelectedOrder(direction) {
   renderStates();
   renderSearchResults(getFilteredOrders());
 
-  adminSetFeedback(
-    trackingFeedback,
+  setTrackingPageFeedback(
     direction === "next"
       ? "Etapa actualizada y cliente notificado por push/correo."
       : "Transición aplicada correctamente.",
@@ -3807,7 +4209,7 @@ window.addEventListener("admin-order-updated", async (event) => {
 
 searchConfigs.forEach((config) => {
   config.input.addEventListener("input", () => {
-    renderSearchResults(getFilteredOrders());
+    scheduleSearchResultsRender();
   });
 });
 
@@ -3921,8 +4323,13 @@ function handleTrackingPageClick(event) {
   const transitionButton = event.target.closest("[data-transition-direction]");
 
   if (transitionButton) {
+    if (transitionButton.disabled) {
+      setTrackingPageFeedback("No tienes permisos para mover este pedido en esa direccion.", "error");
+      return;
+    }
+
     transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
-      adminSetFeedback(trackingFeedback, error.message, "error");
+      setTrackingPageFeedback(error.message, "error");
     });
     return;
   }
@@ -3987,6 +4394,19 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  const editUpdateButton = event.target.closest("[data-edit-update]");
+
+  if (editUpdateButton) {
+    const eventId = String(editUpdateButton.dataset.eventId || "").trim();
+    const currentTitle = String(editUpdateButton.dataset.currentTitle || "");
+    const currentDescription = String(editUpdateButton.dataset.currentDescription || "");
+
+    editTrackingEvent(eventId, currentTitle, currentDescription).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar el evento.", "error");
+    });
+    return;
+  }
+
   const orderDocumentVisibilityButton = event.target.closest("[data-toggle-order-document-visibility]");
 
   if (orderDocumentVisibilityButton) {
@@ -3995,6 +4415,19 @@ function handleTrackingPageClick(event) {
 
     toggleOrderDocumentVisibility(documentId, nextVisible).catch((error) => {
       adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar la visibilidad del documento.", "error");
+    });
+    return;
+  }
+
+  const editOrderDocumentButton = event.target.closest("[data-edit-order-document]");
+
+  if (editOrderDocumentButton) {
+    const documentId = String(editOrderDocumentButton.dataset.documentId || "").trim();
+    const currentType = String(editOrderDocumentButton.dataset.currentType || "OTRO");
+    const currentNote = String(editOrderDocumentButton.dataset.currentNote || "");
+
+    editOrderDocument(documentId, currentType, currentNote).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar el documento.", "error");
     });
     return;
   }
@@ -4178,7 +4611,7 @@ async function loadTrackingPage() {
   }
 
   if (initialOrderId) {
-    selectOrder(initialOrderId);
+    selectOrder(initialOrderId, { historyMode: "replace" });
   } else {
     if (trackingEditorFields) {
       trackingEditorFields.hidden = true;
@@ -4190,6 +4623,17 @@ async function loadTrackingPage() {
   stopInitOverlayWatchdog();
   forceClearLoadingState();
 }
+
+window.addEventListener("popstate", () => {
+  if (window.location.pathname === trackingHistoryPath) {
+    if (hasTrackingSelectionInUrl()) {
+      replaceCurrentHistoryWithTrackingList();
+      return;
+    }
+
+    restoreTrackingSelectionFromUrl();
+  }
+});
 
 forceClearLoadingState();
 initOverlayWatchdog = window.setInterval(forceClearLoadingState, 600);

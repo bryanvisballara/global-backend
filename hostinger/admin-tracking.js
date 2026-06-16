@@ -292,6 +292,21 @@ document.body.classList.toggle("host-windows-desktop", isWindowsDesktopEnvironme
 
 const trackingRoot = document.getElementById("tracking-form");
 const trackingFeedback = document.getElementById("tracking-feedback");
+let trackingDetailFeedbackState = { message: "", type: "" };
+
+function setTrackingPageFeedback(message, type = "") {
+  trackingDetailFeedbackState = {
+    message: String(message || ""),
+    type: String(type || ""),
+  };
+  adminSetFeedback(trackingFeedback, message, type);
+
+  const detailFeedback = document.getElementById("tracking-detail-feedback");
+
+  if (detailFeedback) {
+    adminSetFeedback(detailFeedback, message, type);
+  }
+}
 const trackingOrderInput = document.getElementById("tracking-order-id");
 const trackingPreview = document.getElementById("tracking-preview");
 const trackingEditorFields = document.getElementById("tracking-editor-fields");
@@ -976,8 +991,32 @@ function canEditStateForRole(role, stateKey, order = getSelectedOrder()) {
   return stateIndex >= 3;
 }
 
+function normalizeTransitionIndex(index) {
+  if (index >= adminTrackingTemplates.length) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return index;
+}
+
+function getEffectiveTransitionIndex(order) {
+  const currentStageMeta = getCurrentStageMeta(order);
+
+  if (
+    currentStageMeta.key === COMPLETED_TIMELINE_STAGE.key
+    || currentStageMeta.index >= adminTrackingTemplates.length
+  ) {
+    return adminTrackingTemplates.length - 1;
+  }
+
+  return currentStageMeta.index;
+}
+
 function canTransitionTrackingState(currentIndex, targetIndex, order = getSelectedOrder()) {
-  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adminTrackingTemplates.length) {
+  const normalizedCurrentIndex = normalizeTransitionIndex(currentIndex);
+  const normalizedTargetIndex = normalizeTransitionIndex(targetIndex);
+
+  if (normalizedCurrentIndex < 0 || normalizedTargetIndex < 0 || normalizedTargetIndex >= adminTrackingTemplates.length) {
     return false;
   }
 
@@ -994,14 +1033,14 @@ function canTransitionTrackingState(currentIndex, targetIndex, order = getSelect
   }
 
   if (getOrderRegion(order) === "usa") {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
   if (["adminUSA", "gerenteUSA"].includes(currentAdminRole)) {
-    return currentIndex <= 2 && targetIndex <= 3;
+    return normalizedCurrentIndex <= 2 && normalizedTargetIndex <= 3;
   }
 
-  return currentIndex === 2 && targetIndex === 3;
+  return normalizedCurrentIndex === 2 && normalizedTargetIndex === 3;
 }
 
 function canFinalizeTrackingOrder(order, currentIndex) {
@@ -1373,10 +1412,12 @@ function renderStageTransitionCardMarkup(order) {
   }
 
   const currentStageMeta = getCurrentStageMeta(order);
-  const previousEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index - 1, order);
-  const finalizeEnabled = canFinalizeTrackingOrder(order, currentStageMeta.index);
-  const nextEnabled = canTransitionTrackingState(currentStageMeta.index, currentStageMeta.index + 1, order)
-    || (finalizeEnabled && currentStageMeta.index === adminTrackingTemplates.length - 1);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(order);
+  const previousEnabled = effectiveTransitionIndex > 0
+    && canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex - 1, order);
+  const finalizeEnabled = canFinalizeTrackingOrder(order, effectiveTransitionIndex);
+  const nextEnabled = canTransitionTrackingState(effectiveTransitionIndex, effectiveTransitionIndex + 1, order)
+    || (finalizeEnabled && effectiveTransitionIndex === adminTrackingTemplates.length - 1);
 
   return `
     <article class="tracking-stage-transition-card tracking-stage-transition-card-inline">
@@ -1787,6 +1828,25 @@ function renderDeleteEventTableButton(stateKey, updateIndex, eventId = "") {
       title="Borrar evento"
       aria-label="Borrar evento"
     >&times;</button>
+  `;
+}
+
+function renderEditEventTableButton(row) {
+  return `
+    <button
+      type="button"
+      class="tracking-event-edit-button"
+      data-edit-update="true"
+      data-state-key="${escapeHtml(row.stateKey)}"
+      data-update-index="${row.updateIndex}"
+      data-event-id="${escapeHtml(row.eventId)}"
+      data-current-title="${escapeHtml(row.title)}"
+      data-current-description="${escapeHtml(row.description === "-" ? "" : row.description)}"
+      title="Editar evento"
+      aria-label="Editar evento"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.9V20h3.1L18.4 8.7l-3.1-3.1L4 16.9Zm16.8-10.6c.4-.4.4-1 0-1.4l-1.7-1.7a1 1 0 0 0-1.4 0l-1.3 1.3 3.1 3.1 1.3-1.3Z"></path></svg>
+    </button>
   `;
 }
 
@@ -2301,6 +2361,7 @@ function renderAdminEventsTable(order) {
               <td data-label="Acciones" class="admin-tracking-events-actions-cell">
                 <div class="admin-tracking-event-actions">
                   ${renderVisibilityButton(row.stateKey, row.updateIndex, !row.clientVisible, row.clientVisible, row.eventId)}
+                  ${renderEditEventTableButton(row)}
                   ${renderDeleteEventTableButton(row.stateKey, row.updateIndex, row.eventId)}
                 </div>
               </td>
@@ -2374,6 +2435,7 @@ function getOrderDocuments(order) {
     .filter((item) => item?.url && (item?.category === "document" || item?.type === "document"))
     .map((item) => ({
       documentId: String(item.documentId || "").trim(),
+      documentTypeValue: normalizeText(item.documentType || "OTRO").toUpperCase() || "OTRO",
       documentType: getOrderDocumentTypeLabel(item.documentType || "OTRO"),
       name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
       note: normalizeText(item.note || ""),
@@ -2416,6 +2478,23 @@ function renderOrderDocumentDeleteButton(documentId) {
   `;
 }
 
+function renderOrderDocumentEditButton(document) {
+  return `
+    <button
+      type="button"
+      class="tracking-event-edit-button"
+      data-edit-order-document="true"
+      data-document-id="${escapeHtml(document.documentId)}"
+      data-current-type="${escapeHtml(document.documentTypeValue)}"
+      data-current-note="${escapeHtml(document.note || "")}"
+      title="Editar documento"
+      aria-label="Editar documento"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.9V20h3.1L18.4 8.7l-3.1-3.1L4 16.9Zm16.8-10.6c.4-.4.4-1 0-1.4l-1.7-1.7a1 1 0 0 0-1.4 0l-1.3 1.3 3.1 3.1 1.3-1.3Z"></path></svg>
+    </button>
+  `;
+}
+
 function renderOrderDocumentsTable(order) {
   const documents = getOrderDocuments(order);
 
@@ -2450,6 +2529,7 @@ function renderOrderDocumentsTable(order) {
                 ${canManageOrderDocumentActions(order)
                   ? `<div class="admin-tracking-event-actions">
                       ${renderOrderDocumentVisibilityButton(document.documentId, !document.clientVisible, document.clientVisible)}
+                      ${renderOrderDocumentEditButton(document)}
                       ${renderOrderDocumentDeleteButton(document.documentId)}
                     </div>`
                   : '<span class="admin-user-delete-placeholder">-</span>'}
@@ -2632,6 +2712,7 @@ function renderTrackingOverview(order) {
 
   trackingPreview.innerHTML = `
     <div class="tracking-overview-stack">
+      <p id="tracking-detail-feedback" class="feedback${trackingDetailFeedbackState.type ? ` ${trackingDetailFeedbackState.type}` : ""}" aria-live="polite">${escapeHtml(trackingDetailFeedbackState.message)}</p>
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
           <header class="state-order-header tracking-overview-header" style="display:block;width:100%;text-align:center;">
@@ -3109,6 +3190,71 @@ async function toggleOrderDocumentVisibility(documentId, nextVisible) {
   }
 }
 
+async function editTrackingEvent(eventId, currentTitle = "", currentDescription = "") {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !eventId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const title = window.prompt("Editar título del evento", currentTitle || "");
+
+  if (title === null) {
+    return;
+  }
+
+  const description = window.prompt("Editar descripción del evento", currentDescription || "");
+
+  if (description === null) {
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/tracking-events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title, notes: description }),
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Evento actualizado correctamente.", "success");
+}
+
+async function editOrderDocument(documentId, currentType = "OTRO", currentNote = "") {
+  const selectedOrder = getSelectedOrder();
+
+  if (!selectedOrder || !documentId) {
+    adminSetFeedback(trackingFeedback, "Selecciona un pedido primero.", "error");
+    return;
+  }
+
+  const typeOptions = ORDER_DOCUMENT_TYPES.map((option) => option.value).join(", ");
+  const documentType = window.prompt(`Editar tipo de archivo. Opciones: ${typeOptions}`, currentType || "OTRO");
+
+  if (documentType === null) {
+    return;
+  }
+
+  const note = window.prompt("Editar notas del documento", currentNote || "");
+
+  if (note === null) {
+    return;
+  }
+
+  const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents/${encodeURIComponent(documentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ documentType, note }),
+  });
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  renderOrderSummary(getSelectedOrder());
+  renderStates();
+  renderSearchResults(getFilteredOrders());
+  adminSetFeedback(trackingFeedback, "Documento actualizado correctamente.", "success");
+}
+
 async function deleteOrderDocument(documentId) {
   const selectedOrder = getSelectedOrder();
 
@@ -3136,12 +3282,12 @@ async function transitionSelectedOrder(direction) {
     return;
   }
 
-  const currentStageMeta = getCurrentStageMeta(selectedOrder);
+  const effectiveTransitionIndex = getEffectiveTransitionIndex(selectedOrder);
 
   if (
     direction === "next"
-    && currentStageMeta.index === adminTrackingTemplates.length - 1
-    && canFinalizeTrackingOrder(selectedOrder, currentStageMeta.index)
+    && effectiveTransitionIndex === adminTrackingTemplates.length - 1
+    && canFinalizeTrackingOrder(selectedOrder, effectiveTransitionIndex)
   ) {
     await finalizeSelectedOrder();
     return;
@@ -3149,7 +3295,12 @@ async function transitionSelectedOrder(direction) {
 
   const runLegacyTransition = async () => {
     const states = getOrderTrackingSteps(selectedOrder);
-    const currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+    let currentStepIndex = states.findIndex((state) => state?.inProgress && !state?.confirmed);
+
+    if (currentStepIndex < 0) {
+      const firstPendingIndex = states.findIndex((state) => !state?.confirmed);
+      currentStepIndex = firstPendingIndex >= 0 ? firstPendingIndex : states.length - 1;
+    }
 
     if (currentStepIndex < 0) {
       throw new Error("No se pudo determinar la etapa actual del pedido.");
@@ -3242,8 +3393,7 @@ async function transitionSelectedOrder(direction) {
   renderStates();
   renderSearchResults(getFilteredOrders());
 
-  adminSetFeedback(
-    trackingFeedback,
+  setTrackingPageFeedback(
     direction === "next"
       ? "Etapa actualizada y cliente notificado por push/correo."
       : "Transición aplicada correctamente.",
@@ -3921,8 +4071,13 @@ function handleTrackingPageClick(event) {
   const transitionButton = event.target.closest("[data-transition-direction]");
 
   if (transitionButton) {
+    if (transitionButton.disabled) {
+      setTrackingPageFeedback("No tienes permisos para mover este pedido en esa direccion.", "error");
+      return;
+    }
+
     transitionSelectedOrder(String(transitionButton.dataset.transitionDirection || "")).catch((error) => {
-      adminSetFeedback(trackingFeedback, error.message, "error");
+      setTrackingPageFeedback(error.message, "error");
     });
     return;
   }
@@ -3987,6 +4142,19 @@ function handleTrackingPageClick(event) {
     return;
   }
 
+  const editUpdateButton = event.target.closest("[data-edit-update]");
+
+  if (editUpdateButton) {
+    const eventId = String(editUpdateButton.dataset.eventId || "").trim();
+    const currentTitle = String(editUpdateButton.dataset.currentTitle || "");
+    const currentDescription = String(editUpdateButton.dataset.currentDescription || "");
+
+    editTrackingEvent(eventId, currentTitle, currentDescription).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar el evento.", "error");
+    });
+    return;
+  }
+
   const orderDocumentVisibilityButton = event.target.closest("[data-toggle-order-document-visibility]");
 
   if (orderDocumentVisibilityButton) {
@@ -3995,6 +4163,19 @@ function handleTrackingPageClick(event) {
 
     toggleOrderDocumentVisibility(documentId, nextVisible).catch((error) => {
       adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar la visibilidad del documento.", "error");
+    });
+    return;
+  }
+
+  const editOrderDocumentButton = event.target.closest("[data-edit-order-document]");
+
+  if (editOrderDocumentButton) {
+    const documentId = String(editOrderDocumentButton.dataset.documentId || "").trim();
+    const currentType = String(editOrderDocumentButton.dataset.currentType || "OTRO");
+    const currentNote = String(editOrderDocumentButton.dataset.currentNote || "");
+
+    editOrderDocument(documentId, currentType, currentNote).catch((error) => {
+      adminSetFeedback(trackingFeedback, error.message || "No se pudo actualizar el documento.", "error");
     });
     return;
   }

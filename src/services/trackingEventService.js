@@ -262,13 +262,20 @@ function reconcileCollectionTrackingProgression(steps = []) {
 
     if (latestInProgressUpdate) {
       const progressTimestamp = getUpdateTimestamp(latestInProgressUpdate);
+      const completedTimestamp = latestCompletedUpdate
+        ? getUpdateTimestamp(latestCompletedUpdate)
+        : -1;
 
-      if (progressTimestamp >= activeTimestamp) {
+      if (progressTimestamp > completedTimestamp && progressTimestamp >= activeTimestamp) {
         activeIndex = index;
         activeTimestamp = progressTimestamp;
       }
     }
   });
+
+  if (steps.every((step) => Boolean(step?.confirmed))) {
+    return steps;
+  }
 
   if (activeIndex < 0) {
     return steps;
@@ -288,9 +295,9 @@ function reconcileCollectionTrackingProgression(steps = []) {
       return;
     }
 
-    if (!step.confirmed) {
-      step.inProgress = false;
-    }
+    step.confirmed = false;
+    step.inProgress = false;
+    step.confirmedAt = null;
   });
 
   return steps;
