@@ -1,6 +1,6 @@
 (() => {
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
-  const SPRITE_URL = "/assets/lion-hero-fly.jpg";
+  const SPRITE_URL = "/assets/lion-hero-fly.png";
   const BACKGROUND_URL = "/assets/sequoia-game-bg.png";
 
   const DEFAULTS = {
