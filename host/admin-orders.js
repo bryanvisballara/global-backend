@@ -37,7 +37,7 @@ function isEmbeddedTrackingOrderFormPage() {
 
 function resolveAdminHtmlPath(fileName) {
   const pathname = normalizeAdminPathname();
-  const useAppPrefix = pathname.startsWith("/app/") || pathname === "/app";
+  const useAppPrefix = pathname.startsWith("/") || pathname === "/app";
 
   return `${useAppPrefix ? "/app" : ""}/${fileName}`.replace(/\/{2,}/g, "/");
 }

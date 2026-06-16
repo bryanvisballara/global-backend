@@ -17,6 +17,8 @@ if (requireAdminAccess()) {
   const requestsList = document.getElementById("order-deletion-requests-list");
   const requestsCount = document.getElementById("deletion-requests-count");
   const feedback = document.getElementById("deletion-requests-feedback");
+  const pendingApprovalIntents = new Map();
+  const APPROVAL_INTENT_WINDOW_MS = 7000;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -149,6 +151,61 @@ if (requireAdminAccess()) {
     )).join("");
   }
 
+  function getActionButtonFromEvent(event) {
+    const target = event?.target;
+
+    if (target instanceof Element) {
+      return target.closest("[data-review-order-id]");
+    }
+
+    if (target?.parentElement instanceof Element) {
+      return target.parentElement.closest("[data-review-order-id]");
+    }
+
+    return null;
+  }
+
+  function consumeApprovalIntent(key) {
+    const expiry = pendingApprovalIntents.get(key);
+
+    if (!expiry) {
+      return false;
+    }
+
+    if (Date.now() > expiry) {
+      pendingApprovalIntents.delete(key);
+      return false;
+    }
+
+    pendingApprovalIntents.delete(key);
+    return true;
+  }
+
+  function rememberApprovalIntent(key) {
+    pendingApprovalIntents.set(key, Date.now() + APPROVAL_INTENT_WINDOW_MS);
+  }
+
+  function confirmApprovalWithFallback({ message, key, buttonText }) {
+    if (consumeApprovalIntent(key)) {
+      return true;
+    }
+
+    try {
+      if (typeof window.confirm === "function" && window.confirm(message) === true) {
+        return true;
+      }
+    } catch (error) {
+      // Ignore and use explicit double-tap fallback below.
+    }
+
+    rememberApprovalIntent(key);
+    setFeedback(
+      feedback,
+      `Presiona nuevamente \"${buttonText}\" para confirmar esta acción.`
+    );
+    return false;
+  }
+
   async function loadDeletionRequestsPage() {
     const user = await loadAdminSession();
 
@@ -171,7 +228,7 @@ if (requireAdminAccess()) {
   }
 
   requestsList?.addEventListener("click", async (event) => {
-    const actionButton = event.target.closest("[data-review-order-id]");
+    const actionButton = getActionButtonFromEvent(event);
 
     if (!actionButton) {
       return;
@@ -188,11 +245,16 @@ if (requireAdminAccess()) {
 
     let rejectionReason = "";
     const isTrackingEventRequest = requestType === "tracking-event" && eventId;
+    const requestKey = `${requestType}:${orderId}:${eventId || "-"}`;
 
     if (action === "approve") {
-      if (!window.confirm(isTrackingEventRequest
-        ? "¿Seguro que deseas aprobar esta solicitud y eliminar el evento?"
-        : "¿Seguro que deseas aprobar esta solicitud y eliminar el pedido?")) {
+      if (!confirmApprovalWithFallback({
+        message: isTrackingEventRequest
+          ? "¿Seguro que deseas aprobar esta solicitud y eliminar el evento?"
+          : "¿Seguro que deseas aprobar esta solicitud y eliminar el pedido?",
+        key: requestKey,
+        buttonText: (actionButton.textContent || "Aprobar").trim() || "Aprobar",
+      })) {
         return;
       }
     } else {

@@ -135,8 +135,8 @@ function redirectToLogin() {
 }
 
 function buildDeletedAccountPageUrl(feedbackToken = "") {
-  const pagePath = window.location.pathname.startsWith("/app/")
-    ? "/app/account-deleted.html"
+  const pagePath = window.location.pathname.startsWith("/")
+    ? "/account-deleted.html"
     : "/account-deleted.html";
   const deletedAccountUrl = new URL(pagePath, window.location.origin);
 

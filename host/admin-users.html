@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Global Imports | Cuentas eliminadas</title>
+    <title>Global Imports | Usuarios</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight28" />
+    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight29" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260514-ipadsafe26" />
   </head>
   <body class="admin-app-view">
@@ -25,70 +25,63 @@
           </div>
         </header>
         <section class="page-hero">
-          <h1>Cuentas eliminadas</h1>
-          <p class="dashboard-lead">Consulta qué cuentas fueron eliminadas y las recomendaciones que dejaron los clientes antes de irse.</p>
+          <h1>Usuarios</h1>
+          <p class="dashboard-lead">Consulta las personas registradas en la app y sus datos principales.</p>
         </section>
         <section class="module-grid single-module-grid">
           <article class="dashboard-card module-card module-card-wide">
             <div class="clients-dashboard-stack">
-              <section class="clients-stats-grid" aria-label="Resumen cuentas eliminadas">
+              <section class="clients-stats-grid" aria-label="Resumen usuarios">
                 <article class="metric-card client-stat-card">
-                  <span>Total eliminadas</span>
-                  <strong id="deleted-accounts-total-count">0</strong>
-                </article>
-                <article class="metric-card client-stat-card">
-                  <span>Con opinión</span>
-                  <strong id="deleted-accounts-with-feedback-count">0</strong>
-                </article>
-                <article class="metric-card client-stat-card">
-                  <span>Sin opinión</span>
-                  <strong id="deleted-accounts-without-feedback-count">0</strong>
+                  <span>Total usuarios</span>
+                  <strong id="users-total-count">0</strong>
                 </article>
               </section>
 
-              <section class="dashboard-card clients-filter-card" aria-label="Filtros cuentas eliminadas">
+              <section class="dashboard-card clients-filter-card" aria-label="Filtros de usuarios">
                 <div class="clients-filter-grid">
                   <label>
                     <span>Búsqueda</span>
-                    <input id="deleted-accounts-search-input" type="text" placeholder="Nombre, email, teléfono u opinión..." />
+                    <input id="users-search-input" type="text" placeholder="Nombre, correo o teléfono..." />
                   </label>
                   <div class="clients-filter-actions">
-                    <button id="deleted-accounts-clear-button" class="secondary-button" type="button">Limpiar</button>
-                    <button id="deleted-accounts-filter-button" class="secondary-button" type="button">Filtrar</button>
+                    <button id="users-clear-button" class="secondary-button" type="button">Limpiar</button>
+                    <button id="users-filter-button" class="secondary-button" type="button">Filtrar</button>
                   </div>
                 </div>
               </section>
 
-              <section class="dashboard-card tracking-table-card clients-results-card" aria-label="Resultados cuentas eliminadas">
+              <section class="dashboard-card tracking-table-card clients-results-card" aria-label="Listado de usuarios">
                 <div class="card-heading">
-                  <h2>Resultados</h2>
-                  <span id="deleted-accounts-results-count" class="section-tag">0 cuenta(s)</span>
+                  <h2>Usuarios registrados</h2>
+                  <span id="users-results-count" class="section-tag">0 usuario(s)</span>
                 </div>
                 <div class="tracking-table-wrap">
                   <table class="tracking-data-table">
                     <thead>
                       <tr>
-                        <th>Cuenta</th>
-                        <th>Contacto</th>
-                        <th>Eliminada</th>
-                        <th>Opinión</th>
+                        <th>Fecha de creación</th>
+                        <th>Nombre</th>
+                        <th>Correo</th>
+                        <th>Teléfono</th>
                       </tr>
                     </thead>
-                    <tbody id="deleted-accounts-results-body">
+                    <tbody id="users-results-body">
                       <tr>
-                        <td colspan="4"><div class="empty-state">Cargando cuentas eliminadas...</div></td>
+                        <td colspan="4"><div class="empty-state">Cargando usuarios...</div></td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-                <p id="deleted-accounts-feedback" class="feedback" aria-live="polite"></p>
+                <p id="users-feedback" class="feedback" aria-live="polite"></p>
               </section>
             </div>
           </article>
         </section>
       </section>
     </main>
+
     <script src="/admin-common.js?v=20260514-viewport07"></script>
-    <script src="/admin-deleted-accounts.js?v=20260420-deletedaccounts01"></script>
+    <script src="/admin-users.js?v=20260509-users02"></script>
   </body>
 </html>

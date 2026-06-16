@@ -64,7 +64,7 @@ function normalizeText(value) {
 }
 
 function formatMoney(value) {
-  return formatCurrency(Number(value || 0), "USD");
+  return formatCurrency(Number(value || 0), "COP");
 }
 
 function populateConcepts() {

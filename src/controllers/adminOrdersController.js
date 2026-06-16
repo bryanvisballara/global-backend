@@ -769,9 +769,7 @@ function syncTrackingStepFlagsFromLatestUpdate(step) {
   const latestUpdate = getLatestTrackingStepUpdate(step);
   const hasCompletedUpdate = Array.isArray(step.updates) && step.updates.some((item) => item?.completed);
 
-  step.confirmed = latestUpdate
-    ? Boolean(latestUpdate.completed)
-    : Boolean(step.confirmed || hasCompletedUpdate);
+  step.confirmed = Boolean(hasCompletedUpdate || step.confirmed || latestUpdate?.completed);
   step.inProgress = step.confirmed ? false : Boolean(latestUpdate?.inProgress);
 
   return syncTrackingStepDerivedFields(step);

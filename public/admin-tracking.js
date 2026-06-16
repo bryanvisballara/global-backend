@@ -1157,33 +1157,17 @@ function getOrderTrackingSteps(order) {
             updatedAt: update?.updatedAt || null,
           }))
         : []);
-    const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestUpdate({ updates });
     const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
-    const hasExplicitReopenState = !latestUpdate?.completed
-      && typeof sourceStep?.confirmed === "boolean"
-      && sourceStep.confirmed === false
-      && Boolean(
-        (typeof sourceStep?.inProgress === "boolean" && sourceStep.inProgress)
-        || latestUpdate?.inProgress
-      );
-    const derivedConfirmed = hasExplicitReopenState
-      ? false
-      : Boolean(
-          latestUpdate?.completed
-          || (
-            !latestUpdate
-            && (
-              (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
-              || lastCompletedUpdate
-            )
-          )
-        );
+    const derivedConfirmed = Boolean(
+      lastCompletedUpdate
+      || latestUpdate?.completed
+      || (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
+    );
     const derivedInProgress = derivedConfirmed
       ? false
       : Boolean(
-          hasExplicitReopenState
-          || latestUpdate?.inProgress
+          latestUpdate?.inProgress
           || (typeof sourceStep?.inProgress === "boolean"
             ? sourceStep.inProgress
             : false)

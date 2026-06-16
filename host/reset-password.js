@@ -94,7 +94,7 @@ resetPasswordForm?.addEventListener("submit", async (event) => {
     setResetPasswordFeedback("Contraseña actualizada correctamente. Redirigiendo al acceso...", "success");
 
     window.setTimeout(() => {
-      window.location.replace("/app/index.html?reset=success");
+      window.location.replace("/index.html?reset=success");
     }, 1200);
   } catch (error) {
     setResetPasswordFeedback(error.message, "error");

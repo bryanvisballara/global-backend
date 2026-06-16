@@ -540,7 +540,7 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
     const vehicleLabel = `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}`.trim();
     const clientName = order?.client?.name || "-";
     const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
-    const detailUrl = `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
+    const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
     const trackingEvents = getOrderTrackingEvents(order).filter((event) => shouldIncludeGlobalTrackingEvent(event));
     const isCompletedOrder = isOrderCompleted(order);
     const completedStatusCode = `E${stageTemplates.length + 1}`;
@@ -665,7 +665,7 @@ function renderStageDistribution(orders) {
     .map((stage, index) => {
       const count = countsByStage.get(stage.key) || 0;
       const label = stageLabelByKey[stage.key] || stage.label;
-      const targetUrl = `/app/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
+      const targetUrl = `/admin-state-orders.html?state=${encodeURIComponent(stage.key)}`;
       return `
         <a class="stage-distribution-item stage-distribution-link${count > 0 ? " is-active" : ""}" href="${targetUrl}">
           <span>E${index + 1}</span>
@@ -750,7 +750,7 @@ if (true) {
       }
 
       if (String(user?.role || "") === "brokerUSA") {
-        window.location.replace("/app/admin-tracking.html");
+        window.location.replace("/admin-tracking.html");
         return;
       }
 

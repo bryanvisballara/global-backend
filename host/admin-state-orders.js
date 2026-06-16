@@ -119,7 +119,7 @@
     const vinValue = String(order?.vehicle?.vin || "").trim();
     const clientValue = String(getClientDisplayName(order) || "").trim();
 
-    return `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
+    return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
   }
 
   function formatOrderLabel(order) {

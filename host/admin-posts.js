@@ -1,6 +1,5 @@
-(() => {
 const {
-  attachLogout: adminAttachLogout,
+  attachLogout,
   fetchJson,
   formatDateTimeInBogota,
   loadAdminSession,
@@ -10,7 +9,7 @@ const {
 } = window.AdminApp;
 
 if (requireAdminAccess()) {
-  adminAttachLogout();
+  attachLogout();
 
   const postForm = document.getElementById("post-form");
   const postFeedback = document.getElementById("post-feedback");
@@ -41,8 +40,7 @@ if (requireAdminAccess()) {
   let allPosts = [];
   let confirmResolver = null;
   let pendingSubmitAction = "publish";
-  let composerMediaItems = [];
-  let draggedComposerMediaId = "";
+  let postMediaPreviewUrls = [];
 
   function isSupportedVideoUrl(value) {
     if (!value) {
@@ -60,22 +58,6 @@ if (requireAdminAccess()) {
     } catch {
       return false;
     }
-  }
-
-  function isImageManagedFormat(format) {
-    return ["image", "carousel"].includes(String(format || "").trim().toLowerCase());
-  }
-
-  function syncMediaFilesRequirement() {
-    if (!mediaFilesInput) {
-      return;
-    }
-
-    const format = formatSelect?.value || "carousel";
-    const isVideoFormat = format === "video";
-    const hasComposerFiles = getComposerSelectedFiles().length > 0;
-
-    mediaFilesInput.required = !isVideoFormat && !hasComposerFiles;
   }
 
   function syncVideoInputMode() {
@@ -98,10 +80,9 @@ if (requireAdminAccess()) {
     }
 
     if (mediaFilesInput) {
+      mediaFilesInput.required = !isVideoFormat;
       mediaFilesInput.accept = isVideoFormat ? "video/*" : "image/*";
     }
-
-    syncMediaFilesRequirement();
   }
 
   function getEditPostUrl(postId) {
@@ -152,78 +133,53 @@ if (requireAdminAccess()) {
       .replace(/'/g, "&#39;");
   }
 
-  function createComposerMediaItem(file) {
-    return {
-      id: `composer-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      file,
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith("video/") ? "video" : "image",
-      label: file.name || "Archivo",
-    };
-  }
-
-  function revokeComposerMediaItems(items = composerMediaItems) {
-    items.forEach((item) => {
-      if (item?.url) {
-        URL.revokeObjectURL(item.url);
-      }
-    });
-  }
-
-  function getComposerSelectedFiles() {
-    return composerMediaItems.map((item) => item.file).filter(Boolean);
-  }
-
   function clearPostMediaPreview() {
-    revokeComposerMediaItems();
-    composerMediaItems = [];
+    postMediaPreviewUrls.forEach((objectUrl) => {
+      URL.revokeObjectURL(objectUrl);
+    });
+    postMediaPreviewUrls = [];
 
     if (!postMediaPreview) {
-      syncMediaFilesRequirement();
       return;
     }
 
     postMediaPreview.innerHTML = "";
     postMediaPreview.hidden = true;
-    syncMediaFilesRequirement();
   }
 
-  function renderPostMediaPreview() {
+  function renderPostMediaPreview(files = []) {
     if (!postMediaPreview) {
-      syncMediaFilesRequirement();
       return;
     }
 
-    const selectedFiles = getComposerSelectedFiles();
+    clearPostMediaPreview();
+
+    const selectedFiles = Array.from(files || []);
 
     if (!selectedFiles.length) {
-      postMediaPreview.innerHTML = "";
-      postMediaPreview.hidden = true;
-      syncMediaFilesRequirement();
       return;
     }
 
-    postMediaPreview.innerHTML = composerMediaItems.map((item, index) => {
-      const label = escapeHtml(item.label || `Archivo ${index + 1}`);
+    postMediaPreview.innerHTML = selectedFiles.map((file, index) => {
+      const objectUrl = URL.createObjectURL(file);
+      const label = escapeHtml(file.name || `Archivo ${index + 1}`);
 
-      if (item.type === "video") {
+      postMediaPreviewUrls.push(objectUrl);
+
+      if (file.type.startsWith("video/")) {
         return `
           <article class="tracking-media-card video">
-            <video controls playsinline preload="metadata" src="${escapeHtml(item.url)}"></video>
+            <video controls playsinline preload="metadata" src="${escapeHtml(objectUrl)}"></video>
             <strong>${label}</strong>
           </article>
         `;
       }
 
-      if (item.type === "image") {
+      if (file.type.startsWith("image/")) {
         return `
-          <article class="tracking-media-card image admin-sortable-media-card" draggable="true" data-composer-media-id="${escapeHtml(item.id)}">
-            <button class="admin-sortable-media-remove" type="button" data-remove-composer-media="${escapeHtml(item.id)}" aria-label="Eliminar imagen ${index + 1}">&times;</button>
-            <img src="${escapeHtml(item.url)}" alt="${label}" loading="lazy" />
-            <div class="admin-sortable-media-meta">
-              <strong>${label}</strong>
-              <small>Arrastra para cambiar el orden</small>
-            </div>
+          <article class="tracking-media-card image">
+            <img src="${escapeHtml(objectUrl)}" alt="${label}" loading="lazy" />
+            <strong>${label}</strong>
           </article>
         `;
       }
@@ -237,42 +193,6 @@ if (requireAdminAccess()) {
     }).join("");
 
     postMediaPreview.hidden = false;
-    syncMediaFilesRequirement();
-  }
-
-  function setComposerMediaFiles(files = []) {
-    revokeComposerMediaItems();
-    composerMediaItems = Array.from(files || []).map(createComposerMediaItem);
-    renderPostMediaPreview();
-  }
-
-  function removeComposerMediaItem(itemId) {
-    const itemIndex = composerMediaItems.findIndex((item) => item.id === itemId);
-
-    if (itemIndex === -1) {
-      return;
-    }
-
-    const [removedItem] = composerMediaItems.splice(itemIndex, 1);
-    revokeComposerMediaItems([removedItem]);
-    renderPostMediaPreview();
-  }
-
-  function moveComposerMediaItem(itemId, targetId) {
-    if (!itemId || !targetId || itemId === targetId) {
-      return;
-    }
-
-    const currentIndex = composerMediaItems.findIndex((item) => item.id === itemId);
-    const targetIndex = composerMediaItems.findIndex((item) => item.id === targetId);
-
-    if (currentIndex === -1 || targetIndex === -1) {
-      return;
-    }
-
-    const [movedItem] = composerMediaItems.splice(currentIndex, 1);
-    composerMediaItems.splice(targetIndex, 0, movedItem);
-    renderPostMediaPreview();
   }
 
   function findPostById(postId) {
@@ -314,7 +234,7 @@ if (requireAdminAccess()) {
       const hasValidLink = isSupportedVideoUrl(videoUrl);
 
       if (!hasFiles && !hasValidLink) {
-        throw new Error("Para video debes subir un archivo o pegar un enlace válido.");
+        throw new Error("Para video debes subir un archivo o pegar un link válido.");
       }
 
       if (!hasFiles) {
@@ -328,7 +248,7 @@ if (requireAdminAccess()) {
       const videoFiles = selectedFiles.filter((file) => file.type.startsWith("video/"));
 
       if (selectedFiles.length !== 1 || videoFiles.length !== 1) {
-        throw new Error("El formato video requiere exactamente un archivo de video cuando se sube desde el dispositivo.");
+        throw new Error("Video requiere exactamente un archivo de video cuando se sube desde dispositivo.");
       }
 
       await Promise.all(
@@ -433,7 +353,7 @@ if (requireAdminAccess()) {
         postForm.elements.format.value,
         videoUrlInput?.value || ""
       );
-      setComposerMediaFiles(selectedFiles);
+      renderPostMediaPreview(selectedFiles);
       setFeedback(
         postFeedback,
         `${selectedFiles.length} archivo${selectedFiles.length > 1 ? "s" : ""} cargado${selectedFiles.length > 1 ? "s" : ""} y listo${selectedFiles.length > 1 ? "s" : ""} para publicar.`,
@@ -513,22 +433,10 @@ if (requireAdminAccess()) {
 
   async function submitPost(action) {
     const formData = new FormData(postForm);
-    formData.delete("mediaFiles");
     const format = formData.get("format");
     const videoUrl = String(formData.get("videoUrl") || "").trim();
-    const composerFiles = getComposerSelectedFiles();
-    const inputFiles = Array.from(mediaFilesInput?.files || []);
-    const orderedFiles = composerFiles.length ? composerFiles : inputFiles;
 
-    if (!composerFiles.length && inputFiles.length) {
-      setComposerMediaFiles(inputFiles);
-    }
-
-    await validateFiles(orderedFiles, format, videoUrl);
-
-    orderedFiles.forEach((file) => {
-      formData.append("mediaFiles", file);
-    });
+    await validateFiles(mediaFilesInput.files, format, videoUrl);
 
     if (format === "video" && isSupportedVideoUrl(videoUrl)) {
       formData.append("mediaUrls", videoUrl);
@@ -557,7 +465,6 @@ if (requireAdminAccess()) {
 
     postForm.reset();
     syncVideoInputMode();
-    clearPostMediaPreview();
     setFeedback(
       postFeedback,
       action === "schedule" ? "Publicación programada correctamente." : "Publicación creada correctamente.",
@@ -625,65 +532,9 @@ if (requireAdminAccess()) {
     pendingSubmitAction = "publish";
   });
 
-  postMediaPreview?.addEventListener("click", (event) => {
-    const removeButton = event.target.closest("[data-remove-composer-media]");
-
-    if (!removeButton) {
-      return;
-    }
-
-    removeComposerMediaItem(String(removeButton.dataset.removeComposerMedia || ""));
-  });
-
-  postMediaPreview?.addEventListener("dragstart", (event) => {
-    const card = event.target.closest("[data-composer-media-id]");
-
-    if (!card) {
-      return;
-    }
-
-    draggedComposerMediaId = String(card.dataset.composerMediaId || "");
-    card.classList.add("is-dragging");
-    event.dataTransfer.effectAllowed = "move";
-  });
-
-  postMediaPreview?.addEventListener("dragover", (event) => {
-    if (!draggedComposerMediaId) {
-      return;
-    }
-
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  });
-
-  postMediaPreview?.addEventListener("drop", (event) => {
-    if (!draggedComposerMediaId) {
-      return;
-    }
-
-    event.preventDefault();
-    const targetCard = event.target.closest("[data-composer-media-id]");
-
-    if (!targetCard) {
-      return;
-    }
-
-    moveComposerMediaItem(draggedComposerMediaId, String(targetCard.dataset.composerMediaId || ""));
-  });
-
-  postMediaPreview?.addEventListener("dragend", () => {
-    draggedComposerMediaId = "";
-    postMediaPreview.querySelectorAll(".is-dragging").forEach((element) => {
-      element.classList.remove("is-dragging");
-    });
-  });
-
   formatSelect?.addEventListener("change", syncVideoInputMode);
   postForm.addEventListener("change", (event) => {
     if (event.target?.name === "format") {
-      if (!isImageManagedFormat(event.target.value)) {
-        clearPostMediaPreview();
-      }
       syncVideoInputMode();
     }
   });
@@ -745,4 +596,3 @@ if (requireAdminAccess()) {
 
   window.__adminPostsInitialized = true;
 }
-})();

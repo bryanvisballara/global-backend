@@ -1,9 +1,9 @@
 (() => {
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
   const PLAYER_NAME_KEY = "globalHeroPlayerName";
-  const COVER_URL = "/assets/global-hero-cover.png";
-  const SPRITE_URL = "/assets/lion-hero-fly.png";
-  const BACKGROUND_URL = "/assets/sequoia-game-bg.png";
+  const COVER_URL = "/global-hero-cover.png";
+  const SPRITE_URL = "/lion-hero-fly.png";
+  const BACKGROUND_URL = "/sequoia-game-bg.png";
 
   const DEFAULTS = {
     gravity: 0.42,

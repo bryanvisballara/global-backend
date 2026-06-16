@@ -209,6 +209,21 @@
       </section>
     </main>
 
-    <script src="/app-client.js?v=20260429-05"></script>
+    <script>
+      (() => {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.getRegistrations?.().then((registrations) => {
+            registrations.forEach((registration) => registration.unregister());
+          }).catch(() => {});
+        }
+
+        if (window.caches?.keys) {
+          window.caches.keys().then((cacheNames) => {
+            cacheNames.forEach((cacheName) => window.caches.delete(cacheName));
+          }).catch(() => {});
+        }
+      })();
+    </script>
+    <script src="/app-client.js?v=20260513-adminmobile09"></script>
   </body>
 </html>

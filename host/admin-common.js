@@ -44,6 +44,29 @@ function enableAdminUppercaseView() {
 
 enableAdminUppercaseView();
 
+function syncAdminViewportMetrics() {
+  const viewportWidth = Math.round(Math.max(
+    window.visualViewport?.width || 0,
+    window.innerWidth || 0,
+    document.documentElement.clientWidth || 0
+  ));
+  const viewportHeight = Math.round(Math.max(
+    window.visualViewport?.height || 0,
+    window.innerHeight || 0,
+    document.documentElement.clientHeight || 0
+  ));
+
+  if (viewportWidth > 0) {
+    document.documentElement.style.setProperty("--admin-visual-width", `${viewportWidth}px`);
+  }
+
+  if (viewportHeight > 0) {
+    document.documentElement.style.setProperty("--admin-visual-height", `${viewportHeight}px`);
+  }
+}
+
+syncAdminViewportMetrics();
+
 function ensureLoadingOverlay() {
   if (loadingOverlay) {
     return;
@@ -125,7 +148,7 @@ function getCurrentRole() {
 }
 
 function isAdminPanelRole(role) {
-  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
+  return ["admin", "manager", "adminUSA", "gerenteUSA"].includes(String(role || ""));
 }
 
 function isManagerRole(role) {
@@ -133,11 +156,7 @@ function isManagerRole(role) {
 }
 
 function isUsaAdministrativeRole(role) {
-  return ["adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || ""));
-}
-
-function isUsaBrokerRole(role) {
-  return String(role || "") === "brokerUSA";
+  return ["adminUSA", "gerenteUSA"].includes(String(role || ""));
 }
 
 function canCreateAdministrativeUsers(role) {
@@ -177,13 +196,13 @@ function requireAdminAccess() {
   const currentPath = window.location.pathname || "";
   const currentRole = getCurrentRole();
   const hasAuthToken = Boolean(getAuthToken());
-  const brokerAllowedPages = new Set([
-    "/admin-tracking.html",
-    "/admin-broker-documents.html",
-  ]);
   const latamOnlyPages = new Set([
     "/admin-client-requests.html",
-    "/admin-order-accounting.html",
+    "/admin-maintenance.html",
+    "/admin-vehicles.html",
+    "/admin-posts.html",
+    "/admin-virtual-dealership.html",
+    "/admin-client-requests.html",
     "/admin-maintenance.html",
     "/admin-vehicles.html",
     "/admin-posts.html",
@@ -200,11 +219,6 @@ function requireAdminAccess() {
     return false;
   }
 
-  if (isUsaBrokerRole(currentRole) && !brokerAllowedPages.has(currentPath)) {
-    window.location.replace("/admin-tracking.html");
-    return false;
-  }
-
   if (isUsaAdministrativeRole(currentRole) && latamOnlyPages.has(currentPath)) {
     window.location.replace("/admin.html");
     return false;
@@ -217,7 +231,6 @@ function applyManagerNavigationVisibility(role = getCurrentRole()) {
   const normalizedRole = String(role || "");
   const showAdminCreatorItems = canCreateAdministrativeUsers(normalizedRole);
   const hideLatamOnlyItems = isUsaAdministrativeRole(normalizedRole);
-  const brokerOnlyOrders = isUsaBrokerRole(normalizedRole);
 
   document.querySelectorAll(".admin-manager-only, .admin-admin-creator-only").forEach((element) => {
     const shouldShow = showAdminCreatorItems;
@@ -236,13 +249,6 @@ function applyManagerNavigationVisibility(role = getCurrentRole()) {
       element.hidden = hideLatamOnlyItems;
     }
   });
-
-  if (brokerOnlyOrders) {
-    document.querySelectorAll(".admin-nav-link").forEach((link) => {
-      const href = String(link.getAttribute("href") || "").trim();
-      link.style.display = href === "/admin-tracking.html" ? "" : "none";
-    });
-  }
 
   document.querySelectorAll(".admin-sidebar-section").forEach((section) => {
     const hasVisibleLinks = Array.from(section.querySelectorAll(".admin-nav-link"))
@@ -380,16 +386,23 @@ function setFeedback(element, message, type = "") {
 function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
   const isUsaRole = isUsaAdministrativeRole(currentRole);
-  const isBrokerRole = isUsaBrokerRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navSections = [
     {
       title: "Gestion",
       items: [
         { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
-        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html", "/admin-order-accounting.html", "/admin-broker-documents.html"] },
+        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
         { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
         { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
+      ],
+    },
+    {
+      title: "Control",
+      items: [
+        { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
+        { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
+        { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
       ],
     },
     {
@@ -400,25 +413,17 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
         { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
       ],
     },
-    {
-      title: "Control",
-      items: [
-        { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
-        { href: "/admin-order-deletion-requests.html", label: "SOLICITUDES DE ELIMINACION", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
-        { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
-        { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
-      ],
-    },
   ];
 
   const navMarkup = navSections
     .map((section) => {
       const linksMarkup = section.items
+        .filter((item) => !item.adminCreatorOnly || canCreateAdministrativeUsers(currentRole))
+        .filter((item) => !item.latamOnly || !isUsaRole)
         .map((item) => {
       const activePaths = Array.isArray(item.activePaths) && item.activePaths.length ? item.activePaths : [item.href];
       const isActive = activePaths.includes(currentPath);
       const classes = ["admin-nav-link"];
-      const inlineStyles = [];
 
       if (isActive) {
         classes.push("active");
@@ -430,21 +435,9 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
 
       if (item.latamOnly) {
         classes.push("admin-latam-only");
-
-        if (isUsaRole) {
-          inlineStyles.push("display:none");
-        }
       }
 
-      if (item.adminCreatorOnly && !canCreateAdministrativeUsers(currentRole)) {
-        inlineStyles.push("display:none");
-      }
-
-      if (isBrokerRole && item.href !== "/admin-tracking.html") {
-        inlineStyles.push("display:none");
-      }
-
-      return `<a class="${classes.join(" ")}" href="${item.href}"${inlineStyles.length ? ` style="${inlineStyles.join("; ")}"` : ""}>${item.label}</a>`;
+      return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
         })
         .join("");
 
@@ -591,8 +584,18 @@ function initializeAdminSidebarDrawer() {
   document.body.classList.add("admin-drawer-ready");
   ensureSidebarToggleButton();
 
-  const desktopMediaQuery = window.matchMedia("(min-width: 1101px)");
-  const desktopSidebarStateKey = "globalAdminSidebarDesktopCollapsed";
+  const desktopMediaQuery = window.matchMedia("(min-width: 1101px) and (hover: hover) and (pointer: fine)");
+  const isAppleTouchDevice = () => {
+    const userAgent = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+  };
+  const isIpadTouchDevice = () => {
+    const userAgent = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    return /iPad/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
+  };
+  const isDesktopSidebarMode = () => desktopMediaQuery.matches && !isAppleTouchDevice();
 
   let backdrop = document.querySelector(".admin-sidebar-backdrop");
 
@@ -605,8 +608,8 @@ function initializeAdminSidebarDrawer() {
 
   const updateToggleButtons = () => {
     const isOpen = document.body.classList.contains("admin-sidebar-open");
-    const isDesktop = desktopMediaQuery.matches;
-    const isExpanded = isDesktop ? !document.body.classList.contains("admin-sidebar-collapsed") : isOpen;
+    const isDesktop = isDesktopSidebarMode();
+    const isExpanded = isDesktop || isOpen;
     document.querySelectorAll(".admin-sidebar-toggle").forEach((button) => {
       button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
       button.setAttribute("aria-label", isExpanded ? "Cerrar menu lateral" : "Abrir menu lateral");
@@ -614,47 +617,18 @@ function initializeAdminSidebarDrawer() {
       const label = button.querySelector("span:last-child");
 
       if (label) {
-        label.textContent = isDesktop ? (isExpanded ? "Ocultar menu" : "Mostrar menu") : (isExpanded ? "Cerrar menu" : "Menu");
+        label.textContent = isDesktop ? "Menu" : (isExpanded ? "Cerrar menu" : "Menu");
       }
     });
   };
 
-  const syncDesktopSidebarLayout = () => {
-    const nav = sidebar.querySelector(".admin-sidebar-nav");
-
-    if (desktopMediaQuery.matches) {
-      sidebar.style.height = "auto";
-      sidebar.style.maxHeight = "none";
-      sidebar.style.overflow = "visible";
-      sidebar.style.display = "flex";
-      sidebar.style.flexDirection = "column";
-
-      if (nav) {
-        nav.style.maxHeight = "none";
-        nav.style.overflow = "visible";
-      }
-
-      return;
-    }
-
-    sidebar.style.removeProperty("height");
-    sidebar.style.removeProperty("max-height");
-    sidebar.style.removeProperty("overflow");
-    sidebar.style.removeProperty("display");
-    sidebar.style.removeProperty("flex-direction");
-
-    if (nav) {
-      nav.style.removeProperty("max-height");
-      nav.style.removeProperty("overflow");
-    }
-  };
-
   const syncSidebarMode = () => {
-    syncDesktopSidebarLayout();
+    const isDesktop = isDesktopSidebarMode();
+    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpadTouchDevice());
 
-    if (desktopMediaQuery.matches) {
-      const shouldCollapseDesktop = window.localStorage.getItem(desktopSidebarStateKey) === "true";
-      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
+    if (isDesktop) {
+      window.localStorage.removeItem("globalAdminSidebarDesktopCollapsed");
+      document.body.classList.remove("admin-sidebar-collapsed");
       document.body.classList.remove("admin-sidebar-open");
     } else {
       document.body.classList.remove("admin-sidebar-collapsed");
@@ -664,9 +638,7 @@ function initializeAdminSidebarDrawer() {
   };
 
   const closeSidebar = () => {
-    if (desktopMediaQuery.matches) {
-      document.body.classList.add("admin-sidebar-collapsed");
-      window.localStorage.setItem(desktopSidebarStateKey, "true");
+    if (isDesktopSidebarMode()) {
       updateToggleButtons();
       return;
     }
@@ -676,10 +648,7 @@ function initializeAdminSidebarDrawer() {
   };
 
   const toggleSidebar = () => {
-    if (desktopMediaQuery.matches) {
-      const shouldCollapseDesktop = !document.body.classList.contains("admin-sidebar-collapsed");
-      document.body.classList.toggle("admin-sidebar-collapsed", shouldCollapseDesktop);
-      window.localStorage.setItem(desktopSidebarStateKey, shouldCollapseDesktop ? "true" : "false");
+    if (isDesktopSidebarMode()) {
       updateToggleButtons();
       return;
     }
@@ -689,70 +658,11 @@ function initializeAdminSidebarDrawer() {
   };
 
   if (document.body.dataset.adminDrawerBound === "true") {
-    sidebar.querySelectorAll(".admin-nav-link").forEach((navLink) => {
-      if (navLink.dataset.mobileNavBound === "true") {
-        return;
-      }
-
-      navLink.dataset.mobileNavBound = "true";
-    });
     updateToggleButtons();
     return;
   }
 
   document.body.dataset.adminDrawerBound = "true";
-  let mobileNavigationInFlight = false;
-
-  const navigateMobileSidebarLink = (navLink, event) => {
-    if (!navLink || desktopMediaQuery.matches) {
-      return false;
-    }
-
-    if (mobileNavigationInFlight) {
-      event.preventDefault();
-      event.stopPropagation();
-      return true;
-    }
-
-    const destination = navLink.getAttribute("href");
-
-    if (!destination) {
-      return true;
-    }
-
-    mobileNavigationInFlight = true;
-    event.preventDefault();
-    event.stopPropagation();
-    document.body.classList.remove("admin-sidebar-open");
-    updateToggleButtons();
-    window.setTimeout(() => {
-      window.location.assign(destination);
-    }, 0);
-    return true;
-  };
-
-  const bindMobileSidebarLinks = () => {
-    sidebar.querySelectorAll(".admin-nav-link").forEach((navLink) => {
-      if (navLink.dataset.mobileNavBound === "true") {
-        return;
-      }
-
-      navLink.dataset.mobileNavBound = "true";
-
-      const handleNavigation = (event) => {
-        if (desktopMediaQuery.matches) {
-          return;
-        }
-
-        navigateMobileSidebarLink(navLink, event);
-      };
-
-      navLink.addEventListener("click", handleNavigation, true);
-      navLink.addEventListener("touchend", handleNavigation, { capture: true, passive: false });
-    });
-  };
-
-  bindMobileSidebarLinks();
 
   document.addEventListener("click", (event) => {
     const toggleButton = event.target.closest(".admin-sidebar-toggle");
@@ -767,18 +677,15 @@ function initializeAdminSidebarDrawer() {
       return;
     }
 
-    const navLink = event.target.closest(".admin-sidebar .admin-nav-link");
-
-    if (navLink) {
-      if (navigateMobileSidebarLink(navLink, event)) {
-        return;
+    if (event.target.closest(".admin-sidebar .admin-nav-link")) {
+      if (!isDesktopSidebarMode()) {
+        closeSidebar();
       }
-
       return;
     }
 
     if (
-      !desktopMediaQuery.matches &&
+      !isDesktopSidebarMode() &&
       document.body.classList.contains("admin-sidebar-open") &&
       !event.target.closest(".admin-sidebar")
     ) {
@@ -787,26 +694,10 @@ function initializeAdminSidebarDrawer() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !desktopMediaQuery.matches) {
+    if (event.key === "Escape" && !isDesktopSidebarMode()) {
       closeSidebar();
     }
   });
-
-  document.addEventListener(
-    "touchmove",
-    (event) => {
-      if (desktopMediaQuery.matches || !document.body.classList.contains("admin-sidebar-open")) {
-        return;
-      }
-
-      if (event.target.closest(".admin-sidebar")) {
-        return;
-      }
-
-      event.preventDefault();
-    },
-    { capture: true, passive: false }
-  );
 
   if (typeof desktopMediaQuery.addEventListener === "function") {
     desktopMediaQuery.addEventListener("change", syncSidebarMode);
@@ -900,12 +791,23 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
 }
 
 injectAdminSidebarLayout();
+syncAdminViewportMetrics();
 initializeAdminSidebarDrawer();
 
 window.addEventListener("load", forceHideAnyLoadingOverlay);
+window.addEventListener("load", syncAdminViewportMetrics);
+window.addEventListener("resize", syncAdminViewportMetrics);
+window.addEventListener("orientationchange", () => {
+  syncAdminViewportMetrics();
+  window.setTimeout(syncAdminViewportMetrics, 120);
+  window.setTimeout(syncAdminViewportMetrics, 360);
+});
+window.visualViewport?.addEventListener("resize", syncAdminViewportMetrics);
 window.addEventListener("pageshow", forceHideAnyLoadingOverlay);
+window.addEventListener("pageshow", syncAdminViewportMetrics);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    syncAdminViewportMetrics();
     forceHideAnyLoadingOverlay();
   }
 });
@@ -921,7 +823,6 @@ window.AdminApp = {
   formatDateTimeInBogota,
   hideLoadingOverlay,
   isUsaAdministrativeRole,
-  isUsaBrokerRole,
   loadAdminSession,
   parseMediaUrls,
   populateSelect,

@@ -26,6 +26,8 @@
   const nameInput = document.getElementById("admin-create-name");
   const emailInput = document.getElementById("admin-create-email");
   const passwordInput = document.getElementById("admin-create-password");
+  const roleRow = document.getElementById("admin-create-role-row");
+  const roleSelect = document.getElementById("admin-create-role");
   const submitButton = document.getElementById("admin-create-submit");
   const usersBody = document.getElementById("admin-users-body");
   const usersCount = document.getElementById("admin-users-count");
@@ -72,7 +74,23 @@
       return "Administrador USA";
     }
 
+    if (role === "brokerUSA") {
+      return "Broker USA";
+    }
+
     return String(role || "-");
+  }
+
+  function getRequestedAdministrativeRole() {
+    if (currentRole === "gerenteUSA") {
+      return String(roleSelect?.value || "adminUSA").trim() === "brokerUSA" ? "brokerUSA" : "adminUSA";
+    }
+
+    if (currentRole === "manager") {
+      return "admin";
+    }
+
+    return "";
   }
 
   function canManageAdministrativeUsers() {
@@ -94,7 +112,7 @@
     }
 
     if (currentRole === "gerenteUSA") {
-      return userRole === "adminUSA";
+      return ["adminUSA", "brokerUSA"].includes(userRole);
     }
 
     return false;
@@ -181,6 +199,15 @@
     if (submitButton) {
       submitButton.disabled = !canCreateAdmins;
     }
+
+    if (roleRow) {
+      roleRow.hidden = currentRole !== "gerenteUSA";
+    }
+
+    if (roleSelect) {
+      roleSelect.disabled = currentRole !== "gerenteUSA";
+      roleSelect.value = currentRole === "gerenteUSA" ? (roleSelect.value || "adminUSA") : "adminUSA";
+    }
   }
 
   createForm?.addEventListener("submit", async (event) => {
@@ -196,6 +223,7 @@
     const name = String(nameInput?.value || "").trim();
     const email = String(emailInput?.value || "").trim();
     const password = String(passwordInput?.value || "");
+    const role = getRequestedAdministrativeRole();
 
     if (!name || !email || !password) {
       setFeedback(feedback, "Completa nombre, email y contraseña.", "error");
@@ -208,12 +236,13 @@
     try {
       await fetchJson("/api/admin/users/admins", {
         method: "POST",
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, role }),
         loadingMessage: "Creando administrador...",
       });
 
       createForm.reset();
-      setFeedback(feedback, "Administrador creado correctamente.", "success");
+      updateCreateAvailability();
+      setFeedback(feedback, "Usuario administrativo creado correctamente.", "success");
       await loadAdministrativeUsers();
     } catch (error) {
       setFeedback(feedback, error.message, "error");

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Global Imports | Global Hero</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260525-feed-social11" />
+    <link rel="stylesheet" href="/client-sequoia-game.css?v=20260616-globalhero01" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: #05070d;
+      }
+
+      .sequoia-game-demo {
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+      }
+
+      #sequoia-game-root {
+        min-height: 78dvh;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sequoia-game-demo">
+      <div id="sequoia-game-root"></div>
+    </main>
+    <script src="/client-sequoia-game.js?v=20260616-globalhero01"></script>
+    <script>
+      window.SequoiaFlappyGame.mount(document.getElementById("sequoia-game-root"));
+    </script>
+  </body>
+</html>
