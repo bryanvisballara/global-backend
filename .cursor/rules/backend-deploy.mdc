@@ -1,0 +1,11 @@
+---
+description: Backend deployment workflow
+globs: src/**/*.js
+alwaysApply: false
+---
+
+# Backend Deployment Workflow
+
+When making backend changes in `src/`, finish by committing, pushing to `main`, and triggering the Render deploy hook, unless the user explicitly says not to deploy.
+
+Keep commits scoped to the backend change and avoid staging unrelated local edits.

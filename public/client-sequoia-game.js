@@ -4,6 +4,8 @@
   const COVER_URL = "/assets/global-hero-cover.png";
   const SPRITE_URL = "/assets/lion-hero-fly.png";
   const BACKGROUND_URL = "/assets/sequoia-game-bg.png";
+  const TRAFFIC_RED_URL = "/assets/srojo.png";
+  const TRAFFIC_GREEN_URL = "/assets/sverde.png";
 
   const DEFAULTS = {
     gravity: 0.42,
@@ -162,7 +164,7 @@
     ctx.restore();
   }
 
-  function drawTrafficLight(ctx, x, y, height, width) {
+  function drawFallbackTrafficLight(ctx, x, y, height, width, isGreen = false) {
     const poleWidth = Math.max(8, width * 0.18);
     const boxWidth = width;
     const boxHeight = width * 1.55;
@@ -176,7 +178,7 @@
 
     const lightRadius = boxWidth * 0.22;
     const centerX = x + boxWidth / 2;
-    const lights = ["#d62828", "#f4c430", "#2a9d4b"];
+    const lights = isGreen ? ["#3a1010", "#4d4217", "#21e06f"] : ["#ff2b2b", "#4d4217", "#0c5128"];
     lights.forEach((color, index) => {
       ctx.beginPath();
       ctx.fillStyle = color;
@@ -186,6 +188,35 @@
       ctx.lineWidth = 1;
       ctx.stroke();
     });
+  }
+
+  function drawTrafficLight(ctx, image, x, y, height, width, options = {}) {
+    const { flipped = false, isGreen = false } = options;
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      drawFallbackTrafficLight(ctx, x, y, height, width, isGreen);
+      return;
+    }
+
+    const drawWidth = width;
+    const drawHeight = drawWidth * (image.naturalHeight / image.naturalWidth);
+    const drawX = x;
+    const drawY = flipped ? y + height - drawHeight : y;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - width * 0.12, y, width * 1.24, height);
+    ctx.clip();
+
+    if (flipped) {
+      ctx.translate(drawX, y + height);
+      ctx.scale(1, -1);
+      ctx.drawImage(image, 0, 0, drawWidth, drawHeight);
+    } else {
+      ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    }
+
+    ctx.restore();
   }
 
   function createGame(root, options = {}) {
@@ -208,6 +239,10 @@
     sprite.src = SPRITE_URL;
     const background = new Image();
     background.src = BACKGROUND_URL;
+    const trafficRed = new Image();
+    trafficRed.src = TRAFFIC_RED_URL;
+    const trafficGreen = new Image();
+    trafficGreen.src = TRAFFIC_GREEN_URL;
 
     let width = 360;
     let height = 640;
@@ -332,8 +367,14 @@
         const topHeight = pipe.gapY;
         const bottomY = pipe.gapY + DEFAULTS.pipeGap;
         const bottomHeight = height - DEFAULTS.groundHeight - bottomY;
-        drawTrafficLight(ctx, pipe.x, 0, topHeight, DEFAULTS.pipeWidth);
-        drawTrafficLight(ctx, pipe.x, bottomY, bottomHeight, DEFAULTS.pipeWidth);
+        const trafficImage = pipe.passed ? trafficGreen : trafficRed;
+        drawTrafficLight(ctx, trafficImage, pipe.x, 0, topHeight, DEFAULTS.pipeWidth, {
+          flipped: true,
+          isGreen: pipe.passed,
+        });
+        drawTrafficLight(ctx, trafficImage, pipe.x, bottomY, bottomHeight, DEFAULTS.pipeWidth, {
+          isGreen: pipe.passed,
+        });
       });
     }
 
@@ -511,6 +552,14 @@
       if (mounted) {
         render();
       }
+    });
+
+    [trafficRed, trafficGreen].forEach((image) => {
+      image.addEventListener("load", () => {
+        if (mounted) {
+          render();
+        }
+      });
     });
 
     resize();
