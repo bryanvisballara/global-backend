@@ -9,6 +9,7 @@
   const FLAP_SOUND_URL = "/assets/global-hero-flap.wav?v=20260616-flapsound02";
   const PASS_SOUND_URL = "/assets/global-hero-pass.mp3?v=20260616-passsound01";
   const PLAY_SOUND_URL = "/assets/0414.WAV?v=20260616-playsound02";
+  const LOSE_SOUND_URL = "/assets/global-hero-gameover.mp3?v=20260616-losesound01";
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   let sharedAudioContext = null;
@@ -184,6 +185,7 @@
   let sharedFlapSound = null;
   let sharedPassSound = null;
   let sharedPlaySound = null;
+  let sharedLoseSound = null;
 
   function getFlapSoundPlayer() {
     if (!sharedFlapSound) {
@@ -209,6 +211,14 @@
     return sharedPlaySound;
   }
 
+  function getLoseSoundPlayer() {
+    if (!sharedLoseSound) {
+      sharedLoseSound = createGameSoundPlayer(LOSE_SOUND_URL, 0.9);
+    }
+
+    return sharedLoseSound;
+  }
+
   function preloadAllGameSounds() {
     const playSound = getPlaySoundPlayer();
     playSound.unlock();
@@ -217,6 +227,7 @@
       playSound.whenReady(),
       getFlapSoundPlayer().unlock(),
       getPassSoundPlayer().unlock(),
+      getLoseSoundPlayer().unlock(),
     ]).catch(() => null);
   }
 
@@ -466,6 +477,10 @@
       getPassSoundPlayer().play();
     }
 
+    function playLoseSound() {
+      getLoseSoundPlayer().play();
+    }
+
     let width = 360;
     let height = 640;
     let dpr = 1;
@@ -631,17 +646,17 @@
       }
     }
 
-    function hitTest() {
-      const carBox = {
+    function getCarBox() {
+      return {
         x: state.car.x + 16,
         y: state.car.y - state.car.h * 0.32,
         w: state.car.w - 28,
         h: state.car.h * 0.58,
       };
+    }
 
-      if (carBox.y <= 0 || carBox.y + carBox.h >= height - DEFAULTS.groundHeight) {
-        return true;
-      }
+    function hitSemaphore() {
+      const carBox = getCarBox();
 
       return state.pipes.some((pipe) => {
         const pipeBox = { x: pipe.x, w: DEFAULTS.pipeWidth };
@@ -650,6 +665,16 @@
         const hitsBottom = carBox.y + carBox.h > pipe.gapY + DEFAULTS.pipeGap;
         return overlapsX && (hitsTop || hitsBottom);
       });
+    }
+
+    function hitTest() {
+      const carBox = getCarBox();
+
+      if (carBox.y <= 0 || carBox.y + carBox.h >= height - DEFAULTS.groundHeight) {
+        return true;
+      }
+
+      return hitSemaphore();
     }
 
     function endGame() {
@@ -718,6 +743,10 @@
       state.pipes = state.pipes.filter((pipe) => pipe.x + DEFAULTS.pipeWidth > -20);
 
       if (hitTest()) {
+        if (hitSemaphore()) {
+          playLoseSound();
+        }
+
         endGame();
       }
     }
@@ -956,6 +985,7 @@
         playSound.play();
         void getFlapSoundPlayer().unlock();
         void getPassSoundPlayer().unlock();
+        void getLoseSoundPlayer().unlock();
         startGame();
       })();
     });
