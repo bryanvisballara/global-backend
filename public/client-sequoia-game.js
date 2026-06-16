@@ -7,12 +7,13 @@
   const TRAFFIC_RED_URL = "/assets/srojo.png";
   const TRAFFIC_GREEN_URL = "/assets/sverde.png";
   const FLAP_SOUND_URL = "/assets/global-hero-flap.wav?v=20260616-flapsound02";
+  const PASS_SOUND_URL = "/assets/global-hero-pass.mp3?v=20260616-passsound01";
 
-  function createFlapSoundPlayer(soundUrl) {
+  function createGameSoundPlayer(soundUrl, volume = 0.85) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let audioContext = null;
     let gainNode = null;
-    let flapBuffer = null;
+    let soundBuffer = null;
     let loadPromise = null;
     let fallbackPool = [];
     let fallbackPoolIndex = 0;
@@ -25,7 +26,7 @@
       if (!audioContext) {
         audioContext = new AudioContextClass();
         gainNode = audioContext.createGain();
-        gainNode.gain.value = 0.85;
+        gainNode.gain.value = volume;
         gainNode.connect(audioContext.destination);
       }
 
@@ -70,7 +71,7 @@
           return context.decodeAudioData(arrayBuffer.slice(0));
         })
         .then((buffer) => {
-          flapBuffer = buffer;
+          soundBuffer = buffer;
           return buffer;
         })
         .catch(() => null);
@@ -92,13 +93,13 @@
     }
 
     function playBuffer() {
-      if (!audioContext || !flapBuffer || !gainNode) {
+      if (!audioContext || !soundBuffer || !gainNode) {
         playFallback();
         return;
       }
 
       const source = audioContext.createBufferSource();
-      source.buffer = flapBuffer;
+      source.buffer = soundBuffer;
       source.connect(gainNode);
       source.start(0);
     }
@@ -106,7 +107,7 @@
     function play() {
       const context = ensureContext();
 
-      if (!context || !flapBuffer) {
+      if (!context || !soundBuffer) {
         playFallback();
         return;
       }
@@ -126,7 +127,7 @@
         await context.resume().catch(() => {});
       }
 
-      if (!flapBuffer) {
+      if (!soundBuffer) {
         await loadSound();
       }
     }
@@ -137,13 +138,22 @@
   }
 
   let sharedFlapSound = null;
+  let sharedPassSound = null;
 
   function getFlapSoundPlayer() {
     if (!sharedFlapSound) {
-      sharedFlapSound = createFlapSoundPlayer(FLAP_SOUND_URL);
+      sharedFlapSound = createGameSoundPlayer(FLAP_SOUND_URL, 0.85);
     }
 
     return sharedFlapSound;
+  }
+
+  function getPassSoundPlayer() {
+    if (!sharedPassSound) {
+      sharedPassSound = createGameSoundPlayer(PASS_SOUND_URL, 0.9);
+    }
+
+    return sharedPassSound;
   }
 
   const DEFAULTS = {
@@ -385,7 +395,11 @@
     const flapSound = getFlapSoundPlayer();
 
     function playFlapSound() {
-      flapSound.play();
+      getFlapSoundPlayer().play();
+    }
+
+    function playPassSound() {
+      getPassSoundPlayer().play();
     }
 
     let width = 360;
@@ -633,6 +647,7 @@
         if (!pipe.passed && pipe.x + DEFAULTS.pipeWidth < state.car.x) {
           pipe.passed = true;
           state.score += 1;
+          playPassSound();
         }
       });
 
@@ -671,6 +686,7 @@
 
       event.preventDefault();
       flapSound.unlock();
+      getPassSoundPlayer().unlock();
       flap();
     }
 
@@ -678,6 +694,7 @@
       if (event.code === "Space" || event.code === "ArrowUp") {
         event.preventDefault();
         flapSound.unlock();
+        getPassSoundPlayer().unlock();
         flap();
       }
     }
@@ -819,6 +836,7 @@
     let activeScreen = "menu";
     let gameInstance = null;
     void getFlapSoundPlayer().unlock();
+    void getPassSoundPlayer().unlock();
 
     function showScreen(screenName) {
       activeScreen = screenName;
@@ -870,6 +888,7 @@
 
     playButton.addEventListener("click", () => {
       void getFlapSoundPlayer().unlock();
+      void getPassSoundPlayer().unlock();
       startGame();
     });
 
