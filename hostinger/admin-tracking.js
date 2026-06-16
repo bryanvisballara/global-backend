@@ -235,14 +235,10 @@ function normalizeRole(role) {
 }
 
 function isOrderCompleted(order) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
-  }
-
   const lastTemplate = adminTrackingTemplates[adminTrackingTemplates.length - 1];
 
   if (!lastTemplate) {
-    return false;
+    return String(order?.status || "").trim().toLowerCase() === "completed";
   }
 
   const latestLastStageEvent = getOrderTrackingEvents(order)
@@ -254,10 +250,27 @@ function isOrderCompleted(order) {
 
       const eventTime = new Date(event.updatedAt || event.createdAt || 0).getTime();
       const latestTime = new Date(latestEvent.updatedAt || latestEvent.createdAt || 0).getTime();
-      return eventTime >= latestTime ? event : latestEvent;
+
+      if (eventTime !== latestTime) {
+        return eventTime > latestTime ? event : latestEvent;
+      }
+
+      if (event.completed && !latestEvent.completed) {
+        return event;
+      }
+
+      if (latestEvent.completed && !event.completed) {
+        return latestEvent;
+      }
+
+      return event;
     }, null);
 
-  return Boolean(latestLastStageEvent?.completed);
+  if (latestLastStageEvent) {
+    return Boolean(latestLastStageEvent.completed);
+  }
+
+  return String(order?.status || "").trim().toLowerCase() === "completed";
 }
 
 function formatDateTimeLabel(value) {
@@ -1121,14 +1134,10 @@ function getLatestUpdate(step) {
 }
 
 function isTrackingTimelineFullyComplete(order, trackingEvents = []) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
-  }
-
   const lastTemplateKey = adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key;
 
   if (!lastTemplateKey) {
-    return false;
+    return String(order?.status || "").trim().toLowerCase() === "completed";
   }
 
   const latestLastStageEvent = (Array.isArray(trackingEvents) ? trackingEvents : [])
@@ -1156,7 +1165,11 @@ function isTrackingTimelineFullyComplete(order, trackingEvents = []) {
       return event;
     }, null);
 
-  return Boolean(latestLastStageEvent?.completed);
+  if (latestLastStageEvent) {
+    return Boolean(latestLastStageEvent.completed);
+  }
+
+  return String(order?.status || "").trim().toLowerCase() === "completed";
 }
 
 function applyTrackingProgressionModel(steps, order = null, trackingEvents = []) {
@@ -1365,9 +1378,10 @@ function getOrderTrackingSteps(order) {
       ? false
       : Boolean(
           hasExplicitReopenState
+          || latestUpdate?.inProgress
           || (typeof sourceStep?.inProgress === "boolean"
             ? sourceStep.inProgress
-            : latestUpdate?.inProgress)
+            : false)
         );
 
     return {

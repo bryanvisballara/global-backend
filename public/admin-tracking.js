@@ -707,14 +707,10 @@ function isAnthonyGlobalOwner() {
 }
 
 function isOrderCompleted(order) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
-  }
-
   const lastTemplate = adminTrackingTemplates[adminTrackingTemplates.length - 1];
 
   if (!lastTemplate) {
-    return false;
+    return String(order?.status || "").trim().toLowerCase() === "completed";
   }
 
   const latestLastStageEvent = getOrderTrackingEvents(order)
@@ -742,7 +738,11 @@ function isOrderCompleted(order) {
       return event;
     }, null);
 
-  return Boolean(latestLastStageEvent?.completed);
+  if (latestLastStageEvent) {
+    return Boolean(latestLastStageEvent.completed);
+  }
+
+  return String(order?.status || "").trim().toLowerCase() === "completed";
 }
 
 function isOrderInCompletedStage(order) {
@@ -934,14 +934,10 @@ function getLatestUpdate(step) {
 }
 
 function isTrackingTimelineFullyComplete(order, trackingEvents = []) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
-  }
-
   const lastTemplateKey = adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key;
 
   if (!lastTemplateKey) {
-    return false;
+    return String(order?.status || "").trim().toLowerCase() === "completed";
   }
 
   const latestLastStageEvent = (Array.isArray(trackingEvents) ? trackingEvents : [])
@@ -969,7 +965,11 @@ function isTrackingTimelineFullyComplete(order, trackingEvents = []) {
       return event;
     }, null);
 
-  return Boolean(latestLastStageEvent?.completed);
+  if (latestLastStageEvent) {
+    return Boolean(latestLastStageEvent.completed);
+  }
+
+  return String(order?.status || "").trim().toLowerCase() === "completed";
 }
 
 function applyTrackingProgressionModel(steps, order = null, trackingEvents = []) {
@@ -1178,9 +1178,10 @@ function getOrderTrackingSteps(order) {
       ? false
       : Boolean(
           hasExplicitReopenState
+          || latestUpdate?.inProgress
           || (typeof sourceStep?.inProgress === "boolean"
             ? sourceStep.inProgress
-            : latestUpdate?.inProgress)
+            : false)
         );
 
     return {

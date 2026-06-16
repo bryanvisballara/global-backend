@@ -290,10 +290,6 @@ function reconcileCollectionTrackingProgression(steps = []) {
     }
   });
 
-  if (steps.every((step) => Boolean(step?.confirmed))) {
-    return steps;
-  }
-
   if (activeIndex < 0) {
     return steps;
   }
