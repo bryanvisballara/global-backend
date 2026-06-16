@@ -3712,7 +3712,7 @@ function setActiveView(viewName, options = {}) {
   if (nextViewName === "sequoia-game") {
     window.SequoiaFlappyGame?.mount(sequoiaGameRoot, {
       authenticated: true,
-      playerName: state.user?.name || "",
+      getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
     });
     window.SequoiaFlappyGame?.resume();
   } else {

@@ -61,12 +61,26 @@
   }
 
   function resolvePlayerName(options = {}) {
-    const storedName = String(localStorage.getItem(PLAYER_NAME_KEY) || "").trim();
+    const token = getAuthToken();
+
+    if (options.authenticated && token) {
+      return "";
+    }
+
+    if (typeof options.getPlayerName === "function") {
+      const callbackName = String(options.getPlayerName() || "").trim();
+      if (callbackName) {
+        return callbackName.slice(0, 80);
+      }
+    }
+
     const optionName = String(options.playerName || "").trim();
 
     if (optionName) {
       return optionName.slice(0, 80);
     }
+
+    const storedName = String(localStorage.getItem(PLAYER_NAME_KEY) || "").trim();
 
     if (storedName) {
       return storedName.slice(0, 80);
@@ -634,7 +648,10 @@
     }
 
     function startGame() {
-      if (!options.authenticated || !options.playerName) {
+      const token = getAuthToken();
+      const isAuthenticatedSession = Boolean(options.authenticated && token);
+
+      if (!isAuthenticatedSession) {
         resolvePlayerName(options);
       }
 
