@@ -8,30 +8,61 @@
   const TRAFFIC_GREEN_URL = "/assets/sverde.png";
   const FLAP_SOUND_URL = "/assets/global-hero-flap.wav?v=20260616-flapsound02";
   const PASS_SOUND_URL = "/assets/global-hero-pass.mp3?v=20260616-passsound01";
-  const PLAY_SOUND_URL = "/assets/0414.WAV?v=20260616-playsound01";
+  const PLAY_SOUND_URL = "/assets/0414.WAV?v=20260616-playsound02";
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  let sharedAudioContext = null;
+
+  function getSharedAudioContext() {
+    if (!AudioContextClass) {
+      return null;
+    }
+
+    if (!sharedAudioContext) {
+      sharedAudioContext = new AudioContextClass();
+    }
+
+    return sharedAudioContext;
+  }
+
+  async function unlockSharedAudioContext() {
+    const context = getSharedAudioContext();
+
+    if (!context) {
+      return;
+    }
+
+    if (context.state === "suspended") {
+      await context.resume().catch(() => {});
+    }
+  }
 
   function createGameSoundPlayer(soundUrl, volume = 0.85) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    let audioContext = null;
     let gainNode = null;
     let soundBuffer = null;
     let loadPromise = null;
     let fallbackPool = [];
     let fallbackPoolIndex = 0;
 
+    function ensureGainNode(context) {
+      if (!gainNode) {
+        gainNode = context.createGain();
+        gainNode.gain.value = volume;
+        gainNode.connect(context.destination);
+      }
+
+      return gainNode;
+    }
+
     function ensureContext() {
-      if (!AudioContextClass) {
+      const context = getSharedAudioContext();
+
+      if (!context) {
         return null;
       }
 
-      if (!audioContext) {
-        audioContext = new AudioContextClass();
-        gainNode = audioContext.createGain();
-        gainNode.gain.value = volume;
-        gainNode.connect(audioContext.destination);
-      }
-
-      return audioContext;
+      ensureGainNode(context);
+      return context;
     }
 
     function ensureFallbackPool() {
@@ -94,27 +125,39 @@
     }
 
     function playBuffer() {
-      if (!audioContext || !soundBuffer || !gainNode) {
+      if (!soundBuffer || !gainNode) {
         playFallback();
         return;
       }
 
-      const source = audioContext.createBufferSource();
+      const context = getSharedAudioContext();
+
+      if (!context) {
+        playFallback();
+        return;
+      }
+
+      const source = context.createBufferSource();
       source.buffer = soundBuffer;
       source.connect(gainNode);
       source.start(0);
     }
 
     function play() {
+      if (!soundBuffer) {
+        playFallback();
+        return;
+      }
+
       const context = ensureContext();
 
-      if (!context || !soundBuffer) {
+      if (!context) {
         playFallback();
         return;
       }
 
       if (context.state === "suspended") {
-        context.resume().then(playBuffer).catch(playFallback);
+        void context.resume().then(playBuffer).catch(playFallback);
         return;
       }
 
@@ -122,20 +165,20 @@
     }
 
     async function unlock() {
-      const context = ensureContext();
-
-      if (context && context.state === "suspended") {
-        await context.resume().catch(() => {});
-      }
+      await unlockSharedAudioContext();
 
       if (!soundBuffer) {
         await loadSound();
       }
     }
 
+    function whenReady() {
+      return loadPromise || Promise.resolve(soundBuffer);
+    }
+
     loadSound();
 
-    return { play, unlock };
+    return { play, unlock, whenReady };
   }
 
   let sharedFlapSound = null;
@@ -164,6 +207,17 @@
     }
 
     return sharedPlaySound;
+  }
+
+  function preloadAllGameSounds() {
+    const playSound = getPlaySoundPlayer();
+    playSound.unlock();
+
+    return Promise.all([
+      playSound.whenReady(),
+      getFlapSoundPlayer().unlock(),
+      getPassSoundPlayer().unlock(),
+    ]).catch(() => null);
   }
 
   const DEFAULTS = {
@@ -845,9 +899,7 @@
 
     let activeScreen = "menu";
     let gameInstance = null;
-    void getFlapSoundPlayer().unlock();
-    void getPassSoundPlayer().unlock();
-    void getPlaySoundPlayer().unlock();
+    void preloadAllGameSounds();
 
     function showScreen(screenName) {
       activeScreen = screenName;
@@ -898,11 +950,14 @@
     }
 
     playButton.addEventListener("click", () => {
-      void getFlapSoundPlayer().unlock();
-      void getPassSoundPlayer().unlock();
-      void getPlaySoundPlayer().unlock();
-      getPlaySoundPlayer().play();
-      startGame();
+      void (async () => {
+        const playSound = getPlaySoundPlayer();
+        await playSound.unlock();
+        playSound.play();
+        void getFlapSoundPlayer().unlock();
+        void getPassSoundPlayer().unlock();
+        startGame();
+      })();
     });
 
     rankingButton.addEventListener("click", () => {
