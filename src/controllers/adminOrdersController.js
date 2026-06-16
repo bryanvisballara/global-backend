@@ -1635,12 +1635,20 @@ function syncTrackingStepProgression(steps = [], preferredActiveIndex = -1) {
   }
 
   steps.forEach((item, index) => {
-    if (item.confirmed) {
+    if (index < resolvedActiveIndex) {
+      item.confirmed = true;
       item.inProgress = false;
       return;
     }
 
-    item.inProgress = index === resolvedActiveIndex;
+    if (index === resolvedActiveIndex) {
+      item.confirmed = false;
+      item.inProgress = true;
+      return;
+    }
+
+    item.confirmed = false;
+    item.inProgress = false;
   });
 
   return steps;
@@ -3171,6 +3179,20 @@ async function transitionTrackingState(req, res) {
         completed: true,
         timestamp: now,
       });
+
+      await createTrackingEvent({
+        orderId: order._id,
+        orderRegion: orderResult.region,
+        stepKey: currentStep.key,
+        title: `Etapa completada al avanzar a E${targetStepIndex + 1} — ${targetStateMeta.label}`,
+        location: transitionLocation,
+        notes: `La etapa ${currentStateMeta.label} se completo al avanzar el pedido.`,
+        media: [],
+        clientVisible: false,
+        inProgress: false,
+        completed: true,
+        timestamp: now,
+      });
     } else {
       for (let stepIndex = targetStepIndex + 1; stepIndex <= currentStepIndex; stepIndex += 1) {
         const step = order.trackingSteps[stepIndex];
@@ -3214,7 +3236,7 @@ async function transitionTrackingState(req, res) {
       clientVisible: direction === "next",
       inProgress: true,
       completed: false,
-      timestamp: now,
+      timestamp: direction === "next" ? new Date(now.getTime() + 1000) : now,
     });
 
     order.trackingSteps = await buildHydratedTrackingSteps(order.trackingSteps || [], order._id, orderResult.region, {
