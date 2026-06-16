@@ -241,28 +241,28 @@ function normalizeRole(role) {
 }
 
 function isOrderCompleted(order) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
-  }
+  const trackingEvents = getOrderTrackingEvents(order);
+  const hasActiveProgressEvent = trackingEvents.some((event) => event.inProgress && !event.completed);
 
-  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
-}
-
-function isOrderInCompletedStage(order) {
-  if (isOrderCompleted(order)) {
-    return true;
-  }
-
-  const rawTrackingSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
-
-  if (rawTrackingSteps.length < adminTrackingTemplates.length) {
+  if (hasActiveProgressEvent) {
     return false;
   }
 
+  const rawSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+
+  if (rawSteps.length < adminTrackingTemplates.length) {
+    return String(order?.status || "").trim().toLowerCase() === "completed";
+  }
+
   return adminTrackingTemplates.every((template, index) => {
-    const step = rawTrackingSteps.find((item) => String(item?.key || "") === template.key) || rawTrackingSteps[index] || null;
+    const step = rawSteps.find((item) => String(item?.key || "") === template.key) || rawSteps[index] || null;
     return Boolean(step?.confirmed);
   });
+}
+
+function isOrderInCompletedStage(order) {
+  const steps = getOrderTrackingSteps(order);
+  return steps.length >= adminTrackingTemplates.length && steps.every((step) => Boolean(step?.confirmed));
 }
 
 function formatDateTimeLabel(value) {
@@ -1193,7 +1193,6 @@ function getOrderTrackingSteps(order) {
   const stepsByKey = new Map(orderSteps.map((step, index) => [String(step?.key || adminTrackingTemplates[index]?.key || ""), step]));
   const trackingEvents = getOrderTrackingEvents(order);
   const trackingEventsByKey = new Map();
-  const isCompletedOrder = isOrderCompleted(order);
 
   trackingEvents.forEach((event) => {
     if (!trackingEventsByKey.has(event.stateKey)) {
@@ -1246,9 +1245,14 @@ function getOrderTrackingSteps(order) {
     const derivedConfirmed = hasExplicitReopenState
       ? false
       : Boolean(
-          (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
-          || lastCompletedUpdate
-          || latestUpdate?.completed
+          latestUpdate?.completed
+          || (
+            !latestUpdate
+            && (
+              (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
+              || lastCompletedUpdate
+            )
+          )
         );
     const derivedInProgress = derivedConfirmed
       ? false
@@ -1263,11 +1267,11 @@ function getOrderTrackingSteps(order) {
       key: template.key,
       label: String(sourceStep?.label || template.label),
       updates,
-      confirmed: isCompletedOrder ? true : derivedConfirmed,
-      inProgress: isCompletedOrder ? false : derivedInProgress,
+      confirmed: derivedConfirmed,
+      inProgress: derivedInProgress,
       clientVisible: updates.some((item) => item.clientVisible),
       updatedAt: sourceStep?.updatedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
-      confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || (isCompletedOrder ? order?.updatedAt || order?.createdAt || null : null),
+      confirmedAt: sourceStep?.confirmedAt || lastCompletedUpdate?.updatedAt || lastCompletedUpdate?.createdAt || null,
       notes: normalizeText(sourceStep?.notes || latestUpdate?.notes || ""),
       media: Array.isArray(sourceStep?.media) ? sourceStep.media.filter((item) => item?.url) : [],
     };
@@ -1298,7 +1302,8 @@ function getOrderTrackingSteps(order) {
       } else if (index === latestEventActiveIndex) {
         step.confirmed = false;
         step.inProgress = true;
-      } else if (!step.confirmed) {
+      } else {
+        step.confirmed = false;
         step.inProgress = false;
       }
     });
@@ -1309,15 +1314,6 @@ function getOrderTrackingSteps(order) {
     : normalizedSteps.findIndex((step) => step.inProgress && !step.confirmed);
   const fallbackActiveIndex = normalizedSteps.findIndex((step) => !step.confirmed);
   const activeIndex = explicitActiveIndex >= 0 ? explicitActiveIndex : fallbackActiveIndex;
-
-  if (isCompletedOrder) {
-    return normalizedSteps.map((step) => ({
-      ...step,
-      confirmed: true,
-      inProgress: false,
-      confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
-    }));
-  }
 
   return normalizedSteps.map((step, index) => ({
     ...step,
@@ -1447,7 +1443,7 @@ function getTimelineSteps(order) {
     {
       key: COMPLETED_TIMELINE_STAGE.key,
       label: COMPLETED_TIMELINE_STAGE.label,
-      confirmed: allTrackingStepsCompleted || isOrderCompleted(order),
+      confirmed: allTrackingStepsCompleted,
       inProgress: false,
     },
   ];

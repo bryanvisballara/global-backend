@@ -707,20 +707,28 @@ function isAnthonyGlobalOwner() {
 }
 
 function isOrderCompleted(order) {
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
-    return true;
+  const trackingEvents = getOrderTrackingEvents(order);
+  const hasActiveProgressEvent = trackingEvents.some((event) => event.inProgress && !event.completed);
+
+  if (hasActiveProgressEvent) {
+    return false;
   }
 
-  return getOrderTrackingEvents(order).some((event) => event.completed && event.stateIndex === adminTrackingTemplates.length - 1);
+  const rawSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
+
+  if (rawSteps.length < adminTrackingTemplates.length) {
+    return String(order?.status || "").trim().toLowerCase() === "completed";
+  }
+
+  return adminTrackingTemplates.every((template, index) => {
+    const step = rawSteps.find((item) => String(item?.key || "") === template.key) || rawSteps[index] || null;
+    return Boolean(step?.confirmed);
+  });
 }
 
 function isOrderInCompletedStage(order) {
-  if (isOrderCompleted(order)) {
-    return true;
-  }
-
-  const trackingSteps = getOrderTrackingSteps(order);
-  return trackingSteps.length === adminTrackingTemplates.length && trackingSteps.every((step) => step.confirmed);
+  const steps = getOrderTrackingSteps(order);
+  return steps.length >= adminTrackingTemplates.length && steps.every((step) => Boolean(step?.confirmed));
 }
 
 function hasGlobalLatamOrderPrivileges() {
@@ -1001,9 +1009,14 @@ function getOrderTrackingSteps(order) {
     const derivedConfirmed = hasExplicitReopenState
       ? false
       : Boolean(
-          (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
-          || lastCompletedUpdate
-          || latestUpdate?.completed
+          latestUpdate?.completed
+          || (
+            !latestUpdate
+            && (
+              (typeof sourceStep?.confirmed === "boolean" && sourceStep.confirmed)
+              || lastCompletedUpdate
+            )
+          )
         );
     const derivedInProgress = derivedConfirmed
       ? false
@@ -1053,7 +1066,8 @@ function getOrderTrackingSteps(order) {
       } else if (index === latestEventActiveIndex) {
         step.confirmed = false;
         step.inProgress = true;
-      } else if (!step.confirmed) {
+      } else {
+        step.confirmed = false;
         step.inProgress = false;
       }
     });
