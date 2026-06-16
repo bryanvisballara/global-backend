@@ -726,7 +726,20 @@ function isOrderCompleted(order) {
 
       const eventTime = new Date(getOriginalDate(event) || 0).getTime();
       const latestTime = new Date(getOriginalDate(latestEvent) || 0).getTime();
-      return eventTime >= latestTime ? event : latestEvent;
+
+      if (eventTime !== latestTime) {
+        return eventTime > latestTime ? event : latestEvent;
+      }
+
+      if (event.completed && !latestEvent.completed) {
+        return event;
+      }
+
+      if (latestEvent.completed && !event.completed) {
+        return latestEvent;
+      }
+
+      return event;
     }, null);
 
   return Boolean(latestLastStageEvent?.completed);
@@ -896,13 +909,77 @@ function getLatestUpdate(step) {
     const latestTime = new Date(latestUpdate.updatedAt || latestUpdate.createdAt || 0).getTime();
     const currentTime = new Date(currentUpdate.updatedAt || currentUpdate.createdAt || 0).getTime();
 
-    return currentTime >= latestTime ? currentUpdate : latestUpdate;
+    if (currentTime > latestTime) {
+      return currentUpdate;
+    }
+
+    if (currentTime < latestTime) {
+      return latestUpdate;
+    }
+
+    if (currentUpdate.completed && !latestUpdate.completed) {
+      return currentUpdate;
+    }
+
+    if (latestUpdate.completed && !currentUpdate.completed) {
+      return latestUpdate;
+    }
+
+    return currentUpdate;
   }, null);
 }
 
-function applyTrackingProgressionModel(steps, order = null) {
+function isTrackingTimelineFullyComplete(order, trackingEvents = []) {
+  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+    return true;
+  }
+
+  const lastTemplateKey = adminTrackingTemplates[adminTrackingTemplates.length - 1]?.key;
+
+  if (!lastTemplateKey) {
+    return false;
+  }
+
+  const latestLastStageEvent = (Array.isArray(trackingEvents) ? trackingEvents : [])
+    .filter((event) => event.stateKey === lastTemplateKey)
+    .reduce((latestEvent, event) => {
+      if (!latestEvent) {
+        return event;
+      }
+
+      const eventTime = new Date(getOriginalDate(event) || 0).getTime();
+      const latestTime = new Date(getOriginalDate(latestEvent) || 0).getTime();
+
+      if (eventTime !== latestTime) {
+        return eventTime > latestTime ? event : latestEvent;
+      }
+
+      if (event.completed && !latestEvent.completed) {
+        return event;
+      }
+
+      if (latestEvent.completed && !event.completed) {
+        return latestEvent;
+      }
+
+      return event;
+    }, null);
+
+  return Boolean(latestLastStageEvent?.completed);
+}
+
+function applyTrackingProgressionModel(steps, order = null, trackingEvents = []) {
   if (!Array.isArray(steps) || !steps.length) {
     return steps;
+  }
+
+  if (isTrackingTimelineFullyComplete(order, trackingEvents)) {
+    return steps.map((step) => ({
+      ...step,
+      confirmed: true,
+      inProgress: false,
+      confirmedAt: step.confirmedAt || order?.updatedAt || order?.createdAt || null,
+    }));
   }
 
   const lastStep = steps[steps.length - 1];
@@ -1074,7 +1151,8 @@ function getOrderTrackingSteps(order) {
     const hasEventUpdates = eventUpdates.length > 0;
     const latestUpdate = getLatestUpdate({ updates });
     const lastCompletedUpdate = [...updates].reverse().find((item) => item.completed) || null;
-    const hasExplicitReopenState = typeof sourceStep?.confirmed === "boolean"
+    const hasExplicitReopenState = !latestUpdate?.completed
+      && typeof sourceStep?.confirmed === "boolean"
       && sourceStep.confirmed === false
       && Boolean(
         (typeof sourceStep?.inProgress === "boolean" && sourceStep.inProgress)
@@ -1115,7 +1193,7 @@ function getOrderTrackingSteps(order) {
     };
   });
 
-  if (String(order?.status || "").trim().toLowerCase() === "completed") {
+  if (isTrackingTimelineFullyComplete(order, trackingEvents)) {
     return normalizedSteps.map((step) => ({
       ...step,
       confirmed: true,
@@ -1124,7 +1202,7 @@ function getOrderTrackingSteps(order) {
     }));
   }
 
-  return applyTrackingProgressionModel(normalizedSteps, order);
+  return applyTrackingProgressionModel(normalizedSteps, order, trackingEvents);
 }
 
 function getSelectedOrder() {
@@ -1238,6 +1316,22 @@ function getCurrentStageMeta(order) {
     code: getStateCode(stageIndex),
     label: String(adminTrackingTemplates[stageIndex]?.label || "Estado"),
   };
+}
+
+function getTimelineSteps(order) {
+  const trackingEvents = getOrderTrackingEvents(order);
+  const steps = getOrderTrackingSteps(order);
+  const allTrackingStepsCompleted = isTrackingTimelineFullyComplete(order, trackingEvents);
+
+  return [
+    ...steps,
+    {
+      key: COMPLETED_TIMELINE_STAGE.key,
+      label: COMPLETED_TIMELINE_STAGE.label,
+      confirmed: allTrackingStepsCompleted,
+      inProgress: false,
+    },
+  ];
 }
 
 function getTransitionHelperCopy(order, currentStageMeta) {
@@ -2413,7 +2507,7 @@ function renderTrackingOverview(order) {
     return;
   }
 
-  const states = getOrderTrackingSteps(order);
+  const states = getTimelineSteps(order);
 
   trackingPreview.innerHTML = `
     <div class="tracking-overview-stack">
@@ -3243,7 +3337,12 @@ async function finalizeSelectedOrder() {
     method: "PATCH",
   });
 
-  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
+  const finalizedOrder = {
+    ...(response.order || {}),
+    status: "completed",
+  };
+
+  orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(finalizedOrder) ? finalizedOrder : order));
   renderOrderSummary(getSelectedOrder());
   renderStates();
   renderSearchResults(getFilteredOrders());

@@ -235,9 +235,26 @@ function getLatestUpdate(updates = [], matcher = null) {
         return currentUpdate;
       }
 
-      return getUpdateTimestamp(currentUpdate) >= getUpdateTimestamp(latestUpdate)
-        ? currentUpdate
-        : latestUpdate;
+      const latestTime = getUpdateTimestamp(latestUpdate);
+      const currentTime = getUpdateTimestamp(currentUpdate);
+
+      if (currentTime > latestTime) {
+        return currentUpdate;
+      }
+
+      if (currentTime < latestTime) {
+        return latestUpdate;
+      }
+
+      if (currentUpdate.completed && !latestUpdate.completed) {
+        return currentUpdate;
+      }
+
+      if (latestUpdate.completed && !currentUpdate.completed) {
+        return latestUpdate;
+      }
+
+      return currentUpdate;
     }, null);
 }
 
