@@ -37,8 +37,7 @@ function resolveApiBaseUrl() {
 
 function resolveAppPagePath(pageName = "") {
   const normalizedPageName = String(pageName || "").trim().replace(/^\/+/, "");
-  const isEmbeddedAppPage = String(window.location.pathname || "").startsWith("/");
-  return `${isEmbeddedAppPage ? "/app" : ""}/${normalizedPageName}`;
+  return `/${normalizedPageName}`;
 }
 
 function isAdministrativeRole(role = "") {
