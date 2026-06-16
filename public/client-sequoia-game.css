@@ -4,6 +4,11 @@
   min-height: calc(100dvh - 120px);
 }
 
+.client-stage:has(.sequoia-game-view.is-active) .client-hero,
+.client-stage:has(.sequoia-game-view.is-active) #feed-refresh-indicator {
+  display: none;
+}
+
 .sequoia-game-view .client-section-head {
   display: none;
 }
