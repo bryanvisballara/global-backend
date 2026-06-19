@@ -1,3 +1,5 @@
+const GLOBAL_HERO_GAME_ENABLED = false;
+
 function resolveApiBaseUrl() {
   const { origin, hostname } = window.location;
 
@@ -106,7 +108,11 @@ installZoomGuards();
 
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
-  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso", "sequoia-game"]);
+  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
+
+  if (GLOBAL_HERO_GAME_ENABLED) {
+    allowedViews.add("sequoia-game");
+  }
 
   if (allowedViews.has(urlView)) {
     return urlView;
@@ -3708,7 +3714,7 @@ function setActiveView(viewName, options = {}) {
     initPagoExitosoView();
   }
 
-  if (nextViewName === "sequoia-game") {
+  if (GLOBAL_HERO_GAME_ENABLED && nextViewName === "sequoia-game") {
     window.SequoiaFlappyGame?.mount(sequoiaGameRoot, {
       authenticated: true,
       getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
