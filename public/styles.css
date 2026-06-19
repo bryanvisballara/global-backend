@@ -7365,8 +7365,8 @@ body .tracking-search-page .page-hero h1 {
   z-index: 15;
   width: 100%;
   max-width: 100vw;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  display: flex;
+  align-items: stretch;
   gap: 0;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -7376,10 +7376,11 @@ body .tracking-search-page .page-hero h1 {
 }
 
 .client-nav-button {
+  flex: 1 1 0;
+  min-width: 0;
   display: grid;
   justify-items: center;
   align-content: start;
-  min-width: 0;
   gap: 6px;
   border: 0;
   border-radius: 0;
