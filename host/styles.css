@@ -8282,6 +8282,11 @@ body .tracking-search-page .page-hero h1 {
   padding: 12px 6px;
 }
 
+.client-nav-button[hidden],
+.sequoia-game-view[hidden] {
+  display: none !important;
+}
+
 .client-nav-button span {
   display: block;
   width: 100%;

@@ -184,8 +184,22 @@ if (["admin", "manager", "adminUSA", "gerenteUSA"].includes(getRole())) {
   window.location.href = "/admin.html";
 }
 
+function removeGlobalHeroGameUi() {
+  if (GLOBAL_HERO_GAME_ENABLED) {
+    return;
+  }
+
+  document.querySelectorAll('[data-view-target="sequoia-game"], [data-view="sequoia-game"], .sequoia-game-view').forEach((element) => {
+    element.remove();
+  });
+}
+
+removeGlobalHeroGameUi();
+
 const viewNodes = Array.from(document.querySelectorAll(".client-view"));
-const navButtons = Array.from(document.querySelectorAll(".client-nav-button"));
+const navButtons = Array.from(document.querySelectorAll(".client-nav-button")).filter(
+  (button) => button.dataset.viewTarget !== "sequoia-game"
+);
 const feedContainer = document.getElementById("client-feed");
 const trackingForm = document.getElementById("tracking-search-form");
 const trackingInput = document.getElementById("tracking-search-input");
