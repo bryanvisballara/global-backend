@@ -3459,21 +3459,35 @@ body.admin-uppercase-view *::placeholder {
 }
 
 .tracking-overview-header h3 {
+  margin: 0;
+  width: 100%;
   font-size: 2rem;
   line-height: 1.05;
+  text-align: center;
+}
+
+.tracking-overview-heading {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  justify-items: center;
+  text-align: center;
 }
 
 .tracking-overview-tracking {
+  display: block;
+  width: 100%;
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.2;
   color: var(--text);
+  text-align: center;
 }
 
 .tracking-overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 28px;
-  margin-top: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px 28px;
+  margin-top: 22px;
 }
 
 .tracking-overview-grid p {
@@ -3483,6 +3497,49 @@ body.admin-uppercase-view *::placeholder {
 
 .tracking-overview-grid strong {
   font-size: 1.02rem;
+}
+
+.tracking-overview-detail {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 88px;
+}
+
+.tracking-overview-detail-client {
+  grid-column: 1 / -1;
+  justify-items: center;
+  text-align: center;
+}
+
+.tracking-overview-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.tracking-overview-value {
+  color: var(--text);
+  font-size: 1.38rem;
+  line-height: 1.24;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-label {
+  font-size: 1.16rem;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+  font-size: 1.86rem;
+}
+
+.tracking-overview-detail:not(.tracking-overview-detail-client) {
+  justify-items: center;
+  text-align: center;
+}
+
+.tracking-overview-detail-client .tracking-overview-value {
+  font-size: 1.72rem;
 }
 
 .tracking-stage-transition-card-inline {
@@ -4764,6 +4821,22 @@ body.feed-social-open .client-views {
 
   .tracking-overview-header h3 {
     font-size: 1.6rem;
+  }
+
+  .tracking-overview-value {
+    font-size: 1.24rem;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-label {
+    font-size: 1.02rem;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+    font-size: 1.67rem;
+  }
+
+  .tracking-overview-detail-client .tracking-overview-value {
+    font-size: 1.42rem;
   }
 
   .tracking-document-upload-grid {

@@ -202,12 +202,25 @@ function getConfigInputValue(config, order) {
 
 function formatOrderLabel(order) {
   const vehicle = order?.vehicle || {};
-  const vehicleName = `${vehicle.brand || "Vehículo"} ${vehicle.model || ""}${vehicle.version ? ` ${vehicle.version}` : ""} ${vehicle.year || ""}`.trim();
-  const exteriorColor = normalizeText(vehicle.exteriorColor || vehicle.color || "");
-  const interiorColor = normalizeText(vehicle.interiorColor || "");
-  const colorLabel = [exteriorColor, interiorColor].filter(Boolean).join("/");
+  return `${vehicle.brand || "Vehículo"} ${vehicle.model || ""}${vehicle.version ? ` ${vehicle.version}` : ""} ${vehicle.year || ""}`.trim();
+}
 
-  return [vehicleName, colorLabel].filter(Boolean).join(" ");
+function shouldShowOrderRegionBadge() {
+  return ["adminUSA", "gerenteUSA"].includes(String(currentAdminRole || "").trim()) || hasGlobalLatamOrderPrivileges();
+}
+
+function renderOrderRegionBadge(order) {
+  if (!shouldShowOrderRegionBadge()) {
+    return "";
+  }
+
+  const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
+
+  if (!["latam", "usa"].includes(orderRegion)) {
+    return "";
+  }
+
+  return `<span class="tracking-order-region-badge is-${escapeHtml(orderRegion)}">${escapeHtml(orderRegion.toUpperCase())}</span>`;
 }
 
 function formatDateLabel(value) {
@@ -402,15 +415,47 @@ const COMPLETED_TIMELINE_STAGE = { key: "completed", label: "Completado" };
 const ORDER_DOCUMENT_TYPES = [
   { value: "FACTURA", label: "FACTURA" },
   { value: "BL", label: "BL" },
+  { value: "CEPD", label: "CEPD" },
   { value: "TITULO", label: "TÍTULO" },
+  { value: "BUYERS_ORDER", label: "BUYERS ORDER" },
+  { value: "WIRE_INSTRUCTIONS", label: "WIRE INSTRUCTIONS" },
   { value: "BOOKING", label: "BOOKING" },
   { value: "TRACKING", label: "TRACKING" },
+  { value: "PLAQUETA VIN", label: "PLAQUETA VIN" },
+  { value: "REGISTRO DE IMPORTACION", label: "REGISTRO DE IMPORTACION" },
   { value: "FOTOS", label: "FOTOS" },
+  { value: "AES", label: "AES" },
   { value: "CONTRATO", label: "CONTRATO" },
+  { value: "SWIFT", label: "SWIFT" },
+  { value: "SOPORTE_DE_PAGO", label: "SOPORTE DE PAGO" },
+  { value: "PRE_APOSTILLA", label: "PRE-APOSTILLA" },
   { value: "OTRO", label: "OTRO" },
 ];
+const ORDER_DOCUMENT_TYPE_LABELS = new Map(
+  ORDER_DOCUMENT_TYPES.flatMap((option) => {
+    const normalizedValue = String(option.value || "").trim().toUpperCase();
+    const normalizedLabel = String(option.label || normalizedValue).trim().toUpperCase();
+
+    return [
+      [normalizedValue, option.label],
+      [normalizedLabel, option.label],
+      [normalizedLabel.replaceAll("-", "_"), option.label],
+      [normalizedLabel.replaceAll("-", " "), option.label],
+    ];
+  })
+);
 const LEGACY_TRACKING_TRANSITION_STORAGE_KEY = "globalAdminTrackingLegacyTransition";
 let useLegacyTrackingTransition = sessionStorage.getItem(LEGACY_TRACKING_TRANSITION_STORAGE_KEY) === "1";
+
+function getOrderDocumentTypeLabel(value) {
+  const normalizedValue = normalizeText(value || "OTRO").toUpperCase();
+
+  return ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue)
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", " "))
+    || ORDER_DOCUMENT_TYPE_LABELS.get(normalizedValue.replaceAll("_", "-"))
+    || normalizedValue
+    || "OTRO";
+}
 
 function buildCreateOrderTrackingNumber() {
   const existingTrackings = new Set(
@@ -2348,7 +2393,7 @@ function getOrderDocuments(order) {
     .map((item) => ({
       documentId: String(item.documentId || "").trim(),
       documentTypeValue: normalizeText(item.documentType || "OTRO").toUpperCase() || "OTRO",
-      documentType: normalizeText(item.documentType || "OTRO") || "OTRO",
+      documentType: getOrderDocumentTypeLabel(item.documentType || "OTRO"),
       name: normalizeText(item.name || item.caption || "Documento sin nombre") || "Documento sin nombre",
       note: normalizeText(item.note || ""),
       url: String(item.url || ""),
@@ -2523,19 +2568,32 @@ function renderTrackingOverview(order) {
       <p id="tracking-detail-feedback" class="feedback${trackingDetailFeedbackState.type ? ` ${trackingDetailFeedbackState.type}` : ""}" aria-live="polite">${escapeHtml(trackingDetailFeedbackState.message)}</p>
       <div class="tracking-order-hero-grid">
         <article class="state-order-item tracking-overview-card">
-          <header class="state-order-header tracking-overview-header">
-            <h3>${escapeHtml(formatOrderLabel(order))}</h3>
-            <strong class="tracking-overview-tracking">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+          <header class="state-order-header tracking-overview-header" style="display:block;width:100%;text-align:center;">
+            <div class="tracking-overview-heading" style="display:inline-grid;gap:12px;justify-items:center;margin:0 auto;text-align:center;">
+              <h3 style="margin:0;text-align:center;">${escapeHtml(formatOrderLabel(order))}</h3>
+              <div class="tracking-order-link-stack" style="align-items:center;margin:0 auto;">
+                <strong class="tracking-overview-tracking" style="display:block;text-align:center;">Tracking ${escapeHtml(order?.trackingNumber || "-")}</strong>
+                ${renderOrderRegionBadge(order)}
+              </div>
+            </div>
           </header>
           <div class="state-order-grid tracking-overview-grid">
-            <p><strong>Versión:</strong> ${escapeHtml(order?.vehicle?.version || "Sin versión")}</p>
-            <p><strong>Año:</strong> ${escapeHtml(order?.vehicle?.year || "-")}</p>
-            <p><strong>VIN:</strong> ${escapeHtml(order?.vehicle?.vin || "-")}</p>
-            <p><strong>Exterior:</strong> ${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</p>
-            <p><strong>Interior:</strong> ${escapeHtml(order?.vehicle?.interiorColor || "-")}</p>
-            <p><strong>Cliente:</strong> ${escapeHtml(getClientDisplayName(order))}</p>
-            <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
-            <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
+            <article class="tracking-overview-detail tracking-overview-detail-client">
+              <span class="tracking-overview-label">Cliente</span>
+              <strong class="tracking-overview-value">${escapeHtml(getClientDisplayName(order))}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">VIN</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.vin || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Exterior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.exteriorColor || order?.vehicle?.color || "-")}</strong>
+            </article>
+            <article class="tracking-overview-detail">
+              <span class="tracking-overview-label">Interior</span>
+              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.interiorColor || "-")}</strong>
+            </article>
           </div>
           ${String(order?.orderRegion || "latam") === "latam" ? `
           <div class="tracking-new-event-actions tracking-order-accounting-action">
