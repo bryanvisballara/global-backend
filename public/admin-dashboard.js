@@ -283,6 +283,12 @@ function isOrderCompleted(order) {
 }
 
 function shouldIncludeGlobalTrackingEvent(event) {
+  const normalizedTitle = normalizeText(event?.title || "").toLowerCase();
+
+  if (normalizedTitle.startsWith("etapa completada al avanzar")) {
+    return false;
+  }
+
   return !(event.stateIndex === 0 && event.inProgress && !event.completed && !normalizeText(event.title));
 }
 

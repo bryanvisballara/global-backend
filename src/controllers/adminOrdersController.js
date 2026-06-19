@@ -3178,20 +3178,6 @@ async function transitionTrackingState(req, res) {
         completed: true,
         timestamp: now,
       });
-
-      await createTrackingEvent({
-        orderId: order._id,
-        orderRegion: orderResult.region,
-        stepKey: currentStep.key,
-        title: `Etapa completada al avanzar a E${targetStepIndex + 1} — ${targetStateMeta.label}`,
-        location: transitionLocation,
-        notes: `La etapa ${currentStateMeta.label} se completo al avanzar el pedido.`,
-        media: [],
-        clientVisible: false,
-        inProgress: false,
-        completed: true,
-        timestamp: now,
-      });
     } else {
       for (let stepIndex = targetStepIndex + 1; stepIndex <= currentStepIndex; stepIndex += 1) {
         const step = order.trackingSteps[stepIndex];

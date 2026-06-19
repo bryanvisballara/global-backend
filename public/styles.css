@@ -3588,6 +3588,29 @@ body.admin-uppercase-view *::placeholder {
   justify-content: flex-end;
 }
 
+.tracking-order-accounting-action {
+  margin-top: 18px;
+  justify-content: flex-start;
+}
+
+.tracking-accounting-button {
+  width: auto !important;
+  min-width: 180px;
+  max-width: 240px;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-color: rgba(216, 170, 82, 0.48) !important;
+  background: #f0c46a !important;
+  color: #111111 !important;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.tracking-accounting-button:hover {
+  background: #e0b24c !important;
+}
+
 .tracking-document-upload-card {
   align-self: start;
 }

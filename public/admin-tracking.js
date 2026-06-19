@@ -151,6 +151,15 @@ function buildOrderDetailUrl(order) {
   return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
 }
 
+function buildOrderAccountingUrl(order) {
+  const orderId = getOrderIdentifier(order);
+  return `/admin-order-accounting.html?orderId=${encodeURIComponent(orderId)}`;
+}
+
+function isHiddenTransitionCompletionEvent(title = "") {
+  return normalizeText(title).toLowerCase().startsWith("etapa completada al avanzar");
+}
+
 function isDeletionManagerRole(role) {
   return ["manager", "gerenteUSA"].includes(String(role || "").trim());
 }
@@ -2231,7 +2240,9 @@ function renderRecentEvents(order) {
 }
 
 function buildAdminEventTableRows(order) {
-  return getOrderTrackingEvents(order).map((event) => ({
+  return getOrderTrackingEvents(order)
+    .filter((event) => !isHiddenTransitionCompletionEvent(event.title))
+    .map((event) => ({
     eventId: event.eventId,
     stateKey: event.stateKey,
     updateIndex: event.updateIndex,
@@ -2526,6 +2537,11 @@ function renderTrackingOverview(order) {
             <p><strong>Email cliente:</strong> ${escapeHtml(order?.client?.email || "-")}</p>
             <p><strong>Teléfono:</strong> ${escapeHtml(order?.client?.phone || "-")}</p>
           </div>
+          ${String(order?.orderRegion || "latam") === "latam" ? `
+          <div class="tracking-new-event-actions tracking-order-accounting-action">
+            <a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>
+          </div>
+          ` : ""}
         </article>
         ${renderStageTransitionCardMarkup(order)}
       </div>
