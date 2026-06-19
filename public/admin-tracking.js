@@ -3221,22 +3221,23 @@ async function editOrderDocument(documentId, currentType = "OTRO", currentNote =
     return;
   }
 
-  const typeOptions = ORDER_DOCUMENT_TYPES.map((option) => option.value).join(", ");
-  const documentType = window.prompt(`Editar tipo de archivo. Opciones: ${typeOptions}`, currentType || "OTRO");
+  const values = await openTrackingEditModal({
+    title: "Documento del pedido",
+    copy: "Ajusta la clasificación del archivo y la nota interna para identificarlo mejor.",
+    submitLabel: "Guardar documento",
+    fields: [
+      { name: "documentType", label: "Tipo de archivo", type: "select", value: currentType || "OTRO", options: ORDER_DOCUMENT_TYPES },
+      { name: "note", label: "Notas", type: "textarea", rows: 4, value: currentNote, placeholder: "Agrega una nota corta" },
+    ],
+  });
 
-  if (documentType === null) {
-    return;
-  }
-
-  const note = window.prompt("Editar notas del documento", currentNote || "");
-
-  if (note === null) {
+  if (!values) {
     return;
   }
 
   const response = await fetchTrackingPageJson(`/api/admin/orders/${getOrderIdentifier(selectedOrder)}/documents/${encodeURIComponent(documentId)}`, {
     method: "PATCH",
-    body: JSON.stringify({ documentType, note }),
+    body: JSON.stringify({ documentType: values.documentType, note: values.note }),
   });
 
   orders = orders.map((order) => (getOrderIdentifier(order) === getOrderIdentifier(response.order) ? response.order : order));
