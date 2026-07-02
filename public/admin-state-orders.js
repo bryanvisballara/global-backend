@@ -119,11 +119,34 @@
     const vinValue = String(order?.vehicle?.vin || "").trim();
     const clientValue = String(getClientDisplayName(order) || "").trim();
 
-    return `/app/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
+    return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
   }
 
   function formatOrderLabel(order) {
     return `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}${order?.vehicle?.version ? ` ${order.vehicle.version}` : ""} ${order?.vehicle?.year || ""}`.trim();
+  }
+
+  function renderOrderVehicleCell(order) {
+    const vehicle = order?.vehicle || {};
+    const vehicleLabel = formatOrderLabel(order);
+    const exteriorColor = normalizeText(vehicle.exteriorColor || vehicle.color || "");
+    const interiorColor = normalizeText(vehicle.interiorColor || "");
+    const colorLines = [];
+
+    if (exteriorColor) {
+      colorLines.push(`<span class="tracking-order-vehicle-color">${escapeHtml(exteriorColor)} - COLOR EXTERIOR</span>`);
+    }
+
+    if (interiorColor) {
+      colorLines.push(`<span class="tracking-order-vehicle-color">${escapeHtml(interiorColor)} - COLOR INTERIOR</span>`);
+    }
+
+    return `
+      <div class="tracking-order-vehicle-cell">
+        <strong>${escapeHtml(vehicleLabel)}</strong>
+        ${colorLines.length ? `<div class="tracking-order-vehicle-colors">${colorLines.join("")}</div>` : ""}
+      </div>
+    `;
   }
 
   function formatDateLabel(dateValue) {
@@ -525,7 +548,7 @@
             <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
             <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
             <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
-            <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+            <td data-label="Vehículo">${renderOrderVehicleCell(order)}</td>
             <td data-label="Fecha">${escapeHtml(rowDate)}</td>
             <td data-label="Acción" class="tracking-order-actions-cell">
               <div class="tracking-order-actions">
@@ -595,7 +618,9 @@
       const href = normalizeText(detailButton.dataset.orderDetailLink || "");
 
       if (href) {
-        window.location.href = href;
+        const detailUrl = new URL(href, window.location.origin);
+        detailUrl.searchParams.set("_r", String(Date.now()));
+        window.location.replace(detailUrl.toString());
       }
 
       return;

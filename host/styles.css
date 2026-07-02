@@ -4267,6 +4267,31 @@ body.admin-app-view .request-card-top strong {
   max-width: 100%;
 }
 
+.tracking-order-vehicle-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.tracking-order-vehicle-cell strong {
+  display: block;
+  line-height: 1.25;
+}
+
+.tracking-order-vehicle-colors {
+  display: grid;
+  gap: 2px;
+}
+
+.tracking-order-vehicle-color {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6f7785;
+}
+
 .tracking-order-link-button {
   border: 0;
   padding: 0;

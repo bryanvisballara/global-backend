@@ -1,3 +1,6 @@
+const ADMIN_TRACKING_BUILD = "trackingui06";
+const TRACKING_UI_RELOAD_KEY = "global-tracking-ui-reload";
+
 const {
   attachLogout: adminAttachLogout,
   renderEmptyState: adminRenderEmptyState,
@@ -147,8 +150,42 @@ function buildOrderDetailUrl(order) {
   const trackingValue = String(order?.trackingNumber || "").trim();
   const vinValue = String(order?.vehicle?.vin || "").trim();
   const clientValue = String(getClientDisplayName(order) || "").trim();
+  const params = new URLSearchParams({
+    orderId,
+    tracking: trackingValue,
+    vin: vinValue,
+    client: clientValue,
+  });
 
-  return `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(trackingValue)}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(clientValue)}`;
+  return `/admin-tracking.html?${params.toString()}`;
+}
+
+function openOrderDetailPage(orderOrId) {
+  const orderId = typeof orderOrId === "string"
+    ? String(orderOrId || "").trim()
+    : getOrderIdentifier(orderOrId);
+  const order = orders.find((item) => getOrderIdentifier(item) === orderId) || null;
+  const detailUrl = order
+    ? new URL(buildOrderDetailUrl(order), window.location.origin)
+    : new URL("/admin-tracking.html", window.location.origin);
+
+  if (!order) {
+    detailUrl.searchParams.set("orderId", orderId);
+  }
+
+  detailUrl.searchParams.set("_r", String(Date.now()));
+  window.location.replace(detailUrl.toString());
+}
+
+function cleanTrackingUrlParams() {
+  const url = new URL(window.location.href);
+
+  if (!url.searchParams.has("_r")) {
+    return;
+  }
+
+  url.searchParams.delete("_r");
+  window.history.replaceState(window.history.state, document.title, url.toString());
 }
 
 function buildOrderAccountingUrl(order) {
@@ -203,6 +240,29 @@ function getConfigInputValue(config, order) {
 function formatOrderLabel(order) {
   const vehicle = order?.vehicle || {};
   return `${vehicle.brand || "Vehículo"} ${vehicle.model || ""}${vehicle.version ? ` ${vehicle.version}` : ""} ${vehicle.year || ""}`.trim();
+}
+
+function renderOrderVehicleCell(order) {
+  const vehicle = order?.vehicle || {};
+  const vehicleLabel = formatOrderLabel(order);
+  const exteriorColor = normalizeText(vehicle.exteriorColor || vehicle.color || "");
+  const interiorColor = normalizeText(vehicle.interiorColor || "");
+  const colorLines = [];
+
+  if (exteriorColor) {
+    colorLines.push(`<span class="tracking-order-vehicle-color">${escapeHtml(exteriorColor)} - COLOR EXTERIOR</span>`);
+  }
+
+  if (interiorColor) {
+    colorLines.push(`<span class="tracking-order-vehicle-color">${escapeHtml(interiorColor)} - COLOR INTERIOR</span>`);
+  }
+
+  return `
+    <div class="tracking-order-vehicle-cell">
+      <strong>${escapeHtml(vehicleLabel)}</strong>
+      ${colorLines.length ? `<div class="tracking-order-vehicle-colors">${colorLines.join("")}</div>` : ""}
+    </div>
+  `;
 }
 
 function shouldShowOrderRegionBadge() {
@@ -1684,7 +1744,7 @@ function renderSearchResults(matches) {
                 <td data-label="Cliente">${escapeHtml(getClientDisplayName(order))}</td>
                 <td data-label="Destino">${escapeHtml(order?.vehicle?.destination || "-")}</td>
                 <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
-                <td data-label="Vehículo"><strong>${escapeHtml(vehicleLabel)}</strong></td>
+                <td data-label="Vehículo">${renderOrderVehicleCell(order)}</td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
                 <td data-label="Acción" class="tracking-order-actions-cell">
                   <div class="tracking-order-actions">
@@ -2659,6 +2719,31 @@ function renderTrackingOverview(order) {
   renderStageTransitionCard(order);
 }
 
+function ensureModernTrackingUi(order) {
+  if (!order || !trackingPreview) {
+    return;
+  }
+
+  const hasModernHero = Boolean(trackingPreview.querySelector(".tracking-overview-label"));
+  const isLatamOrder = String(order?.orderRegion || "latam").trim().toLowerCase() === "latam";
+  const hasAccountingAction = !isLatamOrder || Boolean(trackingPreview.querySelector(".tracking-accounting-button"));
+
+  if (hasModernHero && hasAccountingAction) {
+    sessionStorage.removeItem(TRACKING_UI_RELOAD_KEY);
+    cleanTrackingUrlParams();
+    return;
+  }
+
+  if (sessionStorage.getItem(TRACKING_UI_RELOAD_KEY) === ADMIN_TRACKING_BUILD) {
+    return;
+  }
+
+  sessionStorage.setItem(TRACKING_UI_RELOAD_KEY, ADMIN_TRACKING_BUILD);
+  const reloadUrl = new URL(window.location.href);
+  reloadUrl.searchParams.set("_r", String(Date.now()));
+  window.location.replace(reloadUrl.toString());
+}
+
 function renderStates() {
   const selectedOrder = getSelectedOrder();
 
@@ -2672,6 +2757,7 @@ function renderStates() {
   syncTrackingPageMode(selectedOrder);
 
   renderTrackingOverview(selectedOrder);
+  ensureModernTrackingUi(selectedOrder);
 }
 
 function selectOrder(orderId, options = {}) {
@@ -3443,8 +3529,7 @@ function handleSearchClick() {
   const exactMatch = findExactMatch(matches);
 
   if (matches.length === 1) {
-    selectOrder(getOrderIdentifier(matches[0]));
-    adminSetFeedback(trackingFeedback, "Pedido listo para gestionar sus estados.", "success");
+    openOrderDetailPage(matches[0]);
     return;
   }
 
@@ -3459,8 +3544,7 @@ function handleSearchClick() {
   }));
 
   if (exactMatch && exactMatches.length === 1) {
-    selectOrder(getOrderIdentifier(exactMatch || matches[0]));
-    adminSetFeedback(trackingFeedback, "Pedido listo para gestionar sus estados.", "success");
+    openOrderDetailPage(exactMatch || matches[0]);
     return;
   }
 
@@ -4031,9 +4115,15 @@ function handleTrackingPageClick(event) {
 
   if (detailButton) {
     const href = normalizeText(detailButton.dataset.orderDetailLink || "");
+    const orderId = String(detailButton.dataset.orderId || "").trim();
+
+    if (orderId) {
+      openOrderDetailPage(orderId);
+      return;
+    }
 
     if (href) {
-      window.location.href = href;
+      window.location.assign(href);
     }
 
     return;
@@ -4056,16 +4146,14 @@ function handleTrackingPageClick(event) {
   const orderRow = event.target.closest("[data-order-row-select]");
 
   if (orderRow) {
-    selectOrder(String(orderRow.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    openOrderDetailPage(String(orderRow.dataset.orderId || ""));
     return;
   }
 
   const orderButton = event.target.closest("[data-order-id]");
 
   if (orderButton) {
-    selectOrder(String(orderButton.dataset.orderId || ""));
-    adminSetFeedback(trackingFeedback, "Pedido seleccionado. Ya puedes gestionar sus estados.", "success");
+    openOrderDetailPage(String(orderButton.dataset.orderId || ""));
     return;
   }
 
@@ -4348,6 +4436,7 @@ async function loadTrackingPage() {
 
   if (initialOrderId) {
     selectOrder(initialOrderId, { historyMode: "replace" });
+    ensureModernTrackingUi(getSelectedOrder());
   } else {
     if (trackingEditorFields) {
       trackingEditorFields.hidden = true;
@@ -4373,8 +4462,16 @@ window.addEventListener("popstate", () => {
 
 forceClearLoadingState();
 initOverlayWatchdog = window.setInterval(forceClearLoadingState, 600);
-window.addEventListener("pageshow", forceClearLoadingState);
+window.addEventListener("beforeunload", () => {});
+window.addEventListener("pageshow", (event) => {
+  forceClearLoadingState();
+
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
 window.addEventListener("load", forceClearLoadingState);
+window.__adminTrackingBuildId = ADMIN_TRACKING_BUILD;
 
 loadTrackingPage().catch((error) => {
   stopInitOverlayWatchdog();
