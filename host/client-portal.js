@@ -945,12 +945,49 @@ function buildEmbeddedVideoUrl(rawUrl) {
   return "";
 }
 
+function isVerticalVideoSource(url) {
+  return /youtube\.com\/shorts\//i.test(String(url || ""));
+}
+
+function bindFeedVideoOrientation(root = document) {
+  root.querySelectorAll(".feed-media-card.video video").forEach((video) => {
+    const card = video.closest(".feed-media-card");
+    if (!card) {
+      return;
+    }
+
+    const applyOrientation = () => {
+      const { videoWidth, videoHeight } = video;
+      if (!videoWidth || !videoHeight) {
+        return;
+      }
+
+      const isPortrait = videoHeight > videoWidth;
+      card.classList.toggle("is-portrait", isPortrait);
+      card.classList.toggle("is-landscape", !isPortrait);
+
+      if (isPortrait) {
+        card.style.aspectRatio = `${videoWidth} / ${videoHeight}`;
+      } else {
+        card.style.removeProperty("aspect-ratio");
+      }
+    };
+
+    if (video.readyState >= 1) {
+      applyOrientation();
+    } else {
+      video.addEventListener("loadedmetadata", applyOrientation, { once: true });
+    }
+  });
+}
+
 function renderFeedVideoMedia(url) {
   const embeddedUrl = buildEmbeddedVideoUrl(url);
+  const portraitClass = isVerticalVideoSource(url) ? " is-portrait" : "";
 
   if (embeddedUrl) {
     return `
-      <div class="feed-media-card video">
+      <div class="feed-media-card video${portraitClass}">
         <iframe
           src="${escapeHtml(embeddedUrl)}"
           title="Video"
@@ -1431,6 +1468,7 @@ function renderFeed() {
 
   syncFeedCopyClamp();
   bindFeedCarousels();
+  bindFeedVideoOrientation(feedContainer);
 
   if (state.isFetchingFeed && state.feedPosts.length) {
     feedLoadingState.textContent = "Cargando más publicaciones...";

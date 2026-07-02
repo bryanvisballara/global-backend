@@ -1,4 +1,5 @@
 const { sendBrevoEmail } = require("./brevoEmailService");
+const { wrapDarkEmailDocument } = require("./emailDocumentWrapper");
 const { normalizePublicBaseUrl } = require("../utils/publicUrl");
 
 function escapeHtml(value) {
@@ -32,103 +33,6 @@ function resolveTrackingUrl(trackingNumber) {
   return trackingUrl.toString();
 }
 
-function wrapDarkEmailDocument(content) {
-  return `<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="x-apple-disable-message-reformatting" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="supported-color-schemes" content="light dark" />
-    <style>
-      :root {
-        color-scheme: light dark;
-        supported-color-schemes: light dark;
-      }
-
-      html,
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #060606 !important;
-        color: #f6f4ef !important;
-      }
-
-      body {
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-      }
-
-      .email-root,
-      .email-root div,
-      .email-root p,
-      .email-root span,
-      .email-root strong,
-      .email-root h1,
-      .email-root a {
-        -webkit-text-fill-color: currentColor !important;
-      }
-
-      .email-root [style*="color:#ffffff"],
-      .email-root [style*="color: #ffffff"] {
-        color: #fffffe !important;
-        -webkit-text-fill-color: #fffffe !important;
-      }
-
-      .email-root [style*="color:#f7f7f4"],
-      .email-root [style*="color: #f7f7f4"],
-      .email-root [style*="color:#f6f4ef"],
-      .email-root [style*="color: #f6f4ef"],
-      .email-root [style*="color:#f2eee5"],
-      .email-root [style*="color: #f2eee5"] {
-        color: #fffaf0 !important;
-        -webkit-text-fill-color: #fffaf0 !important;
-      }
-
-      .email-root [style*="color:#c9c3b8"],
-      .email-root [style*="color: #c9c3b8"],
-      .email-root [style*="color:#b8b3aa"],
-      .email-root [style*="color: #b8b3aa"] {
-        color: #e8e0d4 !important;
-        -webkit-text-fill-color: #e8e0d4 !important;
-      }
-
-      .email-root [style*="color:#a9a49a"],
-      .email-root [style*="color: #a9a49a"],
-      .email-root [style*="color:#8f908f"],
-      .email-root [style*="color: #8f908f"] {
-        color: #d7d0c5 !important;
-        -webkit-text-fill-color: #d7d0c5 !important;
-      }
-
-      .email-root [style*="color:#f1d9a6"],
-      .email-root [style*="color: #f1d9a6"] {
-        color: #ffd985 !important;
-        -webkit-text-fill-color: #ffd985 !important;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        body,
-        .email-root {
-          background: #060606 !important;
-        }
-      }
-
-      [data-ogsc] body,
-      [data-ogsc] .email-root,
-      [data-ogsb] body,
-      [data-ogsb] .email-root {
-        background: #060606 !important;
-      }
-    </style>
-  </head>
-  <body bgcolor="#060606" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">
-    <div class="email-root" bgcolor="#060606" style="margin:0;padding:0;background:#060606 !important;color:#f6f4ef !important;">${content}</div>
-  </body>
-</html>`;
-}
-
 function buildTrackingUpdateEmailHtml({
   recipientName,
   trackingNumber,
@@ -154,42 +58,42 @@ function buildTrackingUpdateEmailHtml({
       <div style="max-width:640px;margin:0 auto;padding:30px 18px;">
         <div style="border:1px solid rgba(216,170,82,0.22);border-radius:30px;overflow:hidden;background:linear-gradient(180deg,#121214 0%,#0b0b0c 100%);box-shadow:0 28px 70px rgba(0,0,0,0.45);">
           <div style="padding:38px 34px 22px;background:radial-gradient(circle at top right, rgba(216,170,82,0.17), transparent 34%),linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));">
-            <div style="display:inline-block;padding:8px 14px;border:1px solid rgba(216,170,82,0.24);border-radius:999px;color:#f1d9a6;font-size:12px;letter-spacing:.18em;text-transform:uppercase;">
+            <div class="em-gold" style="display:inline-block;padding:8px 14px;border:1px solid rgba(216,170,82,0.24);border-radius:999px;color:#f1d9a6;font-size:12px;letter-spacing:.18em;text-transform:uppercase;">
               Global Imports Tracking
             </div>
-            <h1 style="margin:18px 0 12px;font-family:Syne,Arial,sans-serif;font-size:36px;line-height:1.02;letter-spacing:-0.04em;color:#ffffff;">
+            <h1 class="em-heading" style="margin:18px 0 12px;font-family:Syne,Arial,sans-serif;font-size:36px;line-height:1.02;letter-spacing:-0.04em;color:#ffffff;">
               Tu pedido tiene una nueva actualización
             </h1>
-            <p style="margin:0;color:#c9c3b8;font-size:16px;line-height:1.75;">
-              Hola ${safeRecipientName}, ya registramos un nuevo avance en el proceso de <strong style="color:#ffffff;">${safeVehicleLabel}</strong>.
+            <p class="em-secondary" style="margin:0;color:#c9c3b8;font-size:16px;line-height:1.75;">
+              Hola ${safeRecipientName}, ya registramos un nuevo avance en el proceso de <strong class="em-strong" style="color:#ffffff;">${safeVehicleLabel}</strong>.
             </p>
           </div>
 
           <div style="padding:10px 34px 20px;">
             <div style="padding:24px;border-radius:24px;background:linear-gradient(180deg, rgba(216,170,82,0.16), rgba(216,170,82,0.05));border:1px solid rgba(216,170,82,0.22);margin-bottom:18px;">
-              <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#f1d9a6;margin-bottom:10px;">Tracking ${safeTrackingNumber}</div>
-              <div style="font-family:Syne,Arial,sans-serif;font-size:28px;line-height:1.1;color:#ffffff;margin-bottom:10px;">
+              <div class="em-gold" style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#f1d9a6;margin-bottom:10px;">Tracking ${safeTrackingNumber}</div>
+              <div class="em-heading" style="font-family:Syne,Arial,sans-serif;font-size:28px;line-height:1.1;color:#ffffff;margin-bottom:10px;">
                 ${safePreviousState} → ${safeNextState}
               </div>
-              <p style="margin:0;color:#f2eee5;font-size:15px;line-height:1.8;">
+              <p class="em-accent" style="margin:0;color:#f2eee5;font-size:15px;line-height:1.8;">
                 ${safeNotes}
               </p>
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px;">
               <div style="padding:18px 18px 16px;border-radius:20px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#a9a49a;margin-bottom:8px;">Pedido</div>
-                <div style="color:#ffffff;font-size:16px;line-height:1.6;font-weight:700;">${safeVehicleLabel}</div>
+                <div class="em-muted" style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#a9a49a;margin-bottom:8px;">Pedido</div>
+                <div class="em-heading" style="color:#ffffff;font-size:16px;line-height:1.6;font-weight:700;">${safeVehicleLabel}</div>
               </div>
               <div style="padding:18px 18px 16px;border-radius:20px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#a9a49a;margin-bottom:8px;">Siguiente paso</div>
-                <div style="color:#ffffff;font-size:16px;line-height:1.6;font-weight:700;">${safeNextState}</div>
+                <div class="em-muted" style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#a9a49a;margin-bottom:8px;">Siguiente paso</div>
+                <div class="em-heading" style="color:#ffffff;font-size:16px;line-height:1.6;font-weight:700;">${safeNextState}</div>
               </div>
             </div>
 
             <div style="padding:22px 24px;border-radius:22px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.06);">
-              <p style="margin:0 0 10px;color:#ffffff;font-size:15px;font-weight:700;">Seguimiento premium en tiempo real</p>
-              <p style="margin:0;color:#b8b3aa;font-size:14px;line-height:1.85;">
+              <p class="em-heading" style="margin:0 0 10px;color:#ffffff;font-size:15px;font-weight:700;">Seguimiento premium en tiempo real</p>
+              <p class="em-secondary" style="margin:0;color:#b8b3aa;font-size:14px;line-height:1.85;">
                 Cada cambio de estado significa que estamos un paso más cerca de entregarte tu vehículo. Seguimos cuidando el proceso con trazabilidad, precisión y comunicación constante.
               </p>
             </div>
@@ -197,8 +101,8 @@ function buildTrackingUpdateEmailHtml({
             ${
               hasTrackingUrl
                 ? `<div style="padding-top:20px;text-align:center;">
-              <a href="${safeTrackingUrl}" style="display:inline-block;padding:16px 24px;border-radius:999px;background:#d8aa52;color:#15110a;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Ver seguimiento</a>
-              <p style="margin:16px 0 0;color:#8f908f;font-size:12px;line-height:1.7;word-break:break-word;">Si el botón no abre, copia este enlace en tu navegador:<br /><span style="color:#c9c3b8;">${escapeHtml(
+              <a class="em-btn" href="${safeTrackingUrl}" style="display:inline-block;padding:16px 24px;border-radius:999px;background:#d8aa52;color:#15110a;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Ver seguimiento</a>
+              <p class="em-muted" style="margin:16px 0 0;color:#8f908f;font-size:12px;line-height:1.7;word-break:break-word;">Si el botón no abre, copia este enlace en tu navegador:<br /><span class="em-secondary" style="color:#c9c3b8;">${escapeHtml(
                 safeTrackingUrl
               )}</span></p>
             </div>`
@@ -206,7 +110,7 @@ function buildTrackingUpdateEmailHtml({
             }
           </div>
 
-          <div style="padding:24px 34px 34px;border-top:1px solid rgba(255,255,255,0.06);color:#8f908f;font-size:12px;line-height:1.8;">
+          <div class="em-muted" style="padding:24px 34px 34px;border-top:1px solid rgba(255,255,255,0.06);color:#8f908f;font-size:12px;line-height:1.8;">
             Este correo fue enviado por Global Imports desde orders@globalimportsus.com para mantenerte informado sobre el progreso de tu importación.
           </div>
         </div>
