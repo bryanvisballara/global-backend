@@ -94,6 +94,11 @@ function installZoomGuards() {
   let lastTouchEndAt = 0;
 
   document.addEventListener("touchend", (event) => {
+    if (event.target.closest(".feed-media-card.video, iframe")) {
+      lastTouchEndAt = 0;
+      return;
+    }
+
     const now = Date.now();
 
     if (now - lastTouchEndAt <= 280) {
@@ -302,6 +307,12 @@ const feedCommentSubmit = document.getElementById("feed-comment-submit");
 const feedActionMessage = document.getElementById("feed-action-message");
 
 let feedObserver = null;
+let feedVideoObserver = null;
+let activeFeedVideoCard = null;
+const feedVideoVisibility = new Map();
+const feedVideoLoadWatchers = new Map();
+let feedVideoMessageListenerInstalled = false;
+const FEED_VIDEO_AUTOPLAY_MIN_RATIO = 0.55;
 let virtualDealershipObserver = null;
 let touchStartY = 0;
 let pullDistance = 0;
@@ -368,6 +379,9 @@ const SEQUOIA_DELIVERY_OPTIONS = {
 const DEFAULT_SEQUOIA_VERSION_ORDER = ["sr5", "limited", "platinum", "trd-pro", "capstone", "1794"];
 const SEQUOIA_CATALOG_URL = "/sequoia-catalog.json";
 const CLIENT_IMAGE_CONFIG_URL = "/client-image-config.json";
+const CLIENT_DEV_CONFIG_URL = "/client-dev-config.json";
+let localDevFeedPreviewUrl = "";
+let localDevFeedPreviewConfigPromise = null;
 const EMPTY_SEQUOIA_CATALOG = Object.freeze({
   versionConfig: {},
   versionOrder: DEFAULT_SEQUOIA_VERSION_ORDER,
@@ -535,6 +549,26 @@ async function loadClientImageDeliveryConfig() {
     });
 
   return clientImageDeliveryConfigPromise;
+}
+
+async function loadLocalDevFeedPreviewConfig() {
+  if (localDevFeedPreviewConfigPromise) {
+    return localDevFeedPreviewConfigPromise;
+  }
+
+  localDevFeedPreviewConfigPromise = fetch(CLIENT_DEV_CONFIG_URL, { cache: "no-cache" })
+    .then(async (response) => {
+      if (!response.ok) {
+        return "";
+      }
+
+      const config = await response.json();
+      localDevFeedPreviewUrl = String(config?.previewFeedVideo || "").trim();
+      return localDevFeedPreviewUrl;
+    })
+    .catch(() => "");
+
+  return localDevFeedPreviewConfigPromise;
 }
 
 async function loadSequoiaCatalog() {
@@ -925,7 +959,7 @@ function buildEmbeddedVideoUrl(rawUrl) {
         return "";
       }
 
-      return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?controls=1&playsinline=1&rel=0&modestbranding=1`;
+      return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?controls=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1`;
     }
 
     if (host.includes("vimeo.com")) {
@@ -936,7 +970,7 @@ function buildEmbeddedVideoUrl(rawUrl) {
         return "";
       }
 
-      return `https://player.vimeo.com/video/${encodeURIComponent(videoId)}?controls=1&title=0&byline=0&portrait=0`;
+      return `https://player.vimeo.com/video/${encodeURIComponent(videoId)}?app_id=122963&title=0&byline=0&portrait=0&playsinline=1&controls=0&pip=0&transparent=0&dnt=1`;
     }
   } catch {
     return "";
@@ -947,6 +981,691 @@ function buildEmbeddedVideoUrl(rawUrl) {
 
 function isVerticalVideoSource(url) {
   return /youtube\.com\/shorts\//i.test(String(url || ""));
+}
+
+async function fetchEmbedAspectRatio(sourceUrl) {
+  const url = String(sourceUrl || "").trim();
+
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const host = parsedUrl.hostname.toLowerCase();
+    let oembedEndpoint = "";
+
+    if (host.includes("vimeo.com")) {
+      oembedEndpoint = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
+    } else if (host.includes("youtube.com") || host.includes("youtu.be")) {
+      oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    } else {
+      return null;
+    }
+
+    const response = await fetch(oembedEndpoint);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const width = Number(data.width);
+    const height = Number(data.height);
+
+    if (!width || !height) {
+      return null;
+    }
+
+    return {
+      width,
+      height,
+      isPortrait: height > width,
+      thumbnailUrl: String(data.thumbnail_url || "").trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function appendEmbedAutoplayParam(embedUrl) {
+  const url = String(embedUrl || "").trim();
+
+  if (!url) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set("autoplay", "1");
+    parsedUrl.searchParams.set("muted", "1");
+    return parsedUrl.toString();
+  } catch {
+    return url.includes("?") ? `${url}&autoplay=1` : `${url}?autoplay=1`;
+  }
+}
+
+function resolveEmbedPosterUrl(sourceUrl, meta) {
+  const thumbnailUrl = String(meta?.thumbnailUrl || "").trim();
+
+  if (!thumbnailUrl) {
+    return "";
+  }
+
+  try {
+    const host = new URL(sourceUrl).hostname.toLowerCase();
+
+    if (meta?.isPortrait && host.includes("vimeo.com") && thumbnailUrl.includes("vimeocdn.com")) {
+      return thumbnailUrl.replace(/-d_\d+x\d+/, "-d");
+    }
+  } catch {
+    return thumbnailUrl;
+  }
+
+  return thumbnailUrl;
+}
+
+function postEmbeddedVideoCommand(card, command) {
+  const iframe = card?.querySelector(".feed-video-iframe");
+  const sourceUrl = String(card?.dataset?.feedEmbedSource || "").trim();
+
+  if (!iframe?.contentWindow || !sourceUrl) {
+    return;
+  }
+
+  try {
+    const host = new URL(sourceUrl).hostname.toLowerCase();
+
+    if (host.includes("youtube.com") || host.includes("youtu.be")) {
+      const func = command === "play" ? "playVideo" : "pauseVideo";
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: "command", func, args: "" }),
+        "*"
+      );
+      return;
+    }
+
+    if (host.includes("vimeo.com")) {
+      iframe.contentWindow.postMessage(JSON.stringify({ method: command }), "*");
+    }
+  } catch {
+    // Ignore malformed embed URLs.
+  }
+}
+
+function postEmbeddedVideoMuted(card, isMuted) {
+  const iframe = card?.querySelector(".feed-video-iframe");
+  const sourceUrl = String(card?.dataset?.feedEmbedSource || "").trim();
+
+  if (!iframe?.contentWindow || !sourceUrl || !card.classList.contains("is-playing")) {
+    return;
+  }
+
+  try {
+    const host = new URL(sourceUrl).hostname.toLowerCase();
+
+    if (host.includes("youtube.com") || host.includes("youtu.be")) {
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: "command", func: isMuted ? "mute" : "unMute", args: "" }),
+        "*"
+      );
+
+      if (!isMuted) {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: "setVolume", args: [100] }),
+          "*"
+        );
+      }
+
+      return;
+    }
+
+    if (host.includes("vimeo.com")) {
+      iframe.contentWindow.postMessage(JSON.stringify({ method: "setMuted", value: isMuted }), "*");
+
+      if (!isMuted) {
+        iframe.contentWindow.postMessage(JSON.stringify({ method: "setVolume", value: 1 }), "*");
+      }
+    }
+  } catch {
+    // Ignore malformed embed URLs.
+  }
+}
+
+function updateFeedVideoMutedUi(card, isMuted) {
+  card?.classList.toggle("is-muted", isMuted);
+
+  if (card) {
+    card.dataset.feedVideoMuted = isMuted ? "true" : "false";
+  }
+
+  const soundTrigger = card?.querySelector(".feed-video-sound-trigger");
+  soundTrigger?.setAttribute("aria-label", isMuted ? "Activar sonido" : "Silenciar video");
+  soundTrigger?.setAttribute("aria-pressed", isMuted ? "true" : "false");
+}
+
+function showFeedVideoSoundTrigger(card) {
+  const soundTrigger = card?.querySelector(".feed-video-sound-trigger");
+
+  if (soundTrigger) {
+    soundTrigger.hidden = false;
+  }
+}
+
+function setFeedVideoMuted(card, isMuted) {
+  if (!card) {
+    return;
+  }
+
+  updateFeedVideoMutedUi(card, isMuted);
+
+  if (isFeedEmbedVideoCard(card)) {
+    postEmbeddedVideoMuted(card, isMuted);
+    return;
+  }
+
+  const video = card.querySelector("video");
+
+  if (video) {
+    video.muted = isMuted;
+  }
+}
+
+function toggleFeedVideoSound(card) {
+  setFeedVideoMuted(card, !card?.classList.contains("is-muted"));
+}
+
+function setFeedEmbeddedVideoPaused(card, isPaused) {
+  const playTrigger = card?.querySelector(".feed-video-play-trigger");
+
+  card?.classList.toggle("is-paused", isPaused);
+  card.dataset.feedVideoPaused = isPaused ? "true" : "false";
+  playTrigger?.setAttribute("aria-label", isPaused ? "Reproducir video" : "Pausar video");
+  postEmbeddedVideoCommand(card, isPaused ? "pause" : "play");
+}
+
+function toggleFeedEmbeddedVideoPlayback(card) {
+  if (!card?.classList.contains("is-playing")) {
+    activateFeedEmbeddedVideo(card);
+    card.dataset.feedVideoUserPaused = "false";
+    activeFeedVideoCard = card;
+    return;
+  }
+
+  const willPause = !card.classList.contains("is-paused");
+  setFeedEmbeddedVideoPaused(card, willPause);
+  card.dataset.feedVideoUserPaused = willPause ? "true" : "false";
+}
+
+function isFeedEmbedVideoCard(card) {
+  return Boolean(card?.dataset?.feedEmbedSource);
+}
+
+function resumeFeedEmbeddedVideo(card) {
+  if (!card) {
+    return;
+  }
+
+  if (!card.classList.contains("is-playing")) {
+    activateFeedEmbeddedVideo(card);
+    return;
+  }
+
+  if (card.classList.contains("is-paused")) {
+    setFeedEmbeddedVideoPaused(card, false);
+  }
+}
+
+function pauseFeedEmbeddedVideoForScroll(card) {
+  if (!card?.classList.contains("is-playing")) {
+    return;
+  }
+
+  setFeedEmbeddedVideoPaused(card, true);
+  delete card.dataset.feedVideoUserPaused;
+}
+
+function resumeFeedNativeVideo(card) {
+  const video = card?.querySelector("video");
+
+  if (!video) {
+    return;
+  }
+
+  video.play().catch(() => null);
+  card.classList.add("is-playing");
+  card.classList.remove("is-paused");
+  showFeedVideoSoundTrigger(card);
+}
+
+function pauseFeedNativeVideoForScroll(card) {
+  const video = card?.querySelector("video");
+
+  if (!video) {
+    return;
+  }
+
+  video.pause();
+  card.classList.add("is-paused");
+  card.classList.remove("is-playing");
+  delete card.dataset.feedVideoUserPaused;
+}
+
+function resumeFeedVideoCard(card) {
+  if (isFeedEmbedVideoCard(card)) {
+    resumeFeedEmbeddedVideo(card);
+    return;
+  }
+
+  resumeFeedNativeVideo(card);
+}
+
+function pauseFeedVideoCardForScroll(card) {
+  if (isFeedEmbedVideoCard(card)) {
+    pauseFeedEmbeddedVideoForScroll(card);
+    return;
+  }
+
+  pauseFeedNativeVideoForScroll(card);
+}
+
+function pickDominantFeedVideoCard() {
+  let dominantCard = null;
+  let dominantRatio = FEED_VIDEO_AUTOPLAY_MIN_RATIO;
+
+  feedVideoVisibility.forEach((ratio, card) => {
+    if (ratio > dominantRatio) {
+      dominantRatio = ratio;
+      dominantCard = card;
+    }
+  });
+
+  return dominantCard;
+}
+
+function syncFeedVideoScrollAutoplay() {
+  if (state.activeView !== "home") {
+    if (activeFeedVideoCard) {
+      pauseFeedVideoCardForScroll(activeFeedVideoCard);
+      activeFeedVideoCard = null;
+    }
+
+    return;
+  }
+
+  const dominantCard = pickDominantFeedVideoCard();
+
+  if (dominantCard === activeFeedVideoCard) {
+    if (
+      dominantCard &&
+      dominantCard.dataset.feedVideoUserPaused !== "true" &&
+      dominantCard.classList.contains("is-paused")
+    ) {
+      resumeFeedVideoCard(dominantCard);
+    }
+
+    return;
+  }
+
+  if (activeFeedVideoCard) {
+    pauseFeedVideoCardForScroll(activeFeedVideoCard);
+  }
+
+  activeFeedVideoCard = dominantCard || null;
+
+  if (dominantCard && dominantCard.dataset.feedVideoUserPaused !== "true") {
+    resumeFeedVideoCard(dominantCard);
+  }
+}
+
+function handleFeedVideoIntersection(entries) {
+  entries.forEach((entry) => {
+    const card = entry.target;
+
+    if (entry.isIntersecting) {
+      feedVideoVisibility.set(card, entry.intersectionRatio);
+    } else {
+      feedVideoVisibility.delete(card);
+    }
+  });
+
+  syncFeedVideoScrollAutoplay();
+}
+
+function resetFeedVideoScrollAutoplay() {
+  activeFeedVideoCard = null;
+  feedVideoVisibility.clear();
+
+  if (feedVideoObserver) {
+    feedVideoObserver.disconnect();
+    feedVideoObserver = null;
+  }
+}
+
+function bindFeedVideoScrollAutoplay(root = document) {
+  resetFeedVideoScrollAutoplay();
+
+  const cards = Array.from(root.querySelectorAll(".feed-media-card.video"));
+
+  if (!cards.length) {
+    return;
+  }
+
+  feedVideoObserver = new IntersectionObserver(handleFeedVideoIntersection, {
+    threshold: [0, 0.25, 0.45, 0.55, 0.7, 0.9, 1],
+    rootMargin: "-12% 0px -12% 0px",
+  });
+
+  cards.forEach((card) => {
+    feedVideoObserver.observe(card);
+  });
+}
+
+function applyEmbeddedVideoAspectRatio(card, meta) {
+  if (!card || !meta?.isPortrait) {
+    return;
+  }
+
+  card.classList.add("is-portrait");
+  card.style.setProperty("--feed-video-aspect-ratio", `${meta.width} / ${meta.height}`);
+  card.style.aspectRatio = `${meta.width} / ${meta.height}`;
+}
+
+async function prepareFeedEmbeddedVideoCard(card) {
+  const sourceUrl = card?.dataset?.feedEmbedSource;
+
+  if (!card || !sourceUrl || card.dataset.embedPrepared === "true") {
+    return;
+  }
+
+  card.dataset.embedPrepared = "true";
+
+  const meta = await fetchEmbedAspectRatio(sourceUrl);
+
+  if (isVerticalVideoSource(sourceUrl)) {
+    applyEmbeddedVideoAspectRatio(card, { width: 9, height: 16, isPortrait: true });
+  } else {
+    applyEmbeddedVideoAspectRatio(card, meta);
+  }
+
+  if (meta?.thumbnailUrl) {
+    const poster = card.querySelector(".feed-video-poster");
+    const posterUrl = resolveEmbedPosterUrl(sourceUrl, meta);
+
+    if (poster && posterUrl) {
+      poster.src = posterUrl;
+      poster.hidden = false;
+      await poster.decode?.().catch(() => null);
+    }
+  }
+}
+
+function showFeedVideoLoading(card) {
+  if (!card) {
+    return;
+  }
+
+  card.dataset.feedVideoLoading = "true";
+  card.classList.add("is-loading");
+  card.classList.remove("is-video-ready");
+
+  const loading = card.querySelector(".feed-video-loading");
+
+  if (loading) {
+    loading.hidden = false;
+    loading.querySelector("[data-feed-video-loading-text]").textContent = "Cargando video";
+  }
+}
+
+function hideFeedVideoLoading(card) {
+  if (!card || card.dataset.feedVideoLoading !== "true") {
+    return;
+  }
+
+  card.dataset.feedVideoLoading = "false";
+  card.classList.remove("is-loading");
+  card.classList.add("is-video-ready");
+
+  const loading = card.querySelector(".feed-video-loading");
+
+  if (loading) {
+    loading.hidden = true;
+  }
+}
+
+function installFeedVideoMessageListener() {
+  if (feedVideoMessageListenerInstalled) {
+    return;
+  }
+
+  feedVideoMessageListenerInstalled = true;
+
+  window.addEventListener("message", (event) => {
+    const origin = String(event.origin || "");
+
+    if (!origin.includes("vimeo.com") && !origin.includes("youtube.com")) {
+      return;
+    }
+
+    let data = null;
+
+    try {
+      data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+    } catch {
+      return;
+    }
+
+    const eventName = String(data?.event || "");
+
+    feedVideoLoadWatchers.forEach((watcher, iframe) => {
+      if (iframe.contentWindow !== event.source) {
+        return;
+      }
+
+      if (eventName === "ready") {
+        watcher.registerPlayerEvents();
+        return;
+      }
+
+      if (eventName === "timeupdate") {
+        const seconds = Number(data?.data?.seconds ?? 0);
+
+        if (seconds > 0.08) {
+          watcher.finishLoading();
+        }
+
+        return;
+      }
+
+      if (eventName === "play" || eventName === "playing") {
+        watcher.scheduleRevealFallback();
+        return;
+      }
+
+      if (eventName === "onStateChange" && data?.info === 1) {
+        watcher.scheduleRevealFallback();
+      }
+    });
+  });
+}
+
+function bindFeedEmbeddedVideoLoadWatcher(card, iframe) {
+  installFeedVideoMessageListener();
+  showFeedVideoLoading(card);
+
+  let finished = false;
+  let revealFallbackTimer = null;
+  let timeoutTimer = null;
+
+  const finishLoading = () => {
+    if (finished) {
+      return;
+    }
+
+    finished = true;
+
+    if (revealFallbackTimer) {
+      window.clearTimeout(revealFallbackTimer);
+    }
+
+    if (timeoutTimer) {
+      window.clearTimeout(timeoutTimer);
+    }
+
+    window.setTimeout(() => {
+      hideFeedVideoLoading(card);
+      showFeedVideoSoundTrigger(card);
+      feedVideoLoadWatchers.delete(iframe);
+    }, 180);
+  };
+
+  const scheduleRevealFallback = () => {
+    if (finished || revealFallbackTimer) {
+      return;
+    }
+
+    revealFallbackTimer = window.setTimeout(finishLoading, 2600);
+  };
+
+  const registerPlayerEvents = () => {
+    const sourceUrl = String(card?.dataset?.feedEmbedSource || "").trim();
+
+    if (!iframe.contentWindow || !sourceUrl.includes("vimeo.com")) {
+      return;
+    }
+
+    ["play", "playing", "timeupdate"].forEach((eventName) => {
+      iframe.contentWindow.postMessage(JSON.stringify({ method: "addEventListener", value: eventName }), "*");
+    });
+  };
+
+  feedVideoLoadWatchers.set(iframe, {
+    finishLoading,
+    registerPlayerEvents,
+    scheduleRevealFallback,
+  });
+
+  iframe.addEventListener("load", () => {
+    registerPlayerEvents();
+    window.setTimeout(registerPlayerEvents, 600);
+  }, { once: true });
+
+  timeoutTimer = window.setTimeout(() => {
+    const loading = card.querySelector(".feed-video-loading");
+
+    if (loading) {
+      loading.querySelector("[data-feed-video-loading-text]").textContent = "El video está tardando";
+    }
+  }, 7000);
+}
+
+function activateFeedEmbeddedVideo(card) {
+  const iframe = card?.querySelector(".feed-video-iframe");
+  const autoplaySrc = card?.dataset.feedEmbedAutoplaySrc || card?.dataset.feedEmbedSrc;
+
+  if (!iframe || !autoplaySrc) {
+    return;
+  }
+
+  if (iframe.dataset.activated === "true") {
+    if (card.dataset.feedVideoLoading === "true") {
+      return;
+    }
+
+    if (card.classList.contains("is-paused")) {
+      setFeedEmbeddedVideoPaused(card, false);
+    }
+
+    return;
+  }
+
+  iframe.dataset.activated = "true";
+  iframe.src = autoplaySrc;
+  iframe.classList.remove("is-dormant");
+  card.classList.add("is-playing");
+  card.classList.remove("is-paused");
+  card.classList.add("is-muted");
+  card.dataset.feedVideoPaused = "false";
+  card.dataset.feedVideoMuted = "true";
+
+  const playTrigger = card.querySelector(".feed-video-play-trigger");
+
+  if (playTrigger) {
+    playTrigger.classList.add("is-playback-control");
+    playTrigger.setAttribute("aria-label", "Pausar video");
+  }
+
+  bindFeedEmbeddedVideoLoadWatcher(card, iframe);
+}
+
+function bindFeedVideoPlayTriggers(root = document) {
+  root.querySelectorAll(".feed-media-card.video .feed-video-play-trigger").forEach((button) => {
+    if (button.dataset.bound === "true") {
+      return;
+    }
+
+    button.dataset.bound = "true";
+
+    const handleActivate = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const card = button.closest(".feed-media-card.video");
+
+      if (card?.classList.contains("is-playing")) {
+        toggleFeedEmbeddedVideoPlayback(card);
+        return;
+      }
+
+      activateFeedEmbeddedVideo(card);
+    };
+
+    button.addEventListener("click", handleActivate);
+  });
+}
+
+function bindFeedVideoSoundTriggers(root = document) {
+  root.querySelectorAll(".feed-video-sound-trigger").forEach((button) => {
+    if (button.dataset.bound === "true") {
+      return;
+    }
+
+    button.dataset.bound = "true";
+
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFeedVideoSound(button.closest(".feed-media-card.video"));
+    });
+  });
+}
+
+function renderFeedVideoLoadingOverlay() {
+  return `
+    <div class="feed-video-loading" aria-live="polite">
+      <span class="feed-video-loading-spinner" aria-hidden="true"></span>
+      <p data-feed-video-loading-text>Cargando video</p>
+    </div>
+  `;
+}
+
+function renderFeedVideoSoundButton() {
+  return `
+    <button type="button" class="feed-video-sound-trigger" aria-label="Activar sonido" aria-pressed="true" hidden>
+      <svg class="feed-video-sound-icon feed-video-sound-icon-muted" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z" />
+      </svg>
+      <svg class="feed-video-sound-icon feed-video-sound-icon-on" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+      </svg>
+    </button>
+  `;
+}
+
+async function bindFeedEmbeddedVideoOrientation(root = document) {
+  const cards = root.querySelectorAll(".feed-media-card.video[data-feed-embed-source]");
+
+  await Promise.all(Array.from(cards).map((card) => prepareFeedEmbeddedVideoCard(card)));
 }
 
 function bindFeedVideoOrientation(root = document) {
@@ -986,14 +1705,28 @@ function renderFeedVideoMedia(url) {
   const portraitClass = isVerticalVideoSource(url) ? " is-portrait" : "";
 
   if (embeddedUrl) {
+    const autoplayUrl = appendEmbedAutoplayParam(embeddedUrl);
+
     return `
-      <div class="feed-media-card video${portraitClass}">
+      <div
+        class="feed-media-card video is-muted is-loading${portraitClass}"
+        data-feed-embed-source="${escapeHtml(url)}"
+        data-feed-embed-src="${escapeHtml(embeddedUrl)}"
+        data-feed-embed-autoplay-src="${escapeHtml(autoplayUrl)}"
+        data-feed-video-muted="true"
+        data-feed-video-loading="true"
+      >
+        <button type="button" class="feed-video-play-trigger" aria-label="Reproducir video">
+          <span class="feed-video-play-icon" aria-hidden="true"></span>
+        </button>
+        ${renderFeedVideoSoundButton()}
+        ${renderFeedVideoLoadingOverlay()}
+        <img class="feed-video-poster" alt="" loading="lazy" hidden />
         <iframe
-          src="${escapeHtml(embeddedUrl)}"
+          class="feed-video-iframe is-dormant"
           title="Video"
-          allow="autoplay; fullscreen; picture-in-picture"
+          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
           allowfullscreen
-          loading="lazy"
           referrerpolicy="strict-origin-when-cross-origin"
         ></iframe>
       </div>
@@ -1001,10 +1734,71 @@ function renderFeedVideoMedia(url) {
   }
 
   return `
-    <div class="feed-media-card video">
-      <video controls playsinline preload="metadata" controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>
+    <div class="feed-media-card video is-muted" data-feed-video-muted="true">
+      <video controls playsinline preload="metadata" muted controlsList="nodownload noplaybackrate" src="${escapeHtml(url)}"></video>
+      ${renderFeedVideoSoundButton()}
     </div>
   `;
+}
+
+function getLocalFeedVideoPreviewUrl() {
+  return new URLSearchParams(window.location.search).get("previewFeedVideo") || localDevFeedPreviewUrl || "";
+}
+
+function prependLocalFeedVideoPreview() {
+  const previewUrl = getLocalFeedVideoPreviewUrl();
+
+  if (!previewUrl || !feedContainer) {
+    return;
+  }
+
+  const existingPreview = feedContainer.querySelector("[data-feed-video-preview]");
+
+  if (existingPreview?.dataset.previewUrl === previewUrl) {
+    return;
+  }
+
+  existingPreview?.remove();
+
+  const previewMarkup = `
+    <article class="feed-card" data-feed-video-preview="true" data-preview-url="${escapeHtml(previewUrl)}">
+      <div class="feed-author-row">
+        <div class="feed-author-meta">
+          <div class="feed-author-avatar">
+            <img src="/logoblancoleon.png" alt="Logo Global Imports" loading="lazy" />
+          </div>
+          <div>
+            <strong>Vista previa local</strong>
+            <p class="feed-author-credit">No publicada · sin notificaciones</p>
+            <p>Preview desde .env</p>
+          </div>
+        </div>
+      </div>
+      <div class="feed-media-shell">
+        <div class="feed-media-strip">${renderFeedVideoMedia(previewUrl)}</div>
+      </div>
+      <div class="feed-story-copy">
+        <h3>Preview del video</h3>
+        <p class="feed-card-copy">Este bloque solo aparece en local con LOCAL_FEED_VIDEO_PREVIEW_URL.</p>
+      </div>
+    </article>
+  `;
+
+  feedContainer.insertAdjacentHTML("afterbegin", previewMarkup);
+}
+
+async function applyFeedMediaLayout() {
+  if (!feedContainer) {
+    return;
+  }
+
+  bindFeedCarousels();
+  bindFeedVideoOrientation(feedContainer);
+  prependLocalFeedVideoPreview();
+  await bindFeedEmbeddedVideoOrientation(feedContainer);
+  bindFeedVideoPlayTriggers(feedContainer);
+  bindFeedVideoSoundTriggers(feedContainer);
+  bindFeedVideoScrollAutoplay(feedContainer);
 }
 
 function renderEmptyState(container, message) {
@@ -1349,6 +2143,7 @@ function renderFeed() {
   if (!state.feedPosts.length && !state.isFetchingFeed) {
     renderEmptyState(feedContainer, "Todavía no hay publicaciones activas para tu feed.");
     feedLoadingState.textContent = "";
+    void applyFeedMediaLayout();
     return;
   }
 
@@ -1467,8 +2262,7 @@ function renderFeed() {
     .join("");
 
   syncFeedCopyClamp();
-  bindFeedCarousels();
-  bindFeedVideoOrientation(feedContainer);
+  void applyFeedMediaLayout();
 
   if (state.isFetchingFeed && state.feedPosts.length) {
     feedLoadingState.textContent = "Cargando más publicaciones...";
@@ -1573,12 +2367,13 @@ async function loadFeedPage({ reset = false } = {}) {
 
   state.isFetchingFeed = true;
 
+  await loadLocalDevFeedPreviewConfig().catch(() => null);
+
   if (reset) {
     state.feedOffset = 0;
     state.feedHasMore = true;
     state.feedPosts = [];
     feedLoadingState.textContent = "Actualizando publicaciones...";
-    renderFeed();
   }
 
   let requestFailed = false;
@@ -1871,8 +2666,14 @@ async function handleFeedCommentLike(postId, commentId) {
   }
 }
 
+function isFeedVideoInteractionTarget(target) {
+  return Boolean(
+    target?.closest?.(".feed-media-card.video, iframe, .feed-video-play-trigger, .feed-video-sound-trigger")
+  );
+}
+
 function shouldIgnoreFeedLikeGesture(target) {
-  return Boolean(target.closest("button, a, input, textarea, select, label, iframe"));
+  return Boolean(target.closest("button, a, input, textarea, select, label, iframe, .feed-media-card.video"));
 }
 
 function getFeedLikeZonePostId(target) {
@@ -2034,6 +2835,11 @@ function handlePullStart(event) {
     return;
   }
 
+  if (isFeedVideoInteractionTarget(event.target)) {
+    isPulling = false;
+    return;
+  }
+
   touchStartY = event.touches[0].clientY;
   pullDistance = 0;
   isPulling = true;
@@ -2042,6 +2848,13 @@ function handlePullStart(event) {
 
 function handlePullMove(event) {
   if (!isPulling) {
+    return;
+  }
+
+  if (isFeedVideoInteractionTarget(event.target)) {
+    isPulling = false;
+    pullDistance = 0;
+    updateRefreshIndicator();
     return;
   }
 
@@ -3729,6 +4542,7 @@ function setActiveView(viewName, options = {}) {
 
   state.activeView = nextViewName;
   persistViewToUrl(nextViewName);
+  syncFeedVideoScrollAutoplay();
 
   viewNodes.forEach((node) => {
     node.classList.remove("is-entering-right", "is-entering-left");

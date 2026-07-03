@@ -727,6 +727,11 @@ async function removeInvalidDeviceTokens(tokens = []) {
 }
 
 async function sendPublishedPostNotifications(post) {
+  if (String(process.env.DISABLE_POST_PUSH_NOTIFICATIONS || "").trim().toLowerCase() === "true") {
+    console.info("[push] Post push notifications disabled by DISABLE_POST_PUSH_NOTIFICATIONS.");
+    return { sent: 0, skipped: 0, disabled: true };
+  }
+
   if (!post || post.pushNotificationSentAt) {
     return { sent: 0, skipped: 0 };
   }

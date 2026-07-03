@@ -412,6 +412,18 @@ app.use((req, res, next) => {
   }
 });
 
+app.get("/client-dev-config.json", (req, res) => {
+  if (String(process.env.NODE_ENV || "").trim() !== "development") {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  return res.json({
+    previewFeedVideo: String(process.env.LOCAL_FEED_VIDEO_PREVIEW_URL || "").trim(),
+    pushNotificationsDisabled: String(process.env.DISABLE_POST_PUSH_NOTIFICATIONS || "").trim().toLowerCase() === "true",
+  });
+});
+
 app.use(
   express.static(publicDirectory, {
     setHeaders(res, filePath) {
