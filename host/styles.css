@@ -5020,6 +5020,59 @@ body.orders-creation-page #order-form {
   object-fit: cover;
 }
 
+.admin-edit-media-card {
+  cursor: grab;
+  user-select: none;
+  transition: transform 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.admin-edit-media-card:active {
+  cursor: grabbing;
+}
+
+.admin-edit-media-card.is-dragging {
+  opacity: 0.58;
+  transform: scale(0.98);
+  border-color: rgba(216, 170, 82, 0.58);
+}
+
+.admin-media-remove-button {
+  border: 0;
+  color: #ffffff;
+  background: rgba(220, 38, 38, 0.82);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-media-card-footer {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-media-card-footer strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-media-card-footer span,
+.admin-media-drag-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-media-drag-hint {
+  color: rgba(216, 170, 82, 0.88);
+}
+
+.admin-media-empty-state {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 720px) {
   .admin-media-manager {
     padding: 14px;
