@@ -1,5 +1,6 @@
-const ADMIN_TRACKING_BUILD = "trackingui06";
+const ADMIN_TRACKING_BUILD = "trackingui07";
 const TRACKING_UI_RELOAD_KEY = "global-tracking-ui-reload";
+const PAYMENT_TRANSIT_STEP_KEY = "in-transit";
 
 const {
   attachLogout: adminAttachLogout,
@@ -193,6 +194,33 @@ function buildOrderAccountingUrl(order) {
   return `/admin-order-accounting.html?orderId=${encodeURIComponent(orderId)}`;
 }
 
+function isLatamOrder(order) {
+  return String(order?.orderRegion || "latam").trim().toLowerCase() === "latam";
+}
+
+function renderOrderFinancialActions(order) {
+  if (!order) {
+    return "";
+  }
+
+  const orderId = getOrderIdentifier(order);
+  const accountingButton = isLatamOrder(order)
+    ? `<a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>`
+    : "";
+  const paymentButton = `
+    <button class="secondary-button tracking-mark-paid-button" type="button" data-mark-order-paid="${escapeHtml(orderId)}">
+      ${order?.paymentDate ? "Actualizar pago" : "Marcar como pagado"}
+    </button>
+  `;
+
+  return `
+    <div class="tracking-new-event-actions tracking-order-accounting-action">
+      ${accountingButton}
+      ${paymentButton}
+    </div>
+  `;
+}
+
 function isHiddenTransitionCompletionEvent(title = "") {
   return normalizeText(title).toLowerCase().startsWith("etapa completada al avanzar");
 }
@@ -295,6 +323,278 @@ function formatDateLabel(value) {
   });
 }
 
+function countDaysBetween(startValue, endValue) {
+  const startDate = normalizeToDateStart(startValue);
+  const endDate = normalizeToDateStart(endValue);
+
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  const diffMs = endDate.getTime() - startDate.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+function formatPaymentDayLabel(days) {
+  return days === 1 ? "1 día" : `${days} días`;
+}
+
+function getTransitStepIndex() {
+  return adminTrackingTemplates.findIndex((template) => template.key === PAYMENT_TRANSIT_STEP_KEY);
+}
+
+function hasOrderReachedTransit(order) {
+  const transitIndex = getTransitStepIndex();
+
+  if (transitIndex < 0) {
+    return false;
+  }
+
+  const stageMeta = getCurrentStageMeta(order);
+
+  if (stageMeta.key === COMPLETED_TIMELINE_STAGE.key || stageMeta.index >= transitIndex) {
+    return true;
+  }
+
+  const steps = getOrderTrackingSteps(order);
+  const transitStep = steps[transitIndex];
+
+  return Boolean(transitStep?.confirmed || transitStep?.inProgress);
+}
+
+function getTransitReachedAt(order) {
+  const transitIndex = getTransitStepIndex();
+
+  if (transitIndex < 0 || !hasOrderReachedTransit(order)) {
+    return null;
+  }
+
+  const steps = getOrderTrackingSteps(order);
+  const transitStep = steps[transitIndex];
+  const candidateDates = [];
+
+  if (transitStep?.confirmedAt) {
+    candidateDates.push(new Date(transitStep.confirmedAt));
+  }
+
+  if (transitStep?.updatedAt) {
+    candidateDates.push(new Date(transitStep.updatedAt));
+  }
+
+  (transitStep?.updates || []).forEach((update) => {
+    if (update?.inProgress || update?.completed) {
+      if (update?.createdAt) {
+        candidateDates.push(new Date(update.createdAt));
+      }
+
+      if (update?.updatedAt) {
+        candidateDates.push(new Date(update.updatedAt));
+      }
+    }
+  });
+
+  getOrderTrackingEvents(order)
+    .filter((event) => event.stateKey === PAYMENT_TRANSIT_STEP_KEY && (event.inProgress || event.completed))
+    .forEach((event) => {
+      if (event.createdAt) {
+        candidateDates.push(new Date(event.createdAt));
+      }
+
+      if (event.updatedAt) {
+        candidateDates.push(new Date(event.updatedAt));
+      }
+    });
+
+  const validDates = candidateDates.filter((date) => !Number.isNaN(date.getTime()));
+
+  if (!validDates.length) {
+    return null;
+  }
+
+  return new Date(Math.min(...validDates.map((date) => date.getTime())));
+}
+
+function getOrderFinalizedAt(order) {
+  if (!isOrderFinalized(order)) {
+    return null;
+  }
+
+  const candidateDates = [];
+
+  if (order?.updatedAt) {
+    candidateDates.push(new Date(order.updatedAt));
+  }
+
+  getOrderTrackingSteps(order).forEach((step) => {
+    if (step?.confirmedAt) {
+      candidateDates.push(new Date(step.confirmedAt));
+    }
+  });
+
+  const validDates = candidateDates.filter((date) => !Number.isNaN(date.getTime()));
+
+  if (!validDates.length) {
+    return null;
+  }
+
+  return new Date(Math.max(...validDates.map((date) => date.getTime())));
+}
+
+function getPaymentTimerMetrics(order) {
+  const paymentDate = order?.paymentDate;
+
+  if (!paymentDate) {
+    return null;
+  }
+
+  const paidAt = new Date(paymentDate);
+
+  if (Number.isNaN(paidAt.getTime())) {
+    return null;
+  }
+
+  const reachedTransit = hasOrderReachedTransit(order);
+  const finalized = isOrderFinalized(order);
+  const today = new Date();
+  const transitAt = reachedTransit ? getTransitReachedAt(order) : null;
+  const finalizedAt = finalized ? getOrderFinalizedAt(order) : null;
+  const timer1End = reachedTransit && transitAt ? transitAt : today;
+  const timer2End = finalized && finalizedAt ? finalizedAt : today;
+  const timer1Days = countDaysBetween(paidAt, timer1End);
+  const timer2Days = countDaysBetween(paidAt, timer2End);
+
+  if (timer1Days === null || timer2Days === null) {
+    return null;
+  }
+
+  return {
+    timer1Days,
+    timer2Days,
+    reachedTransit,
+    finalized,
+  };
+}
+
+function getDaysSincePayment(order) {
+  const metrics = getPaymentTimerMetrics(order);
+  return metrics?.timer2Days ?? null;
+}
+
+function isOrderFinalized(order) {
+  return isOrderInCompletedStage(order) || String(order?.status || "").trim().toLowerCase() === "completed";
+}
+
+function getPaymentAgeBucket(days) {
+  if (days === null || days === undefined) {
+    return null;
+  }
+
+  if (days <= 30) {
+    return "0-30";
+  }
+
+  if (days <= 40) {
+    return "31-40";
+  }
+
+  return "41+";
+}
+
+function getPaymentAgeBadgeClass(bucket) {
+  if (bucket === "0-30") {
+    return "is-fresh";
+  }
+
+  if (bucket === "31-40") {
+    return "is-alert";
+  }
+
+  if (bucket === "41+") {
+    return "is-critical";
+  }
+
+  return "";
+}
+
+function renderPaymentDayBadge(days, options = {}) {
+  const { frozen = false, label = "" } = options;
+  const bucket = getPaymentAgeBucket(days);
+  const badgeClass = getPaymentAgeBadgeClass(bucket);
+  const frozenClass = frozen ? " is-frozen" : "";
+
+  return `
+    <div class="tracking-payment-days-line">
+      ${label ? `<small class="tracking-payment-days-label">${escapeHtml(label)}</small>` : ""}
+      <span class="tracking-payment-days-badge ${badgeClass}${frozenClass}">${escapeHtml(formatPaymentDayLabel(days))}</span>
+    </div>
+  `;
+}
+
+function renderPaymentDaysCell(order) {
+  const metrics = getPaymentTimerMetrics(order);
+
+  if (!metrics) {
+    return '<span class="tracking-payment-days-empty">Sin pago</span>';
+  }
+
+  const { timer1Days, timer2Days, reachedTransit, finalized } = metrics;
+
+  if (finalized) {
+    return `
+      <div class="tracking-payment-days-stack">
+        ${renderPaymentDayBadge(timer1Days, { label: "Hasta tránsito", frozen: reachedTransit })}
+        <div class="tracking-payment-days-line">
+          <small class="tracking-payment-days-label">Total</small>
+          <span class="tracking-payment-days-completed">Completado</span>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tracking-payment-days-stack">
+      ${renderPaymentDayBadge(timer1Days, { label: "Hasta tránsito", frozen: reachedTransit })}
+      ${renderPaymentDayBadge(timer2Days, { label: "Total", frozen: false })}
+    </div>
+  `;
+}
+
+function sortOrdersByPaymentAge(orderList) {
+  return [...orderList].sort((leftOrder, rightOrder) => {
+    const leftFinalized = isOrderFinalized(leftOrder);
+    const rightFinalized = isOrderFinalized(rightOrder);
+
+    if (leftFinalized && rightFinalized) {
+      return 0;
+    }
+
+    if (leftFinalized) {
+      return 1;
+    }
+
+    if (rightFinalized) {
+      return -1;
+    }
+
+    const leftDays = getDaysSincePayment(leftOrder);
+    const rightDays = getDaysSincePayment(rightOrder);
+
+    if (leftDays === null && rightDays === null) {
+      return 0;
+    }
+
+    if (leftDays === null) {
+      return 1;
+    }
+
+    if (rightDays === null) {
+      return -1;
+    }
+
+    return rightDays - leftDays;
+  });
+}
+
 function formatDateTimeLabel(value) {
   if (!value) {
     return "Sin fecha";
@@ -364,6 +664,7 @@ const trackingSearchResults = document.getElementById("tracking-search-results")
 const trackingStateFilter = document.getElementById("tracking-search-state");
 const trackingDateFromFilter = document.getElementById("tracking-search-date-from");
 const trackingDateToFilter = document.getElementById("tracking-search-date-to");
+const trackingPaymentAgeFilter = document.getElementById("tracking-search-payment-age");
 const trackingOrderSummary = document.getElementById("tracking-order-summary");
 const trackingStatesList = document.getElementById("tracking-states-list");
 const trackingStageTransitionCard = document.getElementById("tracking-stage-transition-card");
@@ -372,6 +673,11 @@ const trackingSuccessModal = document.getElementById("tracking-success-modal");
 const trackingSuccessTitle = document.getElementById("tracking-success-title");
 const trackingSuccessMessage = document.getElementById("tracking-success-message");
 const trackingSuccessClose = document.getElementById("tracking-success-close");
+const trackingPaymentDateModal = document.getElementById("tracking-payment-date-modal");
+const trackingPaymentDateInput = document.getElementById("tracking-payment-date-input");
+const trackingPaymentDateFeedback = document.getElementById("tracking-payment-date-feedback");
+const trackingPaymentDateSaveButton = document.getElementById("tracking-payment-date-save");
+const trackingPaymentDateDeleteButton = document.getElementById("tracking-payment-date-delete");
 const trackingDeleteUpdateModal = document.getElementById("tracking-delete-update-modal");
 const trackingDeleteUpdateTitle = document.getElementById("tracking-delete-update-title");
 const trackingDeleteUpdateConfirm = document.getElementById("tracking-delete-update-confirm");
@@ -402,6 +708,7 @@ const orderDeleteRequestFeedback = document.getElementById("order-delete-request
 let createOrderModalResizeHandlerBound = false;
 let pendingDeletionOrderId = "";
 let pendingTrackingDeleteAction = null;
+let pendingPaymentOrderId = "";
 let searchResultsRenderTimer = 0;
 
 const searchConfigs = [
@@ -1554,10 +1861,11 @@ function populateSearchSelects() {
 function getFilteredOrders() {
   const searchableOrders = getSearchableOrders();
   const selectedState = String(trackingStateFilter?.value || "").trim();
+  const selectedPaymentAge = String(trackingPaymentAgeFilter?.value || "").trim();
   const dateFrom = trackingDateFromFilter?.value ? normalizeToDateStart(trackingDateFromFilter.value) : null;
   const dateTo = trackingDateToFilter?.value ? normalizeToDateEnd(trackingDateToFilter.value) : null;
 
-  return searchableOrders.filter((order) => {
+  const filteredOrders = searchableOrders.filter((order) => {
     const matchesSearch = searchConfigs.every((config) => {
       const query = normalizeSearchValue(config.input.value);
 
@@ -1578,6 +1886,18 @@ function getFilteredOrders() {
       return false;
     }
 
+    if (selectedPaymentAge) {
+      if (isOrderFinalized(order)) {
+        return false;
+      }
+
+      const paymentBucket = getPaymentAgeBucket(getDaysSincePayment(order));
+
+      if (paymentBucket !== selectedPaymentAge) {
+        return false;
+      }
+    }
+
     const orderDate = order?.purchaseDate || order?.createdAt || null;
     const orderDateValue = orderDate ? new Date(orderDate) : null;
 
@@ -1591,6 +1911,8 @@ function getFilteredOrders() {
 
     return true;
   });
+
+  return sortOrdersByPaymentAge(filteredOrders);
 }
 
 function findExactMatch(matches) {
@@ -1711,6 +2033,7 @@ function renderSearchResults(matches) {
             <th>Estado</th>
             <th>Vehículo</th>
             <th>Fecha</th>
+            <th>Días desde el pago</th>
             <th>Acción</th>
           </tr>
         </thead>
@@ -1746,6 +2069,7 @@ function renderSearchResults(matches) {
                 <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
                 <td data-label="Vehículo">${renderOrderVehicleCell(order)}</td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
+                <td data-label="Días desde el pago">${renderPaymentDaysCell(order)}</td>
                 <td data-label="Acción" class="tracking-order-actions-cell">
                   <div class="tracking-order-actions">
                     <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
@@ -2655,11 +2979,7 @@ function renderTrackingOverview(order) {
               <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.interiorColor || "-")}</strong>
             </article>
           </div>
-          ${String(order?.orderRegion || "latam") === "latam" ? `
-          <div class="tracking-new-event-actions tracking-order-accounting-action">
-            <a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>
-          </div>
-          ` : ""}
+          ${renderOrderFinancialActions(order)}
         </article>
         ${renderStageTransitionCardMarkup(order)}
       </div>
@@ -2725,10 +3045,10 @@ function ensureModernTrackingUi(order) {
   }
 
   const hasModernHero = Boolean(trackingPreview.querySelector(".tracking-overview-label"));
-  const isLatamOrder = String(order?.orderRegion || "latam").trim().toLowerCase() === "latam";
-  const hasAccountingAction = !isLatamOrder || Boolean(trackingPreview.querySelector(".tracking-accounting-button"));
+  const hasFinancialActions = Boolean(trackingPreview.querySelector(".tracking-mark-paid-button"))
+    && (!isLatamOrder(order) || Boolean(trackingPreview.querySelector(".tracking-accounting-button")));
 
-  if (hasModernHero && hasAccountingAction) {
+  if (hasModernHero && hasFinancialActions) {
     sessionStorage.removeItem(TRACKING_UI_RELOAD_KEY);
     cleanTrackingUrlParams();
     return;
@@ -2797,6 +3117,10 @@ function clearSearchFilters() {
 
   if (trackingDateToFilter) {
     trackingDateToFilter.value = "";
+  }
+
+  if (trackingPaymentAgeFilter) {
+    trackingPaymentAgeFilter.value = "";
   }
 
   selectedOrderId = "";
@@ -3580,6 +3904,167 @@ function closeSuccessModal() {
   document.body.classList.remove("modal-open");
 }
 
+function formatDateInputValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function openPaymentDateModal(orderId) {
+  if (!trackingPaymentDateModal || !orderId) {
+    return;
+  }
+
+  const order = orders.find((entry) => getOrderIdentifier(entry) === orderId) || getSelectedOrder();
+
+  if (!order || getOrderIdentifier(order) !== orderId) {
+    adminSetFeedback(trackingFeedback, "No se encontró el pedido seleccionado.", "error");
+    return;
+  }
+
+  pendingPaymentOrderId = orderId;
+
+  if (trackingPaymentDateInput) {
+    trackingPaymentDateInput.value = formatDateInputValue(order.paymentDate) || formatDateInputValue(new Date());
+  }
+
+  if (trackingPaymentDateDeleteButton) {
+    trackingPaymentDateDeleteButton.hidden = !order.paymentDate;
+  }
+
+  adminSetFeedback(trackingPaymentDateFeedback, "");
+  trackingPaymentDateModal.hidden = false;
+  document.body.classList.add("modal-open");
+  trackingPaymentDateInput?.focus();
+}
+
+function closePaymentDateModal() {
+  if (!trackingPaymentDateModal) {
+    return;
+  }
+
+  pendingPaymentOrderId = "";
+  trackingPaymentDateModal.hidden = true;
+
+  if (trackingPaymentDateDeleteButton) {
+    trackingPaymentDateDeleteButton.hidden = true;
+  }
+
+  document.body.classList.remove("modal-open");
+}
+
+function replaceOrderInCollection(updatedOrder) {
+  if (!updatedOrder) {
+    return;
+  }
+
+  const updatedOrderId = getOrderIdentifier(updatedOrder);
+  const orderIndex = orders.findIndex((entry) => getOrderIdentifier(entry) === updatedOrderId);
+
+  if (orderIndex >= 0) {
+    orders[orderIndex] = updatedOrder;
+  }
+
+  if (selectedOrderId === updatedOrderId) {
+    selectedOrderId = updatedOrderId;
+    trackingOrderInput.value = updatedOrderId;
+    renderTrackingOverview(updatedOrder);
+    renderOrderSummary(updatedOrder);
+    renderStates();
+  }
+
+  renderSearchResults(getFilteredOrders());
+}
+
+async function savePaymentDate() {
+  const orderId = String(pendingPaymentOrderId || selectedOrderId || "").trim();
+  const paymentDateValue = String(trackingPaymentDateInput?.value || "").trim();
+
+  if (!orderId) {
+    adminSetFeedback(trackingPaymentDateFeedback, "Selecciona un pedido antes de guardar el pago.", "error");
+    return;
+  }
+
+  if (!paymentDateValue) {
+    adminSetFeedback(trackingPaymentDateFeedback, "Selecciona la fecha de pago.", "error");
+    return;
+  }
+
+  try {
+    adminSetFeedback(trackingPaymentDateFeedback, "Guardando fecha de pago...", "info");
+
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        paymentDate: paymentDateValue,
+      }),
+    });
+
+    replaceOrderInCollection(response.order);
+    closePaymentDateModal();
+    openSuccessModal({
+      title: "Pago registrado",
+      message: "La fecha de pago fue guardada correctamente.",
+    });
+  } catch (error) {
+    adminSetFeedback(trackingPaymentDateFeedback, error.message || "No se pudo guardar la fecha de pago.", "error");
+  }
+}
+
+async function deletePaymentDate() {
+  const orderId = String(pendingPaymentOrderId || selectedOrderId || "").trim();
+
+  if (!orderId) {
+    adminSetFeedback(trackingPaymentDateFeedback, "Selecciona un pedido antes de borrar el pago.", "error");
+    return;
+  }
+
+  const order = orders.find((entry) => getOrderIdentifier(entry) === orderId) || getSelectedOrder();
+
+  if (!order?.paymentDate) {
+    adminSetFeedback(trackingPaymentDateFeedback, "Este pedido no tiene una fecha de pago registrada.", "error");
+    return;
+  }
+
+  try {
+    adminSetFeedback(trackingPaymentDateFeedback, "Borrando fecha de pago...", "info");
+
+    const response = await fetchTrackingPageJson(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        paymentDate: null,
+      }),
+    });
+
+    replaceOrderInCollection(response.order);
+    closePaymentDateModal();
+    openSuccessModal({
+      title: "Fecha eliminada",
+      message: "La fecha de pago fue borrada correctamente.",
+    });
+  } catch (error) {
+    adminSetFeedback(trackingPaymentDateFeedback, error.message || "No se pudo borrar la fecha de pago.", "error");
+  }
+}
+
 function openDeleteUpdateModal(stateKey, updateIndex, eventId = "") {
   if (!trackingDeleteUpdateModal) {
     return;
@@ -3986,6 +4471,12 @@ trackingDeleteUpdateModal?.addEventListener("click", (event) => {
   }
 });
 
+trackingPaymentDateModal?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-payment-date-modal]")) {
+    closePaymentDateModal();
+  }
+});
+
 trackingDeleteUpdateConfirm?.addEventListener("click", () => {
   confirmDeleteUpdate().catch((error) => {
     adminSetFeedback(trackingDeleteUpdateFeedback, error.message || "No se pudo borrar el evento.", "error");
@@ -4091,7 +4582,28 @@ trackingDateToFilter?.addEventListener("change", () => {
   renderSearchResults(getFilteredOrders());
 });
 
+trackingPaymentAgeFilter?.addEventListener("change", () => {
+  renderSearchResults(getFilteredOrders());
+});
+
+trackingPaymentDateSaveButton?.addEventListener("click", () => {
+  savePaymentDate().catch((error) => {
+    adminSetFeedback(trackingPaymentDateFeedback, error.message || "No se pudo guardar la fecha de pago.", "error");
+  });
+});
+
+trackingPaymentDateDeleteButton?.addEventListener("click", () => {
+  deletePaymentDate().catch((error) => {
+    adminSetFeedback(trackingPaymentDateFeedback, error.message || "No se pudo borrar la fecha de pago.", "error");
+  });
+});
+
 function handleTrackingPageClick(event) {
+  if (event.target.closest("[data-close-payment-date-modal]")) {
+    closePaymentDateModal();
+    return;
+  }
+
   if (event.target.closest("[data-close-tracking-modal]")) {
     closeSuccessModal();
     return;
@@ -4133,6 +4645,13 @@ function handleTrackingPageClick(event) {
 
   if (editButton) {
     openEditOrderModal(String(editButton.dataset.orderEdit || ""));
+    return;
+  }
+
+  const markPaidButton = event.target.closest("[data-mark-order-paid]");
+
+  if (markPaidButton) {
+    openPaymentDateModal(String(markPaidButton.dataset.markOrderPaid || ""));
     return;
   }
 

@@ -3,11 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Global Imports | Pedidos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260619-trackingdetail01" />
+    <link rel="stylesheet" href="/styles.css?v=trackingui07" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260515-ipadtouch27" />
     <style>
       .global-loading-overlay {
@@ -16,11 +19,20 @@
     </style>
   </head>
   <body class="admin-app-view admin-uppercase-view">
+    <script>
+      (() => {
+        const navigationEntry = window.performance?.getEntriesByType?.("navigation")?.[0];
+
+        if (navigationEntry?.type === "back_forward") {
+          window.location.reload();
+        }
+      })();
+    </script>
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
         <header class="page-topbar">
-          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <a class="secondary-button back-link" href="/admin.html">Volver al dashboard</a>
           <div class="page-topbar-actions">
             <div class="admin-badge">
               <span id="admin-name">Administrador</span>
@@ -46,7 +58,7 @@
                 <section id="tracking-selector-panel" class="tracking-selector-panel tracking-filters-card">
                   <div class="tracking-selector-copy">
                     <strong>Selecciona el pedido que vas a gestionar</strong>
-                    <p>Solo se muestran pedidos activos. Puedes filtrarlos por tracking, VIN, cliente o identificador interno, estado y rango de fecha.</p>
+                    <p>Solo se muestran pedidos activos. Puedes filtrarlos por tracking, VIN, cliente o identificador interno, estado, antigüedad del pago y rango de fecha.</p>
                   </div>
                   <div class="tracking-search-grid">
                     <div class="tracking-search-stack">
@@ -68,6 +80,15 @@
                       <span>Filtrar por estado</span>
                       <select id="tracking-search-state" class="tracking-native-select">
                         <option value="">Todos los estados</option>
+                      </select>
+                    </div>
+                    <div class="tracking-search-stack">
+                      <span>Antigüedad del pago</span>
+                      <select id="tracking-search-payment-age" class="tracking-native-select">
+                        <option value="">Todas las antigüedades</option>
+                        <option value="41+">🔴 41+ días</option>
+                        <option value="31-40">🟠 31–40 días</option>
+                        <option value="0-30">🟢 0–30 días</option>
                       </select>
                     </div>
                     <div class="tracking-search-stack">
@@ -100,6 +121,25 @@
         <strong id="tracking-success-title">Estado guardado</strong>
         <p id="tracking-success-message">La información del estado fue actualizada correctamente.</p>
         <button id="tracking-success-close" class="primary-button" type="button" onclick="window.__closeTrackingSuccessModal?.(); return false;">Aceptar</button>
+      </div>
+    </div>
+    <div id="tracking-payment-date-modal" class="tracking-modal" hidden>
+      <div class="tracking-modal-backdrop" data-close-payment-date-modal></div>
+      <div class="tracking-modal-card tracking-payment-date-card" role="dialog" aria-modal="true" aria-labelledby="tracking-payment-date-title">
+        <strong id="tracking-payment-date-title">Marcar como pagado</strong>
+        <p class="tracking-payment-date-copy">Selecciona la fecha en que se realizó el pago del vehículo.</p>
+        <label class="tracking-search-stack tracking-payment-date-field">
+          <span>Fecha de pago</span>
+          <input id="tracking-payment-date-input" class="tracking-native-select" type="date" />
+        </label>
+        <p id="tracking-payment-date-feedback" class="feedback" aria-live="polite"></p>
+        <div class="tracking-payment-date-actions">
+          <button id="tracking-payment-date-delete" class="secondary-button tracking-payment-date-delete" type="button" hidden>Borrar fecha</button>
+          <div class="tracking-modal-actions">
+            <button class="secondary-button" type="button" data-close-payment-date-modal>Cancelar</button>
+            <button id="tracking-payment-date-save" class="primary-button" type="button">Guardar</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="tracking-delete-update-modal" class="tracking-modal" hidden>
@@ -816,7 +856,7 @@
         });
       })();
     </script>
-    <script src="/admin-tracking.js?v=20260619-docedit01"></script>
+    <script src="/admin-tracking.js?v=trackingui07"></script>
     <script src="/admin-orders.js?v=20260616-ordercreate01"></script>
   </body>
 </html>

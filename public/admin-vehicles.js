@@ -204,7 +204,7 @@ if (requireAdminAccess()) {
 
   function normalizeVehicles(orders) {
     return (orders || [])
-      .filter((order) => order?.status !== "cancelled")
+      .filter((order) => order?.orderRegion === "latam" && order?.status !== "cancelled")
       .map((order) => {
         const currentStage = resolveCurrentStage(order);
         const plate = normalizeText(order?.vehicle?.plate);
@@ -261,16 +261,16 @@ if (requireAdminAccess()) {
         </td>
         <td data-label="Placa">${escapeHtml(vehicle.plate || "—")}</td>
         <td data-label="Cliente">${escapeHtml(vehicle.clientName || "Sin cliente")}</td>
-        <td data-label="Tracking" class="vehicle-tracking-cell">
-          <button class="vehicle-tracking-link" type="button" data-open-vehicle-order="${escapeHtml(vehicle.id)}">${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}</button>
+        <td data-label="Tracking">
+          <button class="tracking-order-link-button" type="button" data-open-vehicle-order="${escapeHtml(vehicle.id)}">
+            ${escapeHtml(vehicle.trackingNumber || vehicle.orderIdentifier || "Sin tracking")}
+          </button>
         </td>
         <td data-label="Etapa">${escapeHtml(vehicle.currentStage.display)}</td>
-        <td data-label="Acciones" class="vehicles-actions-cell">
-          <button class="compact-action-button vehicle-edit-action" type="button" data-edit-vehicle-pricing="${escapeHtml(vehicle.id)}" aria-label="Editar precios del vehículo">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.13 1.13 3.75 3.75 1.13-1.13Z"></path>
-            </svg>
-          </button>
+        <td data-label="Acciones" class="tracking-order-actions-cell">
+          <div class="tracking-order-actions">
+            <button class="tracking-order-action-button" type="button" data-edit-vehicle-pricing="${escapeHtml(vehicle.id)}" aria-label="Editar precios del vehículo ${escapeHtml(vehicle.vehicleLabel || vehicle.vin || vehicle.id)}">&#9998;</button>
+          </div>
         </td>
       </tr>
     `).join("");

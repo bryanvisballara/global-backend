@@ -372,6 +372,10 @@ const orderGlobalUSSchema = new mongoose.Schema(
       required: true,
       default: Date.now,
     },
+    paymentDate: {
+      type: Date,
+      default: null,
+    },
     expectedArrivalDate: {
       type: Date,
     },

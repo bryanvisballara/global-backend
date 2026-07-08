@@ -27,7 +27,9 @@ app.get("/api/debug/list-users", async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
+const hostDirectory = path.join(__dirname, "..", "host");
 const publicDirectory = path.join(__dirname, "..", "public");
+const frontendStaticDirectories = [hostDirectory, publicDirectory];
 const uploadsDirectory = path.join(__dirname, "..", "uploads");
 const orderDocumentsDirectory = path.join(uploadsDirectory, "order-documents");
 const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
@@ -424,50 +426,40 @@ app.get("/client-dev-config.json", (req, res) => {
   });
 });
 
-app.use(
-  express.static(publicDirectory, {
-    setHeaders(res, filePath) {
-      const normalizedFilePath = filePath.replace(/\\/g, "/");
-      const fileName = path.basename(normalizedFilePath);
+function setFrontendStaticHeaders(res, filePath) {
+  const normalizedFilePath = filePath.replace(/\\/g, "/");
+  const fileName = path.basename(normalizedFilePath);
 
-      if (
-        filePath.endsWith(".html") ||
-        fileName === "styles.css" ||
-        fileName === "app-client.js" ||
-        fileName === "admin-dashboard.js" ||
-        fileName === "admin-common.js" ||
-        fileName === "admin-mobile-fix.css"
-      ) {
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
-  })
-);
+  if (
+    filePath.endsWith(".html") ||
+    fileName === "styles.css" ||
+    fileName === "app-client.js" ||
+    fileName === "admin-dashboard.js" ||
+    fileName === "admin-common.js" ||
+    fileName === "admin-mobile-fix.css"
+  ) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
+}
 
-app.use(
-  "/app",
-  express.static(publicDirectory, {
-    setHeaders(res, filePath) {
-      const normalizedFilePath = filePath.replace(/\\/g, "/");
-      const fileName = path.basename(normalizedFilePath);
+frontendStaticDirectories.forEach((staticDirectory) => {
+  app.use(
+    express.static(staticDirectory, {
+      setHeaders: setFrontendStaticHeaders,
+    })
+  );
+});
 
-      if (
-        filePath.endsWith(".html") ||
-        fileName === "styles.css" ||
-        fileName === "app-client.js" ||
-        fileName === "admin-dashboard.js" ||
-        fileName === "admin-common.js" ||
-        fileName === "admin-mobile-fix.css"
-      ) {
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
-  })
-);
+frontendStaticDirectories.forEach((staticDirectory) => {
+  app.use(
+    "/app",
+    express.static(staticDirectory, {
+      setHeaders: setFrontendStaticHeaders,
+    })
+  );
+});
 
 app.use("/uploads", express.static(uploadsDirectory, {
   setHeaders(res, filePath) {

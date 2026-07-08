@@ -2333,6 +2333,20 @@ async function updateOrder(req, res) {
       order.purchaseDate = purchaseDate;
     }
 
+    if (Object.prototype.hasOwnProperty.call(req.body, "paymentDate")) {
+      if (!req.body.paymentDate) {
+        order.paymentDate = null;
+      } else {
+        const parsedPaymentDate = new Date(req.body.paymentDate);
+
+        if (Number.isNaN(parsedPaymentDate.getTime())) {
+          return res.status(400).json({ message: "paymentDate must be a valid date" });
+        }
+
+        order.paymentDate = parsedPaymentDate;
+      }
+    }
+
     if (expectedArrivalDate) {
       order.expectedArrivalDate = expectedArrivalDate;
     }
