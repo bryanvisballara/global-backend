@@ -206,11 +206,16 @@ body.admin-app-view {
 
   body.admin-app-view .admin-dashboard-main {
     min-height: 100dvh !important;
-    padding: 0 0 calc(20px + env(safe-area-inset-bottom)) !important;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 0 calc(20px + env(safe-area-inset-bottom, 0px)) !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     backdrop-filter: none !important;
+  }
+
+  body.admin-app-view .admin-sidebar-toggle {
+    min-height: 44px;
+    align-self: flex-start;
   }
 }
 
@@ -234,7 +239,7 @@ body.admin-app-view {
   }
 
   body.admin-app-view .admin-dashboard-header {
-    padding: 16px 10px 0 !important;
+    padding: 0 10px 0 !important;
   }
 
   body.admin-app-view .admin-dashboard-meta,
