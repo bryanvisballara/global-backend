@@ -133,7 +133,7 @@ function forceHideAnyLoadingOverlay() {
 }
 
 function redirectToLogin() {
-  const loginUrl = new URL("/app/index.html", window.location.origin);
+  const loginUrl = new URL("/index.html", window.location.origin);
   loginUrl.searchParams.set("logout", "1");
   loginUrl.searchParams.set("t", String(Date.now()));
   window.location.replace(loginUrl.toString());
@@ -197,11 +197,11 @@ function requireAdminAccess() {
   const currentRole = getCurrentRole();
   const hasAuthToken = Boolean(getAuthToken());
   const latamOnlyPages = new Set([
-    "/app/admin-client-requests.html",
-    "/app/admin-maintenance.html",
-    "/app/admin-vehicles.html",
-    "/app/admin-posts.html",
-    "/app/admin-virtual-dealership.html",
+    "/admin-client-requests.html",
+    "/admin-maintenance.html",
+    "/admin-vehicles.html",
+    "/admin-posts.html",
+    "/admin-virtual-dealership.html",
     "/admin-client-requests.html",
     "/admin-maintenance.html",
     "/admin-vehicles.html",
@@ -220,7 +220,7 @@ function requireAdminAccess() {
   }
 
   if (isUsaAdministrativeRole(currentRole) && latamOnlyPages.has(currentPath)) {
-    window.location.replace("/app/admin.html");
+    window.location.replace("/admin.html");
     return false;
   }
 
@@ -391,26 +391,26 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
     {
       title: "Gestion",
       items: [
-        { href: "/app/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin.html"] },
-        { href: "/app/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-tracking.html", "/app/admin-orders.html"] },
-        { href: "/app/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-vehicles.html"] },
-        { href: "/app/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-clients.html"] },
+        { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
+        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+        { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
+        { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
       ],
     },
     {
       title: "Control",
       items: [
-        { href: "/app/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/app/admin-deleted-accounts.html"] },
-        { href: "/app/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-client-requests.html"] },
-        { href: "/app/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-maintenance.html"] },
+        { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
+        { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
+        { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
       ],
     },
     {
       title: "Contenido",
       items: [
-        { href: "/app/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-posts.html", "/app/admin-post-edit.html"] },
-        { href: "/app/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/app/admin-virtual-dealership.html"] },
-        { href: "/app/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/app/admin-admins.html"] },
+        { href: "/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
+        { href: "/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
+        { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
       ],
     },
   ];
@@ -455,7 +455,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   sidebar.setAttribute("aria-label", "Navegacion administrativa");
   sidebar.innerHTML = `
     <div class="admin-sidebar-brand">
-      <img class="admin-sidebar-logo" src="/app/logoblancoleon.png" alt="Global Imports" />
+      <img class="admin-sidebar-logo" src="/logoblancoleon.png" alt="Global Imports" />
       <div>
         <p class="section-tag">${brandLabel}</p>
         <strong>Panel administrativo</strong>
@@ -624,7 +624,8 @@ function initializeAdminSidebarDrawer() {
 
   const syncSidebarMode = () => {
     const isDesktop = isDesktopSidebarMode();
-    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpadTouchDevice());
+    const isIpad = isIpadTouchDevice();
+    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpad);
 
     if (isDesktop) {
       window.localStorage.removeItem("globalAdminSidebarDesktopCollapsed");
@@ -632,6 +633,10 @@ function initializeAdminSidebarDrawer() {
       document.body.classList.remove("admin-sidebar-open");
     } else {
       document.body.classList.remove("admin-sidebar-collapsed");
+
+      if (isIpad) {
+        document.body.classList.remove("admin-sidebar-open");
+      }
     }
 
     updateToggleButtons();

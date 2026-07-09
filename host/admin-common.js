@@ -624,7 +624,8 @@ function initializeAdminSidebarDrawer() {
 
   const syncSidebarMode = () => {
     const isDesktop = isDesktopSidebarMode();
-    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpadTouchDevice());
+    const isIpad = isIpadTouchDevice();
+    document.body.classList.toggle("admin-ipad-drawer", !isDesktop && isIpad);
 
     if (isDesktop) {
       window.localStorage.removeItem("globalAdminSidebarDesktopCollapsed");
@@ -632,6 +633,10 @@ function initializeAdminSidebarDrawer() {
       document.body.classList.remove("admin-sidebar-open");
     } else {
       document.body.classList.remove("admin-sidebar-collapsed");
+
+      if (isIpad) {
+        document.body.classList.remove("admin-sidebar-open");
+      }
     }
 
     updateToggleButtons();

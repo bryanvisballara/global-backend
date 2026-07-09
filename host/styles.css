@@ -3694,6 +3694,26 @@ body.admin-uppercase-view *::placeholder {
   min-width: 0;
 }
 
+.tracking-events-column-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tracking-events-column-main .tracking-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tracking-events-column-side {
+  min-width: 0;
+}
+
+.tracking-overview-value-vin {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
 .tracking-events-column {
   display: grid;
   gap: 18px;
@@ -5303,6 +5323,36 @@ body.feed-social-open .client-views {
 }
 
 @media (max-width: 1100px) {
+  .tracking-events-editor-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    gap: 14px;
+  }
+
+  .tracking-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+  }
+
+  .tracking-overview-detail-client,
+  .tracking-overview-detail-payment {
+    grid-column: 1 / -1;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) {
+    justify-items: start;
+    text-align: left;
+    min-height: 0;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+    font-size: 1.08rem;
+  }
+
+  .admin-tracking-events-table,
+  .admin-tracking-documents-table {
+    min-width: 640px;
+  }
+
   .admin-dashboard-layout {
     grid-template-columns: 1fr;
   }

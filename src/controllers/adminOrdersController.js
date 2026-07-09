@@ -276,6 +276,25 @@ function canCreateOrEditOrders(requester) {
   return ["manager", "admin", "gerenteUSA", "adminUSA"].includes(normalizedRole) || isAnthonyGlobalOwner(requester);
 }
 
+function canManageOrderPaymentDate(requester, orderRegion = "latam") {
+  const normalizedRole = normalizeRequesterRole(requester).toLowerCase();
+
+  if (isAnthonyGlobalOwner(requester) || hasGlobalLatamOrderPrivileges(requester)) {
+    return true;
+  }
+
+  return ["gerenteusa", "adminusa"].includes(normalizedRole) && orderRegion === "usa";
+}
+
+function isPaymentOnlyUpdate(body) {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+
+  const keys = Object.keys(body).filter((key) => body[key] !== undefined);
+  return keys.length > 0 && keys.every((key) => key === "paymentDate");
+}
+
 function canManageOrderDocuments(requester) {
   return !isUsaBrokerRole(normalizeRequesterRole(requester));
 }
@@ -2204,17 +2223,48 @@ async function getOrder(req, res) {
 
 async function updateOrder(req, res) {
   try {
-    if (!canCreateOrEditOrders(req.user)) {
-      return res.status(403).json({ message: "No tienes permisos para editar pedidos" });
-    }
-
-    const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
     const orderResult = await findReadableOrderForRole(req.params.orderId, req.user);
     let order = orderResult.order;
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
+
+    if (isPaymentOnlyUpdate(req.body)) {
+      if (!canManageOrderPaymentDate(req.user, orderResult.region)) {
+        return res.status(403).json({ message: "No tienes permisos para gestionar el pago de este pedido" });
+      }
+
+      if (Object.prototype.hasOwnProperty.call(req.body, "paymentDate")) {
+        if (!req.body.paymentDate) {
+          order.paymentDate = null;
+        } else {
+          const parsedPaymentDate = new Date(req.body.paymentDate);
+
+          if (Number.isNaN(parsedPaymentDate.getTime())) {
+            return res.status(400).json({ message: "paymentDate must be a valid date" });
+          }
+
+          order.paymentDate = parsedPaymentDate;
+        }
+      }
+
+      await order.save();
+
+      const paymentOrderModel = orderResult.region === "usa" ? OrderGlobalUS : Order;
+      const updatedPaymentOrder = await populateOrderParties(paymentOrderModel.findById(order._id));
+
+      return res.status(200).json({
+        message: "Order updated successfully",
+        order: await serializeOrder(updatedPaymentOrder, orderResult.region),
+      });
+    }
+
+    if (!canCreateOrEditOrders(req.user)) {
+      return res.status(403).json({ message: "No tienes permisos para editar pedidos" });
+    }
+
+    const { vehicle, purchaseDate, expectedArrivalDate, media, notes, status } = req.body;
 
     const sourceVehicle = vehicle && typeof vehicle === "object" ? vehicle : {};
     const nextBrand = normalizeOptionalString(req.body.brand ?? sourceVehicle.brand);
@@ -2334,6 +2384,10 @@ async function updateOrder(req, res) {
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, "paymentDate")) {
+      if (!canManageOrderPaymentDate(req.user, orderResult.region)) {
+        return res.status(403).json({ message: "No tienes permisos para gestionar el pago de este pedido" });
+      }
+
       if (!req.body.paymentDate) {
         order.paymentDate = null;
       } else {
