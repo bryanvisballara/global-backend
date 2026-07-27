@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:client": "node src/scripts/seedClient.js",
-    "seed:posts": "node src/scripts/seedDemoPosts.js"
+    "seed:posts": "node src/scripts/seedDemoPosts.js",
+    "backfill:maintenance": "node src/scripts/backfillCompletedOrderMaintenance.js"
   },
   "repository": {
     "type": "git",

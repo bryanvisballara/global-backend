@@ -4,8 +4,12 @@ const bcrypt = require("bcryptjs");
 const LATAM_ADMIN_ROLES = ["manager", "admin"];
 const USA_ADMIN_ROLES = ["gerenteUSA", "adminUSA", "brokerUSA"];
 
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
 function isUsaAdministrativeRole(role) {
-  return USA_ADMIN_ROLES.includes(String(role || "").trim());
+  return ["gerenteusa", "adminusa", "brokerusa"].includes(normalizeRole(role));
 }
 
 function resolveAdministrativeRoleToCreate(requesterRole, requestedRole) {
@@ -34,9 +38,13 @@ async function listUsers(req, res) {
 
 async function listAdministrativeUsers(req, res) {
   try {
-    const rolesToList = isUsaAdministrativeRole(req.user?.role) ? USA_ADMIN_ROLES : LATAM_ADMIN_ROLES;
+    const rolesToList = isUsaAdministrativeRole(req.user?.role)
+      ? ["gerenteusa", "adminusa", "brokerusa"]
+      : ["manager", "admin"];
 
-    const users = await User.find({ role: { $in: rolesToList } })
+    const roleRegexMatchers = rolesToList.map((role) => new RegExp(`^${role}$`, "i"));
+
+    const users = await User.find({ role: { $in: roleRegexMatchers } })
       .select("-password")
       .sort({ createdAt: -1 });
 

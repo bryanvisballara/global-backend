@@ -1,15 +1,17 @@
 (() => {
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
   const PLAYER_NAME_KEY = "globalHeroPlayerName";
-  const COVER_URL = "/global-hero-cover.png";
-  const SPRITE_URL = "/lion-hero-fly.png";
-  const BACKGROUND_URL = "/sequoia-game-bg.png?v=20260616-gamebg01";
-  const TRAFFIC_RED_URL = "/srojo.png";
-  const TRAFFIC_GREEN_URL = "/sverde.png";
-  const FLAP_SOUND_URL = "/global-hero-flap.wav?v=20260616-flapsound02";
-  const PASS_SOUND_URL = "/global-hero-pass.mp3?v=20260616-passsound01";
-  const PLAY_SOUND_URL = "/0414.WAV?v=20260616-playsound02";
-  const LOSE_SOUND_URL = "/global-hero-gameover.mp3?v=20260616-losesound01";
+  const COVER_URL = "/assets/global-hero-cover.png";
+  const SPRITE_URL = "/assets/lion-hero-fly.png";
+  const BACKGROUND_URL = "/assets/sequoia-game-bg.png?v=20260616-gamebg01";
+  const TRAFFIC_RED_URL = "/assets/srojo.png";
+  const TRAFFIC_GREEN_URL = "/assets/sverde.png";
+  const FLAP_SOUND_URL = "/assets/global-hero-flap.wav?v=20260616-flapsound02";
+  const PASS_SOUND_URL = "/assets/global-hero-pass.mp3?v=20260616-passsound01";
+  const PLAY_SOUND_URL = "/assets/0414.WAV?v=20260616-playsound02";
+  const LOSE_SOUND_URL = "/assets/global-hero-gameover.mp3?v=20260616-losesound01";
+
+  let activeRunningGame = null;
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   let sharedAudioContext = null;
@@ -237,7 +239,9 @@
     pipeSpeed: 2.8,
     pipeGap: 168,
     pipeWidth: 72,
-    spawnEveryMs: 1650,
+    spawnEveryMs: 1380,
+    minPipeSpacing: 215,
+    maxPipes: 4,
     groundHeight: 56,
   };
 
@@ -444,6 +448,11 @@
   }
 
   function createGame(root, options = {}) {
+    if (activeRunningGame) {
+      activeRunningGame.destroy();
+      activeRunningGame = null;
+    }
+
     const shell = document.createElement("div");
     shell.className = "sequoia-game-shell";
 
@@ -470,7 +479,7 @@
     const flapSound = getFlapSoundPlayer();
 
     function playFlapSound() {
-      flapSound.play();
+      getFlapSoundPlayer().play();
     }
 
     function playPassSound() {
@@ -533,7 +542,28 @@
       resetCarPosition(true);
     }
 
-    function spawnPipe(now) {
+    function armSpawnTimer(now = performance.now()) {
+      lastSpawn = now - DEFAULTS.spawnEveryMs;
+    }
+
+    function canSpawnPipe() {
+      if (state.pipes.length >= DEFAULTS.maxPipes) {
+        return false;
+      }
+
+      const trailingPipe = state.pipes[state.pipes.length - 1];
+      if (trailingPipe && trailingPipe.x > width - DEFAULTS.minPipeSpacing) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function spawnPipe() {
+      if (!canSpawnPipe()) {
+        return false;
+      }
+
       const minGapY = 120;
       const maxGapY = height - DEFAULTS.groundHeight - DEFAULTS.pipeGap - 120;
       const gapY = minGapY + Math.random() * Math.max(40, maxGapY - minGapY);
@@ -543,7 +573,8 @@
         gapY,
         passed: false,
       });
-      lastSpawn = now;
+
+      return true;
     }
 
     function drawBackground() {
@@ -697,6 +728,7 @@
       if (state.mode === "ready") {
         state.mode = "playing";
         state.car.vy = DEFAULTS.flapVelocity;
+        armSpawnTimer();
         return;
       }
 
@@ -704,6 +736,7 @@
         resetGame();
         state.mode = "playing";
         state.car.vy = DEFAULTS.flapVelocity;
+        armSpawnTimer();
         return;
       }
 
@@ -727,8 +760,8 @@
       state.car.vy = clamp(state.car.vy, -9, 11);
       state.car.y += state.car.vy;
 
-      if (!lastSpawn || now - lastSpawn >= DEFAULTS.spawnEveryMs) {
-        spawnPipe(now);
+      if (now - lastSpawn >= DEFAULTS.spawnEveryMs && spawnPipe()) {
+        lastSpawn = now;
       }
 
       state.pipes.forEach((pipe) => {
@@ -824,13 +857,12 @@
     resetGame();
     animationId = window.requestAnimationFrame(loop);
 
-    return {
+    const gameApi = {
       pause() {
         paused = true;
       },
       resume() {
         paused = false;
-        lastFrame = 0;
       },
       destroy() {
         mounted = false;
@@ -839,8 +871,14 @@
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("resize", resize);
         root.replaceChildren();
+        if (activeRunningGame === gameApi) {
+          activeRunningGame = null;
+        }
       },
     };
+
+    activeRunningGame = gameApi;
+    return gameApi;
   }
 
   function renderRankingList(listElement, entries) {
@@ -966,15 +1004,23 @@
       stopGame();
       showScreen("game");
 
-      gameInstance = createGame(gameMount, {
-        ...options,
-        onGameOver(score) {
-          submitScoreToLeaderboard(score, options).catch(() => null);
-        },
-        onExit() {
-          stopGame();
-          showScreen("menu");
-        },
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (activeScreen !== "game") {
+            return;
+          }
+
+          gameInstance = createGame(gameMount, {
+            ...options,
+            onGameOver(score) {
+              submitScoreToLeaderboard(score, options).catch(() => null);
+            },
+            onExit() {
+              stopGame();
+              showScreen("menu");
+            },
+          });
+        });
       });
     }
 
@@ -985,6 +1031,7 @@
         playSound.play();
         void getFlapSoundPlayer().unlock();
         void getPassSoundPlayer().unlock();
+        void getLoseSoundPlayer().unlock();
         startGame();
       })();
     });

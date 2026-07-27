@@ -546,7 +546,7 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
     const vehicleLabel = `${order?.vehicle?.brand || "Vehículo"} ${order?.vehicle?.model || ""}`.trim();
     const clientName = order?.client?.name || "-";
     const orderRegion = String(order?.orderRegion || "latam").trim().toLowerCase();
-    const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}`;
+    const detailUrl = `/admin-tracking.html?orderId=${encodeURIComponent(orderId)}&tracking=${encodeURIComponent(String(trackingNumber || ""))}&vin=${encodeURIComponent(vinValue)}&client=${encodeURIComponent(String(clientName || ""))}&_ui=20260619-trackingui05`;
     const trackingEvents = getOrderTrackingEvents(order).filter((event) => shouldIncludeGlobalTrackingEvent(event));
     const isCompletedOrder = isOrderCompleted(order);
     const completedStatusCode = `E${stageTemplates.length + 1}`;

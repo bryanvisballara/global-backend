@@ -102,8 +102,8 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
     }
 
     private func resolveApsEnvironment() -> String {
-        if let entitlement = copyEntitlementValue(named: "aps-environment") {
-            return entitlement == "development" ? "development" : "production"
+        if let profileEnvironment = apsEnvironmentFromEmbeddedProvisioningProfile() {
+            return profileEnvironment
         }
 
         #if DEBUG
@@ -113,13 +113,24 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
         #endif
     }
 
-    private func copyEntitlementValue(named name: String) -> String? {
-        guard let task = SecTaskCreateFromSelf(nil) else {
+    private func apsEnvironmentFromEmbeddedProvisioningProfile() -> String? {
+        guard let profileURL = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let profileData = try? Data(contentsOf: profileURL),
+              let profileText = String(data: profileData, encoding: .ascii),
+              let plistStart = profileText.range(of: "<?xml"),
+              let plistEnd = profileText.range(of: "</plist>", range: plistStart.lowerBound..<profileText.endIndex) else {
             return nil
         }
 
-        let value = SecTaskCopyValueForEntitlement(task, name as CFString, nil)
-        return value as? String
+        let plistString = String(profileText[plistStart.lowerBound..<plistEnd.upperBound])
+        guard let plistData = plistString.data(using: .utf8),
+              let plist = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any],
+              let apsEnvironment = entitlements["aps-environment"] as? String else {
+            return nil
+        }
+
+        return apsEnvironment == "development" ? "development" : "production"
     }
 
     private func injectPushTokenIfNeeded() {

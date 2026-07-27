@@ -17,6 +17,7 @@ const {
   sendTrackingUpdateNotifications,
 } = require("../services/pushNotificationService");
 const { sendOrderTrackingUpdateEmail } = require("../services/orderTrackingEmailService");
+const { syncMaintenanceSchedule } = require("../services/maintenanceScheduleService");
 const {
   backfillTrackingEventsFromOrder,
   buildHydratedTrackingSteps,
@@ -1858,64 +1859,6 @@ async function uploadTrackingFilesToCloudinary(files = [], mediaMeta = [], req) 
   );
 }
 
-async function syncMaintenanceSchedule(order, adminUserId) {
-  if (!order.client) {
-    await Maintenance.findOneAndDelete({ order: order._id });
-    return;
-  }
-
-  const trackingSteps = Array.isArray(order?.trackingSteps) ? order.trackingSteps : [];
-  const isCompletedOrder = String(order?.status || "").trim().toLowerCase() === "completed"
-    && trackingSteps.length > 0
-    && trackingSteps.every((step) => Boolean(buildTrackingStepSnapshot(step)?.confirmed));
-
-  if (!isCompletedOrder) {
-    await Maintenance.findOneAndDelete({ order: order._id });
-    return;
-  }
-
-  const completionDates = trackingSteps
-    .map((step) => buildTrackingStepSnapshot(step)?.confirmedAt || buildTrackingStepSnapshot(step)?.updatedAt || null)
-    .map((value) => new Date(value || 0))
-    .filter((value) => !Number.isNaN(value.getTime()));
-
-  if (!completionDates.length) {
-    const fallbackDate = new Date(order?.updatedAt || order?.createdAt || order?.purchaseDate || 0);
-
-    if (!Number.isNaN(fallbackDate.getTime())) {
-      completionDates.push(fallbackDate);
-    }
-  }
-
-  if (!completionDates.length) {
-    await Maintenance.findOneAndDelete({ order: order._id });
-    return;
-  }
-
-  const activationDate = completionDates.reduce(
-    (latestDate, currentDate) => (currentDate.getTime() > latestDate.getTime() ? currentDate : latestDate),
-    completionDates[0]
-  );
-  const dueDate = addMonths(activationDate, 6);
-  const status = dueDate <= new Date() ? "due" : "scheduled";
-
-  await Maintenance.findOneAndUpdate(
-    { order: order._id },
-    {
-      order: order._id,
-      client: order.client,
-      createdBy: adminUserId,
-      dueDate,
-      status,
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    }
-  );
-}
-
 async function createOrder(req, res) {
   try {
     if (!canCreateOrEditOrders(req.user)) {
@@ -3126,12 +3069,14 @@ async function updateTrackingState(req, res) {
     syncTrackingStepDerivedFields(refreshedStep);
 
     const updatedOrder = await persistTrackingOrderState(orderResult, order);
-
-    // Automatizar agendamiento de mantenimiento si es LATAM y se confirma 'delivery'
     const updatedStep = (updatedOrder?.trackingSteps || []).find((state) => state.key === stepKey);
 
-    if (orderResult.region === "latam" && stepKey === "delivery" && updatedStep?.confirmed) {
-      await syncMaintenanceSchedule(order, req.user._id);
+    // Automatizar agendamiento de mantenimiento solo cuando el pedido LATAM queda completado (E10).
+    if (
+      orderResult.region === "latam"
+      && String(updatedOrder?.status || "").trim().toLowerCase() === "completed"
+    ) {
+      await syncMaintenanceSchedule(updatedOrder, req.user._id);
     }
 
     let notificationSummary = {
@@ -3359,6 +3304,10 @@ async function finalizeTrackingOrder(req, res) {
     }
 
     if (isCompletedTrackingOrder) {
+      if (orderResult.region === "latam") {
+        await syncMaintenanceSchedule(order, req.user._id);
+      }
+
       return res.status(200).json({
         message: "Order already finalized",
         notificationSummary: {
@@ -3460,6 +3409,10 @@ async function finalizeTrackingOrder(req, res) {
       });
 
       notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
+    }
+
+    if (orderResult.region === "latam") {
+      await syncMaintenanceSchedule(updatedOrder, req.user._id);
     }
 
     return res.status(200).json({

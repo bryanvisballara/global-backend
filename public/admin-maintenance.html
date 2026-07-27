@@ -13,6 +13,31 @@
       .global-loading-overlay {
         display: none !important;
       }
+
+      .maint-month-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: end;
+        margin: 0 0 1rem;
+      }
+
+      .maint-month-filter-label {
+        display: grid;
+        gap: 0.35rem;
+        min-width: 220px;
+      }
+
+      .maint-month-filter-label span {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .maint-month-summary {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
     </style>
   </head>
   <body class="admin-app-view">
@@ -31,18 +56,21 @@
         </header>
         <section class="page-hero">
           <h1>Mantenimientos preventivos</h1>
-          <p class="dashboard-lead">Da seguimiento al contacto, vencimiento y cierre de mantenimientos.</p>
+          <p class="dashboard-lead">Cada pedido Latam completado (E10) entra automáticamente aquí. El llamado se programa a 6 meses desde la entrega.</p>
+          <div class="page-topbar-actions" style="margin-top:1rem;gap:0.75rem;flex-wrap:wrap">
+            <button id="open-add-maintenance-modal" class="primary-button" type="button">Añadir mantenimiento</button>
+            <button id="backfill-maintenance-button" class="secondary-button" type="button">Sincronizar completados</button>
+          </div>
+          <p id="maintenance-feedback" class="feedback" aria-live="polite"></p>
         </section>
         <section class="maint-grid">
-
-          <!-- ── Fila 1: 3 cards de alertas ── -->
           <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="this-month" role="button" tabindex="0" aria-label="Abrir detalle de este mes">
             <header class="maint-panel-header">
               <div class="maint-panel-title">
                 <span class="maint-panel-icon">🔔</span>
                 <div>
                   <h2 class="maint-panel-heading">Este mes</h2>
-                  <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
+                  <p class="maint-panel-sub">Pedidos Latam + registros cliente con vencimiento este mes</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
@@ -56,7 +84,7 @@
                 <span class="maint-panel-icon">📅</span>
                 <div>
                   <h2 class="maint-panel-heading">Próximo mes</h2>
-                  <p class="maint-panel-sub">Último mantenimiento +6 meses, ventana ±15 días</p>
+                  <p class="maint-panel-sub">Pedidos Latam + registros cliente con vencimiento el próximo mes</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-by-next-month-count">0</strong>
@@ -108,7 +136,6 @@
             <div class="maint-calendar-grid" id="maintenance-calendar-grid"></div>
           </article>
 
-          <!-- ─── Modal para citas del día ─── -->
           <div class="maint-appointments-modal" id="maint-appointments-modal">
             <div class="maint-modal-overlay" id="maint-modal-overlay"></div>
             <div class="maint-modal-content">
@@ -120,18 +147,26 @@
             </div>
           </div>
 
-          <!-- ── Fila 2: listado total + formulario ── -->
           <article class="dashboard-card maint-panel maint-panel-total">
             <header class="maint-panel-header">
               <div class="maint-panel-title">
                 <span class="maint-panel-icon">🚗</span>
                 <div>
-                  <h2 class="maint-panel-heading">Total registrados</h2>
-                  <p class="maint-panel-sub">Los mismos pedidos completados que ves en dashboard; el conteo inicia desde la finalización del pedido.</p>
+                  <h2 class="maint-panel-heading">Programados para llamar</h2>
+                  <p class="maint-panel-sub">Filtra por mes para ver cuántos carros toca contactar (entrega + 6 meses).</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-count">0</strong>
             </header>
+            <div class="maint-month-filter-row">
+              <label class="maint-month-filter-label" for="maintenance-month-filter">
+                <span>Mes</span>
+                <select id="maintenance-month-filter" class="tracking-native-select">
+                  <option value="">Todos los meses</option>
+                </select>
+              </label>
+              <p id="maintenance-month-summary" class="maint-month-summary">Selecciona un mes para ver el conteo.</p>
+            </div>
             <div class="tracking-table-wrap maint-registered-table-wrap">
               <table class="tracking-data-table maint-registered-table">
                 <thead>
@@ -140,7 +175,7 @@
                     <th>Cliente</th>
                     <th>Vehículo</th>
                     <th>VIN</th>
-                    <th>Finalizado</th>
+                    <th>Entrega</th>
                     <th>Vence 6M</th>
                     <th>Estado</th>
                   </tr>
@@ -153,11 +188,82 @@
               </table>
             </div>
           </article>
-
         </section>
       </section>
     </main>
+
+    <div id="add-maintenance-modal" class="tracking-modal" hidden>
+      <div class="tracking-modal-backdrop" id="add-maintenance-overlay"></div>
+      <section class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-maintenance-title">
+        <header class="client-modal-header" style="margin-bottom:1rem">
+          <div>
+            <p class="section-tag">Mantenimientos</p>
+            <h2 id="add-maintenance-title">Añadir mantenimiento</h2>
+          </div>
+          <button id="add-maintenance-close" class="icon-button" type="button" aria-label="Cerrar">✕</button>
+        </header>
+        <form id="add-maintenance-form" class="dashboard-form">
+          <div class="tracking-search-grid">
+            <label>
+              <span>Cliente *</span>
+              <input id="add-maint-contact-name" name="contactName" type="text" required placeholder="Nombre del cliente" />
+            </label>
+            <label>
+              <span>Teléfono</span>
+              <input id="add-maint-contact-phone" name="contactPhone" type="tel" placeholder="Ej. 300 123 4567" />
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="add-maint-contact-email" name="contactEmail" type="email" placeholder="correo@ejemplo.com" />
+            </label>
+            <label>
+              <span>Marca *</span>
+              <input id="add-maint-brand" name="brand" type="text" required placeholder="Toyota" />
+            </label>
+            <label>
+              <span>Modelo *</span>
+              <input id="add-maint-model" name="model" type="text" required placeholder="Sequoia" />
+            </label>
+            <label>
+              <span>Versión</span>
+              <input id="add-maint-version" name="version" type="text" placeholder="Limited" />
+            </label>
+            <label>
+              <span>Año</span>
+              <input id="add-maint-year" name="year" type="number" min="1900" max="2100" placeholder="2024" />
+            </label>
+            <label>
+              <span>VIN</span>
+              <input id="add-maint-vin" name="vin" type="text" placeholder="VIN" />
+            </label>
+            <label>
+              <span>Placa</span>
+              <input id="add-maint-plate" name="plate" type="text" placeholder="ABC123" />
+            </label>
+            <label>
+              <span>Fecha de entrega</span>
+              <input id="add-maint-activation-date" name="activationDate" type="date" />
+            </label>
+            <label>
+              <span>Próximo mantenimiento</span>
+              <input id="add-maint-due-date" name="dueDate" type="date" />
+            </label>
+          </div>
+          <p class="maint-panel-sub">Si solo pones fecha de entrega, el próximo mantenimiento se calcula a +6 meses.</p>
+          <label>
+            <span>Notas</span>
+            <textarea id="add-maint-notes" name="contactNotes" rows="3" maxlength="1000" placeholder="Notas internas"></textarea>
+          </label>
+          <p id="add-maintenance-feedback" class="feedback" aria-live="polite"></p>
+          <div class="tracking-modal-actions">
+            <button id="add-maintenance-cancel" class="secondary-button" type="button">Cancelar</button>
+            <button class="primary-button" type="submit">Guardar</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
     <script src="/admin-common.js?v=20260514-viewport07"></script>
-    <script src="/admin-maintenance.js?v=20260501-15"></script>
+    <script src="/admin-maintenance.js?v=20260727-maint01"></script>
   </body>
 </html>

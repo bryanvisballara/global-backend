@@ -146,8 +146,8 @@ function redirectToLogin() {
 }
 
 function buildDeletedAccountPageUrl(feedbackToken = "") {
-  const pagePath = window.location.pathname.startsWith("/")
-    ? "/account-deleted.html"
+  const pagePath = window.location.pathname.startsWith("/app/")
+    ? "/app/account-deleted.html"
     : "/account-deleted.html";
   const deletedAccountUrl = new URL(pagePath, window.location.origin);
 
@@ -4662,8 +4662,8 @@ function setActiveView(viewName, options = {}) {
       getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
     });
     window.SequoiaFlappyGame?.resume();
-  } else {
-    window.SequoiaFlappyGame?.pause();
+  } else if (GLOBAL_HERO_GAME_ENABLED) {
+    window.SequoiaFlappyGame?.unmount();
   }
 }
 

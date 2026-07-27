@@ -1,4 +1,4 @@
-const ADMIN_TRACKING_BUILD = "trackingui10";
+const ADMIN_TRACKING_BUILD = "trackingui11";
 const TRACKING_UI_RELOAD_KEY = "global-tracking-ui-reload";
 const PAYMENT_TRANSIT_STEP_KEY = "in-transit";
 
@@ -581,28 +581,32 @@ function renderPaymentDaysCell(order) {
   `;
 }
 
+function getOrderRecencyTimestamp(order) {
+  const candidate = order?.createdAt || order?.purchaseDate || order?.updatedAt || null;
+  const timestamp = candidate ? new Date(candidate).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortOrdersByNewestFirst(orderList) {
+  return [...orderList].sort((leftOrder, rightOrder) => (
+    getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder)
+  ));
+}
+
 function sortOrdersByPaymentAge(orderList) {
   return [...orderList].sort((leftOrder, rightOrder) => {
     const leftFinalized = isOrderFinalized(leftOrder);
     const rightFinalized = isOrderFinalized(rightOrder);
 
-    if (leftFinalized && rightFinalized) {
-      return 0;
-    }
-
-    if (leftFinalized) {
-      return 1;
-    }
-
-    if (rightFinalized) {
-      return -1;
+    if (leftFinalized !== rightFinalized) {
+      return leftFinalized ? 1 : -1;
     }
 
     const leftDays = getDaysSincePayment(leftOrder);
     const rightDays = getDaysSincePayment(rightOrder);
 
     if (leftDays === null && rightDays === null) {
-      return 0;
+      return getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder);
     }
 
     if (leftDays === null) {
@@ -613,7 +617,11 @@ function sortOrdersByPaymentAge(orderList) {
       return -1;
     }
 
-    return rightDays - leftDays;
+    if (rightDays !== leftDays) {
+      return rightDays - leftDays;
+    }
+
+    return getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder);
   });
 }
 
@@ -1938,7 +1946,11 @@ function getFilteredOrders() {
     return true;
   });
 
-  return sortOrdersByPaymentAge(filteredOrders);
+  if (selectedPaymentAge) {
+    return sortOrdersByPaymentAge(filteredOrders);
+  }
+
+  return sortOrdersByNewestFirst(filteredOrders);
 }
 
 function findExactMatch(matches) {

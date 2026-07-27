@@ -33,7 +33,7 @@ const {
   updateTrackingEvent,
   updateTrackingState,
 } = require("../controllers/adminOrdersController");
-const { listMaintenance, updateMaintenance, updateClientMaintenanceVehicle } = require("../controllers/adminMaintenanceController");
+const { listMaintenance, createManualMaintenance, backfillMaintenance, updateMaintenance, updateClientMaintenanceVehicle } = require("../controllers/adminMaintenanceController");
 const { createPost, deletePost, getPost, listPosts, updatePost } = require("../controllers/adminPostsController");
 const {
   createVirtualDealershipVehicle,
@@ -99,6 +99,8 @@ router.patch("/orders/:orderId/tracking-steps/:stepKey", upload.array("mediaFile
 router.delete("/orders/:orderId/tracking-states/:stepKey/updates/:updateIndex", deleteTrackingUpdate);
 
 router.get("/maintenance", listMaintenance);
+router.post("/maintenance", requireLatamAdministrativeRole, createManualMaintenance);
+router.post("/maintenance/backfill-completed", requireLatamAdministrativeRole, backfillMaintenance);
 router.patch("/maintenance/:maintenanceId", updateMaintenance);
 router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle);
 
