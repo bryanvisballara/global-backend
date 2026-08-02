@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260619-navbalance01" />
+    <link rel="stylesheet" href="/styles.css?v=20260802-floatnav01" />
     <link rel="stylesheet" href="/client-tracking-card.css?v=20260501-clientcard02" />
   </head>
   <body>
@@ -44,25 +44,35 @@
         <div id="tracking-page-results" class="tracking-results"></div>
 
         <nav class="client-bottom-nav" aria-label="Navegacion principal del cliente">
-          <button class="client-nav-button" type="button" data-nav-go="home">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4 3 11.2V20h6.2v-5.3h5.6V20H21v-8.8Z"></path></svg>
+          <button class="client-nav-button" type="button" data-nav-go="home" title="Inicio" aria-label="Inicio">
+            <span class="client-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M12 4 3 11.2V20h6.2v-5.3h5.6V20H21v-8.8Z"></path></svg>
+            </span>
             <span>Inicio</span>
           </button>
-          <button class="client-nav-button is-active" type="button" data-nav-go="tracking">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h13v2H3Zm0 6h10v2H3Zm0 6h7v2H3Zm14.5-2.8 3.8 3.8-1.4 1.4-2.4-2.4-2.4 2.4-1.4-1.4 3.8-3.8Zm0-9a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6Zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z"></path></svg>
-            <span>Seguimiento</span>
+          <button class="client-nav-button is-active" type="button" data-nav-go="tracking" title="Seguimiento" aria-label="Seguimiento">
+            <span class="client-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M3 5h13v2H3Zm0 6h10v2H3Zm0 6h7v2H3Zm14.5-2.8 3.8 3.8-1.4 1.4-2.4-2.4-2.4 2.4-1.4-1.4 3.8-3.8Zm0-9a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6Zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z"></path></svg>
+            </span>
+            <span>Guías</span>
           </button>
-          <button class="client-nav-button" type="button" data-nav-go="order">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7Z"></path></svg>
-            <span>Nueva orden</span>
+          <button class="client-nav-button client-nav-button--create" type="button" data-nav-go="order" title="Nueva orden" aria-label="Nueva orden">
+            <span class="client-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7Z"></path></svg>
+            </span>
+            <span>Orden</span>
           </button>
-          <button class="client-nav-button" type="button" data-nav-go="maintenance">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m21.2 7.8-5-5-2.1 2.1 1.7 1.7-3 3-1.8-1.8-7.9 7.9 4.9 4.9 7.9-7.9-1.8-1.8 3-3 1.7 1.7ZM8 18.6l-2.1-2.1 5.1-5.1 2.1 2.1Z"></path></svg>
-            <span>Mantenimiento</span>
+          <button class="client-nav-button" type="button" data-nav-go="maintenance" title="Mantenimiento" aria-label="Mantenimiento">
+            <span class="client-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="m21.2 7.8-5-5-2.1 2.1 1.7 1.7-3 3-1.8-1.8-7.9 7.9 4.9 4.9 7.9-7.9-1.8-1.8 3-3 1.7 1.7ZM8 18.6l-2.1-2.1 5.1-5.1 2.1 2.1Z"></path></svg>
+            </span>
+            <span>Taller</span>
           </button>
-          <button class="client-nav-button" type="button" data-nav-go="virtual-dealership">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5v8.5h-6.5v-5H9.5v5H3v-8.5Zm2 1v5.5h2.5v-5H16.5v5H19v-5.5L12 6.6 5 12.5Z"></path></svg>
-            <span>Concesionario</span>
+          <button class="client-nav-button" type="button" data-nav-go="virtual-dealership" title="Concesionario" aria-label="Concesionario">
+            <span class="client-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M3 11.5 12 4l9 7.5v8.5h-6.5v-5H9.5v5H3v-8.5Zm2 1v5.5h2.5v-5H16.5v5H19v-5.5L12 6.6 5 12.5Z"></path></svg>
+            </span>
+            <span>Autos</span>
           </button>
         </nav>
       </section>
