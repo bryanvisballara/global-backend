@@ -270,7 +270,8 @@ function attachLogout(buttonId = "logout-button") {
   });
 }
 
-window.__performAdminLogout = () => performLogout(document.getElementById("logout-button"));
+window.__performAdminLogout = () =>
+  performLogout(document.getElementById("logout-button") || document.getElementById("logout-button-sidebar"));
 
 async function fetchJson(path, options = {}) {
   const { loadingMessage = "Cargando...", requestTimeoutMs = 45000, ...fetchOptions } = options;
@@ -380,36 +381,68 @@ function setFeedback(element, message, type = "") {
   element.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
+function adminNavIcon(name) {
+  const icons = {
+    dashboard:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/></svg>',
+    clipboard:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h6"/><path d="M8.5 4.5h-1A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5h-1"/><rect x="9" y="2.5" width="6" height="3.5" rx="1.2"/><path d="M9 11h6M9 15h4"/></svg>',
+    car:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 15.5V14a2 2 0 0 1 1.2-1.8l1.7-.8 1.4-3.1A2.5 2.5 0 0 1 11.1 7h1.8a2.5 2.5 0 0 1 2.3 1.3l1.4 3.1 1.7.8A2 2 0 0 1 19.5 14v1.5"/><path d="M4.5 16.5h2.2M17.3 16.5h2.2"/><circle cx="7.5" cy="16.5" r="1.7"/><circle cx="16.5" cy="16.5" r="1.7"/><path d="M9.3 16.5h5.4"/><path d="M8 10.8h8"/></svg>',
+    user:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg>',
+    "shield-x":
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 5.5 5.8v5.3c0 4.3 2.8 7.8 6.5 9.1 3.7-1.3 6.5-4.8 6.5-9.1V5.8L12 3.2z"/><path d="m9.8 10.2 4.4 4.4M14.2 10.2l-4.4 4.4"/></svg>',
+    trash:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5h14"/><path d="M9.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 6v1.5"/><path d="M8.5 7.5 9.2 19a1.5 1.5 0 0 0 1.5 1.4h2.6a1.5 1.5 0 0 0 1.5-1.4l.7-11.5"/><circle cx="12" cy="13.2" r="1.3"/><path d="M10.2 16.2a2.2 2.2 0 0 1 3.6 0"/></svg>',
+    cart:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h1.6l1.4 10.2A1.5 1.5 0 0 0 8.5 16.5h8.3a1.5 1.5 0 0 0 1.5-1.2L20 8H7"/><circle cx="9.5" cy="19.2" r="1.2"/><circle cx="16.5" cy="19.2" r="1.2"/></svg>',
+    wrench:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a3.8 3.8 0 0 0-5.1 5.1L4.2 16.8a1.7 1.7 0 0 0 2.4 2.4l5.4-5.4a3.8 3.8 0 0 0 5.1-5.1l-2.2 2.2-2.2-2.2 2-2z"/></svg>',
+    chart:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5h15"/><path d="M6.5 15.5 10 12l3 2.5 4.5-6"/><path d="M15 8.5h2.5V11"/></svg>',
+    document:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5L18.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5z"/><path d="M13.5 3.5V8H18.5"/><path d="M9.5 12h5M9.5 15.5h3.5"/></svg>',
+    store:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5 6 5.5h12l1.5 5"/><path d="M5 10.5h14v8A1.5 1.5 0 0 1 17.5 20h-11A1.5 1.5 0 0 1 5 18.5v-8z"/><path d="M10 20v-5.5h4V20"/><path d="M4.5 10.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5"/></svg>',
+    "shield-user":
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 5.5 5.8v5.3c0 4.3 2.8 7.8 6.5 9.1 3.7-1.3 6.5-4.8 6.5-9.1V5.8L12 3.2z"/><circle cx="12" cy="10" r="2"/><path d="M8.8 15.2a3.4 3.4 0 0 1 6.4 0"/></svg>',
+  };
+
+  return icons[name] || icons.dashboard;
+}
+
 function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
   const isUsaRole = isUsaAdministrativeRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navSections = [
     {
-      title: "Gestion",
+      title: "Gestión",
       items: [
-        { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
-        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
-        { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
-        { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
+        { href: "/admin.html", label: "Dashboard", icon: "dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
+        { href: "/admin-tracking.html", label: "Pedidos", icon: "clipboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+        { href: "/admin-vehicles.html", label: "Vehículos", icon: "car", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
+        { href: "/admin-clients.html", label: "Clientes", icon: "user", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
       ],
     },
     {
       title: "Control",
       items: [
-        { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
-        { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
-        { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
-        { href: "/admin-visitors.html", label: "VISITANTES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-visitors.html"] },
-        { href: "/admin-gate-reports.html", label: "REPORTE DE INGRESOS Y SALIDAS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-gate-reports.html"] },
+        { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", icon: "shield-x", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
+        { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminación", icon: "trash", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
+        { href: "/admin-client-requests.html", label: "Solicitudes de compra", icon: "cart", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
+        { href: "/admin-maintenance.html", label: "Mantenimientos", icon: "wrench", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
+        { href: "/admin-visitors.html", label: "Visitantes", icon: "user", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-visitors.html"] },
+        { href: "/admin-gate-reports.html", label: "Reporte de ingresos y salidas", icon: "chart", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-gate-reports.html"] },
       ],
     },
     {
       title: "Contenido",
       items: [
-        { href: "/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
-        { href: "/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
-        { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
+        { href: "/admin-posts.html", label: "Publicaciones", icon: "document", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
+        { href: "/admin-virtual-dealership.html", label: "Concesionario virtual", icon: "store", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
+        { href: "/admin-admins.html", label: "Creación de administradores", icon: "shield-user", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
       ],
     },
   ];
@@ -436,7 +469,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
         classes.push("admin-latam-only");
       }
 
-      return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
+      return `<a class="${classes.join(" ")}" href="${item.href}"><span class="admin-nav-icon" aria-hidden="true">${adminNavIcon(item.icon)}</span><span class="admin-nav-label">${item.label}</span>${item.href === "/admin-posts.html" ? '<span class="admin-nav-badge" id="admin-posts-draft-badge" hidden>0</span>' : ""}</a>`;
         })
         .join("");
 
@@ -466,15 +499,50 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
     </nav>
 
     <div class="admin-sidebar-footer">
-      <div class="admin-badge admin-badge-sidebar">
-        <span id="admin-name-sidebar">Administrador</span>
-        <strong id="admin-email-sidebar">admin@globalimports.com</strong>
+      <div class="admin-sidebar-user-card">
+        <span class="admin-sidebar-avatar" id="admin-avatar-sidebar" aria-hidden="true">AD</span>
+        <div class="admin-sidebar-user-meta">
+          <strong class="admin-sidebar-user-name" id="admin-name-sidebar">Administrador</strong>
+          <span class="admin-sidebar-user-email" id="admin-email-sidebar">admin@globalimports.com</span>
+        </div>
+        <span class="admin-sidebar-user-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+        </span>
       </div>
-      <button id="logout-button-sidebar" class="secondary-button admin-logout-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+      <button id="logout-button-sidebar" class="admin-logout-button" type="button" onclick="window.__performAdminLogout?.(); return false;">
+        <span class="admin-logout-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.5H7.5A2 2 0 0 0 5.5 7.5v9A2 2 0 0 0 7.5 18.5H10"/><path d="M13 12h6.5"/><path d="m16.5 9 3 3-3 3"/></svg>
+        </span>
+        <span>Cerrar sesión</span>
+      </button>
     </div>
   `;
 
   return sidebar;
+}
+
+function getAdminInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return "AD";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+}
+
+function syncAdminSidebarAvatar(name) {
+  const initials = getAdminInitials(name);
+  document.querySelectorAll(".admin-sidebar-avatar").forEach((avatar) => {
+    avatar.textContent = initials;
+  });
 }
 
 function injectAdminSidebarLayout() {
@@ -491,7 +559,45 @@ function injectAdminSidebarLayout() {
     return;
   }
 
-  if (stage.querySelector(".admin-sidebar")) {
+  const existingSidebar = stage.querySelector(".admin-sidebar");
+  const freshSidebar = buildAdminSidebar(currentPath, getCurrentRole());
+
+  if (existingSidebar) {
+    const existingNav = existingSidebar.querySelector(".admin-sidebar-nav");
+    const freshNav = freshSidebar.querySelector(".admin-sidebar-nav");
+    const existingFooter = existingSidebar.querySelector(".admin-sidebar-footer");
+    const freshFooter = freshSidebar.querySelector(".admin-sidebar-footer");
+
+    if (existingNav && freshNav) {
+      existingNav.replaceWith(freshNav);
+    }
+
+    if (existingFooter && freshFooter) {
+      const keepPrimaryIds = Boolean(existingFooter.querySelector("#admin-name, #logout-button"));
+      const freshName = freshFooter.querySelector("#admin-name-sidebar");
+      const freshEmail = freshFooter.querySelector("#admin-email-sidebar");
+      const freshLogout = freshFooter.querySelector("#logout-button-sidebar");
+      const freshAvatar = freshFooter.querySelector("#admin-avatar-sidebar");
+
+      if (keepPrimaryIds) {
+        if (freshName) {
+          freshName.id = "admin-name";
+        }
+        if (freshEmail) {
+          freshEmail.id = "admin-email";
+        }
+        if (freshLogout) {
+          freshLogout.id = "logout-button";
+        }
+        if (freshAvatar) {
+          freshAvatar.id = "admin-avatar";
+        }
+      }
+
+      existingFooter.replaceWith(freshFooter);
+      attachLogout(keepPrimaryIds ? "logout-button" : "logout-button-sidebar");
+    }
+
     return;
   }
 
@@ -512,7 +618,7 @@ function injectAdminSidebarLayout() {
     main.appendChild(node);
   });
 
-  layout.appendChild(buildAdminSidebar(currentPath, getCurrentRole()));
+  layout.appendChild(freshSidebar);
   layout.appendChild(main);
   stage.appendChild(layout);
 
@@ -770,28 +876,59 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
     sessionStorage.setItem("globalAppRole", user.role);
   }
 
+  const displayName = user.name || "Administrador";
+  const displayEmail = user.email || "admin@globalimports.com";
+
   if (nameElement) {
-    nameElement.textContent = user.name || "Administrador";
+    nameElement.textContent = displayName;
   }
 
   if (emailElement) {
-    emailElement.textContent = user.email || "admin@globalimports.com";
+    emailElement.textContent = displayEmail;
   }
 
   const sidebarNameElement = document.getElementById("admin-name-sidebar");
   const sidebarEmailElement = document.getElementById("admin-email-sidebar");
 
   if (sidebarNameElement) {
-    sidebarNameElement.textContent = user.name || "Administrador";
+    sidebarNameElement.textContent = displayName;
   }
 
   if (sidebarEmailElement) {
-    sidebarEmailElement.textContent = user.email || "admin@globalimports.com";
+    sidebarEmailElement.textContent = displayEmail;
   }
 
+  syncAdminSidebarAvatar(displayName);
   applyManagerNavigationVisibility(user.role);
+  refreshPostsDraftBadge().catch(() => null);
 
   return user;
+}
+
+async function refreshPostsDraftBadge() {
+  const badge = document.getElementById("admin-posts-draft-badge");
+
+  if (!badge) {
+    return 0;
+  }
+
+  if (!getAuthToken()) {
+    badge.hidden = true;
+    return 0;
+  }
+
+  try {
+    const data = await fetchJson("/api/admin/posts/draft-count", {
+      loadingMessage: false,
+    });
+    const count = Number(data?.count) || 0;
+    badge.hidden = count <= 0;
+    badge.textContent = String(count);
+    return count;
+  } catch {
+    badge.hidden = true;
+    return 0;
+  }
 }
 
 injectAdminSidebarLayout();
@@ -813,9 +950,16 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncAdminViewportMetrics();
     forceHideAnyLoadingOverlay();
+    refreshPostsDraftBadge().catch(() => null);
   }
 });
 window.setTimeout(forceHideAnyLoadingOverlay, 0);
+window.setTimeout(() => {
+  refreshPostsDraftBadge().catch(() => null);
+}, 800);
+window.setInterval(() => {
+  refreshPostsDraftBadge().catch(() => null);
+}, 60000);
 
 window.AdminApp = {
   attachLogout,
@@ -834,6 +978,7 @@ window.AdminApp = {
   populateSelect,
   performLogout,
   redirectToLogin,
+  refreshPostsDraftBadge,
   resetLoadingOverlay,
   renderEmptyState,
   requireAdminAccess,

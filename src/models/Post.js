@@ -114,6 +114,19 @@ const postSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    source: {
+      url: { type: String, trim: true, default: "" },
+      title: { type: String, trim: true, default: "" },
+      publisher: { type: String, trim: true, default: "" },
+      topic: { type: String, trim: true, default: "" },
+      fetchedAt: { type: Date, default: null },
+    },
+    auto: {
+      enabled: { type: Boolean, default: false },
+      slotKey: { type: String, trim: true, default: "" },
+      generatedAt: { type: Date, default: null },
+      model: { type: String, trim: true, default: "" },
+    },
     likes: {
       type: [postLikeSchema],
       default: [],
@@ -127,5 +140,9 @@ const postSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+postSchema.index({ status: 1, createdAt: -1 });
+postSchema.index({ "auto.slotKey": 1 }, { sparse: true });
+postSchema.index({ "source.url": 1 }, { sparse: true });
 
 module.exports = mongoose.model("Post", postSchema);

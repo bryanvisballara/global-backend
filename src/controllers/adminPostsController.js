@@ -1,6 +1,10 @@
 const Post = require("../models/Post");
 const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/cloudinary");
 const { sendPublishedPostNotifications } = require("../services/pushNotificationService");
+const {
+  countDraftPosts,
+  generateGlobalDraft,
+} = require("../services/postsAuto.service");
 
 function isValidDate(value) {
   return value instanceof Date && !Number.isNaN(value.getTime());
@@ -228,7 +232,8 @@ async function createPost(req, res) {
       format
     );
     const finalMedia = normalizeMedia(uploadedMedia.length ? uploadedMedia : fallbackMedia);
-    const finalStatus = status === "scheduled" ? "scheduled" : "published";
+    const finalStatus =
+      status === "scheduled" ? "scheduled" : status === "draft" ? "draft" : "published";
     const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
 
     if (finalStatus === "scheduled") {
@@ -364,11 +369,81 @@ async function deletePost(req, res) {
   }
 }
 
+async function listDrafts(req, res) {
+  try {
+    const drafts = await Post.find({ status: "draft" })
+      .populate("publishedBy", "name email role")
+      .sort({ createdAt: -1 })
+      .limit(80);
+
+    return res.status(200).json({ posts: drafts });
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching drafts" });
+  }
+}
+
+async function getDraftCount(req, res) {
+  try {
+    const count = await countDraftPosts();
+    return res.status(200).json({ count });
+  } catch (error) {
+    return res.status(500).json({ message: "Error counting drafts" });
+  }
+}
+
+async function publishDraft(req, res) {
+  try {
+    const { postId } = req.params;
+    const draft = await Post.findOne({ _id: postId, status: "draft" });
+
+    if (!draft) {
+      return res.status(404).json({ message: "Borrador no encontrado" });
+    }
+
+    draft.status = "published";
+    draft.publishedAt = new Date();
+    draft.scheduledFor = null;
+    await draft.save();
+
+    const populatedPost = await Post.findById(draft._id).populate("publishedBy", "name email role");
+    await sendPublishedPostNotifications(populatedPost).catch(() => null);
+
+    return res.status(200).json({
+      message: "Borrador publicado correctamente",
+      post: populatedPost,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error publishing draft" });
+  }
+}
+
+async function generateDraft(req, res) {
+  try {
+    const force = String(req.body?.force || req.query?.force || "").trim() === "true";
+    const result = await generateGlobalDraft({
+      slotKey: force ? `manual-${Date.now()}` : "",
+      force,
+    });
+
+    return res.status(result.skipped ? 200 : 201).json({
+      message: result.skipped ? result.reason : "Borrador generado correctamente",
+      skipped: Boolean(result.skipped),
+      post: result.draft,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error generating draft" });
+  }
+}
+
 module.exports = {
   createPost,
   deletePost,
+  generateDraft,
+  getDraftCount,
   getPost,
+  listDrafts,
   listPosts,
+  publishDraft,
   publishDueScheduledPosts,
   updatePost,
 };

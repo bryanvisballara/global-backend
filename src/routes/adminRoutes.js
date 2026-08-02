@@ -63,7 +63,7 @@ const {
   importExcel,
   askCotizadorAi,
 } = require("../controllers/adminCotizadorController");
-const { createPost, deletePost, getPost, listPosts, updatePost } = require("../controllers/adminPostsController");
+const { createPost, deletePost, generateDraft, getDraftCount, getPost, listDrafts, listPosts, publishDraft, updatePost } = require("../controllers/adminPostsController");
 const {
   createVirtualDealershipVehicle,
   deleteVirtualDealershipVehicle,
@@ -158,7 +158,11 @@ router.post("/cotizador/import", requireLatamAdministrativeRole, upload.array("e
 router.post("/cotizador/ai", requireLatamAdministrativeRole, askCotizadorAi);
 
 router.get("/posts", listPosts);
+router.get("/posts/drafts", listDrafts);
+router.get("/posts/draft-count", getDraftCount);
+router.post("/posts/generate-draft", generateDraft);
 router.get("/posts/:postId", getPost);
+router.post("/posts/:postId/publish-draft", publishDraft);
 router.post("/posts", upload.array("mediaFiles", 10), createPost);
 router.patch("/posts/:postId", upload.array("mediaFiles", 10), updatePost);
 router.delete("/posts/:postId", deletePost);

@@ -21,6 +21,10 @@ if (requireAdminAccess()) {
   const postForm = document.getElementById("post-form");
   const postFeedback = document.getElementById("post-feedback");
   const scheduledPostsList = document.getElementById("scheduled-posts-list");
+  const draftPostsList = document.getElementById("draft-posts-list");
+  const draftsTabBadge = document.getElementById("drafts-tab-badge");
+  const postsTabButtons = Array.from(document.querySelectorAll("[data-posts-tab]"));
+  const postsPanels = Array.from(document.querySelectorAll("[data-posts-panel]"));
   const publishNowButton = document.getElementById("publish-now-button");
   const viewPublishedButton = document.getElementById("view-published-button");
   const scheduleSubmitButton = document.getElementById("schedule-submit-button");
@@ -406,9 +410,78 @@ if (requireAdminAccess()) {
     `).join("");
   }
 
+  function setActivePostsTab(tabName = "drafts") {
+    postsTabButtons.forEach((button) => {
+      const isActive = button.dataset.postsTab === tabName;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    postsPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.postsPanel !== tabName;
+    });
+  }
+
+  function getDraftPreviewImage(post) {
+    const image = (post.media || []).find((item) => item?.type === "image" && item?.url);
+    return image?.url || "";
+  }
+
+  function updateDraftsBadge(count) {
+    if (!draftsTabBadge) {
+      return;
+    }
+
+    const safeCount = Number(count) || 0;
+    draftsTabBadge.hidden = safeCount <= 0;
+    draftsTabBadge.textContent = String(safeCount);
+  }
+
+  function renderDraftPosts(posts) {
+    const draftPosts = posts.filter((post) => post.status === "draft");
+    updateDraftsBadge(draftPosts.length);
+
+    if (!draftPostsList) {
+      return;
+    }
+
+    if (!draftPosts.length) {
+      renderEmptyState(draftPostsList, "Todavía no hay borradores automáticos.");
+      return;
+    }
+
+    draftPostsList.innerHTML = draftPosts.map((post) => {
+      const previewUrl = getDraftPreviewImage(post);
+      const topic = post.source?.topic || "Lifestyle";
+      const excerpt = String(post.body || "").slice(0, 180);
+
+      return `
+        <article class="draft-post-card" data-draft-id="${escapeHtml(post._id)}">
+          <div class="draft-post-media">
+            ${previewUrl
+              ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(post.title)}" loading="lazy" />`
+              : `<div class="draft-post-media-fallback">Sin imagen</div>`}
+          </div>
+          <div class="draft-post-copy">
+            <span class="draft-post-topic">${escapeHtml(topic)}</span>
+            <strong>${escapeHtml(post.title)}</strong>
+            <p>${escapeHtml(excerpt)}${String(post.body || "").length > 180 ? "…" : ""}</p>
+          </div>
+          <div class="draft-post-actions">
+            <button class="primary-button" type="button" data-draft-action="publish" data-post-id="${escapeHtml(post._id)}">Publicar</button>
+            <a class="secondary-button" href="${getEditPostUrl(post._id)}">Editar</a>
+            <button class="secondary-button" type="button" data-draft-action="discard" data-post-id="${escapeHtml(post._id)}">Descartar</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
   function renderPosts(posts) {
     const scheduledPosts = posts.filter((post) => post.status === "scheduled");
     const publishedPosts = posts.filter((post) => post.status === "published");
+
+    renderDraftPosts(posts);
 
     if (!scheduledPosts.length) {
       renderEmptyState(scheduledPostsList, "Todavía no hay publicaciones programadas.");
@@ -436,6 +509,48 @@ if (requireAdminAccess()) {
     allPosts = postsData.posts || [];
     sessionStorage.setItem("globalPublishedPosts", JSON.stringify(allPosts));
     renderPosts(allPosts);
+    window.AdminApp?.refreshPostsDraftBadge?.();
+  }
+
+  async function publishDraftPost(postId) {
+    const confirmed = await askForConfirmation({
+      title: "Publicar borrador",
+      description: "El borrador pasará al feed del cliente y se enviará la notificación push.",
+      confirmLabel: "Publicar ahora",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    await fetchJson(`/api/admin/posts/${postId}/publish-draft`, {
+      method: "POST",
+      loadingMessage: "Publicando borrador...",
+    });
+
+    setFeedback(postFeedback, "Borrador publicado correctamente.", "success");
+    showSuccessModal("El borrador ya está visible en el feed del cliente.");
+    await loadPostsPage();
+  }
+
+  async function discardDraftPost(postId) {
+    const confirmed = await askForConfirmation({
+      title: "Descartar borrador",
+      description: "Se eliminará este borrador automático. Esta acción no se puede deshacer.",
+      confirmLabel: "Descartar",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    await fetchJson(`/api/admin/posts/${postId}`, {
+      method: "DELETE",
+      loadingMessage: "Descartando borrador...",
+    });
+
+    setFeedback(postFeedback, "Borrador descartado.", "success");
+    await loadPostsPage();
   }
 
   async function submitPost(action) {
@@ -566,9 +681,38 @@ if (requireAdminAccess()) {
     await handleCreateAction(pendingSubmitAction);
   });
 
+  postsTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActivePostsTab(button.dataset.postsTab || "drafts");
+    });
+  });
+
+  draftPostsList?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-draft-action][data-post-id]");
+
+    if (!button) {
+      return;
+    }
+
+    const postId = button.dataset.postId;
+    const action = button.dataset.draftAction;
+
+    try {
+      if (action === "publish") {
+        await publishDraftPost(postId);
+      } else if (action === "discard") {
+        await discardDraftPost(postId);
+      }
+    } catch (error) {
+      setFeedback(postFeedback, error.message, "error");
+    }
+  });
+
   viewPublishedButton.addEventListener("click", () => {
     toggleModal(postsManagerModal, true);
   });
+
+  setActivePostsTab("drafts");
 
   publishedPostsModalList.addEventListener("click", (event) => {
     const button = event.target.closest("[data-post-id]");

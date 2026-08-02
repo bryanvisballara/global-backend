@@ -4,6 +4,7 @@ const app = require("./app");
 const { connectToDatabase, markDatabaseDisconnected } = require("./config/db");
 const { validateEnv } = require("./config/env");
 const { publishDueScheduledPosts } = require("./controllers/adminPostsController");
+const { startPostsAutoWorker } = require("./workers/postsAuto.worker");
 
 let isConnectingToDatabase = false;
 let scheduledPostsInterval = null;
@@ -31,6 +32,7 @@ async function connectDatabaseWithRetry() {
     await connectToDatabase();
     await publishDueScheduledPosts();
     startScheduledPostsWorker();
+    startPostsAutoWorker();
   } catch (error) {
     markDatabaseDisconnected();
     console.error("MongoDB connection failed, retrying in 10 seconds", error.message);
