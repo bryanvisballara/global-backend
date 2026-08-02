@@ -2111,6 +2111,7 @@ body.admin-app-view .admin-header-cluster {
   border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  overflow: visible;
 }
 
 body.admin-app-view .admin-header-divider {
@@ -2122,6 +2123,8 @@ body.admin-app-view .admin-header-divider {
 
 body.admin-app-view .admin-header-user {
   position: relative;
+  z-index: 45;
+  overflow: visible;
 }
 
 body.admin-app-view .admin-header-user-toggle {
