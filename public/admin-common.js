@@ -1096,6 +1096,7 @@ function ensureAdminHeaderCluster() {
 function ensureAdminNotificationsBell() {
   const existing = document.querySelector(".admin-notifications");
   if (existing) {
+    bindAdminHeaderUserMenu(document.querySelector(".admin-header-user"));
     return existing;
   }
 
@@ -1200,6 +1201,8 @@ function initializeAdminNotificationsBell() {
   }
 
   const root = ensureAdminNotificationsBell();
+  bindAdminHeaderUserMenu(document.querySelector(".admin-header-user"));
+
   if (!root || root.dataset.bound === "true") {
     refreshAdminNotifications().catch(() => null);
     return;
