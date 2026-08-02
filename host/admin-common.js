@@ -912,8 +912,14 @@ async function refreshPostsDraftBadge() {
     return 0;
   }
 
-  if (!getAuthToken()) {
+  const hideBadge = () => {
     badge.hidden = true;
+    badge.textContent = "";
+    badge.style.display = "none";
+  };
+
+  if (!getAuthToken()) {
+    hideBadge();
     return 0;
   }
 
@@ -922,11 +928,14 @@ async function refreshPostsDraftBadge() {
       loadingMessage: false,
     });
     const count = Number(data?.count) || 0;
-    badge.hidden = count <= 0;
-    badge.textContent = String(count);
+    const shouldShow = count >= 1;
+
+    badge.hidden = !shouldShow;
+    badge.textContent = shouldShow ? String(count) : "";
+    badge.style.display = shouldShow ? "" : "none";
     return count;
   } catch {
-    badge.hidden = true;
+    hideBadge();
     return 0;
   }
 }

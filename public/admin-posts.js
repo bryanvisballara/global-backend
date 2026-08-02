@@ -433,8 +433,10 @@ if (requireAdminAccess()) {
     }
 
     const safeCount = Number(count) || 0;
-    draftsTabBadge.hidden = safeCount <= 0;
-    draftsTabBadge.textContent = String(safeCount);
+    const shouldShow = safeCount >= 1;
+    draftsTabBadge.hidden = !shouldShow;
+    draftsTabBadge.textContent = shouldShow ? String(safeCount) : "";
+    draftsTabBadge.style.display = shouldShow ? "" : "none";
   }
 
   function renderDraftPosts(posts) {

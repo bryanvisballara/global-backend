@@ -2092,6 +2092,11 @@ body.admin-app-view .admin-nav-badge {
   line-height: 1;
 }
 
+body.admin-posts-page .posts-tab-badge[hidden],
+body.admin-app-view .admin-nav-badge[hidden] {
+  display: none !important;
+}
+
 body.admin-app-view .admin-nav-link {
   justify-content: flex-start;
 }
