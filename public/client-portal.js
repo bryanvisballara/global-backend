@@ -4738,6 +4738,8 @@ function setActiveView(viewName, options = {}) {
     button.classList.toggle("is-active", targetView === nextViewName || shouldHighlightOrder);
   });
 
+  window.moveClientNavRing?.({ animate: Boolean(previousView && previousView !== nextViewName) });
+
   if (previousView && previousView !== viewName) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -4846,6 +4848,133 @@ navButtons.forEach((button) => {
     }
   });
 });
+
+(() => {
+  const nav = document.querySelector(".client-bottom-nav");
+  let ring = nav?.querySelector(".client-nav-ring");
+  if (!nav || !ring) {
+    return;
+  }
+
+  let lastScrollY = window.scrollY || 0;
+  let ticking = false;
+  let ringAnimation = null;
+  const expandAtTop = 18;
+  const delta = 6;
+
+  const resetRingStyles = () => {
+    ring.style.inset = "0";
+    ring.style.top = "0";
+    ring.style.left = "0";
+    ring.style.right = "0";
+    ring.style.bottom = "0";
+    ring.style.width = "auto";
+    ring.style.height = "auto";
+    ring.style.transform = "none";
+  };
+
+  const moveClientNavRing = ({ animate = true } = {}) => {
+    const activeIcon = nav.querySelector(".client-nav-button.is-active .client-nav-icon");
+    if (!activeIcon) {
+      ring.classList.remove("is-ready");
+      return;
+    }
+
+    if (ringAnimation) {
+      ringAnimation.cancel();
+      ringAnimation = null;
+    }
+
+    const alreadyHere = ring.parentElement === activeIcon;
+    if (!animate || alreadyHere || !ring.classList.contains("is-ready")) {
+      activeIcon.appendChild(ring);
+      resetRingStyles();
+      ring.classList.add("is-ready");
+      return;
+    }
+
+    const first = ring.getBoundingClientRect();
+    activeIcon.appendChild(ring);
+    resetRingStyles();
+    ring.classList.add("is-ready");
+    const last = ring.getBoundingClientRect();
+
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    const sx = first.width / Math.max(last.width, 1);
+    const sy = first.height / Math.max(last.height, 1);
+    const dist = Math.hypot(dx, dy);
+    const stretch = Math.min(1.45, 1 + dist / 140);
+
+    if (dist < 1) {
+      return;
+    }
+
+    ringAnimation = ring.animate(
+      [
+        {
+          transform: `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`,
+          offset: 0,
+        },
+        {
+          transform: `translate3d(${dx / 2}px, ${dy / 2}px, 0) scale(${stretch}, ${Math.max(0.84, 2 - stretch)})`,
+          offset: 0.45,
+        },
+        {
+          transform: "translate3d(0, 0, 0) scale(1, 1)",
+          offset: 1,
+        },
+      ],
+      {
+        duration: Math.min(460, 280 + dist * 0.5),
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      }
+    );
+
+    ringAnimation.onfinish = () => {
+      resetRingStyles();
+      ringAnimation = null;
+    };
+  };
+
+  window.moveClientNavRing = moveClientNavRing;
+
+  const syncNavCompact = () => {
+    const y = window.scrollY || 0;
+
+    if (y <= expandAtTop) {
+      nav.classList.remove("is-compact");
+    } else if (y > lastScrollY + delta) {
+      nav.classList.add("is-compact");
+    } else if (y < lastScrollY - delta) {
+      nav.classList.remove("is-compact");
+    }
+
+    lastScrollY = y;
+    ticking = false;
+  };
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (ticking) {
+        return;
+      }
+      ticking = true;
+      window.requestAnimationFrame(syncNavCompact);
+    },
+    { passive: true }
+  );
+
+  navButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      nav.classList.remove("is-compact");
+      lastScrollY = 0;
+    });
+  });
+
+  requestAnimationFrame(() => moveClientNavRing({ animate: false }));
+})();
 
 trackingForm?.addEventListener("submit", (event) => {
   event.preventDefault();

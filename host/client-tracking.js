@@ -1525,3 +1525,17 @@ loadTrackingPage().catch((error) => {
   setFeedback(error.message, "error");
   renderEmptyState(error.message);
 });
+(() => {
+  const nav = document.querySelector(".client-bottom-nav");
+  const ring = nav?.querySelector(".client-nav-ring");
+  const activeIcon = nav?.querySelector(".client-nav-button.is-active .client-nav-icon");
+  if (!nav || !ring || !activeIcon) {
+    return;
+  }
+  activeIcon.appendChild(ring);
+  ring.style.inset = "0";
+  ring.style.width = "auto";
+  ring.style.height = "auto";
+  ring.style.transform = "none";
+  ring.classList.add("is-ready");
+})();
