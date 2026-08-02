@@ -239,8 +239,8 @@
     pipeSpeed: 2.8,
     pipeGap: 168,
     pipeWidth: 72,
-    spawnEveryMs: 1380,
-    minPipeSpacing: 215,
+    spawnEveryMs: 1180,
+    minPipeSpacing: 175,
     maxPipes: 4,
     groundHeight: 56,
   };
