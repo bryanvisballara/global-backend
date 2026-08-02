@@ -2,7 +2,7 @@
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
   const PLAYER_NAME_KEY = "globalHeroPlayerName";
   const COVER_URL = "/assets/global-hero-cover.png";
-  const SPRITE_URL = "/assets/lion-hero-fly.png";
+  const SPRITE_URL = "/assets/lion-hero-fly.png?v=20260802-hitbox01";
   const BACKGROUND_URL = "/assets/sequoia-game-bg.png?v=20260616-gamebg01";
   const TRAFFIC_RED_URL = "/assets/srojo.png";
   const TRAFFIC_GREEN_URL = "/assets/sverde.png";
@@ -239,10 +239,14 @@
     pipeSpeed: 2.8,
     pipeGap: 168,
     pipeWidth: 72,
+    // Visible traffic-light body is narrower than the PNG frame (transparent sides).
+    pipeHitInsetX: 0.16,
     spawnEveryMs: 1280,
     minPipeSpacing: 195,
     maxPipes: 4,
     groundHeight: 56,
+    // Hitbox insets vs drawn lion sprite (ignore cape tips / empty margins).
+    lionHitInset: { left: 0.22, right: 0.14, top: 0.28, bottom: 0.24 },
   };
 
   function resolveApiBaseUrl() {
@@ -677,12 +681,38 @@
       }
     }
 
-    function getCarBox() {
+    function getSpriteLayout() {
+      const drawHeight = state.car.h;
+      const aspect =
+        sprite.complete && sprite.naturalWidth > 0
+          ? sprite.naturalWidth / sprite.naturalHeight
+          : state.car.w / Math.max(1, state.car.h);
+      const drawWidth = drawHeight * aspect;
+
       return {
-        x: state.car.x + 16,
-        y: state.car.y - state.car.h * 0.32,
-        w: state.car.w - 28,
-        h: state.car.h * 0.58,
+        x: state.car.x,
+        y: state.car.y - drawHeight / 2,
+        w: drawWidth,
+        h: drawHeight,
+      };
+    }
+
+    function getCarBox() {
+      const layout = getSpriteLayout();
+      const inset = DEFAULTS.lionHitInset;
+      const x = layout.x + layout.w * inset.left;
+      const y = layout.y + layout.h * inset.top;
+      const w = layout.w * (1 - inset.left - inset.right);
+      const h = layout.h * (1 - inset.top - inset.bottom);
+
+      return { x, y, w: Math.max(8, w), h: Math.max(8, h) };
+    }
+
+    function getPipeHitBox(pipe) {
+      const insetX = DEFAULTS.pipeWidth * DEFAULTS.pipeHitInsetX;
+      return {
+        x: pipe.x + insetX,
+        w: Math.max(8, DEFAULTS.pipeWidth - insetX * 2),
       };
     }
 
@@ -690,7 +720,7 @@
       const carBox = getCarBox();
 
       return state.pipes.some((pipe) => {
-        const pipeBox = { x: pipe.x, w: DEFAULTS.pipeWidth };
+        const pipeBox = getPipeHitBox(pipe);
         const overlapsX = carBox.x + carBox.w > pipeBox.x && carBox.x < pipeBox.x + pipeBox.w;
         const hitsTop = carBox.y < pipe.gapY;
         const hitsBottom = carBox.y + carBox.h > pipe.gapY + DEFAULTS.pipeGap;
