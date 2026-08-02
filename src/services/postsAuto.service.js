@@ -451,19 +451,20 @@ async function resolveBackgroundBuffer({ title, topic, storyImageUrl = "", story
     return { buffer: generated, source: "openai" };
   }
 
+  // Prefer curated luxury photography over unreliable news OG graphics.
+  const stockBuffer = await fetchTopicStockImage(topic);
+  if (stockBuffer) {
+    return { buffer: stockBuffer, source: "stock" };
+  }
+
   const storyBuffer = await downloadImageBuffer(storyImageUrl);
-  if (storyBuffer) {
+  if (storyBuffer && storyBuffer.length > 80_000) {
     return { buffer: storyBuffer, source: "rss" };
   }
 
   const ogBuffer = await scrapeOpenGraphImage(storyUrl);
-  if (ogBuffer) {
+  if (ogBuffer && ogBuffer.length > 120_000) {
     return { buffer: ogBuffer, source: "og" };
-  }
-
-  const stockBuffer = await fetchTopicStockImage(topic);
-  if (stockBuffer) {
-    return { buffer: stockBuffer, source: "stock" };
   }
 
   return { buffer: null, source: "none" };
