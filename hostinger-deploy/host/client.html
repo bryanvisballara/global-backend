@@ -283,12 +283,12 @@
             <div class="client-section-head">
               <div>
                 <p class="section-tag">Mantenimiento preventivo</p>
-                <h2>Agrega tu vehículo</h2>
+                <h2>Cotiza tu mantenimiento</h2>
                 <p class="dashboard-lead">Recibe ofertas y cupones especiales para los mantenimientos de tu vehículo con Global Imports y sus aliados.</p>
               </div>
             </div>
 
-            <button id="client-add-maintenance-vehicle-button" class="primary-button" type="button">Agrega tu vehículo</button>
+            <button id="client-add-maintenance-vehicle-button" class="primary-button" type="button">Cotiza tu mantenimiento</button>
             <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
 
             <div id="client-maintenance-list" class="client-maintenance-list"></div>
@@ -394,7 +394,7 @@
         <header class="client-modal-header">
           <div>
             <p class="section-tag">Mantenimiento</p>
-            <h2 id="maintenance-vehicle-title">Agrega tu vehículo</h2>
+            <h2 id="maintenance-vehicle-title">Cotiza tu mantenimiento</h2>
           </div>
           <button id="maintenance-vehicle-close" class="icon-button" type="button" aria-label="Cerrar formulario de vehículo">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
@@ -433,7 +433,18 @@
 
           <label><span>Último mantenimiento preventivo que le hiciste</span><input name="lastPreventiveMaintenanceDate" type="date" required /></label>
 
-          <button class="primary-button" type="submit">Guardar</button>
+          <div id="maintenance-quote-schedule-fields" class="form-row two-up">
+            <label>
+              <span>¿Para qué fecha quieres el mantenimiento?</span>
+              <input name="preferredMaintenanceDate" type="date" required />
+            </label>
+            <label>
+              <span>¿A qué hora?</span>
+              <input name="preferredMaintenanceTime" type="time" required />
+            </label>
+          </div>
+
+          <button class="primary-button" type="submit">Cotizar ahora</button>
         </form>
       </section>
     </div>
@@ -517,6 +528,6 @@
 
     <!-- Global Hero game temporarily hidden -->
     <!-- <script src="/client-sequoia-game.js?v=20260616-gameaudio04"></script> -->
-    <script src="/client-portal.js?v=20260619-gamehidden02"></script>
+    <script src="/client-portal.js?v=20260802-maint-quote01"></script>
   </body>
 </html>

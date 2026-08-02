@@ -64,6 +64,16 @@ const clientMaintenanceVehicleSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    preferredMaintenanceDate: {
+      type: Date,
+      default: null,
+    },
+    preferredMaintenanceTime: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5,
+    },
     adminContactStatus: {
       type: String,
       enum: ["pending", "contacted", "will_service", "serviced_elsewhere", "not_interested", "appointment_scheduled"],

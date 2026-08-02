@@ -49,9 +49,10 @@ function mapMarketingLeadRow(lead) {
   const [brand = "", model = ""] = vehicleLabel.split(/\s+/);
   const leadSource = String(lead.source || "").trim().toLowerCase();
   const fromWorkshop = leadSource === "taller" || leadSource === "mechanic" || leadSource === "workshop";
+  const fromApp = leadSource === "app_mantenimiento" || leadSource === "cliente_app" || leadSource === "app";
   return {
     id: String(lead._id),
-    source: fromWorkshop ? "taller_marketing" : "cotizador_marketing",
+    source: fromApp ? "app_mantenimiento_marketing" : fromWorkshop ? "taller_marketing" : "cotizador_marketing",
     status: "scheduled",
     contactName: lead.name || "",
     contactPhone: lead.phone || "",
@@ -62,7 +63,7 @@ function mapMarketingLeadRow(lead) {
       phone: lead.phone || "",
     },
     vehicleSnapshot: {
-      brand: brand || vehicleLabel || (fromWorkshop ? "Taller" : "Cotización"),
+      brand: brand || vehicleLabel || (fromApp ? "App" : fromWorkshop ? "Taller" : "Cotización"),
       model: model || "",
       version: vehicleLabel,
       vin: lead.identification || "",

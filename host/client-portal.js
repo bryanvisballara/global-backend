@@ -3007,12 +3007,35 @@ function resolveMaintenanceVehicleKey(vehicle, index) {
 }
 
 function setMaintenanceVehicleModalMode(mode) {
+  const isEdit = mode === "edit";
+  const quoteFields = document.getElementById("maintenance-quote-schedule-fields");
+  const preferredDateInput = maintenanceVehicleForm?.elements?.preferredMaintenanceDate;
+  const preferredTimeInput = maintenanceVehicleForm?.elements?.preferredMaintenanceTime;
+
   if (maintenanceVehicleTitle) {
-    maintenanceVehicleTitle.textContent = mode === "edit" ? "Edita tu vehículo" : "Agrega tu vehículo";
+    maintenanceVehicleTitle.textContent = isEdit ? "Edita tu vehículo" : "Cotiza tu mantenimiento";
   }
 
   if (maintenanceVehicleSubmitButton) {
-    maintenanceVehicleSubmitButton.textContent = mode === "edit" ? "Guardar cambios" : "Guardar";
+    maintenanceVehicleSubmitButton.textContent = isEdit ? "Guardar cambios" : "Cotizar ahora";
+  }
+
+  if (quoteFields) {
+    quoteFields.hidden = isEdit;
+  }
+
+  if (preferredDateInput) {
+    preferredDateInput.required = !isEdit;
+    if (isEdit) {
+      preferredDateInput.value = "";
+    }
+  }
+
+  if (preferredTimeInput) {
+    preferredTimeInput.required = !isEdit;
+    if (isEdit) {
+      preferredTimeInput.value = "";
+    }
   }
 }
 
@@ -3035,6 +3058,17 @@ function setMaintenanceVehicleFormValues(vehicle) {
     if (!Number.isNaN(dateValue.getTime())) {
       maintenanceVehicleForm.elements.lastPreventiveMaintenanceDate.value = dateValue.toISOString().slice(0, 10);
     }
+  }
+
+  if (maintenanceVehicleForm.elements.preferredMaintenanceDate && vehicle.preferredMaintenanceDate) {
+    const preferredDate = new Date(vehicle.preferredMaintenanceDate);
+    if (!Number.isNaN(preferredDate.getTime())) {
+      maintenanceVehicleForm.elements.preferredMaintenanceDate.value = preferredDate.toISOString().slice(0, 10);
+    }
+  }
+
+  if (maintenanceVehicleForm.elements.preferredMaintenanceTime) {
+    maintenanceVehicleForm.elements.preferredMaintenanceTime.value = vehicle.preferredMaintenanceTime || "";
   }
 }
 
@@ -3453,8 +3487,8 @@ function refreshMaintenanceButtonLabel() {
   }
 
   addMaintenanceVehicleButton.textContent = state.maintenanceVehicles.length
-    ? "Agrega otro vehículo"
-    : "Agrega tu vehículo";
+    ? "Cotiza otro mantenimiento"
+    : "Cotiza tu mantenimiento";
 }
 
 function renderMaintenanceList() {
@@ -3548,6 +3582,47 @@ function renderMaintenanceList() {
   refreshMaintenanceButtonLabel();
 }
 
+function buildMaintenanceQuoteWhatsappMessage(payload = {}) {
+  const userName = String(state.user?.name || state.user?.fullName || "Cliente").trim() || "Cliente";
+  const userEmail = String(state.user?.email || "").trim();
+  const userPhone = String(state.user?.phone || "").trim();
+  const vehicleTitle = [
+    payload.brand,
+    payload.model,
+    payload.version,
+    payload.year,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return [
+    "Hola Global Imports, quiero cotizar un mantenimiento.",
+    "",
+    `Nombre: ${userName}`,
+    userEmail ? `Email: ${userEmail}` : "",
+    userPhone ? `Teléfono: ${userPhone}` : "",
+    `Vehículo: ${vehicleTitle || "Sin detalle"}`,
+    `Placa: ${payload.plate || "N/A"}`,
+    `Kilometraje actual: ${payload.currentMileage || "N/A"}`,
+    `Km diarios usuales: ${payload.usualDailyKm || "N/A"}`,
+    `Ciudad: ${payload.drivingCity || "N/A"}`,
+    `Último mantenimiento: ${payload.lastPreventiveMaintenanceDate || "N/A"}`,
+    `Fecha deseada: ${payload.preferredMaintenanceDate || "N/A"}`,
+    `Hora deseada: ${payload.preferredMaintenanceTime || "N/A"}`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function openMaintenanceQuoteWhatsapp(message) {
+  const whatsappUrl = new URL("https://api.whatsapp.com/send");
+  whatsappUrl.searchParams.set("phone", "573016698126");
+  whatsappUrl.searchParams.set("text", String(message || "").trim());
+  openExternalBrowserUrl(whatsappUrl.toString());
+  return whatsappUrl.toString();
+}
+
 async function submitMaintenanceVehicleForm() {
   if (!maintenanceVehicleForm) {
     return;
@@ -3555,33 +3630,61 @@ async function submitMaintenanceVehicleForm() {
 
   const formData = new FormData(maintenanceVehicleForm);
   const usualDailyKm = Number(formData.get("usualDailyKm"));
+  const isEditing = Boolean(editingMaintenanceVehicleId);
 
   if (Number.isNaN(usualDailyKm) || usualDailyKm < 10 || usualDailyKm > 200) {
     throw new Error("Los kms diarios deben estar entre 10 y 200");
   }
 
-  const isEditing = Boolean(editingMaintenanceVehicleId);
-  setFeedback(maintenanceFeedback, isEditing ? "Actualizando vehículo..." : "Guardando vehículo...");
+  const payload = {
+    brand: formData.get("brand"),
+    model: formData.get("model"),
+    version: formData.get("version"),
+    year: formData.get("year"),
+    currentMileage: formData.get("currentMileage"),
+    usualDailyKm,
+    drivingCity: formData.get("drivingCity"),
+    plate: formData.get("plate"),
+    lastPreventiveMaintenanceDate: formData.get("lastPreventiveMaintenanceDate"),
+    preferredMaintenanceDate: formData.get("preferredMaintenanceDate"),
+    preferredMaintenanceTime: formData.get("preferredMaintenanceTime"),
+  };
+
+  if (!isEditing) {
+    if (!String(payload.preferredMaintenanceDate || "").trim()) {
+      throw new Error("Indica la fecha en la que quieres el mantenimiento.");
+    }
+
+    if (!String(payload.preferredMaintenanceTime || "").trim()) {
+      throw new Error("Indica la hora en la que quieres el mantenimiento.");
+    }
+  }
+
+  setFeedback(
+    maintenanceFeedback,
+    isEditing ? "Actualizando vehículo..." : "Guardando y preparando tu cotización..."
+  );
 
   await fetchJson(isEditing
     ? `/api/client/maintenance-vehicles/${encodeURIComponent(editingMaintenanceVehicleId)}`
     : "/api/client/maintenance-vehicles", {
     method: isEditing ? "PATCH" : "POST",
-    body: JSON.stringify({
-      brand: formData.get("brand"),
-      model: formData.get("model"),
-      version: formData.get("version"),
-      year: formData.get("year"),
-      currentMileage: formData.get("currentMileage"),
-      usualDailyKm,
-      drivingCity: formData.get("drivingCity"),
-      plate: formData.get("plate"),
-      lastPreventiveMaintenanceDate: formData.get("lastPreventiveMaintenanceDate"),
-    }),
+    body: JSON.stringify(payload),
   });
 
   closeMaintenanceVehicleModal();
-  setFeedback(maintenanceFeedback, isEditing ? "Vehículo actualizado correctamente." : "Vehículo guardado correctamente.", "success");
+
+  if (!isEditing) {
+    openMaintenanceQuoteWhatsapp(buildMaintenanceQuoteWhatsappMessage(payload));
+    setFeedback(
+      maintenanceFeedback,
+      "Vehículo guardado. Te estamos abriendo WhatsApp para cotizar tu mantenimiento.",
+      "success"
+    );
+  } else {
+    setFeedback(maintenanceFeedback, "Vehículo actualizado correctamente.", "success");
+  }
+
   await loadDashboard();
 }
 

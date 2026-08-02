@@ -630,7 +630,9 @@
     }
 
     const orderRows = items.map((item) => {
-      const isMarketingLead = item.source === "cotizador_marketing" || item.source === "taller_marketing";
+      const isMarketingLead = item.source === "cotizador_marketing"
+        || item.source === "taller_marketing"
+        || item.source === "app_mantenimiento_marketing";
       const vehicleTitle = isMarketingLead
         ? (item.vehicleSnapshot?.version || [
           item.vehicleSnapshot?.brand,
@@ -644,11 +646,13 @@
       const clientName = item.client?.name || item.contactName || "Cliente";
       const tracking = item.source === "taller_marketing"
         ? "Marketing taller"
-        : (item.source === "cotizador_marketing"
-          ? "Marketing cotizador"
-          : (item.source === "manual"
-            ? "Manual"
-            : (item.order?.trackingNumber || "Sin guía")));
+        : (item.source === "app_mantenimiento_marketing"
+          ? "Marketing app"
+          : (item.source === "cotizador_marketing"
+            ? "Marketing cotizador"
+            : (item.source === "manual"
+              ? "Manual"
+              : (item.order?.trackingNumber || "Sin guía"))));
       const vin = item.vehicleSnapshot?.vin || item.order?.vehicle?.vin || "—";
       const statusLabel = isMarketingLead
         ? "Marketing 6M"

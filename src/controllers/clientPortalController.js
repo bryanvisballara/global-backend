@@ -67,6 +67,7 @@ async function wompiWebhookHandler(req, res) {
     return res.status(500).json({ message: error.message || "Error en webhook Wompi" });
   }
 }
+const CotizadorMarketingLead = require("../models/CotizadorMarketingLead");
 const ClientRequest = require("../models/ClientRequest");
 const Client = require("../models/Client");
 const ClientGlobalUS = require("../models/ClientGlobalUS");
@@ -626,18 +627,22 @@ function parseDateInput(value) {
   return new Date(rawValue);
 }
 
-function normalizeClientMaintenanceVehiclePayload(payload = {}) {
+function normalizeClientMaintenanceVehiclePayload(payload = {}, { requirePreferredSchedule = false } = {}) {
   const ALLOWED_DRIVING_CITIES = ["Barranquilla", "Bogota", "Bucaramanga", "Medellin", "Cali"];
   const brand = String(payload.brand || "").trim();
   const model = String(payload.model || "").trim();
   const version = payload.version ? String(payload.version).trim() : "";
   const plate = String(payload.plate || "").trim().toUpperCase();
   const drivingCity = String(payload.drivingCity || "").trim();
+  const preferredMaintenanceTime = String(payload.preferredMaintenanceTime || "").trim();
 
   const year = Number(payload.year);
   const currentMileage = Number(payload.currentMileage);
   const usualDailyKm = Number(payload.usualDailyKm);
   const lastPreventiveMaintenanceDate = parseDateInput(payload.lastPreventiveMaintenanceDate);
+  const preferredMaintenanceDate = payload.preferredMaintenanceDate
+    ? parseDateInput(payload.preferredMaintenanceDate)
+    : null;
 
   if (!brand || !model || !plate || !lastPreventiveMaintenanceDate || !drivingCity) {
     throw new Error("Debes completar marca, modelo, placa, ubicacion y fecha del ultimo mantenimiento.");
@@ -663,6 +668,20 @@ function normalizeClientMaintenanceVehiclePayload(payload = {}) {
     throw new Error("La fecha del último mantenimiento no es válida.");
   }
 
+  if (requirePreferredSchedule) {
+    if (!preferredMaintenanceDate || Number.isNaN(preferredMaintenanceDate.getTime())) {
+      throw new Error("Debes indicar la fecha en la que quieres el mantenimiento.");
+    }
+
+    if (!/^\d{2}:\d{2}$/.test(preferredMaintenanceTime)) {
+      throw new Error("Debes indicar una hora válida para el mantenimiento.");
+    }
+  } else if (preferredMaintenanceTime && !/^\d{2}:\d{2}$/.test(preferredMaintenanceTime)) {
+    throw new Error("La hora preferida del mantenimiento no es válida.");
+  } else if (preferredMaintenanceDate && Number.isNaN(preferredMaintenanceDate.getTime())) {
+    throw new Error("La fecha preferida del mantenimiento no es válida.");
+  }
+
   return {
     brand,
     model,
@@ -673,6 +692,10 @@ function normalizeClientMaintenanceVehiclePayload(payload = {}) {
     drivingCity,
     plate,
     lastPreventiveMaintenanceDate,
+    preferredMaintenanceDate: preferredMaintenanceDate && !Number.isNaN(preferredMaintenanceDate.getTime())
+      ? preferredMaintenanceDate
+      : null,
+    preferredMaintenanceTime: preferredMaintenanceTime || "",
   };
 }
 
@@ -1003,11 +1026,13 @@ async function getClientDashboard(req, res) {
 
 async function createClientMaintenanceVehicle(req, res) {
   try {
-    const normalizedVehicle = normalizeClientMaintenanceVehiclePayload(req.body);
+    const normalizedVehicle = normalizeClientMaintenanceVehiclePayload(req.body, {
+      requirePreferredSchedule: true,
+    });
 
     const linkedClient = await Client.findOne({
       email: String(req.user.email || "").toLowerCase().trim(),
-    }).select("_id");
+    }).select("_id name phone identification");
 
     const vehicle = await ClientMaintenanceVehicle.create({
       user: req.user._id,
@@ -1021,14 +1046,59 @@ async function createClientMaintenanceVehicle(req, res) {
       drivingCity: normalizedVehicle.drivingCity,
       plate: normalizedVehicle.plate,
       lastPreventiveMaintenanceDate: normalizedVehicle.lastPreventiveMaintenanceDate,
+      preferredMaintenanceDate: normalizedVehicle.preferredMaintenanceDate,
+      preferredMaintenanceTime: normalizedVehicle.preferredMaintenanceTime,
     });
+
+    const preferredDateLabel = normalizedVehicle.preferredMaintenanceDate
+      ? normalizedVehicle.preferredMaintenanceDate.toISOString().slice(0, 10)
+      : "";
+    const vehicleLabel = [
+      normalizedVehicle.brand,
+      normalizedVehicle.model,
+      normalizedVehicle.version,
+      normalizedVehicle.year,
+      normalizedVehicle.plate,
+      preferredDateLabel ? `Cita ${preferredDateLabel}` : "",
+      normalizedVehicle.preferredMaintenanceTime || "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const followUpAt = new Date();
+    followUpAt.setMonth(followUpAt.getMonth() + 6);
+
+    const contactName = String(linkedClient?.name || req.user.name || "Cliente").trim() || "Cliente";
+    const contactEmail = String(req.user.email || "").toLowerCase().trim();
+    const contactPhone = String(linkedClient?.phone || req.user.phone || "").trim();
+
+    if (contactEmail) {
+      await CotizadorMarketingLead.findOneAndUpdate(
+        { email: contactEmail, source: "app_mantenimiento" },
+        {
+          $set: {
+            name: contactName,
+            email: contactEmail,
+            phone: contactPhone,
+            identification: String(linkedClient?.identification || req.user.identification || "").trim(),
+            vehicleLabel,
+            followUpAt,
+            source: "app_mantenimiento",
+            createdBy: req.user._id || null,
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
 
     return res.status(201).json({
       message: "Vehicle added successfully",
       vehicle,
+      marketingSaved: Boolean(contactEmail),
     });
   } catch (error) {
-    const statusCode = error.message?.includes("mantenimiento") || error.message?.includes("km") || error.message?.includes("año") || error.message?.includes("ubicacion")
+    const statusCode = error.message?.includes("mantenimiento") || error.message?.includes("km") || error.message?.includes("año") || error.message?.includes("ubicacion") || error.message?.includes("hora") || error.message?.includes("fecha")
       ? 400
       : 500;
     return res.status(statusCode).json({ message: error.message || "Error creating maintenance vehicle" });
@@ -1058,6 +1128,12 @@ async function updateClientMaintenanceVehicle(req, res) {
     vehicle.drivingCity = normalizedVehicle.drivingCity;
     vehicle.plate = normalizedVehicle.plate;
     vehicle.lastPreventiveMaintenanceDate = normalizedVehicle.lastPreventiveMaintenanceDate;
+    if (normalizedVehicle.preferredMaintenanceDate) {
+      vehicle.preferredMaintenanceDate = normalizedVehicle.preferredMaintenanceDate;
+    }
+    if (normalizedVehicle.preferredMaintenanceTime) {
+      vehicle.preferredMaintenanceTime = normalizedVehicle.preferredMaintenanceTime;
+    }
 
     await vehicle.save();
 
