@@ -688,6 +688,7 @@ function initializeAdminSidebarDrawer() {
 
   document.body.classList.add("admin-drawer-ready");
   ensureSidebarToggleButton();
+  initializeAdminNotificationsBell();
 
   const desktopMediaQuery = window.matchMedia("(min-width: 1101px) and (hover: hover) and (pointer: fine)");
   const isAppleTouchDevice = () => {
@@ -901,6 +902,7 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
   syncAdminSidebarAvatar(displayName);
   applyManagerNavigationVisibility(user.role);
   refreshPostsDraftBadge().catch(() => null);
+  refreshAdminNotifications().catch(() => null);
 
   return user;
 }
@@ -940,6 +942,254 @@ async function refreshPostsDraftBadge() {
   }
 }
 
+function escapeAdminHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function createAdminNotificationsBell() {
+  const root = document.createElement("div");
+  root.className = "admin-notifications";
+  root.innerHTML = `
+    <button class="admin-notifications-toggle" type="button" aria-label="Notificaciones" aria-expanded="false">
+      <span class="admin-notifications-bell-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4.2 1.5 5.8 2 6.5H4.5c.5-.7 2-2.3 2-6.5Z"/>
+          <path d="M10 18.5a2 2 0 0 0 4 0"/>
+        </svg>
+      </span>
+      <span class="admin-notifications-count" id="admin-notifications-count" hidden>0</span>
+    </button>
+    <div class="admin-notifications-panel" id="admin-notifications-panel" hidden>
+      <div class="admin-notifications-panel-header">
+        <strong>Notificaciones</strong>
+        <button class="admin-notifications-mark-all" type="button" title="Marcar todas como leídas" aria-label="Marcar todas como leídas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 13.5 9.5 18 19 6.5"/>
+          </svg>
+        </button>
+      </div>
+      <div class="admin-notifications-list" id="admin-notifications-list"></div>
+    </div>
+  `;
+  return root;
+}
+
+function ensureAdminNotificationsBell() {
+  if (document.querySelector(".admin-notifications")) {
+    return document.querySelector(".admin-notifications");
+  }
+
+  const bell = createAdminNotificationsBell();
+  const actions =
+    document.querySelector(".page-topbar-actions") ||
+    document.querySelector(".admin-dashboard-header-actions");
+
+  if (actions) {
+    actions.prepend(bell);
+    return bell;
+  }
+
+  const dashboardHeader = document.querySelector(".admin-dashboard-header > div");
+  if (dashboardHeader) {
+    dashboardHeader.prepend(bell);
+    return bell;
+  }
+
+  return null;
+}
+
+function setAdminNotificationsCount(count) {
+  const badge = document.getElementById("admin-notifications-count");
+  if (!badge) {
+    return;
+  }
+
+  const safeCount = Number(count) || 0;
+  const shouldShow = safeCount >= 1;
+  badge.hidden = !shouldShow;
+  badge.textContent = shouldShow ? String(safeCount > 99 ? "99+" : safeCount) : "";
+  badge.style.display = shouldShow ? "" : "none";
+}
+
+function renderAdminNotificationsList(notifications = []) {
+  const list = document.getElementById("admin-notifications-list");
+  if (!list) {
+    return;
+  }
+
+  if (!notifications.length) {
+    list.innerHTML = `<p class="admin-notifications-empty">No hay notificaciones nuevas.</p>`;
+    return;
+  }
+
+  list.innerHTML = notifications
+    .map((item) => {
+      const unreadClass = item.isRead ? "" : " is-unread";
+      const when = item.createdAt ? formatDateTimeInBogota(item.createdAt) : "";
+      return `
+        <article class="admin-notification-item${unreadClass}" data-notification-id="${escapeAdminHtml(item.id)}" data-deep-link="${escapeAdminHtml(item.deepLink)}">
+          <button class="admin-notification-main" type="button">
+            <strong>${escapeAdminHtml(item.title)}</strong>
+            <span>${escapeAdminHtml(item.body || "")}</span>
+            <small>${escapeAdminHtml(when)}</small>
+          </button>
+          <button class="admin-notification-dismiss" type="button" title="Eliminar" aria-label="Eliminar notificación" data-dismiss-id="${escapeAdminHtml(item.id)}">×</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function refreshAdminNotifications({ renderList = false } = {}) {
+  if (!getAuthToken()) {
+    setAdminNotificationsCount(0);
+    if (renderList) {
+      renderAdminNotificationsList([]);
+    }
+    return { count: 0, notifications: [] };
+  }
+
+  try {
+    if (renderList) {
+      const data = await fetchJson("/api/admin/notifications?limit=40", {
+        loadingMessage: false,
+      });
+      const notifications = data.notifications || [];
+      renderAdminNotificationsList(notifications);
+      const unread = notifications.filter((item) => !item.isRead).length;
+      setAdminNotificationsCount(unread);
+      return { count: unread, notifications };
+    }
+
+    const data = await fetchJson("/api/admin/notifications/unread-count", {
+      loadingMessage: false,
+    });
+    const count = Number(data?.count) || 0;
+    setAdminNotificationsCount(count);
+    return { count, notifications: [] };
+  } catch {
+    setAdminNotificationsCount(0);
+    if (renderList) {
+      renderAdminNotificationsList([]);
+    }
+    return { count: 0, notifications: [] };
+  }
+}
+
+function closeAdminNotificationsPanel() {
+  const panel = document.getElementById("admin-notifications-panel");
+  const toggle = document.querySelector(".admin-notifications-toggle");
+  if (panel) {
+    panel.hidden = true;
+  }
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+function initializeAdminNotificationsBell() {
+  const currentPath = String(window.location.pathname || "");
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+
+  if (!isAdminHtmlRoute) {
+    return;
+  }
+
+  const root = ensureAdminNotificationsBell();
+  if (!root || root.dataset.bound === "true") {
+    refreshAdminNotifications().catch(() => null);
+    return;
+  }
+
+  root.dataset.bound = "true";
+  const toggle = root.querySelector(".admin-notifications-toggle");
+  const panel = root.querySelector(".admin-notifications-panel");
+  const markAllButton = root.querySelector(".admin-notifications-mark-all");
+  const list = root.querySelector(".admin-notifications-list");
+
+  toggle?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const willOpen = Boolean(panel?.hidden);
+    if (!willOpen) {
+      closeAdminNotificationsPanel();
+      return;
+    }
+
+    panel.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    await refreshAdminNotifications({ renderList: true });
+  });
+
+  markAllButton?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await fetchJson("/api/admin/notifications/read-all", {
+        method: "POST",
+        loadingMessage: false,
+      });
+      await refreshAdminNotifications({ renderList: true });
+    } catch {
+      // ignore
+    }
+  });
+
+  list?.addEventListener("click", async (event) => {
+    const dismissButton = event.target.closest("[data-dismiss-id]");
+    if (dismissButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const notificationId = dismissButton.dataset.dismissId;
+      try {
+        await fetchJson(`/api/admin/notifications/${notificationId}`, {
+          method: "DELETE",
+          loadingMessage: false,
+        });
+        await refreshAdminNotifications({ renderList: true });
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const itemButton = event.target.closest(".admin-notification-main");
+    const item = itemButton?.closest("[data-notification-id]");
+    if (!item) {
+      return;
+    }
+
+    event.preventDefault();
+    const notificationId = item.dataset.notificationId;
+    const deepLink = item.dataset.deepLink || "/admin.html";
+
+    try {
+      await fetchJson(`/api/admin/notifications/${notificationId}/read`, {
+        method: "POST",
+        loadingMessage: false,
+      });
+    } catch {
+      // continue navigation even if mark-read fails
+    }
+
+    closeAdminNotificationsPanel();
+    window.location.href = deepLink;
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".admin-notifications")) {
+      closeAdminNotificationsPanel();
+    }
+  });
+
+  refreshAdminNotifications().catch(() => null);
+}
+
 injectAdminSidebarLayout();
 syncAdminViewportMetrics();
 initializeAdminSidebarDrawer();
@@ -960,14 +1210,18 @@ document.addEventListener("visibilitychange", () => {
     syncAdminViewportMetrics();
     forceHideAnyLoadingOverlay();
     refreshPostsDraftBadge().catch(() => null);
+    refreshAdminNotifications().catch(() => null);
   }
 });
 window.setTimeout(forceHideAnyLoadingOverlay, 0);
 window.setTimeout(() => {
   refreshPostsDraftBadge().catch(() => null);
+  initializeAdminNotificationsBell();
+  refreshAdminNotifications().catch(() => null);
 }, 800);
 window.setInterval(() => {
   refreshPostsDraftBadge().catch(() => null);
+  refreshAdminNotifications().catch(() => null);
 }, 60000);
 
 window.AdminApp = {
@@ -987,6 +1241,7 @@ window.AdminApp = {
   populateSelect,
   performLogout,
   redirectToLogin,
+  refreshAdminNotifications,
   refreshPostsDraftBadge,
   resetLoadingOverlay,
   renderEmptyState,

@@ -1,4 +1,8 @@
 const ShowroomVisit = require("../models/ShowroomVisit");
+const {
+  createAdminNotification,
+  LATAM_ROLES,
+} = require("../services/adminNotifications.service");
 const { toUtcNoon } = require("../services/maintenanceScheduleService");
 
 const BUSINESS_TIMEZONE = "America/Bogota";
@@ -103,6 +107,17 @@ async function createVisit(req, res) {
       notes: String(req.body.notes || "").trim().slice(0, 2000),
       status: "scheduled",
       createdBy: req.user._id,
+    });
+
+    await createAdminNotification({
+      type: "visitor_created",
+      title: "Nuevo visitante registrado",
+      body: `${visitorName} · cita agendada`,
+      deepLink: "/admin-visitors.html",
+      entityModel: "ShowroomVisit",
+      entityId: visit._id,
+      createdBy: req.user._id,
+      audienceRoles: LATAM_ROLES,
     });
 
     return res.status(201).json({

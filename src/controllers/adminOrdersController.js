@@ -19,6 +19,12 @@ const {
 const { sendOrderTrackingUpdateEmail } = require("../services/orderTrackingEmailService");
 const { syncMaintenanceSchedule } = require("../services/maintenanceScheduleService");
 const {
+  createAdminNotification,
+  DELETION_MANAGER_ROLES,
+  LATAM_ROLES,
+  USA_ROLES,
+} = require("../services/adminNotifications.service");
+const {
   backfillTrackingEventsFromOrder,
   buildHydratedTrackingSteps,
   createTrackingEvent,
@@ -1969,6 +1975,18 @@ async function createOrder(req, res) {
 
     const populatedOrder = await populateOrderParties(OrderModel.findById(order._id));
 
+    await createAdminNotification({
+      type: "order_created",
+      title: "Nuevo pedido creado",
+      body: `${normalizedTrackingNumber} · ${vehicle.brand} ${vehicle.model}`,
+      deepLink: "/admin-tracking.html",
+      entityModel: orderRegion === "usa" ? "OrderGlobalUS" : "Order",
+      entityId: order._id,
+      createdBy: req.user._id,
+      audienceRoles: orderRegion === "usa" ? [...USA_ROLES, "manager"] : LATAM_ROLES,
+      meta: { trackingNumber: normalizedTrackingNumber },
+    });
+
     return res.status(201).json({
       message: "Order created successfully",
       order: await serializeOrder(populatedOrder, orderRegion),
@@ -2777,6 +2795,18 @@ async function requestOrderDeletion(req, res) {
       .populate("client", "name email phone")
       .populate("createdBy", "name email role")
       .populate("deletionRequest.requestedBy", "name email role");
+
+    await createAdminNotification({
+      type: "order_deletion_request",
+      title: "Solicitud de eliminación de pedido",
+      body: `${order.trackingNumber || "Pedido"} · ${reason.slice(0, 120)}`,
+      deepLink: "/admin-order-deletion-requests.html",
+      entityModel: orderResult.region === "usa" ? "OrderGlobalUS" : "Order",
+      entityId: order._id,
+      createdBy: req.user?._id || null,
+      audienceRoles: DELETION_MANAGER_ROLES,
+      meta: { trackingNumber: order.trackingNumber || "" },
+    });
 
     return res.status(200).json({
       message: "Solicitud de eliminacion enviada correctamente",

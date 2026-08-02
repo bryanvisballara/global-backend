@@ -2097,6 +2097,187 @@ body.admin-app-view .admin-nav-badge[hidden] {
   display: none !important;
 }
 
+body.admin-app-view .admin-notifications {
+  position: relative;
+  z-index: 40;
+}
+
+body.admin-app-view .admin-notifications-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1c1c1c;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-notifications-toggle:hover {
+  background: #f7f7f7;
+}
+
+body.admin-app-view .admin-notifications-bell-icon,
+body.admin-app-view .admin-notifications-bell-icon svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+body.admin-app-view .admin-notifications-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e11d2e;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+body.admin-app-view .admin-notifications-count[hidden] {
+  display: none !important;
+}
+
+body.admin-app-view .admin-notifications-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(70vh, 480px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+body.admin-app-view .admin-notifications-panel[hidden] {
+  display: none !important;
+}
+
+body.admin-app-view .admin-notifications-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid #ececec;
+}
+
+body.admin-app-view .admin-notifications-panel-header strong {
+  font-size: 0.95rem;
+}
+
+body.admin-app-view .admin-notifications-mark-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(168, 126, 67, 0.35);
+  border-radius: 10px;
+  background: #faf6ef;
+  color: #a87e43;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-notifications-mark-all svg {
+  width: 18px;
+  height: 18px;
+}
+
+body.admin-app-view .admin-notifications-list {
+  overflow: auto;
+  padding: 8px;
+}
+
+body.admin-app-view .admin-notifications-empty {
+  margin: 18px 10px;
+  color: #888888;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+body.admin-app-view .admin-notification-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: start;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+body.admin-app-view .admin-notification-item.is-unread {
+  background: #faf6ef;
+}
+
+body.admin-app-view .admin-notification-main {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-notification-main strong {
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+body.admin-app-view .admin-notification-main span {
+  color: #666666;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+body.admin-app-view .admin-notification-main small {
+  color: #999999;
+  font-size: 0.72rem;
+}
+
+body.admin-app-view .admin-notification-dismiss {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #999999;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-notification-dismiss:hover {
+  background: #f1f1f1;
+  color: #333333;
+}
+
+body.admin-app-view .page-topbar-actions,
+body.admin-app-view .admin-dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 body.admin-app-view .admin-nav-link {
   justify-content: flex-start;
 }

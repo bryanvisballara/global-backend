@@ -4,6 +4,11 @@ const Order = require("../models/Order");
 const OrderGlobalUS = require("../models/OrderGlobalUS");
 const Maintenance = require("../models/Maintenance");
 const ClientMaintenanceVehicle = require("../models/ClientMaintenanceVehicle");
+const {
+  createAdminNotification,
+  LATAM_ROLES,
+  USA_ROLES,
+} = require("../services/adminNotifications.service");
 
 const ANTHONY_GLOBAL_OWNER_EMAIL = "anthony-vergel@hotmail.com";
 const CLIENT_EMAIL_PLACEHOLDERS = new Set([
@@ -194,6 +199,18 @@ async function createClient(req, res) {
     const client = await ClientModel.create(
       buildClientPersistencePayload(normalizedPayload, req.user?._id || null)
     );
+
+    const isUsa = ClientModel === ClientGlobalUS;
+    await createAdminNotification({
+      type: "client_created",
+      title: "Nuevo cliente registrado",
+      body: normalizedName,
+      deepLink: "/admin-clients.html",
+      entityModel: isUsa ? "ClientGlobalUS" : "Client",
+      entityId: client._id,
+      createdBy: req.user?._id || null,
+      audienceRoles: isUsa ? [...USA_ROLES, "manager"] : LATAM_ROLES,
+    });
 
     return res.status(201).json({
       message: "Client created successfully",

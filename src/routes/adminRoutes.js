@@ -63,6 +63,13 @@ const {
   importExcel,
   askCotizadorAi,
 } = require("../controllers/adminCotizadorController");
+const {
+  dismissAdminNotification,
+  getAdminNotificationsUnreadCount,
+  listAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+} = require("../controllers/adminNotificationsController");
 const { createPost, deletePost, generateDraft, getDraftCount, getPost, listDrafts, listPosts, publishDraft, updatePost } = require("../controllers/adminPostsController");
 const {
   createVirtualDealershipVehicle,
@@ -156,6 +163,12 @@ router.post("/cotizador/supplies", requireLatamAdministrativeRole, createSupply)
 router.patch("/cotizador/supplies/:supplyId", requireLatamAdministrativeRole, updateSupply);
 router.post("/cotizador/import", requireLatamAdministrativeRole, upload.array("excelFiles", 10), importExcel);
 router.post("/cotizador/ai", requireLatamAdministrativeRole, askCotizadorAi);
+
+router.get("/notifications", listAdminNotifications);
+router.get("/notifications/unread-count", getAdminNotificationsUnreadCount);
+router.post("/notifications/read-all", markAllAdminNotificationsRead);
+router.post("/notifications/:notificationId/read", markAdminNotificationRead);
+router.delete("/notifications/:notificationId", dismissAdminNotification);
 
 router.get("/posts", listPosts);
 router.get("/posts/drafts", listDrafts);

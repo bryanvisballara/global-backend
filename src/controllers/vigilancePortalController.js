@@ -11,6 +11,10 @@ const {
   toBusinessDayKey,
   toBusinessNoon,
 } = require("./adminVisitorsController");
+const {
+  createAdminNotification,
+  LATAM_ROLES,
+} = require("../services/adminNotifications.service");
 
 const ACCESSORY_CATALOG = [
   ["main_key", "Llave principal"],
@@ -366,6 +370,18 @@ async function createEntryReport(req, res) {
       createdBy: req.user._id,
     });
 
+    await createAdminNotification({
+      type: "gate_entry",
+      title: "Nuevo ingreso de vehículo",
+      body: `${plate} · ${brand} ${model}`,
+      deepLink: "/admin-gate-reports.html",
+      entityModel: "VehicleGateReport",
+      entityId: report._id,
+      createdBy: req.user._id,
+      audienceRoles: LATAM_ROLES,
+      meta: { plate, entryNumber: report.entryNumber },
+    });
+
     return res.status(201).json({
       message: "Ingreso registrado",
       report: serializeGateReport(report),
@@ -446,6 +462,18 @@ async function createDirectExitReport(req, res) {
       },
       createdBy: req.user._id,
       closedAt: new Date(),
+    });
+
+    await createAdminNotification({
+      type: "gate_exit",
+      title: "Nueva salida de vehículo",
+      body: `${plate} · ${brand} ${model}`,
+      deepLink: "/admin-gate-reports.html",
+      entityModel: "VehicleGateReport",
+      entityId: report._id,
+      createdBy: req.user._id,
+      audienceRoles: LATAM_ROLES,
+      meta: { plate, entryNumber: report.entryNumber },
     });
 
     return res.status(201).json({
@@ -540,6 +568,18 @@ async function closeExitReport(req, res) {
     report.direction = "both";
     report.closedAt = new Date();
     await report.save();
+
+    await createAdminNotification({
+      type: "gate_exit",
+      title: "Salida de vehículo registrada",
+      body: `${plate} · ${brand} ${model}`,
+      deepLink: "/admin-gate-reports.html",
+      entityModel: "VehicleGateReport",
+      entityId: report._id,
+      createdBy: req.user._id,
+      audienceRoles: LATAM_ROLES,
+      meta: { plate, entryNumber: report.entryNumber },
+    });
 
     return res.status(200).json({
       message: "Salida registrada",

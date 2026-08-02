@@ -13,6 +13,10 @@ const {
   buildMonthKey,
   parseMonthKey,
 } = require("../services/maintenanceScheduleService");
+const {
+  createAdminNotification,
+  LATAM_ROLES,
+} = require("../services/adminNotifications.service");
 
 function parseDateBoundary(value, endOfDay = false) {
   const raw = String(value || "").trim();
@@ -658,6 +662,8 @@ async function updateMaintenance(req, res) {
       return res.status(404).json({ message: "Maintenance not found" });
     }
 
+    const previousStatus = String(maintenance.status || "");
+
     if (status) {
       maintenance.status = status;
     }
@@ -690,6 +696,25 @@ async function updateMaintenance(req, res) {
 
     await maintenance.save();
 
+    if (previousStatus !== "completed" && maintenance.status === "completed") {
+      const clientName = maintenance.client?.name || "Cliente";
+      const vehicleLabel = [
+        maintenance.order?.vehicle?.brand,
+        maintenance.order?.vehicle?.model,
+      ].filter(Boolean).join(" ") || "Mantenimiento";
+
+      await createAdminNotification({
+        type: "maintenance_completed",
+        title: "Mantenimiento finalizado",
+        body: `${clientName} · ${vehicleLabel}`,
+        deepLink: "/admin-maintenance.html",
+        entityModel: "Maintenance",
+        entityId: maintenance._id,
+        createdBy: req.user?._id || null,
+        audienceRoles: LATAM_ROLES,
+      });
+    }
+
     return res.status(200).json({
       message: "Maintenance updated successfully",
       maintenance,
@@ -721,6 +746,7 @@ async function updateClientMaintenanceVehicle(req, res) {
       .populate("client", "name email phone");
 
     if (vehicle) {
+      const previousContactStatus = String(vehicle.adminContactStatus || "");
       const applied = applyAdminContactFields(vehicle, contactPayload);
 
       if (applied.error) {
@@ -728,6 +754,24 @@ async function updateClientMaintenanceVehicle(req, res) {
       }
 
       await vehicle.save();
+
+      if (
+        previousContactStatus !== "appointment_scheduled" &&
+        vehicle.adminContactStatus === "appointment_scheduled"
+      ) {
+        const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+        const vehicleLabel = [vehicle.brand, vehicle.model].filter(Boolean).join(" ") || "Vehículo";
+        await createAdminNotification({
+          type: "maintenance_appointment",
+          title: "Cita de mantenimiento agendada",
+          body: `${ownerName} · ${vehicleLabel}`,
+          deepLink: "/admin-maintenance.html",
+          entityModel: "ClientMaintenanceVehicle",
+          entityId: vehicle._id,
+          createdBy: req.user?._id || null,
+          audienceRoles: LATAM_ROLES,
+        });
+      }
 
       return res.status(200).json({
         message: "Vehicle contact info updated",
@@ -751,6 +795,7 @@ async function updateClientMaintenanceVehicle(req, res) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
+    const previousContactStatus = String(maintenance.adminContactStatus || "");
     const appliedMaintenance = applyAdminContactFields(maintenance, {
       ...contactPayload,
       notesField: "contactNotes",
@@ -767,6 +812,27 @@ async function updateClientMaintenanceVehicle(req, res) {
     }
 
     await maintenance.save();
+
+    if (
+      previousContactStatus !== "appointment_scheduled" &&
+      maintenance.adminContactStatus === "appointment_scheduled"
+    ) {
+      const ownerName = maintenance.client?.name || "Cliente";
+      const vehicleLabel = [
+        maintenance.order?.vehicle?.brand,
+        maintenance.order?.vehicle?.model,
+      ].filter(Boolean).join(" ") || "Vehículo";
+      await createAdminNotification({
+        type: "maintenance_appointment",
+        title: "Cita de mantenimiento agendada",
+        body: `${ownerName} · ${vehicleLabel}`,
+        deepLink: "/admin-maintenance.html",
+        entityModel: "Maintenance",
+        entityId: maintenance._id,
+        createdBy: req.user?._id || null,
+        audienceRoles: LATAM_ROLES,
+      });
+    }
 
     return res.status(200).json({
       message: "Vehicle contact info updated",
