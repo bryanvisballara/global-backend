@@ -530,46 +530,117 @@ async function downloadImageBuffer(url) {
   }
 }
 
-function buildImagePrompt({ title, topic }) {
-  const topicHints = {
-    Supercars: "exotic supercar on a coastal highway at golden hour",
-    Ferrari: "red Ferrari supercar on a winding coastal road at sunset",
-    Lamborghini: "Lamborghini supercar with sharp angles under dramatic studio light",
-    Porsche: "Porsche 911 on an alpine road at dusk",
-    "Mercedes-Benz": "Mercedes-AMG luxury performance car in a modern city night",
-    "Toyota / Lexus": "Lexus luxury SUV on a scenic mountain overlook",
-    "Autos de lujo": "luxury sedan in a modern showroom with dramatic lighting",
-    Hypercars: "hypercar on an empty mountain road at dusk",
-    "Celebridades y autos": "celebrity stepping toward a luxury supercar outside a premium venue",
-    "BMW / Audi": "BMW M performance coupe on a wet city street at night",
-    Yates: "luxury megayacht on calm Mediterranean water at sunset",
-    "Lanchas deportivas": "sport yacht cutting through turquoise water",
-    "Jets privados": "private jet on a premium airport tarmac at blue hour",
-    Clásicos: "classic collector car in a refined garage",
-    Motorsport: "motorsport race car on track with motion and sparks",
-    "Eléctricos de lujo": "sleek luxury electric car in a futuristic city night",
-    "Estilo náutico": "luxury marina with yachts and warm evening lights",
-  };
+const KNOWN_CAR_BRANDS = [
+  { key: "ferrari", label: "Ferrari", patterns: [/\bferrari\b/i] },
+  { key: "lamborghini", label: "Lamborghini", patterns: [/\blamborghini\b/i, /\bhuracan\b/i, /\bavventador\b/i, /\brevuelto\b/i] },
+  { key: "porsche", label: "Porsche", patterns: [/\bporsche\b/i, /\b911\b/, /\bcayenne\b/i, /\btaycan\b/i] },
+  { key: "mercedes", label: "Mercedes-Benz", patterns: [/\bmercedes\b/i, /\bamg\b/i, /\bbenz\b/i] },
+  { key: "bmw", label: "BMW", patterns: [/\bbmw\b/i, /\bm[234578]\b/i] },
+  { key: "audi", label: "Audi", patterns: [/\baudi\b/i, /\brs\s?[367]\b/i] },
+  { key: "toyota", label: "Toyota", patterns: [/\btoyota\b/i, /\bland\s*cruiser\b/i, /\b4runner\b/i] },
+  { key: "lexus", label: "Lexus", patterns: [/\blexus\b/i] },
+  { key: "mclaren", label: "McLaren", patterns: [/\bmclaren\b/i] },
+  { key: "bugatti", label: "Bugatti", patterns: [/\bbugatti\b/i] },
+  { key: "koenigsegg", label: "Koenigsegg", patterns: [/\bkoenigsegg\b/i] },
+  { key: "pagani", label: "Pagani", patterns: [/\bpagani\b/i] },
+  { key: "aston", label: "Aston Martin", patterns: [/\baston\s*martin\b/i] },
+  { key: "bentley", label: "Bentley", patterns: [/\bbentley\b/i] },
+  { key: "rolls", label: "Rolls-Royce", patterns: [/\brolls[-\s]?royce\b/i] },
+  { key: "rimac", label: "Rimac", patterns: [/\brimac\b/i] },
+  { key: "lotus", label: "Lotus", patterns: [/\blotus\b/i] },
+  { key: "nilu", label: "Nilu", patterns: [/\bnilu\b/i, /\bnilu27\b/i] },
+];
 
-  const scene = topicHints[topic] || "luxury supercar editorial scene, premium automotive photography";
+const BRAND_STOCK_IMAGES = {
+  ferrari: "https://images.unsplash.com/photo-1583121274602-3e282f39af0f?auto=format&fit=crop&w=1600&q=80",
+  lamborghini: "https://images.unsplash.com/photo-1544829099-b9a0c5303aef?auto=format&fit=crop&w=1600&q=80",
+  porsche: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+  mercedes: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1600&q=80",
+  bmw: "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1600&q=80",
+  audi: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1600&q=80",
+  mclaren: "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+  toyota: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1600&q=80",
+  lexus: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1600&q=80",
+};
+
+function extractVehicleSubject({ title = "", topic = "", body = "" } = {}) {
+  const text = `${title} ${body}`.trim();
+  const titleText = normalizeText(title);
+  const matched = KNOWN_CAR_BRANDS.map((brand) => {
+    const inTitle = brand.patterns.some((pattern) => pattern.test(titleText));
+    const inBody = brand.patterns.some((pattern) => pattern.test(text));
+    if (!inTitle && !inBody) {
+      return null;
+    }
+    const indexInTitle = brand.patterns.reduce((best, pattern) => {
+      const match = titleText.match(pattern);
+      if (!match) {
+        return best;
+      }
+      return best < 0 ? match.index : Math.min(best, match.index);
+    }, -1);
+    return {
+      ...brand,
+      inTitle,
+      sortIndex: inTitle ? indexInTitle : 10_000 + (inBody ? 0 : 1),
+    };
+  })
+    .filter(Boolean)
+    .sort((a, b) => a.sortIndex - b.sortIndex);
+
+  const primary = matched[0] || null;
+
+  const titleWords = titleText
+    .split(/\s+/)
+    .filter((word) => word.length > 1 && !/^(de|del|la|el|los|las|y|en|con|un|una|por|para|the|and|of)$/i.test(word));
+  const focusName = primary
+    ? primary.label
+    : titleWords.slice(0, 4).join(" ") || String(topic || "luxury car");
+
+  const forbidden = KNOWN_CAR_BRANDS
+    .filter((brand) => !matched.some((item) => item.key === brand.key))
+    .map((brand) => brand.label);
+
+  return {
+    brands: matched.map((brand) => brand.label),
+    primaryBrand: primary?.label || "",
+    primaryKey: primary?.key || "",
+    focusName,
+    headline: titleText,
+    forbiddenBrands: forbidden.slice(0, 12),
+  };
+}
+
+function buildImagePrompt({ title, topic, body = "" }) {
+  const subject = extractVehicleSubject({ title, topic, body });
+  const brandClause = subject.brands.length
+    ? `Primary vehicle to depict: ${subject.primaryBrand || subject.focusName}. Related mentions may include ${subject.brands.join(", ")}, but the hero car must match the first/main subject of the headline.`
+    : `Focus on the exact vehicle concept named in the headline: "${subject.focusName}".`;
+  const forbidClause = subject.forbiddenBrands.length
+    ? `Do NOT depict these unrelated brands or their logos/grilles: ${subject.forbiddenBrands.join(", ")}.`
+    : "Do not invent a different famous car brand than the one in the headline.";
 
   return [
-    "Photorealistic editorial photograph for a luxury brand magazine cover.",
-    `Subject: ${scene}.`,
-    `Inspired by: ${title}.`,
+    "Photorealistic editorial photograph for a luxury automotive magazine cover.",
+    `Headline to illustrate exactly: "${subject.headline}".`,
+    `Topic category: ${topic || "luxury cars"}.`,
+    brandClause,
+    "Show only that specific car/subject from the headline. If the car is rare or new (e.g. Nilu, prototype hypercar), invent a faithful unique design matching the description (engine clues, body type) without copying another brand.",
+    forbidClause,
+    "No readable text, no watermarks, no magazine mastheads, no close-up human faces.",
+    "No wrong manufacturer badges. Prefer anonymous or matching badges only when the brand is named.",
     "Cinematic lighting, rich contrast, premium atmosphere, shallow depth of field.",
-    "No text, no logos, no watermarks, no people faces close-up.",
-    "Horizontal 16:9 composition with dark left side suitable for text overlay.",
+    "Horizontal 16:9 composition with darker space on one side for text overlay.",
   ].join(" ");
 }
 
-async function generateBackgroundWithOpenAi({ title, topic }) {
+async function generateBackgroundWithOpenAi({ title, topic, body = "" }) {
   if (!openAiClient) {
     return null;
   }
 
   const model = String(process.env.OPENAI_IMAGE_MODEL || "gpt-image-1").trim();
-  const prompt = buildImagePrompt({ title, topic });
+  const prompt = buildImagePrompt({ title, topic, body });
 
   try {
     const response = await openAiClient.images.generate({
@@ -672,7 +743,7 @@ const TOPIC_STOCK_IMAGES = {
   "Autos de lujo":
     "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
   Hypercars:
-    "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1600&q=80",
+    "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
   "Celebridades y autos":
     "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
   "BMW / Audi":
@@ -693,6 +764,14 @@ const TOPIC_STOCK_IMAGES = {
     "https://images.unsplash.com/photo-1605281317010-fe5ffe798166?auto=format&fit=crop&w=1600&q=80",
 };
 
+async function fetchBrandStockImage(primaryKey = "") {
+  const url = BRAND_STOCK_IMAGES[String(primaryKey || "").toLowerCase()];
+  if (!url) {
+    return null;
+  }
+  return downloadImageBuffer(url);
+}
+
 async function fetchTopicStockImage(topic = "") {
   const url =
     TOPIC_STOCK_IMAGES[topic] ||
@@ -700,32 +779,51 @@ async function fetchTopicStockImage(topic = "") {
   return downloadImageBuffer(url);
 }
 
-async function resolveBackgroundBuffer({ title, topic, storyImageUrl = "", storyUrl = "" }) {
-  const generated = await generateBackgroundWithOpenAi({ title, topic });
+async function resolveBackgroundBuffer({ title, topic, body = "", storyImageUrl = "", storyUrl = "" }) {
+  const subject = extractVehicleSubject({ title, topic, body });
+
+  const generated = await generateBackgroundWithOpenAi({ title, topic, body });
   if (generated) {
-    return { buffer: generated, source: "openai" };
+    return { buffer: generated, source: "openai", subject: subject.focusName };
   }
 
-  // Prefer curated luxury photography over unreliable news OG graphics.
-  const stockBuffer = await fetchTopicStockImage(topic);
-  if (stockBuffer) {
-    return { buffer: stockBuffer, source: "stock" };
-  }
-
+  // Article photo is more accurate than a random stock brand when OpenAI fails.
   const storyBuffer = await downloadImageBuffer(storyImageUrl);
-  if (storyBuffer && storyBuffer.length > 80_000) {
-    return { buffer: storyBuffer, source: "rss" };
+  if (storyBuffer && storyBuffer.length > 60_000) {
+    return { buffer: storyBuffer, source: "rss", subject: subject.focusName };
   }
 
   const ogBuffer = await scrapeOpenGraphImage(storyUrl);
-  if (ogBuffer && ogBuffer.length > 120_000) {
-    return { buffer: ogBuffer, source: "og" };
+  if (ogBuffer && ogBuffer.length > 80_000) {
+    return { buffer: ogBuffer, source: "og", subject: subject.focusName };
   }
 
-  return { buffer: null, source: "none" };
+  const brandStock = await fetchBrandStockImage(subject.primaryKey);
+  if (brandStock) {
+    return { buffer: brandStock, source: "stock-brand", subject: subject.focusName };
+  }
+
+  // Avoid mismatched stock when the headline names a rare/specific car without brand stock.
+  if (!subject.primaryKey) {
+    return { buffer: null, source: "none", subject: subject.focusName };
+  }
+
+  const stockBuffer = await fetchTopicStockImage(topic);
+  if (stockBuffer) {
+    return { buffer: stockBuffer, source: "stock-topic", subject: subject.focusName };
+  }
+
+  return { buffer: null, source: "none", subject: subject.focusName };
 }
 
-async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", storyUrl = "", seed = "" }) {
+async function buildBrandedImageBuffer({
+  title,
+  topic,
+  body = "",
+  storyImageUrl = "",
+  storyUrl = "",
+  seed = "",
+}) {
   const width = 1200;
   const height = 675;
   const layoutSeed = seed || `${title}|${topic}|${Date.now()}`;
@@ -740,9 +838,10 @@ async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", story
     tagline,
   });
 
-  const { buffer: backgroundBuffer, source: backgroundSource } = await resolveBackgroundBuffer({
+  const { buffer: backgroundBuffer, source: backgroundSource, subject } = await resolveBackgroundBuffer({
     title,
     topic,
+    body,
     storyImageUrl,
     storyUrl,
   });
@@ -797,6 +896,7 @@ async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", story
   const output = await baseImage.composite(composites).png().toBuffer();
   output.__backgroundSource = backgroundSource;
   output.__layout = layout;
+  output.__subject = subject || "";
   return output;
 }
 
@@ -893,12 +993,13 @@ async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
   const imageBuffer = await buildBrandedImageBuffer({
     title: copy.title,
     topic: story.topic,
+    body: copy.body,
     storyImageUrl: story.imageUrl,
     storyUrl: story.url,
     seed: `${resolvedSlot}|${story.url}|${copy.title}`,
   });
   console.info(
-    `[POSTS_AUTO] image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"}`
+    `[POSTS_AUTO] image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"} subject=${imageBuffer.__subject || "unknown"}`
   );
   const media = await storeBrandedImage(imageBuffer, `global-${resolvedSlot}`);
   const publisherId = await resolvePublisherUserId();
@@ -1051,12 +1152,13 @@ async function regenerateExistingDraft(postId, { userId = null } = {}) {
   const imageBuffer = await buildBrandedImageBuffer({
     title: copy.title,
     topic: story.topic,
+    body: copy.body,
     storyImageUrl: story.imageUrl,
     storyUrl: story.url,
     seed: `regen|${postId}|${Date.now()}|${story.url}|${copy.title}`,
   });
   console.info(
-    `[POSTS_AUTO] regenerate image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"}`
+    `[POSTS_AUTO] regenerate image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"} subject=${imageBuffer.__subject || "unknown"}`
   );
   const media = await storeBrandedImage(imageBuffer, `regen-${draft._id}-${Date.now()}`);
   const now = new Date();
