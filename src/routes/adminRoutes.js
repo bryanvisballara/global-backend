@@ -70,7 +70,7 @@ const {
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
 } = require("../controllers/adminNotificationsController");
-const { createPost, deletePost, generateDraft, getDraftCount, getPost, listDrafts, listPosts, publishDraft, updatePost } = require("../controllers/adminPostsController");
+const { createPost, deletePost, generateDraft, getDraftCount, getPost, getRegenerateQuota, listDrafts, listPosts, publishDraft, regenerateDraft, updatePost } = require("../controllers/adminPostsController");
 const {
   createVirtualDealershipVehicle,
   deleteVirtualDealershipVehicle,
@@ -173,9 +173,11 @@ router.delete("/notifications/:notificationId", dismissAdminNotification);
 router.get("/posts", listPosts);
 router.get("/posts/drafts", listDrafts);
 router.get("/posts/draft-count", getDraftCount);
+router.get("/posts/regenerate-quota", getRegenerateQuota);
 router.post("/posts/generate-draft", generateDraft);
 router.get("/posts/:postId", getPost);
 router.post("/posts/:postId/publish-draft", publishDraft);
+router.post("/posts/:postId/regenerate-draft", regenerateDraft);
 router.post("/posts", upload.array("mediaFiles", 10), createPost);
 router.patch("/posts/:postId", upload.array("mediaFiles", 10), updatePost);
 router.delete("/posts/:postId", deletePost);

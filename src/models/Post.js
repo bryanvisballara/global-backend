@@ -125,6 +125,7 @@ const postSchema = new mongoose.Schema(
       enabled: { type: Boolean, default: false },
       slotKey: { type: String, trim: true, default: "" },
       generatedAt: { type: Date, default: null },
+      lastRegeneratedAt: { type: Date, default: null },
       model: { type: String, trim: true, default: "" },
     },
     likes: {

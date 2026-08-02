@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" href="/iconoglobal.jpg" />
-    <link rel="stylesheet" href="/styles.css?v=20260430-adminlight33" />
+    <link rel="stylesheet" href="/styles.css?v=20260802-regen-news01" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260515-ipadtouch27" />
   </head>
   <body class="admin-posts-page admin-app-view">
@@ -55,7 +55,21 @@
                 <p id="post-feedback" class="feedback" aria-live="polite"></p>
               </form>
               <div class="posts-right-panel">
-                <div class="posts-section-block">
+                <div class="posts-panel-tabs" role="tablist" aria-label="Listas de publicaciones">
+                  <button id="posts-tab-drafts" class="posts-panel-tab is-active" type="button" role="tab" aria-selected="true" data-posts-tab="drafts">
+                    Borradores
+                    <span id="drafts-tab-badge" class="posts-tab-badge" hidden>0</span>
+                  </button>
+                  <button id="posts-tab-scheduled" class="posts-panel-tab" type="button" role="tab" aria-selected="false" data-posts-tab="scheduled">
+                    Programadas
+                  </button>
+                </div>
+                <div class="posts-section-block" data-posts-panel="drafts">
+                  <p class="posts-section-note">Cada día a las 4:00 p. m. (Colombia) se genera 1 borrador con identidad Global. Prioridad: autos de lujo (≈20:1 vs náutico).</p>
+                  <p id="regenerate-quota-note" class="posts-section-note regenerate-quota-note">Regeneraciones hoy: —</p>
+                  <div id="draft-posts-list" class="dashboard-list draft-posts-list"></div>
+                </div>
+                <div class="posts-section-block" data-posts-panel="scheduled" hidden>
                   <h2 class="posts-section-heading">Publicaciones programadas</h2>
                   <div id="scheduled-posts-list" class="dashboard-list"></div>
                 </div>
@@ -115,7 +129,7 @@
         </div>
       </section>
     </div>
-    <script src="/admin-common.js?v=20260514-viewport07"></script>
-    <script src="/admin-posts.js?v=20260616-postsfix01"></script>
+    <script src="/admin-common.js?v=20260802-header-logout01"></script>
+    <script src="/admin-posts.js?v=20260802-regen-news01"></script>
   </body>
 </html>

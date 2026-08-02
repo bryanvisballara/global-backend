@@ -23,6 +23,7 @@ if (requireAdminAccess()) {
   const scheduledPostsList = document.getElementById("scheduled-posts-list");
   const draftPostsList = document.getElementById("draft-posts-list");
   const draftsTabBadge = document.getElementById("drafts-tab-badge");
+  const regenerateQuotaNote = document.getElementById("regenerate-quota-note");
   const postsTabButtons = Array.from(document.querySelectorAll("[data-posts-tab]"));
   const postsPanels = Array.from(document.querySelectorAll("[data-posts-panel]"));
   const publishNowButton = document.getElementById("publish-now-button");
@@ -49,9 +50,42 @@ if (requireAdminAccess()) {
   const successActionClose = document.getElementById("success-action-close");
 
   let allPosts = [];
+  let regenerateQuota = null;
   let confirmResolver = null;
   let pendingSubmitAction = "publish";
   let postMediaPreviewUrls = [];
+
+  function updateRegenerateQuotaNote(quota = regenerateQuota) {
+    if (!regenerateQuotaNote) {
+      return;
+    }
+
+    if (!quota) {
+      regenerateQuotaNote.textContent = "Regeneraciones hoy: —";
+      return;
+    }
+
+    const remaining = Math.max(0, Number(quota.remaining || 0));
+    const limit = Math.max(1, Number(quota.limit || 2));
+    regenerateQuotaNote.textContent =
+      remaining > 0
+        ? `Regeneraciones hoy: ${remaining} de ${limit} disponibles`
+        : `Límite diario alcanzado (${limit}/día). Vuelve mañana (hora Colombia).`;
+    regenerateQuotaNote.classList.toggle("is-exhausted", remaining <= 0);
+  }
+
+  async function loadRegenerateQuota() {
+    try {
+      const data = await fetchJson("/api/admin/posts/regenerate-quota", {
+        loadingMessage: false,
+      });
+      regenerateQuota = data.quota || null;
+      updateRegenerateQuotaNote(regenerateQuota);
+    } catch {
+      regenerateQuota = null;
+      updateRegenerateQuotaNote(null);
+    }
+  }
 
   function isSupportedVideoUrl(value) {
     if (!value) {
@@ -472,6 +506,7 @@ if (requireAdminAccess()) {
           <div class="draft-post-actions">
             <button class="primary-button" type="button" data-draft-action="publish" data-post-id="${escapeHtml(post._id)}">Publicar</button>
             <a class="secondary-button" href="${getEditPostUrl(post._id)}">Editar</a>
+            <button class="secondary-button" type="button" data-draft-action="regenerate" data-post-id="${escapeHtml(post._id)}">Regenerar noticia</button>
             <button class="secondary-button" type="button" data-draft-action="discard" data-post-id="${escapeHtml(post._id)}">Descartar</button>
           </div>
         </article>
@@ -505,9 +540,12 @@ if (requireAdminAccess()) {
 
   async function loadPostsPage() {
     await loadAdminSession();
-    const postsData = await fetchJson("/api/admin/posts", {
-      loadingMessage: "Cargando publicaciones...",
-    });
+    const [postsData] = await Promise.all([
+      fetchJson("/api/admin/posts", {
+        loadingMessage: "Cargando publicaciones...",
+      }),
+      loadRegenerateQuota(),
+    ]);
     allPosts = postsData.posts || [];
     sessionStorage.setItem("globalPublishedPosts", JSON.stringify(allPosts));
     renderPosts(allPosts);
@@ -552,6 +590,55 @@ if (requireAdminAccess()) {
     });
 
     setFeedback(postFeedback, "Borrador descartado.", "success");
+    await loadPostsPage();
+  }
+
+  async function regenerateDraftPost(postId) {
+    const remaining = Number(regenerateQuota?.remaining);
+    const limit = Number(regenerateQuota?.limit || 2);
+
+    if (regenerateQuota && remaining <= 0) {
+      setFeedback(
+        postFeedback,
+        `Límite diario alcanzado: solo ${limit} regeneraciones por día (hora Colombia).`,
+        "error"
+      );
+      return;
+    }
+
+    const remainingLabel =
+      Number.isFinite(remaining) && remaining >= 0
+        ? ` Te quedan ${remaining} de ${limit} hoy.`
+        : ` Máximo ${limit} por día.`;
+
+    const confirmed = await askForConfirmation({
+      title: "Regenerar noticia",
+      description: `Se buscará una noticia nueva (prioridad autos de lujo), se reescribirán los textos y se rediseñará la imagen.${remainingLabel}`,
+      confirmLabel: "Regenerar noticia",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    const result = await fetchJson(`/api/admin/posts/${postId}/regenerate-draft`, {
+      method: "POST",
+      loadingMessage: "Buscando noticia y regenerando contenido...",
+      requestTimeoutMs: 120000,
+    });
+
+    if (result.quota) {
+      regenerateQuota = result.quota;
+      updateRegenerateQuotaNote(regenerateQuota);
+    }
+
+    const left = Number(result.quota?.remaining);
+    const leftText = Number.isFinite(left)
+      ? ` Quedan ${left} regeneración${left === 1 ? "" : "es"} hoy.`
+      : "";
+
+    setFeedback(postFeedback, `Noticia regenerada.${leftText}`, "success");
+    showSuccessModal(`La noticia se regeneró con textos e imagen nuevos.${leftText}`);
     await loadPostsPage();
   }
 
@@ -702,6 +789,8 @@ if (requireAdminAccess()) {
     try {
       if (action === "publish") {
         await publishDraftPost(postId);
+      } else if (action === "regenerate") {
+        await regenerateDraftPost(postId);
       } else if (action === "discard") {
         await discardDraftPost(postId);
       }

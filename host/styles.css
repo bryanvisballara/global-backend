@@ -2503,6 +2503,15 @@ body.admin-posts-page .draft-post-actions .secondary-button {
   padding: 0 14px;
 }
 
+body.admin-posts-page .regenerate-quota-note {
+  margin-top: -4px;
+  color: #7a6a3a;
+}
+
+body.admin-posts-page .regenerate-quota-note.is-exhausted {
+  color: #8a3b2f;
+}
+
 body.admin-posts-page #scheduled-posts-list {
   max-height: 420px;
   min-height: 0;

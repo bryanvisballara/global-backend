@@ -11,17 +11,29 @@ const openAiClient = String(process.env.OPENAI_API_KEY || "").trim()
   : null;
 
 const GLOBAL_POST_TOPICS = [
-  { key: "supercars", label: "Supercars", query: "supercar exotic car news" },
-  { key: "luxury_cars", label: "Autos de lujo", query: "luxury car launch Ferrari Lamborghini Porsche" },
-  { key: "hypercars", label: "Hypercars", query: "hypercar Bugatti McLaren Koenigsegg" },
-  { key: "yachts", label: "Yates", query: "luxury yacht megayacht launch" },
-  { key: "sport_boats", label: "Lanchas deportivas", query: "sport yacht powerboat luxury boat" },
-  { key: "private_jets", label: "Jets privados", query: "private jet luxury aviation Gulfstream" },
-  { key: "classic_cars", label: "Clásicos", query: "classic car auction Ferrari Porsche collector automobile -game -gta -xbox -playstation" },
-  { key: "motorsport", label: "Motorsport", query: "Formula 1 race car Le Mans GT racing automobile" },
-  { key: "ev_luxury", label: "Eléctricos de lujo", query: "luxury electric car Rivian Lucid Porsche Taycan" },
-  { key: "marine_lifestyle", label: "Estilo náutico", query: "superyacht marina luxury yacht lifestyle" },
+  // Car-first pool (~20 of every 21 picks)
+  { key: "supercars", label: "Supercars", query: "Ferrari Lamborghini McLaren supercar launch", pool: "cars" },
+  { key: "ferrari", label: "Ferrari", query: "Ferrari new model launch supercar", pool: "cars" },
+  { key: "lamborghini", label: "Lamborghini", query: "Lamborghini new model supercar", pool: "cars" },
+  { key: "porsche", label: "Porsche", query: "Porsche 911 Cayenne new model", pool: "cars" },
+  { key: "mercedes", label: "Mercedes-Benz", query: "Mercedes-AMG Mercedes-Benz luxury car launch", pool: "cars" },
+  { key: "toyota_luxury", label: "Toyota / Lexus", query: "Toyota Lexus luxury SUV Land Cruiser new model", pool: "cars" },
+  { key: "luxury_cars", label: "Autos de lujo", query: "Bentley Rolls-Royce Bentley luxury car", pool: "cars" },
+  { key: "hypercars", label: "Hypercars", query: "Bugatti Koenigsegg Pagani hypercar", pool: "cars" },
+  { key: "celebrity_cars", label: "Celebridades y autos", query: "celebrity buys luxury car Ferrari Lamborghini", pool: "cars" },
+  { key: "bmw_audi", label: "BMW / Audi", query: "BMW M Audi RS luxury performance car", pool: "cars" },
+  { key: "classic_cars", label: "Clásicos", query: "classic car auction Ferrari Porsche collector automobile -game -gta", pool: "cars" },
+  { key: "motorsport", label: "Motorsport", query: "Formula 1 race car Le Mans GT racing", pool: "cars" },
+  { key: "ev_luxury", label: "Eléctricos de lujo", query: "Porsche Taycan Lucid Rivian luxury electric car", pool: "cars" },
+  { key: "private_jets", label: "Jets privados", query: "private jet luxury aviation Gulfstream", pool: "cars" },
+  // Nautical pool (~1 of every 21 picks)
+  { key: "yachts", label: "Yates", query: "luxury yacht megayacht launch", pool: "nautical" },
+  { key: "sport_boats", label: "Lanchas deportivas", query: "sport yacht powerboat luxury boat", pool: "nautical" },
+  { key: "marine_lifestyle", label: "Estilo náutico", query: "superyacht marina luxury yacht lifestyle", pool: "nautical" },
 ];
+
+const DAILY_REGENERATE_LIMIT = Math.max(1, Number(process.env.POSTS_REGENERATE_DAILY_LIMIT || 2));
+const AdminQuota = require("../models/AdminQuota");
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -93,7 +105,13 @@ function pickTopic(slotKey = "") {
   const hash = String(slotKey || Date.now())
     .split("")
     .reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return GLOBAL_POST_TOPICS[hash % GLOBAL_POST_TOPICS.length];
+
+  // 20 car picks : 1 nautical pick
+  const carTopics = GLOBAL_POST_TOPICS.filter((topic) => topic.pool !== "nautical");
+  const nauticalTopics = GLOBAL_POST_TOPICS.filter((topic) => topic.pool === "nautical");
+  const useNautical = hash % 21 === 0;
+  const pool = useNautical && nauticalTopics.length ? nauticalTopics : carTopics;
+  return pool[hash % pool.length];
 }
 
 async function fetchRssItems(topic) {
@@ -140,10 +158,15 @@ async function fetchRssItems(topic) {
   return items;
 }
 
-async function findUnusedStory(topic) {
+async function findUnusedStory(topic, { excludeUrls = [] } = {}) {
+  const excluded = new Set((excludeUrls || []).map((url) => String(url || "").trim()).filter(Boolean));
   const items = await fetchRssItems(topic);
 
   for (const item of items) {
+    if (excluded.has(item.url)) {
+      continue;
+    }
+
     const exists = await Post.findOne({ "source.url": item.url }).select("_id").lean();
     if (!exists) {
       return item;
@@ -172,9 +195,10 @@ async function generateCopyWithOpenAi(story) {
   }
 
   const prompt = [
-    "Eres el editor de contenido de Global Imports, marca premium de importación de vehículos y lifestyle de lujo en Colombia.",
+    "Eres el editor de contenido de Global Imports, marca premium de importación de vehículos de lujo en Colombia.",
     "A partir de la noticia fuente, genera un título y un texto corto en español, con tono elegante, entretenido y aspiracional.",
-    "Temas válidos: carros, supercars, yates, lanchas deportivas, jets. Mantén el enfoque en eso.",
+    "Prioriza siempre autos, supercars y marcas premium (Ferrari, Lamborghini, Porsche, Mercedes, Toyota/Lexus, BMW, etc.).",
+    "Si la noticia no es de autos, reencuadra el ángulo hacia el mundo automotriz de lujo cuando sea razonable.",
     "No inventes datos. No uses clickbait exagerado. No suenes como publicidad agresiva.",
     "Devuelve SOLO JSON válido con esta forma: {\"title\":\"...\",\"body\":\"...\"}",
     `Tema: ${story.topic}`,
@@ -299,8 +323,15 @@ async function downloadImageBuffer(url) {
 function buildImagePrompt({ title, topic }) {
   const topicHints = {
     Supercars: "exotic supercar on a coastal highway at golden hour",
+    Ferrari: "red Ferrari supercar on a winding coastal road at sunset",
+    Lamborghini: "Lamborghini supercar with sharp angles under dramatic studio light",
+    Porsche: "Porsche 911 on an alpine road at dusk",
+    "Mercedes-Benz": "Mercedes-AMG luxury performance car in a modern city night",
+    "Toyota / Lexus": "Lexus luxury SUV on a scenic mountain overlook",
     "Autos de lujo": "luxury sedan in a modern showroom with dramatic lighting",
     Hypercars: "hypercar on an empty mountain road at dusk",
+    "Celebridades y autos": "celebrity stepping toward a luxury supercar outside a premium venue",
+    "BMW / Audi": "BMW M performance coupe on a wet city street at night",
     Yates: "luxury megayacht on calm Mediterranean water at sunset",
     "Lanchas deportivas": "sport yacht cutting through turquoise water",
     "Jets privados": "private jet on a premium airport tarmac at blue hour",
@@ -310,7 +341,7 @@ function buildImagePrompt({ title, topic }) {
     "Estilo náutico": "luxury marina with yachts and warm evening lights",
   };
 
-  const scene = topicHints[topic] || "luxury lifestyle scene with cars yachts or private jets";
+  const scene = topicHints[topic] || "luxury supercar editorial scene, premium automotive photography";
 
   return [
     "Photorealistic editorial photograph for a luxury brand magazine cover.",
@@ -418,10 +449,24 @@ async function scrapeOpenGraphImage(articleUrl = "") {
 const TOPIC_STOCK_IMAGES = {
   Supercars:
     "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+  Ferrari:
+    "https://images.unsplash.com/photo-1583121274602-3e282f39af0f?auto=format&fit=crop&w=1600&q=80",
+  Lamborghini:
+    "https://images.unsplash.com/photo-1544829099-b9a0c5303aef?auto=format&fit=crop&w=1600&q=80",
+  Porsche:
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+  "Mercedes-Benz":
+    "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1600&q=80",
+  "Toyota / Lexus":
+    "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1600&q=80",
   "Autos de lujo":
     "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
   Hypercars:
     "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1600&q=80",
+  "Celebridades y autos":
+    "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+  "BMW / Audi":
+    "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1600&q=80",
   Yates:
     "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1600&q=80",
   "Lanchas deportivas":
@@ -441,7 +486,7 @@ const TOPIC_STOCK_IMAGES = {
 async function fetchTopicStockImage(topic = "") {
   const url =
     TOPIC_STOCK_IMAGES[topic] ||
-    "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1600&q=80";
+    "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80";
   return downloadImageBuffer(url);
 }
 
@@ -642,19 +687,7 @@ async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
   }
 
   const topic = pickTopic(resolvedSlot);
-  let story = await findUnusedStory(topic);
-
-  if (!story) {
-    for (const fallbackTopic of GLOBAL_POST_TOPICS) {
-      if (fallbackTopic.key === topic.key) {
-        continue;
-      }
-      story = await findUnusedStory(fallbackTopic);
-      if (story) {
-        break;
-      }
-    }
-  }
+  const story = await findStoryPreferringCars(topic);
 
   if (!story) {
     throw new Error(`No se encontró una noticia nueva para el tema ${topic.label}.`);
@@ -684,6 +717,176 @@ async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
   };
 }
 
+async function findStoryPreferringCars(preferredTopic, { excludeUrls = [] } = {}) {
+  let story = await findUnusedStory(preferredTopic, { excludeUrls });
+  if (story) {
+    return story;
+  }
+
+  const carTopics = GLOBAL_POST_TOPICS.filter((topic) => topic.pool !== "nautical");
+  const nauticalTopics = GLOBAL_POST_TOPICS.filter((topic) => topic.pool === "nautical");
+  const ordered = [
+    ...carTopics.filter((topic) => topic.key !== preferredTopic.key),
+    ...nauticalTopics.filter((topic) => topic.key !== preferredTopic.key),
+  ];
+
+  for (const fallbackTopic of ordered) {
+    story = await findUnusedStory(fallbackTopic, { excludeUrls });
+    if (story) {
+      return story;
+    }
+  }
+
+  return null;
+}
+
+function getBogotaDateKey(date = new Date()) {
+  return getBogotaParts(date).date;
+}
+
+async function getRegenerateQuotaStatus(date = new Date()) {
+  const dateKey = getBogotaDateKey(date);
+  const quota = await AdminQuota.findOne({ key: "draft-regenerate", dateKey }).lean();
+  const used = Math.max(0, Number(quota?.count || 0));
+  const limit = DAILY_REGENERATE_LIMIT;
+  const remaining = Math.max(0, limit - used);
+
+  return {
+    dateKey,
+    used,
+    limit,
+    remaining,
+    canRegenerate: remaining > 0,
+  };
+}
+
+class QuotaExceededError extends Error {
+  constructor(message, quota) {
+    super(message);
+    this.name = "QuotaExceededError";
+    this.code = "REGENERATE_QUOTA_EXCEEDED";
+    this.statusCode = 429;
+    this.quota = quota;
+  }
+}
+
+async function consumeRegenerateQuota({ userId = null, postId = null } = {}) {
+  const status = await getRegenerateQuotaStatus();
+
+  if (!status.canRegenerate) {
+    throw new QuotaExceededError(
+      `Límite diario alcanzado: solo se pueden regenerar ${status.limit} noticias por día (hora Colombia).`,
+      status
+    );
+  }
+
+  await AdminQuota.updateOne(
+    { key: "draft-regenerate", dateKey: status.dateKey },
+    {
+      $setOnInsert: {
+        key: "draft-regenerate",
+        dateKey: status.dateKey,
+        count: 0,
+        events: [],
+      },
+    },
+    { upsert: true }
+  );
+
+  const updated = await AdminQuota.findOneAndUpdate(
+    {
+      key: "draft-regenerate",
+      dateKey: status.dateKey,
+      count: { $lt: status.limit },
+    },
+    {
+      $inc: { count: 1 },
+      $push: {
+        events: {
+          at: new Date(),
+          userId: userId || null,
+          postId: postId || null,
+        },
+      },
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    const latest = await getRegenerateQuotaStatus();
+    throw new QuotaExceededError(
+      `Límite diario alcanzado: solo se pueden regenerar ${latest.limit} noticias por día (hora Colombia).`,
+      latest
+    );
+  }
+
+  return getRegenerateQuotaStatus();
+}
+
+async function regenerateExistingDraft(postId, { userId = null } = {}) {
+  const draft = await Post.findOne({ _id: postId, status: "draft" });
+
+  if (!draft) {
+    const error = new Error("Borrador no encontrado");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const currentQuota = await getRegenerateQuotaStatus();
+  if (!currentQuota.canRegenerate) {
+    throw new QuotaExceededError(
+      `Límite diario alcanzado: solo se pueden regenerar ${currentQuota.limit} noticias por día (hora Colombia).`,
+      currentQuota
+    );
+  }
+
+  const preferredTopic = pickTopic(`regen-${postId}-${Date.now()}`);
+  const excludeUrls = [draft.source?.url].filter(Boolean);
+  const story = await findStoryPreferringCars(preferredTopic, { excludeUrls });
+
+  if (!story) {
+    throw new Error("No se encontró una noticia nueva distinta a la actual.");
+  }
+
+  const copy = await generateCopyWithOpenAi(story);
+  const imageBuffer = await buildBrandedImageBuffer({
+    title: copy.title,
+    topic: story.topic,
+    storyImageUrl: story.imageUrl,
+    storyUrl: story.url,
+  });
+  console.info(`[POSTS_AUTO] regenerate image background source=${imageBuffer.__backgroundSource || "unknown"}`);
+  const media = await storeBrandedImage(imageBuffer, `regen-${draft._id}-${Date.now()}`);
+  const now = new Date();
+
+  draft.title = copy.title;
+  draft.body = copy.body;
+  draft.format = "image";
+  draft.media = media ? [media] : [];
+  draft.source = {
+    url: story.url,
+    title: story.title,
+    publisher: story.publisher || "",
+    topic: story.topic || "",
+    fetchedAt: now,
+  };
+  draft.auto = {
+    ...(draft.auto?.toObject?.() || draft.auto || {}),
+    enabled: true,
+    generatedAt: now,
+    model: copy.model || draft.auto?.model || "",
+    lastRegeneratedAt: now,
+  };
+
+  await draft.save();
+  const quota = await consumeRegenerateQuota({ userId, postId: draft._id });
+
+  return {
+    draft: await Post.findById(draft._id).populate("publishedBy", "name email role"),
+    quota,
+  };
+}
+
 async function runScheduledGlobalDraftJob(now = new Date()) {
   const slotKey = resolveSlotKey(now);
 
@@ -707,9 +910,13 @@ async function countDraftPosts() {
 
 module.exports = {
   GLOBAL_POST_TOPICS,
+  DAILY_REGENERATE_LIMIT,
+  QuotaExceededError,
   resolveSlotKey,
   getBogotaParts,
   generateGlobalDraft,
+  regenerateExistingDraft,
+  getRegenerateQuotaStatus,
   runScheduledGlobalDraftJob,
   countDraftPosts,
 };

@@ -4,6 +4,9 @@ const { sendPublishedPostNotifications } = require("../services/pushNotification
 const {
   countDraftPosts,
   generateGlobalDraft,
+  getRegenerateQuotaStatus,
+  regenerateExistingDraft,
+  QuotaExceededError,
 } = require("../services/postsAuto.service");
 
 function isValidDate(value) {
@@ -435,15 +438,52 @@ async function generateDraft(req, res) {
   }
 }
 
+async function getRegenerateQuota(req, res) {
+  try {
+    const quota = await getRegenerateQuotaStatus();
+    return res.status(200).json({ quota });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Error reading regenerate quota" });
+  }
+}
+
+async function regenerateDraft(req, res) {
+  try {
+    const { postId } = req.params;
+    const result = await regenerateExistingDraft(postId, {
+      userId: req.user?._id || req.user?.id || null,
+    });
+
+    return res.status(200).json({
+      message: "Noticia regenerada correctamente",
+      post: result.draft,
+      quota: result.quota,
+    });
+  } catch (error) {
+    if (error instanceof QuotaExceededError || error.code === "REGENERATE_QUOTA_EXCEEDED") {
+      return res.status(429).json({
+        message: error.message,
+        quota: error.quota || null,
+      });
+    }
+
+    return res.status(error.statusCode || 500).json({
+      message: error.message || "Error regenerating draft",
+    });
+  }
+}
+
 module.exports = {
   createPost,
   deletePost,
   generateDraft,
   getDraftCount,
   getPost,
+  getRegenerateQuota,
   listDrafts,
   listPosts,
   publishDraft,
   publishDueScheduledPosts,
+  regenerateDraft,
   updatePost,
 };
