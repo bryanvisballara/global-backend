@@ -2,7 +2,7 @@
   const STORAGE_KEY = "globalImportsSequoiaFlappyBest";
   const PLAYER_NAME_KEY = "globalHeroPlayerName";
   const COVER_URL = "/assets/global-hero-cover.png";
-  const SPRITE_URL = "/assets/lion-hero-fly.png?v=20260802-hitbox01";
+  const SPRITE_URL = "/assets/lion-hero-fly.png?v=20260802-crop03";
   const BACKGROUND_URL = "/assets/sequoia-game-bg.png?v=20260616-gamebg01";
   const TRAFFIC_RED_URL = "/assets/srojo.png";
   const TRAFFIC_GREEN_URL = "/assets/sverde.png";
