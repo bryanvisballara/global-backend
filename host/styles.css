@@ -2102,23 +2102,154 @@ body.admin-app-view .admin-notifications {
   z-index: 40;
 }
 
+body.admin-app-view .admin-header-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 8px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+body.admin-app-view .admin-header-divider {
+  width: 1px;
+  height: 34px;
+  background: #e6e6e6;
+  flex: 0 0 auto;
+}
+
+body.admin-app-view .admin-header-user {
+  position: relative;
+}
+
+body.admin-app-view .admin-header-user-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-header-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid #a87e43;
+  background: #faf6ef;
+  color: #a87e43;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+body.admin-app-view .admin-header-user-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+body.admin-app-view .admin-header-user-name {
+  color: #141414;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+body.admin-app-view .admin-header-user-email {
+  color: #8d8d8d;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+body.admin-app-view .admin-header-user-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: #1c1c1c;
+}
+
+body.admin-app-view .admin-header-user-chevron svg {
+  width: 16px;
+  height: 16px;
+}
+
+body.admin-app-view .admin-header-user-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+}
+
+body.admin-app-view .admin-header-user-menu[hidden] {
+  display: none !important;
+}
+
+body.admin-app-view .admin-header-logout-button {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #a87e43;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+body.admin-app-view .admin-header-logout-button:hover {
+  background: #faf6ef;
+}
+
 body.admin-app-view .admin-notifications-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border: 1px solid rgba(17, 17, 17, 0.12);
+  border: 0;
   border-radius: 12px;
-  background: #ffffff;
+  background: #f4f4f4;
   color: #1c1c1c;
   cursor: pointer;
 }
 
 body.admin-app-view .admin-notifications-toggle:hover {
-  background: #f7f7f7;
+  background: #ececec;
 }
 
 body.admin-app-view .admin-notifications-bell-icon,
@@ -2130,8 +2261,8 @@ body.admin-app-view .admin-notifications-bell-icon svg {
 
 body.admin-app-view .admin-notifications-count {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -4px;
+  right: -4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2139,7 +2270,7 @@ body.admin-app-view .admin-notifications-count {
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #e11d2e;
+  background: #a87e43;
   color: #ffffff;
   font-size: 0.68rem;
   font-weight: 800;

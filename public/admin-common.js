@@ -540,7 +540,7 @@ function getAdminInitials(name) {
 
 function syncAdminSidebarAvatar(name) {
   const initials = getAdminInitials(name);
-  document.querySelectorAll(".admin-sidebar-avatar").forEach((avatar) => {
+  document.querySelectorAll(".admin-sidebar-avatar, .admin-header-avatar").forEach((avatar) => {
     avatar.textContent = initials;
   });
 }
@@ -890,6 +890,8 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
 
   const sidebarNameElement = document.getElementById("admin-name-sidebar");
   const sidebarEmailElement = document.getElementById("admin-email-sidebar");
+  const headerNameElement = document.getElementById("admin-name-top");
+  const headerEmailElement = document.getElementById("admin-email-top");
 
   if (sidebarNameElement) {
     sidebarNameElement.textContent = displayName;
@@ -897,6 +899,14 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
 
   if (sidebarEmailElement) {
     sidebarEmailElement.textContent = displayEmail;
+  }
+
+  if (headerNameElement) {
+    headerNameElement.textContent = displayName;
+  }
+
+  if (headerEmailElement) {
+    headerEmailElement.textContent = displayEmail;
   }
 
   syncAdminSidebarAvatar(displayName);
@@ -979,28 +989,117 @@ function createAdminNotificationsBell() {
   return root;
 }
 
-function ensureAdminNotificationsBell() {
-  if (document.querySelector(".admin-notifications")) {
-    return document.querySelector(".admin-notifications");
+function bindAdminHeaderUserMenu(userWrap) {
+  if (!userWrap || userWrap.dataset.bound === "true") {
+    return;
   }
 
-  const bell = createAdminNotificationsBell();
+  userWrap.dataset.bound = "true";
+  const userToggle = userWrap.querySelector(".admin-header-user-toggle");
+  const userMenu = userWrap.querySelector(".admin-header-user-menu");
+
+  userToggle?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const willOpen = Boolean(userMenu?.hidden);
+    closeAdminNotificationsPanel();
+    if (userMenu) {
+      userMenu.hidden = !willOpen;
+    }
+    userToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".admin-header-user")) {
+      if (userMenu) {
+        userMenu.hidden = true;
+      }
+      userToggle?.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  const logoutButton = userWrap.querySelector("#logout-button");
+  if (logoutButton) {
+    attachLogout(logoutButton.id || "logout-button");
+  }
+}
+
+function ensureAdminHeaderCluster() {
+  const existingCluster = document.querySelector(".admin-header-cluster");
+  if (existingCluster) {
+    bindAdminHeaderUserMenu(existingCluster.querySelector(".admin-header-user"));
+    return existingCluster.querySelector(".admin-notifications") || existingCluster;
+  }
+
   const actions =
     document.querySelector(".page-topbar-actions") ||
     document.querySelector(".admin-dashboard-header-actions");
 
-  if (actions) {
-    actions.prepend(bell);
-    return bell;
+  if (!actions) {
+    return null;
   }
 
-  const dashboardHeader = document.querySelector(".admin-dashboard-header > div");
-  if (dashboardHeader) {
-    dashboardHeader.prepend(bell);
-    return bell;
+  const existingName =
+    actions.querySelector("#admin-name") ||
+    actions.querySelector("#admin-name-top") ||
+    document.getElementById("admin-name");
+  const existingEmail =
+    actions.querySelector("#admin-email") ||
+    document.getElementById("admin-email");
+  const existingLogout = actions.querySelector("#logout-button") || document.getElementById("logout-button");
+
+  const nameId = existingName?.id || "admin-name";
+  const emailId = existingEmail?.id || "admin-email";
+  const nameText = existingName?.textContent?.trim() || "Administrador";
+  const emailText = existingEmail?.textContent?.trim() || "admin@globalimports.com";
+  const initials = getAdminInitials(nameText);
+
+  actions.querySelectorAll(".admin-badge, .admin-user-chip").forEach((node) => node.remove());
+  if (existingLogout && actions.contains(existingLogout)) {
+    existingLogout.remove();
   }
 
-  return null;
+  const cluster = document.createElement("div");
+  cluster.className = "admin-header-cluster";
+
+  const bell = createAdminNotificationsBell();
+  const divider = document.createElement("span");
+  divider.className = "admin-header-divider";
+  divider.setAttribute("aria-hidden", "true");
+
+  const userWrap = document.createElement("div");
+  userWrap.className = "admin-header-user";
+  userWrap.innerHTML = `
+    <button class="admin-header-user-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+      <span class="admin-header-avatar" id="admin-header-avatar" aria-hidden="true">${escapeAdminHtml(initials)}</span>
+      <span class="admin-header-user-meta">
+        <strong class="admin-header-user-name" id="${escapeAdminHtml(nameId)}">${escapeAdminHtml(nameText)}</strong>
+        <span class="admin-header-user-email" id="${escapeAdminHtml(emailId)}">${escapeAdminHtml(emailText)}</span>
+      </span>
+      <span class="admin-header-user-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+      </span>
+    </button>
+    <div class="admin-header-user-menu" id="admin-header-user-menu" hidden>
+      <button id="logout-button" class="admin-header-logout-button" type="button">Cerrar sesión</button>
+    </div>
+  `;
+
+  cluster.appendChild(bell);
+  cluster.appendChild(divider);
+  cluster.appendChild(userWrap);
+  actions.prepend(cluster);
+  bindAdminHeaderUserMenu(userWrap);
+  return bell;
+}
+
+function ensureAdminNotificationsBell() {
+  const existing = document.querySelector(".admin-notifications");
+  if (existing) {
+    return existing;
+  }
+
+  return ensureAdminHeaderCluster();
 }
 
 function setAdminNotificationsCount(count) {
@@ -1120,6 +1219,13 @@ function initializeAdminNotificationsBell() {
       closeAdminNotificationsPanel();
       return;
     }
+
+    const userMenu = document.getElementById("admin-header-user-menu");
+    const userToggle = document.querySelector(".admin-header-user-toggle");
+    if (userMenu) {
+      userMenu.hidden = true;
+    }
+    userToggle?.setAttribute("aria-expanded", "false");
 
     panel.hidden = false;
     toggle.setAttribute("aria-expanded", "true");

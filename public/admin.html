@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260802-notif-bell01" />
+    <link rel="stylesheet" href="/styles.css?v=20260802-header-cluster01" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260709-iphonesafe01" />
     <style>
       .global-loading-overlay {
@@ -119,9 +119,45 @@
               </div>
 
               <div class="admin-dashboard-header-actions">
-                <div class="admin-user-chip">
-                  <span id="admin-role-label">Cuenta activa</span>
-                  <strong id="admin-name-top">Administrador</strong>
+                <div class="admin-header-cluster">
+                  <div class="admin-notifications">
+                    <button class="admin-notifications-toggle" type="button" aria-label="Notificaciones" aria-expanded="false">
+                      <span class="admin-notifications-bell-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4.2 1.5 5.8 2 6.5H4.5c.5-.7 2-2.3 2-6.5Z"/>
+                          <path d="M10 18.5a2 2 0 0 0 4 0"/>
+                        </svg>
+                      </span>
+                      <span class="admin-notifications-count" id="admin-notifications-count" hidden>0</span>
+                    </button>
+                    <div class="admin-notifications-panel" id="admin-notifications-panel" hidden>
+                      <div class="admin-notifications-panel-header">
+                        <strong>Notificaciones</strong>
+                        <button class="admin-notifications-mark-all" type="button" title="Marcar todas como leídas" aria-label="Marcar todas como leídas">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 13.5 9.5 18 19 6.5"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="admin-notifications-list" id="admin-notifications-list"></div>
+                    </div>
+                  </div>
+                  <span class="admin-header-divider" aria-hidden="true"></span>
+                  <div class="admin-header-user">
+                    <button class="admin-header-user-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+                      <span class="admin-header-avatar" id="admin-header-avatar" aria-hidden="true">AD</span>
+                      <span class="admin-header-user-meta">
+                        <strong class="admin-header-user-name" id="admin-name-top">Administrador</strong>
+                        <span class="admin-header-user-email" id="admin-email-top">admin@globalimports.com</span>
+                      </span>
+                      <span class="admin-header-user-chevron" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+                      </span>
+                    </button>
+                    <div class="admin-header-user-menu" id="admin-header-user-menu" hidden>
+                      <button id="logout-button" class="admin-header-logout-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </header>
@@ -200,7 +236,7 @@
       </section>
     </main>
 
-    <script src="/admin-common.js?v=20260802-notif-bell01"></script>
+    <script src="/admin-common.js?v=20260802-header-cluster01"></script>
     <script>
       (() => {
         const clearPageLoadingState = () => {
