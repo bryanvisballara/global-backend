@@ -1,4 +1,4 @@
-const GLOBAL_HERO_GAME_ENABLED = false;
+const GLOBAL_HERO_GAME_ENABLED = true;
 
 function resolveApiBaseUrl() {
   const { origin, hostname } = window.location;
@@ -203,7 +203,7 @@ removeGlobalHeroGameUi();
 
 const viewNodes = Array.from(document.querySelectorAll(".client-view"));
 const navButtons = Array.from(document.querySelectorAll(".client-nav-button")).filter(
-  (button) => button.dataset.viewTarget !== "sequoia-game"
+  (button) => GLOBAL_HERO_GAME_ENABLED || button.dataset.viewTarget !== "sequoia-game"
 );
 const feedContainer = document.getElementById("client-feed");
 const trackingForm = document.getElementById("tracking-search-form");

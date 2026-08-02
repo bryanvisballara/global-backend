@@ -239,9 +239,9 @@
     pipeSpeed: 2.8,
     pipeGap: 168,
     pipeWidth: 72,
-    spawnEveryMs: 1380,
-    minPipeSpacing: 215,
-    maxPipes: 4,
+    spawnEveryMs: 1650,
+    minPipeSpacing: 280,
+    maxPipes: 3,
     groundHeight: 56,
   };
 
@@ -552,11 +552,14 @@
       }
 
       const trailingPipe = state.pipes[state.pipes.length - 1];
-      if (trailingPipe && trailingPipe.x > width - DEFAULTS.minPipeSpacing) {
-        return false;
+      if (!trailingPipe) {
+        return true;
       }
 
-      return true;
+      // Keep a real gap between poles even when FPS drops (timer-based spawn + frame move).
+      const nextSpawnX = width + 20;
+      const horizontalGap = nextSpawnX - trailingPipe.x;
+      return horizontalGap >= DEFAULTS.minPipeSpacing + DEFAULTS.pipeWidth;
     }
 
     function spawnPipe() {
@@ -744,8 +747,13 @@
     }
 
     function update(now) {
+      // Normalize motion to ~60fps so lag does not stack poles closer together.
+      const frameScale = lastFrame
+        ? clamp((now - lastFrame) / (1000 / 60), 0.75, 2.25)
+        : 1;
+
       state.clouds.forEach((cloud) => {
-        cloud.x -= cloud.speed;
+        cloud.x -= cloud.speed * frameScale;
         if (cloud.x < -80) {
           cloud.x = width + 40;
         }
@@ -756,16 +764,16 @@
         return;
       }
 
-      state.car.vy += DEFAULTS.gravity;
+      state.car.vy += DEFAULTS.gravity * frameScale;
       state.car.vy = clamp(state.car.vy, -9, 11);
-      state.car.y += state.car.vy;
+      state.car.y += state.car.vy * frameScale;
 
       if (now - lastSpawn >= DEFAULTS.spawnEveryMs && spawnPipe()) {
         lastSpawn = now;
       }
 
       state.pipes.forEach((pipe) => {
-        pipe.x -= DEFAULTS.pipeSpeed;
+        pipe.x -= DEFAULTS.pipeSpeed * frameScale;
         if (!pipe.passed && pipe.x + DEFAULTS.pipeWidth < state.car.x) {
           pipe.passed = true;
           state.score += 1;
