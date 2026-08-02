@@ -205,8 +205,8 @@ async function generateCopyWithOpenAi(story) {
     `Título fuente: ${story.title}`,
     `Resumen fuente: ${story.description || "(sin resumen)"}`,
     `Medio: ${story.publisher || "(desconocido)"}`,
-    "El título debe tener máximo 90 caracteres.",
-    "El body debe tener entre 280 y 520 caracteres, 1 o 2 párrafos cortos.",
+    "El título debe salir completo (sin puntos suspensivos), idealmente entre 45 y 78 caracteres, máximo 90.",
+    "El body debe tener entre 280 y 520 caracteres, 1 o 2 párrafos cortos, y también completo (sin cortar con …).",
   ].join("\n");
 
   const response = await openAiClient.responses.create({
@@ -222,8 +222,16 @@ async function generateCopyWithOpenAi(story) {
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
-  const title = normalizeText(parsed.title).slice(0, 120);
-  const body = normalizeText(parsed.body).slice(0, 1200);
+  const title = normalizeText(parsed.title)
+    .replace(/\u2026/g, "")
+    .replace(/\.{2,}$/g, "")
+    .trim()
+    .slice(0, 120);
+  const body = normalizeText(parsed.body)
+    .replace(/\u2026\s*$/g, "")
+    .replace(/\.{2,}\s*$/g, "")
+    .trim()
+    .slice(0, 1200);
 
   if (!title || !body) {
     throw new Error("OpenAI devolvió título o texto vacío.");
@@ -245,7 +253,7 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function wrapTitleLines(title, maxChars = 28, maxLines = 3) {
+function wrapWordsToLines(title, maxChars = 28) {
   const words = normalizeText(title).split(/\s+/).filter(Boolean);
   const lines = [];
   let current = "";
@@ -255,24 +263,226 @@ function wrapTitleLines(title, maxChars = 28, maxLines = 3) {
     if (next.length > maxChars && current) {
       lines.push(current);
       current = word;
-      if (lines.length >= maxLines - 1) {
-        break;
-      }
     } else {
       current = next;
     }
   }
 
-  if (current && lines.length < maxLines) {
+  if (current) {
     lines.push(current);
   }
 
-  const leftover = words.join(" ").slice(lines.join(" ").length).trim();
-  if (leftover && lines.length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1]}…`.slice(0, maxChars + 1);
+  return lines.length ? lines : [normalizeText(title) || "Global Imports"];
+}
+
+function fitTitleForImage(title) {
+  const attempts = [
+    { maxChars: 28, maxLines: 4, fontSize: 48, lineHeight: 58 },
+    { maxChars: 32, maxLines: 5, fontSize: 42, lineHeight: 52 },
+    { maxChars: 36, maxLines: 6, fontSize: 36, lineHeight: 46 },
+    { maxChars: 40, maxLines: 7, fontSize: 32, lineHeight: 40 },
+    { maxChars: 44, maxLines: 8, fontSize: 28, lineHeight: 36 },
+  ];
+
+  for (const attempt of attempts) {
+    const lines = wrapWordsToLines(title, attempt.maxChars);
+    if (lines.length <= attempt.maxLines) {
+      return { lines, fontSize: attempt.fontSize, lineHeight: attempt.lineHeight };
+    }
   }
 
-  return lines.slice(0, maxLines);
+  const fallback = attempts[attempts.length - 1];
+  return {
+    lines: wrapWordsToLines(title, fallback.maxChars),
+    fontSize: fallback.fontSize,
+    lineHeight: fallback.lineHeight,
+  };
+}
+
+function pickImageLayout(seed = "") {
+  const layouts = ["leftClassic", "bottomHero", "rightEditorial", "topBanner", "lowerLeftWide"];
+  const hash = String(seed || Date.now())
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return layouts[hash % layouts.length];
+}
+
+function pickImageTagline(topic = "", seed = "") {
+  const carLines = [
+    "Lujo sobre ruedas",
+    "Autos que marcan época",
+    "Prestigio en movimiento",
+    "El arte de conducir",
+    "Exclusividad al volante",
+  ];
+  const nauticalLines = [
+    "Horizonte de lujo",
+    "Estilo sobre el agua",
+    "Náutica de élite",
+  ];
+  const topicText = String(topic || "").toLowerCase();
+  const pool =
+    topicText.includes("yate") || topicText.includes("lancha") || topicText.includes("náut")
+      ? nauticalLines
+      : carLines;
+  const hash = String(seed || topic || Date.now())
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return pool[hash % pool.length];
+}
+
+function buildOverlayLayout({
+  width,
+  height,
+  title,
+  topic,
+  layout,
+  tagline,
+}) {
+  const fitted = fitTitleForImage(title);
+  const topicLabel = escapeXml(String(topic || "Lifestyle").toUpperCase());
+  const safeTagline = escapeXml(tagline);
+  const titleBlock = fitted.lines
+    .map((line, index) => {
+      const y =
+        layout === "topBanner"
+          ? 168 + index * fitted.lineHeight
+          : layout === "bottomHero"
+            ? height - 210 - (fitted.lines.length - 1 - index) * fitted.lineHeight
+            : layout === "rightEditorial"
+              ? 250 + index * fitted.lineHeight
+              : layout === "lowerLeftWide"
+                ? 320 + index * fitted.lineHeight
+                : 230 + index * fitted.lineHeight;
+      const x = layout === "rightEditorial" ? 560 : 64;
+      return `<text x="${x}" y="${y}" font-family="Georgia, 'Times New Roman', serif" font-size="${fitted.fontSize}" font-weight="700" fill="#FFF8EA">${escapeXml(line)}</text>`;
+    })
+    .join("");
+
+  if (layout === "bottomHero") {
+    const accentY = height - 150;
+    return {
+      logo: { top: 36, left: 1080 },
+      svg: `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="bottomHero" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+              <stop offset="45%" stop-color="rgba(8,6,4,0.25)"/>
+              <stop offset="100%" stop-color="rgba(8,6,4,0.88)"/>
+            </linearGradient>
+          </defs>
+          <rect width="${width}" height="${height}" fill="url(#bottomHero)"/>
+          <rect x="64" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+          <text x="182" y="77" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+          <text x="64" y="${accentY - fitted.lines.length * fitted.lineHeight - 28}" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${topicLabel}</text>
+          ${titleBlock}
+          <rect x="64" y="${accentY}" width="72" height="4" rx="2" fill="#D8AA52"/>
+          <text x="64" y="${accentY + 42}" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">${safeTagline}</text>
+        </svg>
+      `,
+    };
+  }
+
+  if (layout === "rightEditorial") {
+    return {
+      logo: { top: 560, left: 64 },
+      svg: `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="rightShade" x1="1" y1="0" x2="0" y2="0">
+              <stop offset="0%" stop-color="rgba(8,6,4,0.86)"/>
+              <stop offset="55%" stop-color="rgba(8,6,4,0.42)"/>
+              <stop offset="100%" stop-color="rgba(8,6,4,0.05)"/>
+            </linearGradient>
+          </defs>
+          <rect width="${width}" height="${height}" fill="url(#rightShade)"/>
+          <rect x="900" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+          <text x="1018" y="77" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+          <text x="560" y="170" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${topicLabel}</text>
+          ${titleBlock}
+          <rect x="560" y="520" width="64" height="4" rx="2" fill="#D8AA52"/>
+          <text x="560" y="568" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">${safeTagline}</text>
+        </svg>
+      `,
+    };
+  }
+
+  if (layout === "topBanner") {
+    return {
+      logo: { top: 560, left: 1080 },
+      svg: `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(8,6,4,0.88)"/>
+              <stop offset="55%" stop-color="rgba(8,6,4,0.35)"/>
+              <stop offset="100%" stop-color="rgba(8,6,4,0.08)"/>
+            </linearGradient>
+          </defs>
+          <rect width="${width}" height="${height}" fill="url(#topShade)"/>
+          <rect x="64" y="42" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+          <text x="182" y="65" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+          <text x="64" y="118" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${topicLabel}</text>
+          ${titleBlock}
+          <rect x="64" y="${168 + fitted.lines.length * fitted.lineHeight + 18}" width="64" height="4" rx="2" fill="#D8AA52"/>
+          <text x="64" y="${168 + fitted.lines.length * fitted.lineHeight + 58}" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">${safeTagline}</text>
+        </svg>
+      `,
+    };
+  }
+
+  if (layout === "lowerLeftWide") {
+    return {
+      logo: { top: 48, left: 1080 },
+      svg: `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="wideShade" x1="0" y1="0" x2="0.85" y2="1">
+              <stop offset="0%" stop-color="rgba(8,6,4,0.2)"/>
+              <stop offset="40%" stop-color="rgba(8,6,4,0.55)"/>
+              <stop offset="100%" stop-color="rgba(8,6,4,0.86)"/>
+            </linearGradient>
+          </defs>
+          <rect width="${width}" height="${height}" fill="url(#wideShade)"/>
+          <rect x="64" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+          <text x="182" y="77" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+          <text x="64" y="270" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${topicLabel}</text>
+          ${titleBlock}
+          <rect x="64" y="560" width="88" height="4" rx="2" fill="#D8AA52"/>
+          <text x="64" y="608" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">${safeTagline}</text>
+        </svg>
+      `,
+    };
+  }
+
+  // leftClassic (default)
+  return {
+    logo: { top: 560, left: 1080 },
+    svg: `
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="rgba(8,6,4,0.82)"/>
+            <stop offset="42%" stop-color="rgba(8,6,4,0.48)"/>
+            <stop offset="100%" stop-color="rgba(8,6,4,0.08)"/>
+          </linearGradient>
+          <linearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+            <stop offset="100%" stop-color="rgba(0,0,0,0.4)"/>
+          </linearGradient>
+        </defs>
+        <rect width="${width}" height="${height}" fill="url(#shade)"/>
+        <rect width="${width}" height="${height}" fill="url(#bottom)"/>
+        <rect x="64" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+        <text x="182" y="77" text-anchor="middle" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+        <text x="64" y="150" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${topicLabel}</text>
+        ${titleBlock}
+        <rect x="64" y="${230 + fitted.lines.length * fitted.lineHeight + 24}" width="64" height="4" rx="2" fill="#D8AA52"/>
+        <text x="64" y="${230 + fitted.lines.length * fitted.lineHeight + 68}" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">${safeTagline}</text>
+      </svg>
+    `,
+  };
 }
 
 async function loadBrandLogoBuffer() {
@@ -515,17 +725,20 @@ async function resolveBackgroundBuffer({ title, topic, storyImageUrl = "", story
   return { buffer: null, source: "none" };
 }
 
-async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", storyUrl = "" }) {
+async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", storyUrl = "", seed = "" }) {
   const width = 1200;
   const height = 675;
-  const lines = wrapTitleLines(title, 26, 3);
-  const titleStartY = 250;
-  const titleSvg = lines
-    .map(
-      (line, index) =>
-        `<text x="64" y="${titleStartY + index * 62}" font-family="Georgia, 'Times New Roman', serif" font-size="48" font-weight="700" fill="#FFF8EA">${escapeXml(line)}</text>`
-    )
-    .join("");
+  const layoutSeed = seed || `${title}|${topic}|${Date.now()}`;
+  const layout = pickImageLayout(layoutSeed);
+  const tagline = pickImageTagline(topic, layoutSeed);
+  const overlay = buildOverlayLayout({
+    width,
+    height,
+    title,
+    topic,
+    layout,
+    tagline,
+  });
 
   const { buffer: backgroundBuffer, source: backgroundSource } = await resolveBackgroundBuffer({
     title,
@@ -537,9 +750,15 @@ async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", story
   let baseImage;
 
   if (backgroundBuffer) {
+    // Slight crop/position variation so each generation feels different.
+    const positions = ["centre", "entropy", "attention", "left", "right"];
+    const position = positions[String(layoutSeed).length % positions.length];
     baseImage = sharp(backgroundBuffer)
-      .resize(width, height, { fit: "cover", position: "centre" })
-      .modulate({ brightness: 0.9, saturation: 1.08 });
+      .resize(width, height, { fit: "cover", position })
+      .modulate({
+        brightness: layout === "topBanner" ? 0.86 : 0.9,
+        saturation: layout === "rightEditorial" ? 1.12 : 1.08,
+      });
   } else {
     const fallbackSvg = `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -555,33 +774,9 @@ async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", story
     baseImage = sharp(Buffer.from(fallbackSvg));
   }
 
-  const overlaySvg = `
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="rgba(8,6,4,0.82)"/>
-          <stop offset="42%" stop-color="rgba(8,6,4,0.48)"/>
-          <stop offset="100%" stop-color="rgba(8,6,4,0.08)"/>
-        </linearGradient>
-        <linearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
-          <stop offset="100%" stop-color="rgba(0,0,0,0.4)"/>
-        </linearGradient>
-      </defs>
-      <rect width="${width}" height="${height}" fill="url(#shade)"/>
-      <rect width="${width}" height="${height}" fill="url(#bottom)"/>
-      <rect x="64" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
-      <text x="82" y="77" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
-      <text x="64" y="150" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${escapeXml(String(topic || "Lifestyle").toUpperCase())}</text>
-      ${titleSvg}
-      <rect x="64" y="460" width="64" height="4" rx="2" fill="#D8AA52"/>
-      <text x="64" y="510" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">Lujo sobre ruedas, agua y cielo</text>
-    </svg>
-  `;
-
   const composites = [
     {
-      input: await sharp(Buffer.from(overlaySvg)).png().toBuffer(),
+      input: await sharp(Buffer.from(overlay.svg)).png().toBuffer(),
       top: 0,
       left: 0,
     },
@@ -594,13 +789,14 @@ async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", story
         .resize(78, 78, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer(),
-      top: 560,
-      left: 1080,
+      top: overlay.logo.top,
+      left: overlay.logo.left,
     });
   }
 
   const output = await baseImage.composite(composites).png().toBuffer();
   output.__backgroundSource = backgroundSource;
+  output.__layout = layout;
   return output;
 }
 
@@ -699,8 +895,11 @@ async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
     topic: story.topic,
     storyImageUrl: story.imageUrl,
     storyUrl: story.url,
+    seed: `${resolvedSlot}|${story.url}|${copy.title}`,
   });
-  console.info(`[POSTS_AUTO] image background source=${imageBuffer.__backgroundSource || "unknown"}`);
+  console.info(
+    `[POSTS_AUTO] image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"}`
+  );
   const media = await storeBrandedImage(imageBuffer, `global-${resolvedSlot}`);
   const publisherId = await resolvePublisherUserId();
   const draftDoc = await createDraftFromStory({
@@ -854,8 +1053,11 @@ async function regenerateExistingDraft(postId, { userId = null } = {}) {
     topic: story.topic,
     storyImageUrl: story.imageUrl,
     storyUrl: story.url,
+    seed: `regen|${postId}|${Date.now()}|${story.url}|${copy.title}`,
   });
-  console.info(`[POSTS_AUTO] regenerate image background source=${imageBuffer.__backgroundSource || "unknown"}`);
+  console.info(
+    `[POSTS_AUTO] regenerate image background source=${imageBuffer.__backgroundSource || "unknown"} layout=${imageBuffer.__layout || "unknown"}`
+  );
   const media = await storeBrandedImage(imageBuffer, `regen-${draft._id}-${Date.now()}`);
   const now = new Date();
 

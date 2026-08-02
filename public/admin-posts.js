@@ -659,7 +659,7 @@ if (requireAdminAccess()) {
     draftPostsList.innerHTML = draftPosts.map((post) => {
       const previewUrl = getDraftPreviewImage(post);
       const topic = post.source?.topic || "Lifestyle";
-      const excerpt = String(post.body || "").slice(0, 180);
+      const fullBody = String(post.body || "").trim();
 
       return `
         <article class="draft-post-card" data-draft-id="${escapeHtml(post._id)}">
@@ -671,7 +671,7 @@ if (requireAdminAccess()) {
           <div class="draft-post-copy">
             <span class="draft-post-topic">${escapeHtml(topic)}</span>
             <strong>${escapeHtml(post.title)}</strong>
-            <p>${escapeHtml(excerpt)}${String(post.body || "").length > 180 ? "…" : ""}</p>
+            <p>${escapeHtml(fullBody)}</p>
           </div>
           <div class="draft-post-actions">
             <button class="primary-button" type="button" data-draft-action="publish" data-post-id="${escapeHtml(post._id)}">Publicar</button>
