@@ -3694,6 +3694,26 @@ body.admin-uppercase-view *::placeholder {
   min-width: 0;
 }
 
+.tracking-events-column-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tracking-events-column-main .tracking-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tracking-events-column-side {
+  min-width: 0;
+}
+
+.tracking-overview-value-vin {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
 .tracking-events-column {
   display: grid;
   gap: 18px;
@@ -5303,6 +5323,36 @@ body.feed-social-open .client-views {
 }
 
 @media (max-width: 1100px) {
+  .tracking-events-editor-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    gap: 14px;
+  }
+
+  .tracking-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+  }
+
+  .tracking-overview-detail-client,
+  .tracking-overview-detail-payment {
+    grid-column: 1 / -1;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) {
+    justify-items: start;
+    text-align: left;
+    min-height: 0;
+  }
+
+  .tracking-overview-detail:not(.tracking-overview-detail-client) .tracking-overview-value {
+    font-size: 1.08rem;
+  }
+
+  .admin-tracking-events-table,
+  .admin-tracking-documents-table {
+    min-width: 640px;
+  }
+
   .admin-dashboard-layout {
     grid-template-columns: 1fr;
   }
@@ -9160,9 +9210,18 @@ body.admin-app-view .maint-registered-table .maint-vehicle-card-badge.is-soon {
   color: #ffcba0;
 }
 
-.maint-vehicle-card-badge.is-scheduled {
-  background: rgba(153, 111, 255, 0.2);
-  color: #d9c5ff;
+.maint-vehicle-card-badge.is-scheduled,
+.maint-vehicle-card-badge.maint-status-scheduled {
+  background: rgba(108, 62, 200, 0.22);
+  color: #f3eaff;
+  border: 1px solid rgba(180, 140, 255, 0.35);
+}
+
+.maint-vehicle-card-info > .maint-vehicle-card-badge {
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 2px;
 }
 
 .maint-cancel-appointment-btn {
@@ -9201,6 +9260,120 @@ body.admin-app-view .maint-registered-table .maint-vehicle-card-badge.is-soon {
 
 .maint-calendar-panel {
   grid-column: 2 / span 2;
+}
+
+.maint-calendar-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+.maint-calendar-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  background: #fff;
+  color: #111;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.maint-calendar-nav-btn:hover {
+  border-color: rgba(182, 134, 45, 0.55);
+  background: rgba(216, 170, 82, 0.12);
+}
+
+body.admin-app-view .maint-calendar-nav-btn {
+  border-color: rgba(17, 17, 17, 0.18);
+  background: #fff;
+  color: #111;
+}
+
+.maint-appt-datetime {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 148px;
+}
+
+.maint-appt-datetime label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+.maint-appt-edit {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) minmax(7rem, 0.9fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.55rem;
+  width: 100%;
+}
+
+.maint-appt-edit:has(.maint-appt-datetime) {
+  grid-template-columns: 1fr;
+}
+
+.maint-appt-edit .maint-row-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  min-height: 1.1em;
+}
+
+.maint-appt-edit .maint-appointment-date-input,
+.maint-appt-edit .maint-appointment-time-input {
+  width: 100%;
+  min-height: 2.1rem;
+}
+
+.maint-appt-edit .maint-appt-save-btn,
+.maint-appt-edit .maint-card-save-btn {
+  min-height: 2.1rem;
+  padding: 0.45rem 0.8rem;
+  white-space: nowrap;
+  justify-self: start;
+}
+
+.maint-appointment-card .maint-appt-datetime {
+  width: 100%;
+}
+
+.maint-vehicle-card.maint-appointment-card {
+  grid-template-columns: 1fr;
+  align-items: start;
+  overflow: visible;
+}
+
+.maint-vehicle-card.maint-appointment-card .maint-vehicle-card-badge {
+  order: -1;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 2px;
+}
+
+.maint-appointments-modal .maint-vehicle-card.maint-appointment-card {
+  grid-template-columns: 1fr auto;
+}
+
+.maint-appointments-modal .maint-vehicle-card.maint-appointment-card .maint-vehicle-card-badge {
+  order: 0;
+}
+
+#maintenance-appointments-list.maint-vehicle-list {
+  overflow-x: visible;
+  padding-right: 8px;
 }
 
 .maint-calendar-weekdays {
@@ -9263,7 +9436,9 @@ body.admin-app-view .maint-registered-table .maint-vehicle-card-badge.is-soon {
 
 .maint-calendar-day-count {
   font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.62);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #d8aa52;
   line-height: 1.2;
 }
 
@@ -10607,12 +10782,7 @@ body.admin-app-view.maint-detail-page .maint-table .maint-td-action {
   text-align: center;
 }
 
-@media (max-width: 1680px) {
-  body.admin-app-view.maint-detail-page .maint-table th:nth-child(13),
-  body.admin-app-view.maint-detail-page .maint-table td:nth-child(13) {
-    display: none;
-  }
-}
+/* Hora de cita siempre visible: no ocultar la columna de fecha/hora. */
 
 body.admin-app-view .dashboard-form input::placeholder,
 body.admin-app-view .dashboard-form textarea::placeholder,
@@ -10751,7 +10921,6 @@ body.admin-app-view .password-toggle {
 }
 
 body.admin-app-view .login-form .auth-field-optional,
-body.admin-app-view .maint-calendar-day-count,
 body.admin-app-view .edit-current-content-value,
 body.admin-app-view .modal-copy,
 body.admin-app-view .field-help,
@@ -10798,6 +10967,23 @@ body.admin-app-view .tracking-data-table tbody tr,
 body.admin-app-view .maint-table tr,
 body.admin-app-view .maint-calendar-day {
   background: #ffffff !important;
+}
+
+body.admin-app-view .maint-calendar-day-count {
+  color: #b8860b !important;
+  font-weight: 800 !important;
+}
+
+body.admin-app-view .maint-calendar-day.has-events .maint-calendar-day-count {
+  color: #9a7209 !important;
+}
+
+body.admin-app-view .maint-vehicle-card-badge.is-scheduled,
+body.admin-app-view .maint-vehicle-card-badge.maint-status-scheduled {
+  background: #5b2bb5 !important;
+  color: #ffffff !important;
+  border: 1px solid #4a1d95 !important;
+  font-weight: 800;
 }
 
 body.admin-app-view .tracking-data-table tbody tr:nth-child(even),

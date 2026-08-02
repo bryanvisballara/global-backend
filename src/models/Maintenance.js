@@ -82,6 +82,25 @@ const maintenanceSchema = new mongoose.Schema(
       maxlength: 1000,
       default: "",
     },
+    adminContactStatus: {
+      type: String,
+      enum: ["pending", "contacted", "will_service", "serviced_elsewhere", "not_interested", "appointment_scheduled"],
+      default: "pending",
+    },
+    adminLastContactAt: {
+      type: Date,
+      default: null,
+    },
+    adminAppointmentDate: {
+      type: Date,
+      default: null,
+    },
+    adminAppointmentTime: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5,
+    },
     reportedMileage: {
       type: Number,
       min: 0,

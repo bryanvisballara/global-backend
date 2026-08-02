@@ -24,7 +24,10 @@
   const maintenanceFeedback = document.getElementById("maintenance-feedback");
   const maintenanceList = document.getElementById("maintenance-list");
   const maintenanceCount = document.getElementById("maintenance-count");
-  const maintenanceMonthFilter = document.getElementById("maintenance-month-filter");
+  const maintenanceDateFrom = document.getElementById("maintenance-date-from");
+  const maintenanceDateTo = document.getElementById("maintenance-date-to");
+  const maintenanceDateApply = document.getElementById("maintenance-date-apply");
+  const maintenanceDateClear = document.getElementById("maintenance-date-clear");
   const maintenanceMonthSummary = document.getElementById("maintenance-month-summary");
   const maintenanceByDateCount = document.getElementById("maintenance-by-date-count");
   const maintenanceByDateList = document.getElementById("maintenance-by-date-list");
@@ -60,9 +63,18 @@
   let dueByKmItems = [];
   let appointmentsThisMonthItems = [];
   let scheduledCallsByMonth = [];
-  let selectedMonthKey = "";
+  let selectedDateFrom = "";
+  let selectedDateTo = "";
   const appointmentDayMap = new Map();
   let selectedAppointmentDayKey = "";
+  let calendarAppointments = [];
+  const nowForCalendar = new Date();
+  let calendarCursor = {
+    year: nowForCalendar.getUTCFullYear(),
+    month: nowForCalendar.getUTCMonth(),
+  };
+  const calendarPrevButton = document.getElementById("maintenance-calendar-prev");
+  const calendarNextButton = document.getElementById("maintenance-calendar-next");
 
   const STATUS_LABELS = {
     scheduled: "Programado",
@@ -122,6 +134,129 @@
     return `${timeValue} h`;
   }
 
+  function toDateInputValue(value) {
+    const parsed = parseDate(value);
+    return parsed ? parsed.toISOString().slice(0, 10) : "";
+  }
+
+  function normalizeTimeValue(value) {
+    const raw = String(value || "").trim();
+    return /^([01]\d|2[0-3]):([0-5]\d)$/.test(raw) ? raw : "";
+  }
+
+  function buildAppointmentTimeOptions(selectedValue) {
+    const normalized = normalizeTimeValue(selectedValue);
+    const hours = ['<option value="">Hora</option>'];
+
+    for (let h = 7; h <= 18; h += 1) {
+      for (const minutes of ["00", "30"]) {
+        if (h === 18 && minutes === "30") {
+          continue;
+        }
+
+        const timeStr = `${String(h).padStart(2, "0")}:${minutes}`;
+        const hour12 = h % 12 === 0 ? 12 : h % 12;
+        const suffix = h < 12 ? "AM" : "PM";
+        hours.push(`<option value="${timeStr}"${normalized === timeStr ? " selected" : ""}>${hour12}:${minutes} ${suffix}</option>`);
+      }
+    }
+
+    return hours.join("");
+  }
+
+  function buildAppointmentEditControls(vehicle, idPrefix = "appt") {
+    const id = String(vehicle._id || vehicle.id || "");
+    const dateValue = toDateInputValue(vehicle.adminAppointmentDate || vehicle.appointmentDate);
+    const timeValue = normalizeTimeValue(vehicle.adminAppointmentTime);
+
+    return `
+      <div class="maint-appt-edit" data-vehicle-id="${escapeHtml(id)}">
+        <input class="maint-appointment-date-input" type="date" id="${idPrefix}-date-${escapeHtml(id)}" value="${dateValue}" />
+        <select class="maint-appointment-time-input" id="${idPrefix}-time-${escapeHtml(id)}">${buildAppointmentTimeOptions(timeValue)}</select>
+        <button class="primary-button maint-appt-save-btn" type="button" data-vehicle-id="${escapeHtml(id)}" data-id-prefix="${escapeHtml(idPrefix)}">Guardar</button>
+        <p class="maint-row-feedback" id="${idPrefix}-feedback-${escapeHtml(id)}" aria-live="polite"></p>
+      </div>
+    `;
+  }
+
+  async function saveAppointment(vehicleId, idPrefix = "appt") {
+    const dateEl = document.getElementById(`${idPrefix}-date-${vehicleId}`);
+    const timeEl = document.getElementById(`${idPrefix}-time-${vehicleId}`);
+    const feedbackEl = document.getElementById(`${idPrefix}-feedback-${vehicleId}`);
+    const button = document.querySelector(`.maint-appt-save-btn[data-vehicle-id="${vehicleId}"][data-id-prefix="${idPrefix}"]`);
+    const adminAppointmentDate = dateEl?.value || "";
+    const adminAppointmentTime = normalizeTimeValue(timeEl?.value || "");
+
+    if (!adminAppointmentDate) {
+      if (feedbackEl) {
+        feedbackEl.textContent = "Selecciona la fecha.";
+        feedbackEl.className = "maint-row-feedback maint-row-error";
+      }
+      return;
+    }
+
+    if (!adminAppointmentTime) {
+      if (feedbackEl) {
+        feedbackEl.textContent = "Selecciona la hora.";
+        feedbackEl.className = "maint-row-feedback maint-row-error";
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+
+    if (feedbackEl) {
+      feedbackEl.textContent = "Guardando...";
+      feedbackEl.className = "maint-row-feedback";
+    }
+
+    try {
+      await fetchJson(`/api/admin/maintenance-vehicles/${encodeURIComponent(vehicleId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          adminContactStatus: "appointment_scheduled",
+          adminAppointmentDate,
+          adminAppointmentTime,
+        }),
+        loadingMessage: false,
+      });
+
+      setFeedback(maintenanceFeedback, "Cita actualizada correctamente.", "success");
+      await loadMaintenancePage();
+    } catch (error) {
+      if (feedbackEl) {
+        feedbackEl.textContent = error.message || "Error al guardar";
+        feedbackEl.className = "maint-row-feedback maint-row-error";
+      } else {
+        setFeedback(maintenanceFeedback, `Error al actualizar cita: ${error.message}`, "error");
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+      }
+    }
+  }
+
+  function bindAppointmentEditControls(container) {
+    if (!container) {
+      return;
+    }
+
+    container.querySelectorAll(".maint-appt-edit, .maint-appt-edit input, .maint-appt-edit select, .maint-appt-edit button").forEach((el) => {
+      el.addEventListener("click", (event) => event.stopPropagation());
+      el.addEventListener("keydown", (event) => event.stopPropagation());
+    });
+
+    container.querySelectorAll(".maint-appt-save-btn").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        saveAppointment(button.dataset.vehicleId, button.dataset.idPrefix || "appt");
+      });
+    });
+  }
+
   function addMonthsToDateInput(dateValue, months) {
     const source = parseDate(dateValue);
 
@@ -150,15 +285,22 @@
         return;
       }
 
-      const navigate = () => {
+      const navigate = (event) => {
+        if (event?.target?.closest?.(".maint-appt-edit, .maint-modal-delete-btn, button, input, select, a, label")) {
+          return;
+        }
+
         window.location.href = `/app/admin-maintenance-detail.html?bucket=${encodeURIComponent(bucket)}`;
       };
 
       card.addEventListener("click", navigate);
       card.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
+          if (event.target?.closest?.(".maint-appt-edit, button, input, select, a, label")) {
+            return;
+          }
           event.preventDefault();
-          navigate();
+          navigate(event);
         }
       });
     });
@@ -211,17 +353,20 @@
       const appointmentDate = toAppointmentDate(vehicle);
       const id = String(vehicle._id || vehicle.id || "");
       return `
-        <article class="maint-vehicle-card">
+        <article class="maint-vehicle-card maint-appointment-card">
           <div class="maint-vehicle-card-info">
+            <span class="maint-vehicle-card-badge is-scheduled">Agendada</span>
             <span class="maint-vehicle-card-title">${escapeHtml(ownerName)}</span>
             <span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "Sin placa")}</span>
             <span class="maint-vehicle-card-row">${escapeHtml(title || "Vehículo sin nombre")}</span>
             <span class="maint-vehicle-card-row">Cita: ${appointmentDate ? formatDate(appointmentDate) : "Sin fecha"} · ${formatAppointmentTime(vehicle)}</span>
+            ${buildAppointmentEditControls(vehicle, "card")}
           </div>
-          <span class="maint-vehicle-card-badge is-scheduled">Agendada</span>
         </article>
       `;
     }).join("");
+
+    bindAppointmentEditControls(appointmentsList);
   }
 
   async function cancelAppointment(vehicleId, isFromModal = false) {
@@ -269,20 +414,26 @@
         const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
         const id = String(vehicle._id || vehicle.id || "");
         return `
-          <article class="maint-vehicle-card" data-vehicle-id="${id}">
+          <article class="maint-vehicle-card maint-appointment-card" data-vehicle-id="${id}">
             <div class="maint-vehicle-card-info">
               <span class="maint-vehicle-card-title">${escapeHtml(ownerName)}</span>
               <span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "Sin placa")}</span>
               <span class="maint-vehicle-card-row">${escapeHtml(title || "Vehículo sin nombre")}</span>
-              <span class="maint-vehicle-card-row">Hora: ${formatAppointmentTime(vehicle)}</span>
+              <span class="maint-vehicle-card-row">Hora actual: ${formatAppointmentTime(vehicle)}</span>
+              ${buildAppointmentEditControls(vehicle, "day")}
             </div>
             <button class="maint-modal-delete-btn" type="button" data-vehicle-id="${id}" title="Eliminar cita">🗑</button>
           </article>
         `;
       }).join("");
 
+      bindAppointmentEditControls(appointmentsDayList);
+
       appointmentsDayList.querySelectorAll(".maint-modal-delete-btn").forEach((button) => {
-        button.addEventListener("click", () => cancelAppointment(button.dataset.vehicleId, true));
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          cancelAppointment(button.dataset.vehicleId, true);
+        });
       });
     }
 
@@ -291,14 +442,24 @@
     }
   }
 
+  function shiftCalendarMonth(delta) {
+    const next = new Date(Date.UTC(calendarCursor.year, calendarCursor.month + delta, 1, 12, 0, 0, 0));
+    calendarCursor = {
+      year: next.getUTCFullYear(),
+      month: next.getUTCMonth(),
+    };
+    renderAppointmentsCalendar(calendarAppointments);
+  }
+
   function renderAppointmentsCalendar(items) {
     if (!appointmentsCalendarGrid) {
       return;
     }
 
+    calendarAppointments = Array.isArray(items) ? items : calendarAppointments;
     appointmentDayMap.clear();
 
-    items.forEach((vehicle) => {
+    calendarAppointments.forEach((vehicle) => {
       const appointmentDate = toAppointmentDate(vehicle);
 
       if (!appointmentDate) {
@@ -311,9 +472,8 @@
       appointmentDayMap.set(dayKey, list);
     });
 
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = now.getUTCMonth();
+    const year = calendarCursor.year;
+    const month = calendarCursor.month;
     const monthStart = new Date(Date.UTC(year, month, 1, 12, 0, 0, 0));
     const monthLabel = toMonthLabel(monthStart);
     const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 12, 0, 0, 0)).getUTCDate();
@@ -324,11 +484,26 @@
       appointmentsMonthLabel.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
     }
 
-    const todayKey = toDateKey(new Date(Date.UTC(year, month, now.getUTCDate(), 12, 0, 0, 0)));
-    const firstAvailableKey = appointmentDayMap.keys().next().value;
-    selectedAppointmentDayKey = appointmentDayMap.has(todayKey)
-      ? todayKey
-      : (firstAvailableKey || todayKey);
+    const now = new Date();
+    const todayKey = toDateKey(new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      12,
+      0,
+      0,
+      0
+    )));
+    const monthDayKeys = [];
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      monthDayKeys.push(toDateKey(new Date(Date.UTC(year, month, day, 12, 0, 0, 0))));
+    }
+    const firstAvailableInMonth = monthDayKeys.find((key) => appointmentDayMap.has(key));
+    if (!selectedAppointmentDayKey || !monthDayKeys.includes(selectedAppointmentDayKey)) {
+      selectedAppointmentDayKey = monthDayKeys.includes(todayKey)
+        ? todayKey
+        : (firstAvailableInMonth || monthDayKeys[0]);
+    }
 
     const dayCells = [];
 
@@ -363,34 +538,52 @@
     appointmentsCalendarGrid.querySelectorAll("button[data-day-key]").forEach((button) => {
       button.addEventListener("click", () => {
         selectedAppointmentDayKey = button.dataset.dayKey || selectedAppointmentDayKey;
+        appointmentsCalendarGrid.querySelectorAll("button[data-day-key]").forEach((item) => {
+          item.classList.toggle("is-active", item.dataset.dayKey === selectedAppointmentDayKey);
+        });
         renderAppointmentsDayList(selectedAppointmentDayKey, true);
       });
     });
   }
 
-  function populateMonthFilter(months) {
-    if (!maintenanceMonthFilter) {
-      return;
+  function hasActiveDateRange() {
+    return Boolean(selectedDateFrom || selectedDateTo);
+  }
+
+  function parseLocalDateValue(value) {
+    const raw = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      return null;
     }
+    const [year, month, day] = raw.split("-").map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+  }
 
-    const previousValue = selectedMonthKey || maintenanceMonthFilter.value || "";
-    const options = ['<option value="">Todos los meses</option>'];
-
-    months.forEach((month) => {
-      options.push(
-        `<option value="${escapeHtml(month.key)}">${escapeHtml(month.label)} (${month.count})</option>`
-      );
-    });
-
-    maintenanceMonthFilter.innerHTML = options.join("");
-
-    if (previousValue && months.some((month) => month.key === previousValue)) {
-      maintenanceMonthFilter.value = previousValue;
-      selectedMonthKey = previousValue;
-    } else {
-      maintenanceMonthFilter.value = "";
-      selectedMonthKey = "";
+  function isDueDateInSelectedRange(dateValue) {
+    if (!hasActiveDateRange()) {
+      return true;
     }
+    const date = dateValue ? new Date(dateValue) : null;
+    if (!date || Number.isNaN(date.getTime())) {
+      return false;
+    }
+    const from = parseLocalDateValue(selectedDateFrom);
+    const to = parseLocalDateValue(selectedDateTo);
+    if (from) {
+      const fromStart = new Date(from);
+      fromStart.setHours(0, 0, 0, 0);
+      if (date < fromStart) {
+        return false;
+      }
+    }
+    if (to) {
+      const toEnd = new Date(to);
+      toEnd.setHours(23, 59, 59, 999);
+      if (date > toEnd) {
+        return false;
+      }
+    }
+    return true;
   }
 
   function updateMonthSummary() {
@@ -398,24 +591,27 @@
       return;
     }
 
-    if (!selectedMonthKey) {
-      maintenanceMonthSummary.textContent = `Total programados: ${maintenanceItems.length}. Elige un mes para ver cuántos llamar.`;
+    if (!hasActiveDateRange()) {
+      maintenanceMonthSummary.textContent = `Total programados: ${maintenanceItems.length}. Elige un rango de fechas para filtrar.`;
       return;
     }
 
-    const selected = scheduledCallsByMonth.find((month) => month.key === selectedMonthKey);
-    const count = selected?.count ?? maintenanceItems.length;
-    const label = selected?.label || selectedMonthKey;
-    maintenanceMonthSummary.textContent = `En ${label} hay ${count} carro${count === 1 ? "" : "s"} programado${count === 1 ? "" : "s"} para llamar.`;
+    const fromLabel = selectedDateFrom ? formatDate(`${selectedDateFrom}T12:00:00`) : "inicio";
+    const toLabel = selectedDateTo ? formatDate(`${selectedDateTo}T12:00:00`) : "hoy en adelante";
+    maintenanceMonthSummary.textContent = `Entre ${fromLabel} y ${toLabel}: ${maintenanceItems.length} contacto${maintenanceItems.length === 1 ? "" : "s"} para llamar.`;
   }
 
   function renderMaintenance(items, clientVehicles) {
+    const filteredClientVehicles = hasActiveDateRange()
+      ? clientVehicles.filter((vehicle) => isDueDateInSelectedRange(vehicle.dueDateBySchedule))
+      : clientVehicles;
+
     const totalCount = Number.isFinite(Number(window.__maintenanceTotalCount))
       ? Number(window.__maintenanceTotalCount)
-      : items.length + clientVehicles.length;
+      : items.length + filteredClientVehicles.length;
 
     if (maintenanceCount) {
-      maintenanceCount.textContent = String(selectedMonthKey ? items.length : totalCount);
+      maintenanceCount.textContent = String(hasActiveDateRange() ? items.length + filteredClientVehicles.length : totalCount);
     }
 
     updateMonthSummary();
@@ -424,7 +620,7 @@
       return;
     }
 
-    if (!items.length && !clientVehicles.length) {
+    if (!items.length && !filteredClientVehicles.length) {
       maintenanceList.innerHTML = `
         <tr>
           <td colspan="7"><div class="empty-state">No hay mantenimientos para este filtro.</div></td>
@@ -434,17 +630,29 @@
     }
 
     const orderRows = items.map((item) => {
-      const vehicleTitle = [
-        item.vehicleSnapshot?.brand || item.order?.vehicle?.brand,
-        item.vehicleSnapshot?.model || item.order?.vehicle?.model,
-        item.vehicleSnapshot?.version || item.order?.vehicle?.version,
-      ].filter(Boolean).join(" ");
+      const isMarketingLead = item.source === "cotizador_marketing" || item.source === "taller_marketing";
+      const vehicleTitle = isMarketingLead
+        ? (item.vehicleSnapshot?.version || [
+          item.vehicleSnapshot?.brand,
+          item.vehicleSnapshot?.model,
+        ].filter(Boolean).join(" "))
+        : [
+          item.vehicleSnapshot?.brand || item.order?.vehicle?.brand,
+          item.vehicleSnapshot?.model || item.order?.vehicle?.model,
+          item.vehicleSnapshot?.version || item.order?.vehicle?.version,
+        ].filter(Boolean).join(" ");
       const clientName = item.client?.name || item.contactName || "Cliente";
-      const tracking = item.source === "manual"
-        ? "Manual"
-        : (item.order?.trackingNumber || "Sin guía");
+      const tracking = item.source === "taller_marketing"
+        ? "Marketing taller"
+        : (item.source === "cotizador_marketing"
+          ? "Marketing cotizador"
+          : (item.source === "manual"
+            ? "Manual"
+            : (item.order?.trackingNumber || "Sin guía")));
       const vin = item.vehicleSnapshot?.vin || item.order?.vehicle?.vin || "—";
-      const statusLabel = STATUS_LABELS[item.status] || item.status || "Programado";
+      const statusLabel = isMarketingLead
+        ? "Marketing 6M"
+        : (STATUS_LABELS[item.status] || item.status || "Programado");
 
       return `
         <tr>
@@ -459,23 +667,21 @@
       `;
     }).join("");
 
-    const clientRows = selectedMonthKey
-      ? ""
-      : clientVehicles.map((vehicle) => {
-        const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
-        const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
-        return `
-          <tr>
-            <td>Registro cliente</td>
-            <td>${escapeHtml(ownerName)}</td>
-            <td>${escapeHtml(title || "Vehículo")}</td>
-            <td>—</td>
-            <td>${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "—"}</td>
-            <td>${vehicle.dueDateBySchedule ? formatDate(vehicle.dueDateBySchedule) : "—"}</td>
-            <td>Registro cliente</td>
-          </tr>
-        `;
-      }).join("");
+    const clientRows = filteredClientVehicles.map((vehicle) => {
+      const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
+      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      return `
+        <tr>
+          <td>Registro cliente</td>
+          <td>${escapeHtml(ownerName)}</td>
+          <td>${escapeHtml(title || "Vehículo")}</td>
+          <td>—</td>
+          <td>${vehicle.lastPreventiveMaintenanceDate ? formatDate(vehicle.lastPreventiveMaintenanceDate) : "—"}</td>
+          <td>${vehicle.dueDateBySchedule ? formatDate(vehicle.dueDateBySchedule) : "—"}</td>
+          <td>Registro cliente</td>
+        </tr>
+      `;
+    }).join("");
 
     maintenanceList.innerHTML = orderRows + clientRows || `
       <tr>
@@ -563,7 +769,10 @@
 
   async function loadMaintenancePage() {
     await loadAdminSession();
-    const query = selectedMonthKey ? `?month=${encodeURIComponent(selectedMonthKey)}` : "";
+    const params = new URLSearchParams();
+    if (selectedDateFrom) params.set("from", selectedDateFrom);
+    if (selectedDateTo) params.set("to", selectedDateTo);
+    const query = params.toString() ? `?${params.toString()}` : "";
     const maintenanceData = await fetchJson(`/api/admin/maintenance${query}`);
     maintenanceItems = maintenanceData.maintenance || [];
     clientVehicleItems = maintenanceData.clientMaintenanceVehicles || [];
@@ -572,16 +781,22 @@
     dueByKmItems = maintenanceData.dueByMileageReached || [];
     appointmentsThisMonthItems = maintenanceData.appointmentScheduledThisMonth
       || clientVehicleItems.filter((vehicle) => vehicle.adminContactStatus === "appointment_scheduled");
+    calendarAppointments = (Array.isArray(maintenanceData.appointmentScheduled) && maintenanceData.appointmentScheduled.length
+      ? maintenanceData.appointmentScheduled
+      : clientVehicleItems.filter((vehicle) => vehicle.adminContactStatus === "appointment_scheduled")
+    ).filter((vehicle) => toAppointmentDate(vehicle));
     scheduledCallsByMonth = maintenanceData.scheduledCallsByMonth || [];
     window.__maintenanceTotalCount = Number(maintenanceData.maintenanceTotal || maintenanceItems.length);
 
-    populateMonthFilter(scheduledCallsByMonth);
+    if (maintenanceDateFrom) maintenanceDateFrom.value = selectedDateFrom;
+    if (maintenanceDateTo) maintenanceDateTo.value = selectedDateTo;
+
     renderMaintenance(maintenanceItems, clientVehicleItems);
     renderDueByDate(dueByDateItems);
     renderDueByNextMonth(dueByDateNextMonthItems);
     renderDueByKm(dueByKmItems);
     renderAppointmentsCard(appointmentsThisMonthItems);
-    renderAppointmentsCalendar(appointmentsThisMonthItems);
+    renderAppointmentsCalendar(calendarAppointments);
   }
 
   function closeAppointmentsModal() {
@@ -609,13 +824,41 @@
     }
   });
 
-  maintenanceMonthFilter?.addEventListener("change", () => {
-    selectedMonthKey = maintenanceMonthFilter.value || "";
+  function applyDateRangeFilter() {
+    selectedDateFrom = String(maintenanceDateFrom?.value || "").trim();
+    selectedDateTo = String(maintenanceDateTo?.value || "").trim();
+
+    if (selectedDateFrom && selectedDateTo && selectedDateFrom > selectedDateTo) {
+      setFeedback(maintenanceFeedback, "La fecha Desde no puede ser mayor que Hasta.", "error");
+      return;
+    }
+
+    loadMaintenancePage().catch((error) => {
+      setFeedback(maintenanceFeedback, error.message, "error");
+    });
+  }
+
+  maintenanceDateApply?.addEventListener("click", applyDateRangeFilter);
+  maintenanceDateClear?.addEventListener("click", () => {
+    selectedDateFrom = "";
+    selectedDateTo = "";
+    if (maintenanceDateFrom) maintenanceDateFrom.value = "";
+    if (maintenanceDateTo) maintenanceDateTo.value = "";
     loadMaintenancePage().catch((error) => {
       setFeedback(maintenanceFeedback, error.message, "error");
     });
   });
+  [maintenanceDateFrom, maintenanceDateTo].forEach((input) => {
+    input?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyDateRangeFilter();
+      }
+    });
+  });
 
+  calendarPrevButton?.addEventListener("click", () => shiftCalendarMonth(-1));
+  calendarNextButton?.addEventListener("click", () => shiftCalendarMonth(1));
   appointmentsModalClose?.addEventListener("click", closeAppointmentsModal);
   appointmentsModalOverlay?.addEventListener("click", closeAppointmentsModal);
 
@@ -631,6 +874,79 @@
     if (addMaintenanceModal && !addMaintenanceModal.hidden) {
       closeAddMaintenanceModal();
     }
+  });
+
+  const diagnosesBody = document.getElementById("mechanic-diagnoses-body");
+  const diagnosesRefresh = document.getElementById("mechanic-diagnoses-refresh");
+  let diagnosesLoaded = false;
+
+  async function loadMechanicDiagnoses() {
+    if (!diagnosesBody) return;
+    diagnosesBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">Cargando diagnósticos...</div></td></tr>`;
+    const data = await fetchJson("/api/admin/mechanic-diagnoses");
+    const orders = data.orders || [];
+    if (!orders.length) {
+      diagnosesBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">Aún no hay diagnósticos del taller.</div></td></tr>`;
+      return;
+    }
+    diagnosesBody.innerHTML = orders.map((order) => {
+      const vehicle = [order.vehicle?.brand, order.vehicle?.model, order.vehicle?.year].filter(Boolean).join(" ");
+      return `
+        <tr>
+          <td>${escapeHtml(order.orderNumber || "—")}</td>
+          <td>${escapeHtml(order.client?.name || "—")}</td>
+          <td>${escapeHtml(vehicle || "—")}</td>
+          <td>${escapeHtml(order.vehicle?.plate || "—")}</td>
+          <td>${order.currentKm != null ? Number(order.currentKm).toLocaleString("es-CO") : "—"}</td>
+          <td>${order.nextServiceKm != null ? `${Number(order.nextServiceKm).toLocaleString("es-CO")} km` : "—"}</td>
+          <td>${order.completedAt || order.createdAt ? formatDate(order.completedAt || order.createdAt) : "—"}</td>
+          <td><button class="secondary-button" type="button" data-diagnosis-pdf="${escapeHtml(order.id)}">PDF</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    diagnosesBody.querySelectorAll("[data-diagnosis-pdf]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const orderId = button.dataset.diagnosisPdf;
+          const authToken = localStorage.getItem("globalAppToken") || sessionStorage.getItem("globalAppToken") || "";
+          const response = await fetch(`/api/mechanic/orders/${encodeURIComponent(orderId)}/pdf`, {
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+            credentials: "include",
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || "No se pudo descargar el PDF");
+          }
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = `Diagnostico-${orderId}.pdf`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          setFeedback(maintenanceFeedback, error.message, "error");
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll("[data-maint-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.maintTab === "diagnosticos" && !diagnosesLoaded) {
+        diagnosesLoaded = true;
+        loadMechanicDiagnoses().catch((error) => {
+          diagnosesLoaded = false;
+          if (diagnosesBody) {
+            diagnosesBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">${escapeHtml(error.message || "Error")}</div></td></tr>`;
+          }
+        });
+      }
+    });
+  });
+  diagnosesRefresh?.addEventListener("click", () => {
+    loadMechanicDiagnoses().catch((error) => setFeedback(maintenanceFeedback, error.message, "error"));
   });
 
   loadMaintenancePage().catch((error) => {

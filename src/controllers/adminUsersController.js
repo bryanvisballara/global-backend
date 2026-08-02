@@ -16,6 +16,9 @@ function resolveAdministrativeRoleToCreate(requesterRole, requestedRole) {
   const normalizedRequesterRole = String(requesterRole || "").trim();
 
   if (normalizedRequesterRole === "manager") {
+    const requested = String(requestedRole || "").trim();
+    if (requested === "mechanic") return "mechanic";
+    if (requested === "vigilance") return "vigilance";
     return "admin";
   }
 
@@ -40,7 +43,7 @@ async function listAdministrativeUsers(req, res) {
   try {
     const rolesToList = isUsaAdministrativeRole(req.user?.role)
       ? ["gerenteusa", "adminusa", "brokerusa"]
-      : ["manager", "admin"];
+      : ["manager", "admin", "mechanic", "vigilance"];
 
     const roleRegexMatchers = rolesToList.map((role) => new RegExp(`^${role}$`, "i"));
 

@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const mechanicRoutes = require("./routes/mechanicRoutes");
+const vigilanceRoutes = require("./routes/vigilanceRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const clientRequestRoutes = require("./routes/clientRequestRoutes");
 const publicRoutes = require("./routes/publicRoutes");
@@ -554,6 +556,21 @@ app.use("/api/admin", (req, res, next) => {
   next();
 });
 app.use("/api/admin", adminRoutes);
+app.use("/api/mechanic", (req, res, next) => {
+  if (!isDatabaseReady()) {
+    return res.status(503).json({ message: "Database unavailable. Please try again in a moment." });
+  }
+
+  next();
+});
+app.use("/api/mechanic", mechanicRoutes);
+app.use("/api/vigilance", (req, res, next) => {
+  if (!isDatabaseReady()) {
+    return res.status(503).json({ message: "Database unavailable. Please try again in a moment." });
+  }
+  next();
+});
+app.use("/api/vigilance", vigilanceRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });

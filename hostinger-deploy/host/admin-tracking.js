@@ -1,4 +1,4 @@
-const ADMIN_TRACKING_BUILD = "trackingui07";
+const ADMIN_TRACKING_BUILD = "trackingui11";
 const TRACKING_UI_RELOAD_KEY = "global-tracking-ui-reload";
 const PAYMENT_TRANSIT_STEP_KEY = "in-transit";
 
@@ -198,6 +198,26 @@ function isLatamOrder(order) {
   return String(order?.orderRegion || "latam").trim().toLowerCase() === "latam";
 }
 
+function isGlobalUsaPaymentRole(role = currentAdminRole) {
+  return ["adminusa", "gerenteusa"].includes(normalizeRole(role));
+}
+
+function canViewOrderPaymentInfo() {
+  return hasGlobalLatamOrderPrivileges() || isAnthonyGlobalOwner() || isGlobalUsaPaymentRole();
+}
+
+function canManageOrderPayment(order) {
+  if (!order) {
+    return false;
+  }
+
+  if (isAnthonyGlobalOwner() || hasGlobalLatamOrderPrivileges()) {
+    return true;
+  }
+
+  return isGlobalUsaPaymentRole() && getOrderRegion(order) === "usa";
+}
+
 function renderOrderFinancialActions(order) {
   if (!order) {
     return "";
@@ -207,11 +227,13 @@ function renderOrderFinancialActions(order) {
   const accountingButton = isLatamOrder(order)
     ? `<a class="secondary-button tracking-accounting-button" href="${escapeHtml(buildOrderAccountingUrl(order))}">Contabilidad</a>`
     : "";
-  const paymentButton = `
+  const paymentButton = canManageOrderPayment(order)
+    ? `
     <button class="secondary-button tracking-mark-paid-button" type="button" data-mark-order-paid="${escapeHtml(orderId)}">
       ${order?.paymentDate ? "Actualizar pago" : "Marcar como pagado"}
     </button>
-  `;
+  `
+    : "";
 
   return `
     <div class="tracking-new-event-actions tracking-order-accounting-action">
@@ -559,28 +581,32 @@ function renderPaymentDaysCell(order) {
   `;
 }
 
+function getOrderRecencyTimestamp(order) {
+  const candidate = order?.createdAt || order?.purchaseDate || order?.updatedAt || null;
+  const timestamp = candidate ? new Date(candidate).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortOrdersByNewestFirst(orderList) {
+  return [...orderList].sort((leftOrder, rightOrder) => (
+    getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder)
+  ));
+}
+
 function sortOrdersByPaymentAge(orderList) {
   return [...orderList].sort((leftOrder, rightOrder) => {
     const leftFinalized = isOrderFinalized(leftOrder);
     const rightFinalized = isOrderFinalized(rightOrder);
 
-    if (leftFinalized && rightFinalized) {
-      return 0;
-    }
-
-    if (leftFinalized) {
-      return 1;
-    }
-
-    if (rightFinalized) {
-      return -1;
+    if (leftFinalized !== rightFinalized) {
+      return leftFinalized ? 1 : -1;
     }
 
     const leftDays = getDaysSincePayment(leftOrder);
     const rightDays = getDaysSincePayment(rightOrder);
 
     if (leftDays === null && rightDays === null) {
-      return 0;
+      return getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder);
     }
 
     if (leftDays === null) {
@@ -591,7 +617,11 @@ function sortOrdersByPaymentAge(orderList) {
       return -1;
     }
 
-    return rightDays - leftDays;
+    if (rightDays !== leftDays) {
+      return rightDays - leftDays;
+    }
+
+    return getOrderRecencyTimestamp(rightOrder) - getOrderRecencyTimestamp(leftOrder);
   });
 }
 
@@ -1203,6 +1233,10 @@ function canManageTrackingForOrder(role, order) {
     }
 
     return currentStageMeta.index >= 0 && currentStageMeta.index <= 2;
+  }
+
+  if (normalizedRole === "brokerusa") {
+    return orderRegion === "usa";
   }
 
   if (["admin", "manager"].includes(normalizedRole)) {
@@ -1912,7 +1946,11 @@ function getFilteredOrders() {
     return true;
   });
 
-  return sortOrdersByPaymentAge(filteredOrders);
+  if (selectedPaymentAge) {
+    return sortOrdersByPaymentAge(filteredOrders);
+  }
+
+  return sortOrdersByNewestFirst(filteredOrders);
 }
 
 function findExactMatch(matches) {
@@ -2021,6 +2059,8 @@ function renderSearchResults(matches) {
     return;
   }
 
+  const showPaymentColumn = canViewOrderPaymentInfo();
+
   trackingSearchResults.innerHTML = `
     <div class="tracking-table-wrap tracking-search-results-table-wrap">
       <table class="tracking-data-table tracking-search-results-table">
@@ -2033,7 +2073,7 @@ function renderSearchResults(matches) {
             <th>Estado</th>
             <th>Vehículo</th>
             <th>Fecha</th>
-            <th>Días desde el pago</th>
+            ${showPaymentColumn ? "<th>Días desde el pago</th>" : ""}
             <th>Acción</th>
           </tr>
         </thead>
@@ -2069,7 +2109,7 @@ function renderSearchResults(matches) {
                 <td data-label="Estado">${escapeHtml(`${stageMeta.code} · ${stageMeta.label}`)}</td>
                 <td data-label="Vehículo">${renderOrderVehicleCell(order)}</td>
                 <td data-label="Fecha">${escapeHtml(rowDate)}</td>
-                <td data-label="Días desde el pago">${renderPaymentDaysCell(order)}</td>
+                ${showPaymentColumn ? `<td data-label="Días desde el pago">${renderPaymentDaysCell(order)}</td>` : ""}
                 <td data-label="Acción" class="tracking-order-actions-cell">
                   <div class="tracking-order-actions">
                     <button class="tracking-order-action-button" type="button" data-order-edit="${escapeHtml(orderId)}" aria-label="Editar pedido ${escapeHtml(trackingValue || orderId)}">&#9998;</button>
@@ -2966,9 +3006,9 @@ function renderTrackingOverview(order) {
               <span class="tracking-overview-label">Cliente</span>
               <strong class="tracking-overview-value">${escapeHtml(getClientDisplayName(order))}</strong>
             </article>
-            <article class="tracking-overview-detail">
+            <article class="tracking-overview-detail tracking-overview-detail-vin">
               <span class="tracking-overview-label">VIN</span>
-              <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.vin || "-")}</strong>
+              <strong class="tracking-overview-value tracking-overview-value-vin">${escapeHtml(order?.vehicle?.vin || "-")}</strong>
             </article>
             <article class="tracking-overview-detail">
               <span class="tracking-overview-label">Exterior</span>
@@ -2978,6 +3018,12 @@ function renderTrackingOverview(order) {
               <span class="tracking-overview-label">Interior</span>
               <strong class="tracking-overview-value">${escapeHtml(order?.vehicle?.interiorColor || "-")}</strong>
             </article>
+            ${canViewOrderPaymentInfo() ? `
+            <article class="tracking-overview-detail tracking-overview-detail-payment">
+              <span class="tracking-overview-label">Días desde el pago</span>
+              <div class="tracking-overview-value">${renderPaymentDaysCell(order)}</div>
+            </article>
+            ` : ""}
           </div>
           ${renderOrderFinancialActions(order)}
         </article>
@@ -3934,6 +3980,11 @@ function openPaymentDateModal(orderId) {
     return;
   }
 
+  if (!canManageOrderPayment(order)) {
+    adminSetFeedback(trackingFeedback, "No tienes permisos para gestionar el pago de este pedido.", "error");
+    return;
+  }
+
   pendingPaymentOrderId = orderId;
 
   if (trackingPaymentDateInput) {
@@ -3991,9 +4042,15 @@ function replaceOrderInCollection(updatedOrder) {
 async function savePaymentDate() {
   const orderId = String(pendingPaymentOrderId || selectedOrderId || "").trim();
   const paymentDateValue = String(trackingPaymentDateInput?.value || "").trim();
+  const order = orders.find((entry) => getOrderIdentifier(entry) === orderId) || getSelectedOrder();
 
   if (!orderId) {
     adminSetFeedback(trackingPaymentDateFeedback, "Selecciona un pedido antes de guardar el pago.", "error");
+    return;
+  }
+
+  if (!canManageOrderPayment(order)) {
+    adminSetFeedback(trackingPaymentDateFeedback, "No tienes permisos para gestionar el pago de este pedido.", "error");
     return;
   }
 
@@ -4035,6 +4092,11 @@ async function deletePaymentDate() {
   }
 
   const order = orders.find((entry) => getOrderIdentifier(entry) === orderId) || getSelectedOrder();
+
+  if (!canManageOrderPayment(order)) {
+    adminSetFeedback(trackingPaymentDateFeedback, "No tienes permisos para gestionar el pago de este pedido.", "error");
+    return;
+  }
 
   if (!order?.paymentDate) {
     adminSetFeedback(trackingPaymentDateFeedback, "Este pedido no tiene una fecha de pago registrada.", "error");
@@ -4930,8 +4992,18 @@ trackingRoot.addEventListener("input", (event) => {
   }
 });
 
+function syncPaymentToolsVisibility() {
+  const canViewPayment = canViewOrderPaymentInfo();
+  const paymentAgeStack = trackingPaymentAgeFilter?.closest(".tracking-search-stack");
+
+  if (paymentAgeStack) {
+    paymentAgeStack.hidden = !canViewPayment;
+  }
+}
+
 async function loadTrackingPage() {
   await loadTrackingPageSession();
+  syncPaymentToolsVisibility();
   const ordersData = await fetchTrackingPageJson("/api/admin/orders");
   orders = Array.isArray(ordersData?.orders) ? ordersData.orders : [];
   populateSearchSelects();

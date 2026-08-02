@@ -158,8 +158,7 @@
       "Último contacto admin",
       "Estado de contacto",
       "Notas internas",
-      "Fecha cita",
-      "Hora programada",
+      "Fecha y hora de cita",
       "Guardar",
     ];
 
@@ -186,18 +185,43 @@
 
   function buildAppointmentTimeInput(currentValue, vehicleId) {
     const hours = [];
-    for (let h = 8; h <= 17; h++) {
-      const timeStr = String(h).padStart(2, '0') + ':00';
-      const label = h === 17 ? '5:00 PM' : (h < 12 ? h + ':00 AM' : (h === 12 ? '12:00 PM' : (h - 12) + ':00 PM'));
-      hours.push(`<option value="${timeStr}"${currentValue === timeStr ? ' selected' : ''}>${label}</option>`);
+    const normalized = normalizeTimeValue(currentValue);
+    for (let h = 7; h <= 18; h += 1) {
+      for (const minutes of ["00", "30"]) {
+        if (h === 18 && minutes === "30") {
+          continue;
+        }
+        const timeStr = `${String(h).padStart(2, "0")}:${minutes}`;
+        const hour12 = h % 12 === 0 ? 12 : h % 12;
+        const suffix = h < 12 ? "AM" : "PM";
+        const label = `${hour12}:${minutes} ${suffix}`;
+        hours.push(`<option value="${timeStr}"${normalized === timeStr ? " selected" : ""}>${label}</option>`);
+      }
     }
-    return `<select class="maint-appointment-time-input" id="appointment-time-${vehicleId}" style="width:100%;" required><option value="">Selecciona hora</option>${hours.join('')}</select>`;
+    return `<select class="maint-appointment-time-input" id="appointment-time-${vehicleId}" required><option value="">Selecciona hora</option>${hours.join("")}</select>`;
+  }
+
+  function buildAppointmentDateTimeFields(dateValue, timeValue, vehicleId) {
+    return `
+      <div class="maint-appt-datetime">
+        <label>
+          <span>Fecha</span>
+          ${buildAppointmentDateInput(dateValue, vehicleId)}
+        </label>
+        <label>
+          <span>Hora</span>
+          ${buildAppointmentTimeInput(timeValue, vehicleId)}
+        </label>
+      </div>
+    `;
   }
 
   function getPendingTableVehicles(filteredQuery) {
     const query = String(filteredQuery || "").toLowerCase().trim();
     const selectedCity = String(cityFilterEl?.value || "").trim();
-    const pendingVehicles = allVehicles.filter((v) => String(v.adminContactStatus || "pending") === "pending");
+    const pendingVehicles = config.type === "appointment"
+      ? allVehicles.filter((v) => String(v.adminContactStatus || "") === "appointment_scheduled")
+      : allVehicles.filter((v) => String(v.adminContactStatus || "pending") === "pending");
 
     return pendingVehicles.filter((v) => {
       const location = String(v.drivingCity || "").trim();
@@ -227,7 +251,11 @@
     const isAppointment = config.type === "appointment";
 
     if (!vehicles.length) {
-      tableBody.innerHTML = `<tr><td colspan="13" class="maint-td maint-td-empty">No hay pendientes en este grupo.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="13" class="maint-td maint-td-empty">${
+        config.type === "appointment"
+          ? "No hay citas agendadas en este grupo."
+          : "No hay pendientes en este grupo."
+      }</td></tr>`;
       return;
     }
 
@@ -266,8 +294,7 @@
           <td class="maint-td maint-td-lastcontact" id="lastcontact-${id}">${lastContact}</td>
           <td class="maint-td maint-td-status">${buildStatusSelect(vehicle.adminContactStatus, id)}</td>
           <td class="maint-td maint-td-notes">${buildNotesInput(vehicle.adminContactNotes, id)}</td>
-          <td class="maint-td">${buildAppointmentDateInput(appointmentDateValue, id)}</td>
-          <td class="maint-td">${buildAppointmentTimeInput(appointmentTimeValue, id)}</td>
+          <td class="maint-td">${buildAppointmentDateTimeFields(appointmentDateValue, appointmentTimeValue, id)}</td>
           <td class="maint-td maint-td-action">
             <button class="primary-button maint-save-btn" data-vehicle-id="${id}" type="button">Guardar</button>
             <p class="maint-row-feedback" id="row-feedback-${id}" aria-live="polite"></p>
@@ -305,31 +332,107 @@
       }
 
       listEl.innerHTML = items.map((vehicle) => {
+        const id = String(vehicle._id || vehicle.id || "");
         const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
         const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Vehículo");
         const phoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
         const drivingCity = escapeHtml(vehicle.drivingCity || "Sin ubicación");
         const apptDate = vehicle.adminAppointmentDate || vehicle.appointmentDate;
         const apptDateLabel = apptDate ? formatDate(apptDate) : "Sin fecha";
+        const canEditAppointment = statusValue === "appointment_scheduled";
 
         return `
-          <article class="maint-vehicle-card">
+          <article class="maint-vehicle-card${canEditAppointment ? " maint-appointment-card" : ""}">
             <div class="maint-vehicle-card-info">
+              <span class="maint-vehicle-card-badge ${STATUS_CSS[statusValue] || ""}">${escapeHtml(CONTACT_STATUS_OPTIONS.find((opt) => opt.value === statusValue)?.label || statusValue)}</span>
               <span class="maint-vehicle-card-title">${ownerName}</span>
               <span class="maint-vehicle-card-plate">${escapeHtml(vehicle.plate || "Sin placa")}</span>
               <span class="maint-vehicle-card-row">${vehicleTitle}</span>
               <span class="maint-vehicle-card-row">Ubicación: ${drivingCity}</span>
               <span class="maint-vehicle-card-row">${buildWhatsappLink(phoneRaw)}</span>
               <span class="maint-vehicle-card-row">Notas: ${escapeHtml(vehicle.adminContactNotes || "Sin notas")}</span>
-              ${statusValue === "appointment_scheduled"
-                ? `<span class="maint-vehicle-card-row">Cita: ${apptDateLabel} · ${formatTimeValue(vehicle.adminAppointmentTime)}</span>`
+              ${canEditAppointment
+                ? `<span class="maint-vehicle-card-row">Cita: ${apptDateLabel} · ${formatTimeValue(vehicle.adminAppointmentTime)}</span>
+                   <div class="maint-appt-edit" data-vehicle-id="${escapeHtml(id)}">
+                     ${buildAppointmentDateTimeFields(apptDate, vehicle.adminAppointmentTime, `card-${id}`)}
+                     <button class="primary-button maint-card-save-btn" type="button" data-vehicle-id="${escapeHtml(id)}">Guardar cambios</button>
+                     <p class="maint-row-feedback" id="card-feedback-${escapeHtml(id)}" aria-live="polite"></p>
+                   </div>`
                 : ""}
             </div>
-            <span class="maint-vehicle-card-badge ${STATUS_CSS[statusValue] || ""}">${escapeHtml(CONTACT_STATUS_OPTIONS.find((opt) => opt.value === statusValue)?.label || statusValue)}</span>
           </article>
         `;
       }).join("");
+
+      if (statusValue === "appointment_scheduled") {
+        listEl.querySelectorAll(".maint-card-save-btn").forEach((button) => {
+          button.addEventListener("click", () => handleCardAppointmentSave(button.dataset.vehicleId));
+        });
+      }
     });
+  }
+
+  async function handleCardAppointmentSave(vehicleId) {
+    const dateEl = document.getElementById(`appointment-card-${vehicleId}`);
+    const timeEl = document.getElementById(`appointment-time-card-${vehicleId}`);
+    const feedbackEl = document.getElementById(`card-feedback-${vehicleId}`);
+    const button = document.querySelector(`.maint-card-save-btn[data-vehicle-id="${vehicleId}"]`);
+    const adminAppointmentDate = dateEl?.value || "";
+    const adminAppointmentTime = normalizeTimeValue(timeEl?.value || "");
+
+    if (!adminAppointmentDate || !adminAppointmentTime) {
+      if (feedbackEl) {
+        feedbackEl.textContent = "Debes indicar fecha y hora.";
+        feedbackEl.className = "maint-row-feedback maint-row-error";
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+
+    if (feedbackEl) {
+      feedbackEl.textContent = "Guardando...";
+      feedbackEl.className = "maint-row-feedback";
+    }
+
+    try {
+      const result = await fetchJson(`/api/admin/maintenance-vehicles/${encodeURIComponent(vehicleId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          adminContactStatus: "appointment_scheduled",
+          adminAppointmentDate,
+          adminAppointmentTime,
+        }),
+        loadingMessage: false,
+      });
+
+      const idx = allVehicles.findIndex((vehicle) => String(vehicle._id || vehicle.id) === vehicleId);
+
+      if (idx !== -1) {
+        allVehicles[idx] = {
+          ...allVehicles[idx],
+          ...result.vehicle,
+          adminContactStatus: "appointment_scheduled",
+          adminAppointmentDate: result.vehicle?.adminAppointmentDate ?? adminAppointmentDate,
+          adminAppointmentTime: result.vehicle?.adminAppointmentTime ?? adminAppointmentTime,
+          adminLastContactAt: result.vehicle?.adminLastContactAt || new Date().toISOString(),
+        };
+      }
+
+      setFeedback(pageFeedback, "Cita actualizada correctamente.", "success");
+      filterAndRender();
+    } catch (error) {
+      if (feedbackEl) {
+        feedbackEl.textContent = error.message || "Error al guardar";
+        feedbackEl.className = "maint-row-feedback maint-row-error";
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+      }
+    }
   }
 
   function filterAndRender() {

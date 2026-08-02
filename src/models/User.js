@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["manager", "admin", "gerenteUSA", "adminUSA", "brokerUSA", "client"],
+      enum: ["manager", "admin", "gerenteUSA", "adminUSA", "brokerUSA", "mechanic", "vigilance", "client"],
       default: "client",
       trim: true,
     },
@@ -112,6 +112,10 @@ const userSchema = new mongoose.Schema(
     pushDevices: {
       type: [pushDeviceSchema],
       default: [],
+    },
+    mechanicDefaults: {
+      fullName: { type: String, trim: true, maxlength: 120, default: "" },
+      signatureUrl: { type: String, trim: true, default: "" },
     },
   },
   {

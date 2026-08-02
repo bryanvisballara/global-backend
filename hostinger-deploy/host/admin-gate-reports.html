@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Reporte de ingresos y salidas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260801-adminlight43" />
+    <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260514-ipadsafe26" />
+    <style>
+      :root {
+        --gate-gold: #a68246;
+        --gate-gold-soft: rgba(166, 130, 70, 0.14);
+        --gate-line: rgba(17, 17, 17, 0.1);
+        --gate-muted: #6b7280;
+        --gate-ink: #171717;
+      }
+
+      .gate-page {
+        display: grid;
+        gap: 1.15rem;
+      }
+
+      .gate-hero h1 {
+        margin: 0;
+      }
+
+      .gate-hero .dashboard-lead {
+        margin: 0.4rem 0 0;
+        max-width: 48rem;
+      }
+
+      .gate-top-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.9rem;
+        align-items: stretch;
+      }
+
+      .gate-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+      }
+
+      .gate-stat-card {
+        display: flex;
+        align-items: center;
+        gap: 0.95rem;
+        min-height: 104px;
+        padding: 1rem 1.15rem;
+        background: #fff;
+        border: 1px solid var(--gate-line);
+        border-radius: 18px;
+        box-shadow: 0 8px 22px rgba(20, 16, 10, 0.04);
+      }
+
+      .gate-stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--gate-gold-soft);
+        color: var(--gate-gold);
+        flex-shrink: 0;
+      }
+
+      .gate-stat-icon svg {
+        width: 24px;
+        height: 24px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+
+      .gate-stat-copy {
+        display: grid;
+        gap: 0.15rem;
+        min-width: 0;
+      }
+
+      .gate-stat-copy span {
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--gate-muted);
+      }
+
+      .gate-stat-copy strong {
+        font-family: Syne, Manrope, sans-serif;
+        font-size: 2rem;
+        line-height: 1;
+        color: var(--gate-ink);
+      }
+
+      .gate-stat-copy small {
+        color: var(--gate-muted);
+        font-size: 0.84rem;
+      }
+
+      .gate-action-col {
+        display: grid;
+        gap: 0.65rem;
+        align-content: stretch;
+        min-width: 150px;
+      }
+
+      .gate-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-height: 48px;
+        padding: 0.7rem 1rem;
+        border-radius: 14px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        border: 1.5px solid transparent;
+      }
+
+      .gate-btn svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
+      }
+
+      .gate-btn-clear {
+        background: #fff;
+        border-color: rgba(17, 17, 17, 0.22);
+        color: var(--gate-ink);
+      }
+
+      .gate-btn-refresh {
+        background: #151515;
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(17, 17, 17, 0.18);
+      }
+
+      .gate-filters {
+        display: grid;
+        grid-template-columns: 1.6fr 0.8fr 0.8fr;
+        gap: 0.85rem;
+      }
+
+      .gate-field {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+
+      .gate-field > span {
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #4b5563;
+      }
+
+      .gate-input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .gate-input-wrap svg {
+        position: absolute;
+        left: 0.9rem;
+        width: 18px;
+        height: 18px;
+        stroke: var(--gate-gold);
+        fill: none;
+        stroke-width: 1.8;
+        pointer-events: none;
+      }
+
+      .gate-input-wrap input,
+      .gate-input-wrap select {
+        width: 100%;
+        min-height: 48px;
+        box-sizing: border-box;
+        border: 1.5px solid rgba(17, 17, 17, 0.12);
+        border-radius: 14px;
+        background: #fff;
+        padding: 0.75rem 0.9rem;
+        font: inherit;
+        color: var(--gate-ink);
+      }
+
+      .gate-input-wrap input {
+        padding-left: 2.7rem;
+      }
+
+      .gate-input-wrap select {
+        appearance: none;
+        background-image:
+          linear-gradient(45deg, transparent 50%, var(--gate-gold) 50%),
+          linear-gradient(135deg, var(--gate-gold) 50%, transparent 50%);
+        background-position:
+          calc(100% - 18px) calc(50% - 3px),
+          calc(100% - 12px) calc(50% - 3px);
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        padding-right: 2.2rem;
+      }
+
+      .gate-input-wrap input:focus,
+      .gate-input-wrap select:focus {
+        outline: none;
+        border-color: var(--gate-gold);
+        box-shadow: 0 0 0 3px var(--gate-gold-soft);
+      }
+
+      .gate-card {
+        background: #fff;
+        border: 1px solid var(--gate-line);
+        border-radius: 22px;
+        padding: 1.25rem 1.35rem 1.4rem;
+        box-shadow: 0 10px 28px rgba(20, 16, 10, 0.05);
+      }
+
+      .gate-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .gate-section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 0;
+        color: var(--gate-ink);
+        font-family: Syne, Manrope, sans-serif;
+        font-size: 0.98rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .gate-section-title svg {
+        width: 20px;
+        height: 20px;
+        stroke: var(--gate-gold);
+        fill: none;
+        stroke-width: 1.8;
+      }
+
+      .gate-count-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0.2rem 0.75rem;
+        border-radius: 999px;
+        background: #f3f4f6;
+        color: var(--gate-muted);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .gate-table-wrap {
+        overflow: auto;
+        border: 1px solid var(--gate-line);
+        border-radius: 16px;
+      }
+
+      .gate-table-wrap .tracking-data-table {
+        margin: 0;
+      }
+
+      .gate-table-wrap .tracking-data-table thead th {
+        background: #f3f4f6;
+        color: #4b5563;
+        font-size: 0.78rem;
+        letter-spacing: 0.05em;
+      }
+
+      .gate-status-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .gate-status-open {
+        background: rgba(196, 163, 90, 0.18);
+        color: #8a6a24;
+      }
+
+      .gate-status-closed {
+        background: rgba(34, 120, 70, 0.12);
+        color: #1f6b3d;
+      }
+
+      .gate-empty {
+        display: grid;
+        place-items: center;
+        gap: 0.55rem;
+        padding: 2.6rem 1.25rem;
+        text-align: center;
+        color: var(--gate-muted);
+      }
+
+      .gate-empty-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: #f3f4f6;
+        margin-bottom: 0.25rem;
+      }
+
+      .gate-empty-icon svg {
+        width: 34px;
+        height: 34px;
+        stroke: #c4c8d0;
+        fill: none;
+        stroke-width: 1.6;
+      }
+
+      .gate-empty strong {
+        color: #4b5563;
+        font-size: 1rem;
+      }
+
+      .gate-empty p {
+        margin: 0;
+        max-width: 26rem;
+        line-height: 1.45;
+      }
+
+      .gate-detail-card {
+        margin-top: 1.25rem;
+        padding-top: 1.1rem;
+        border-top: 1px solid var(--gate-line);
+      }
+
+      .gate-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem 1.25rem;
+      }
+
+      .gate-detail-grid p {
+        margin: 0;
+      }
+
+      .gate-detail-grid strong {
+        display: block;
+        font-size: 0.78rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #777;
+        margin-bottom: 0.25rem;
+      }
+
+      .gate-photo-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 0.75rem;
+      }
+
+      .gate-photo-row a {
+        display: block;
+        width: 88px;
+        height: 66px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(17, 17, 17, 0.12);
+      }
+
+      .gate-photo-row img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      @media (max-width: 980px) {
+        .gate-top-row,
+        .gate-stats,
+        .gate-filters,
+        .gate-detail-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .gate-action-col {
+          grid-template-columns: 1fr 1fr;
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body class="admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin.html">Volver al dashboard</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="gate-page">
+          <div class="gate-hero">
+            <h1>Reporte de ingresos y salidas</h1>
+            <p class="dashboard-lead">Historial de actas registradas por vigilancia en el predio (ingresos, salidas y salidas directas).</p>
+            <p id="gate-reports-feedback" class="feedback" aria-live="polite"></p>
+          </div>
+
+          <div class="gate-top-row">
+            <section class="gate-stats" aria-label="Resumen ingresos y salidas">
+              <article class="gate-stat-card">
+                <span class="gate-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 2h6v4H9z"/><path d="M9 12h6M9 16h4"/></svg>
+                </span>
+                <div class="gate-stat-copy">
+                  <span>Total reportes</span>
+                  <strong id="gate-total-count">0</strong>
+                  <small>Registros en total</small>
+                </div>
+              </article>
+              <article class="gate-stat-card">
+                <span class="gate-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </span>
+                <div class="gate-stat-copy">
+                  <span>Cerrados / salidas</span>
+                  <strong id="gate-closed-count">0</strong>
+                  <small>Registros cerrados</small>
+                </div>
+              </article>
+            </section>
+
+            <div class="gate-action-col">
+              <button id="gate-clear-filters" class="gate-btn gate-btn-clear" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16l-6 8v6l-4 2v-8L4 4z"/></svg>
+                Limpiar
+              </button>
+              <button id="gate-refresh" class="gate-btn gate-btn-refresh" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+
+          <div class="gate-filters" aria-label="Filtros">
+            <label class="gate-field">
+              <span>Buscar</span>
+              <span class="gate-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input id="gate-search-input" type="search" placeholder="Placa, VIN, marca, número de acta..." />
+              </span>
+            </label>
+            <label class="gate-field">
+              <span>Estado</span>
+              <span class="gate-input-wrap">
+                <select id="gate-status-filter">
+                  <option value="all">Todos</option>
+                  <option value="open">Abiertos</option>
+                  <option value="closed">Cerrados</option>
+                </select>
+              </span>
+            </label>
+            <label class="gate-field">
+              <span>Tipo</span>
+              <span class="gate-input-wrap">
+                <select id="gate-direction-filter">
+                  <option value="all">Todos</option>
+                  <option value="entry">Solo ingreso</option>
+                  <option value="exit">Solo salida</option>
+                  <option value="both">Ingreso + salida</option>
+                </select>
+              </span>
+            </label>
+          </div>
+
+          <article class="gate-card">
+            <div class="gate-list-header">
+              <h2 class="gate-section-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+                Reportes
+              </h2>
+              <span id="gate-results-count" class="gate-count-pill">0 reporte(s)</span>
+            </div>
+
+            <div class="gate-table-wrap tracking-table-wrap">
+              <table class="tracking-data-table">
+                <thead>
+                  <tr>
+                    <th>Acta</th>
+                    <th>Vehículo</th>
+                    <th>Ingreso</th>
+                    <th>Salida</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="gate-reports-body">
+                  <tr>
+                    <td colspan="7">
+                      <div class="gate-empty">
+                        <div class="gate-empty-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24"><path d="M3 7h5l2 3h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2"/></svg>
+                        </div>
+                        <strong>Cargando reportes…</strong>
+                        <p>Un momento, por favor.</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="gate-report-detail" class="gate-detail-card" hidden>
+              <div class="gate-list-header">
+                <h2 id="gate-detail-title" class="gate-section-title">Detalle</h2>
+                <button id="gate-detail-close" class="gate-btn gate-btn-clear" type="button">Cerrar detalle</button>
+              </div>
+              <div id="gate-detail-body" class="gate-detail-grid"></div>
+              <div id="gate-detail-photos"></div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260801-sidebar-visitors01"></script>
+    <script src="/admin-gate-reports.js?v=20260801-gatereports03"></script>
+  </body>
+</html>

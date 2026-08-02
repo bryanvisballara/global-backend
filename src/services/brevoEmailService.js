@@ -103,11 +103,43 @@ async function sendBrevoEmail({
   htmlContent,
   senderName = "Global Imports",
   senderEmail = "verify@globalimportsus.com",
+  attachments = [],
 }) {
   const apiKey = String(process.env.BREVO_API_KEY || "").trim();
 
   if (!apiKey) {
     throw new Error("Missing BREVO_API_KEY env var");
+  }
+
+  const payload = {
+    sender: {
+      name: senderName,
+      email: senderEmail,
+    },
+    to: [{ email: toEmail, name: toName }],
+    subject,
+    htmlContent,
+  };
+
+  const normalizedAttachments = (Array.isArray(attachments) ? attachments : [])
+    .map((item) => {
+      const name = String(item?.name || "").trim();
+      const content = item?.content;
+      if (!name || content == null) {
+        return null;
+      }
+      const base64Content = Buffer.isBuffer(content)
+        ? content.toString("base64")
+        : String(content).trim();
+      if (!base64Content) {
+        return null;
+      }
+      return { name, content: base64Content };
+    })
+    .filter(Boolean);
+
+  if (normalizedAttachments.length) {
+    payload.attachment = normalizedAttachments;
   }
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -117,15 +149,7 @@ async function sendBrevoEmail({
       "content-type": "application/json",
       "api-key": apiKey,
     },
-    body: JSON.stringify({
-      sender: {
-        name: senderName,
-        email: senderEmail,
-      },
-      to: [{ email: toEmail, name: toName }],
-      subject,
-      htmlContent,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => ({}));

@@ -34,6 +34,35 @@ const {
   updateTrackingState,
 } = require("../controllers/adminOrdersController");
 const { listMaintenance, createManualMaintenance, backfillMaintenance, updateMaintenance, updateClientMaintenanceVehicle } = require("../controllers/adminMaintenanceController");
+const { listDiagnosesForAdmin } = require("../controllers/mechanicPortalController");
+const {
+  getWorkshopAccounting,
+  getPaymentPlan,
+  updatePaymentPlan,
+  updateOrderBilling,
+  applyPlanLaborToPeriod,
+} = require("../controllers/adminWorkshopAccountingController");
+const {
+  listVisits,
+  createVisit,
+  updateVisit,
+  deleteVisit,
+} = require("../controllers/adminVisitorsController");
+const {
+  getCotizadorOverview,
+  getPricingBoard,
+  getQuote,
+  previewQuoteDocument,
+  sendQuoteEmail,
+  updateSettings,
+  updateVehiclePricing,
+  listSupplies,
+  exportSuppliesXlsx,
+  createSupply,
+  updateSupply,
+  importExcel,
+  askCotizadorAi,
+} = require("../controllers/adminCotizadorController");
 const { createPost, deletePost, getPost, listPosts, updatePost } = require("../controllers/adminPostsController");
 const {
   createVirtualDealershipVehicle,
@@ -103,6 +132,30 @@ router.post("/maintenance", requireLatamAdministrativeRole, createManualMaintena
 router.post("/maintenance/backfill-completed", requireLatamAdministrativeRole, backfillMaintenance);
 router.patch("/maintenance/:maintenanceId", updateMaintenance);
 router.patch("/maintenance-vehicles/:vehicleId", updateClientMaintenanceVehicle);
+router.get("/mechanic-diagnoses", requireLatamAdministrativeRole, listDiagnosesForAdmin);
+router.get("/workshop-accounting", requireLatamAdministrativeRole, getWorkshopAccounting);
+router.get("/workshop-payment-plan", requireLatamAdministrativeRole, getPaymentPlan);
+router.put("/workshop-payment-plan", requireLatamAdministrativeRole, updatePaymentPlan);
+router.patch("/mechanic-diagnoses/:orderId/billing", requireLatamAdministrativeRole, updateOrderBilling);
+router.post("/workshop-accounting/apply-plan-labor", requireLatamAdministrativeRole, applyPlanLaborToPeriod);
+router.get("/visitors", requireLatamAdministrativeRole, listVisits);
+router.post("/visitors", requireLatamAdministrativeRole, createVisit);
+router.patch("/visitors/:visitId", requireLatamAdministrativeRole, updateVisit);
+router.delete("/visitors/:visitId", requireLatamAdministrativeRole, deleteVisit);
+
+router.get("/cotizador", requireLatamAdministrativeRole, getCotizadorOverview);
+router.get("/cotizador/pricing", requireLatamAdministrativeRole, getPricingBoard);
+router.get("/cotizador/quote", requireLatamAdministrativeRole, getQuote);
+router.post("/cotizador/quote-document", requireLatamAdministrativeRole, previewQuoteDocument);
+router.post("/cotizador/send-quote", requireLatamAdministrativeRole, sendQuoteEmail);
+router.patch("/cotizador/settings", requireLatamAdministrativeRole, updateSettings);
+router.patch("/cotizador/vehicles/:vehicleId/pricing", requireLatamAdministrativeRole, updateVehiclePricing);
+router.get("/cotizador/supplies", requireLatamAdministrativeRole, listSupplies);
+router.get("/cotizador/supplies/export", requireLatamAdministrativeRole, exportSuppliesXlsx);
+router.post("/cotizador/supplies", requireLatamAdministrativeRole, createSupply);
+router.patch("/cotizador/supplies/:supplyId", requireLatamAdministrativeRole, updateSupply);
+router.post("/cotizador/import", requireLatamAdministrativeRole, upload.array("excelFiles", 10), importExcel);
+router.post("/cotizador/ai", requireLatamAdministrativeRole, askCotizadorAi);
 
 router.get("/posts", listPosts);
 router.get("/posts/:postId", getPost);

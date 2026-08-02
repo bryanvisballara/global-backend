@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight30" />
+    <link rel="stylesheet" href="/styles.css?v=20260801-adminlight43" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260514-ipadsafe26" />
     <style>
       .global-loading-overlay {
@@ -17,7 +17,7 @@
       .maint-month-filter-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 0.85rem 1rem;
         align-items: end;
         margin: 0 0 1rem;
       }
@@ -25,7 +25,7 @@
       .maint-month-filter-label {
         display: grid;
         gap: 0.35rem;
-        min-width: 220px;
+        min-width: 160px;
       }
 
       .maint-month-filter-label span {
@@ -33,10 +33,887 @@
         color: var(--muted);
       }
 
+      .maint-month-filter-label input[type="date"] {
+        min-height: 2.45rem;
+        padding: 0.45rem 0.7rem;
+        border: 1px solid rgba(17, 17, 17, 0.16);
+        border-radius: 10px;
+        background: #fff;
+        color: #111;
+        font: inherit;
+      }
+
+      .maint-date-filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+      }
+
       .maint-month-summary {
         margin: 0;
+        flex: 1 1 220px;
         color: var(--muted);
         font-size: 0.95rem;
+      }
+
+      .add-maintenance-modal-card {
+        width: min(720px, calc(100vw - 24px)) !important;
+        max-height: calc(100vh - 32px);
+        overflow: auto;
+        padding: 28px !important;
+        gap: 18px !important;
+      }
+
+      .add-maintenance-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .add-maintenance-close {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid rgba(17, 17, 17, 0.18);
+        background: #f4f4f4;
+        color: #111 !important;
+        font-size: 1.1rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .add-maintenance-form {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .add-maintenance-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 16px;
+      }
+
+      .add-maintenance-grid label {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+
+      .add-maintenance-grid label span,
+      .add-maint-notes span {
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #555;
+      }
+
+      .add-maintenance-grid input,
+      .add-maint-notes textarea {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      .add-maint-span-2 {
+        grid-column: 1 / -1;
+      }
+
+      .add-maintenance-hint {
+        margin: 0;
+      }
+
+      .add-maint-notes {
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      @media (max-width: 640px) {
+        .add-maintenance-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .add-maint-span-2 {
+          grid-column: auto;
+        }
+      }
+
+      .maint-tabs {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin: 0 0 1.25rem;
+      }
+
+      .maint-tab-button {
+        border: 1px solid rgba(17, 17, 17, 0.12);
+        background: #fff;
+        color: #111;
+        border-radius: 999px;
+        padding: 0.7rem 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .maint-tab-button.is-active {
+        background: #d8aa52;
+        border-color: #d8aa52;
+        color: #111;
+      }
+
+      .maint-tab-panel[hidden] {
+        display: none !important;
+      }
+
+      :root {
+        --cot-gold: #a68246;
+        --cot-gold-soft: rgba(166, 130, 70, 0.14);
+        --cot-line: rgba(17, 17, 17, 0.1);
+        --cot-muted: #6b7280;
+        --cot-ink: #171717;
+      }
+
+      .cotizador-page {
+        display: grid;
+        gap: 1.05rem;
+        max-width: 100%;
+        min-width: 0;
+      }
+
+      .cotizador-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: center;
+      }
+
+      .cotizador-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        min-height: 44px;
+        padding: 0.65rem 1.1rem;
+        border-radius: 12px;
+        border: 1.5px solid transparent;
+        font-weight: 800;
+        font-size: 0.84rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        line-height: 1.1;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 140ms ease, filter 140ms ease, background 140ms ease, border-color 140ms ease;
+      }
+
+      .cotizador-btn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
+      }
+
+      .cotizador-btn:active {
+        transform: translateY(1px);
+      }
+
+      .cotizador-btn-gold {
+        background: linear-gradient(180deg, #c4a35a 0%, var(--cot-gold) 100%);
+        border-color: #8f6d32;
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(166, 130, 70, 0.24);
+      }
+
+      .cotizador-btn-gold:hover {
+        filter: brightness(1.04);
+      }
+
+      .cotizador-btn-outline {
+        background: #fff;
+        border-color: var(--cot-gold);
+        color: var(--cot-gold);
+      }
+
+      .cotizador-btn-outline:hover {
+        background: var(--cot-gold-soft);
+      }
+
+      .cotizador-btn-dark {
+        background: #151515;
+        border-color: #151515;
+        color: #fff;
+        box-shadow: 0 10px 18px rgba(17, 17, 17, 0.16);
+      }
+
+      .cotizador-btn-dark:hover {
+        background: #2a2a2a;
+        border-color: #2a2a2a;
+      }
+
+      .cotizador-quote-actions .primary-button,
+      .cotizador-quote-actions .cotizador-btn {
+        width: auto;
+      }
+
+      .cotizador-pricing-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        padding: 0.95rem 1.1rem;
+      }
+
+      .cotizador-pricing-banner[hidden] {
+        display: none !important;
+      }
+
+      .cotizador-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.8rem;
+      }
+
+      .cotizador-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        min-height: 96px;
+        background: #fff;
+        border: 1px solid var(--cot-line);
+        border-radius: 18px;
+        padding: 0.95rem 1.05rem;
+        box-shadow: 0 8px 20px rgba(20, 16, 10, 0.035);
+      }
+
+      .cotizador-stat-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--cot-gold-soft);
+        color: var(--cot-gold);
+        flex-shrink: 0;
+      }
+
+      .cotizador-stat-icon svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+
+      .cotizador-stat-copy span {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--cot-muted);
+      }
+
+      .cotizador-stat strong {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 1.55rem;
+        line-height: 1.1;
+        color: var(--cot-ink);
+      }
+
+      .cotizador-stat-copy small {
+        color: var(--cot-muted);
+        font-size: 0.82rem;
+      }
+
+      .cotizador-card {
+        background: #fff;
+        border: 1px solid var(--cot-line);
+        border-radius: 20px;
+        padding: 1.15rem 1.2rem 1.25rem;
+        box-shadow: 0 10px 28px rgba(20, 16, 10, 0.04);
+        min-width: 0;
+      }
+
+      .cotizador-section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 0 0 0.35rem;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--cot-ink);
+      }
+
+      .cotizador-section-title-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--cot-gold-soft);
+        color: var(--cot-gold);
+        flex-shrink: 0;
+      }
+
+      .cotizador-section-title-icon svg,
+      .cotizador-section-title > svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+
+      .cotizador-card > .maint-panel-sub {
+        margin: 0 0 1rem;
+        color: var(--cot-muted);
+      }
+
+      .cotizador-card-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .cotizador-card-header .cotizador-section-title {
+        margin: 0;
+      }
+
+      .cotizador-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--cot-line);
+        border-radius: 14px;
+        max-width: 100%;
+      }
+
+      .cotizador-table-wrap .tracking-data-table {
+        margin: 0;
+        min-width: 760px;
+      }
+
+      .cotizador-table-wrap .tracking-data-table thead th {
+        background: #f3f4f6;
+        color: #4b5563;
+        font-size: 0.76rem;
+        letter-spacing: 0.05em;
+      }
+
+      .cotizador-filter-row {
+        display: grid;
+        grid-template-columns: 1.4fr 0.9fr 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        align-items: stretch;
+      }
+
+      .cotizador-filter-row input,
+      .cotizador-filter-row select {
+        width: 100%;
+        min-height: 46px;
+        box-sizing: border-box;
+        border: 1.5px solid rgba(17, 17, 17, 0.12);
+        border-radius: 12px;
+        padding: 0.65rem 0.85rem;
+        font: inherit;
+        background: #fff;
+      }
+
+      .cotizador-filter-search {
+        position: relative;
+      }
+
+      .cotizador-filter-search svg {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 17px;
+        height: 17px;
+        stroke: var(--cot-gold);
+        fill: none;
+        stroke-width: 1.8;
+        pointer-events: none;
+      }
+
+      .cotizador-filter-search input {
+        padding-left: 2.5rem;
+      }
+
+      .cotizador-filter-vehicle-pair {
+        display: contents;
+      }
+
+      .cotizador-filter-vehicle-pair .cotizador-combo {
+        min-width: 0;
+      }
+
+      .cotizador-filter-vehicle-pair .cotizador-combo input {
+        width: 100%;
+      }
+
+      .cotizador-quote-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin: 0.15rem 0 1rem;
+      }
+
+      .cotizador-quote-grid .cotizador-version-field {
+        grid-column: 1 / -1;
+      }
+
+      @media (max-width: 1100px) {
+        .cotizador-quote-grid,
+        .cotizador-filter-row,
+        .cotizador-stats {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .cotizador-quote-grid label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+
+      .cotizador-quote-grid label > span {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #4b5563;
+      }
+
+      .cotizador-quote-grid input {
+        min-height: 46px;
+        width: 100%;
+        box-sizing: border-box;
+        border: 1.5px solid rgba(17, 17, 17, 0.12);
+        border-radius: 12px;
+        padding: 0.65rem 0.85rem;
+        font: inherit;
+        background: #fff;
+      }
+
+      .cotizador-quote-grid input:focus {
+        outline: none;
+        border-color: var(--cot-gold);
+        box-shadow: 0 0 0 3px var(--cot-gold-soft);
+      }
+
+      .cotizador-quote-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
+        margin-bottom: 1rem;
+      }
+
+      .cotizador-info-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.7rem;
+        padding: 0.9rem 1rem;
+        border-radius: 14px;
+        background: var(--cot-gold-soft);
+        color: #6b4f1f;
+        font-size: 0.94rem;
+        line-height: 1.4;
+      }
+
+      .cotizador-info-banner svg {
+        width: 18px;
+        height: 18px;
+        stroke: var(--cot-gold);
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+      }
+
+      .cotizador-type-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .cotizador-type-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--cot-gold-soft);
+        color: var(--cot-gold);
+        flex-shrink: 0;
+      }
+
+      .cotizador-type-icon svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+
+      .cotizador-stock-input,
+      .cotizador-cost-input {
+        min-height: 38px;
+        border: 1.5px solid rgba(17, 17, 17, 0.12);
+        border-radius: 10px;
+        padding: 0.35rem 0.55rem;
+        font: inherit;
+        box-sizing: border-box;
+      }
+
+      .cotizador-supply-count {
+        margin: 0 0 0.75rem;
+        color: #b42318;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .cotizador-save-supply.cotizador-btn {
+        min-height: 36px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.76rem;
+      }
+
+      .cotizador-quote-actions[hidden],
+      .cotizador-send-modal[hidden],
+      .cotizador-confirm-modal[hidden],
+      .cotizador-success-modal[hidden] {
+        display: none !important;
+      }
+
+      .cotizador-confirm-modal .tracking-modal-card,
+      .cotizador-success-modal .tracking-modal-card {
+        width: min(440px, calc(100vw - 1.5rem));
+        max-width: 440px;
+      }
+
+      .cotizador-confirm-body,
+      .cotizador-success-body {
+        padding: 0.25rem 0 0.5rem;
+      }
+
+      .cotizador-confirm-body p,
+      .cotizador-success-body p {
+        margin: 0 0 1rem;
+        color: #333;
+        line-height: 1.5;
+      }
+
+      .cotizador-marketing-check {
+        display: flex;
+        gap: 0.65rem;
+        align-items: flex-start;
+        margin: 0 0 1.15rem;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        background: #fafafa;
+        cursor: pointer;
+      }
+
+      .cotizador-marketing-check input {
+        margin-top: 0.2rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        accent-color: #111;
+        flex-shrink: 0;
+      }
+
+      .cotizador-marketing-check span {
+        font-size: 0.92rem;
+        line-height: 1.4;
+        color: #222;
+      }
+
+      .cotizador-success-icon {
+        width: 56px;
+        height: 56px;
+        margin: 0.25rem auto 1rem;
+        border-radius: 50%;
+        background: #111;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 1.55rem;
+        font-weight: 700;
+      }
+
+      .cotizador-success-body {
+        text-align: center;
+      }
+
+      .cotizador-success-body strong {
+        display: block;
+        font-size: 1.15rem;
+        margin-bottom: 0.35rem;
+        color: #111;
+      }
+
+      .cotizador-btn-ghost {
+        background: #f5f5f5;
+        color: #111;
+        border-color: rgba(17, 17, 17, 0.14);
+      }
+
+      .cotizador-btn-ghost:hover {
+        background: #ececec;
+      }
+
+      .cotizador-send-modal .tracking-modal-card {
+        width: min(1180px, 97vw);
+        max-height: min(94vh, 1040px);
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .cotizador-send-layout {
+        display: grid;
+        grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+        gap: 1rem;
+        min-height: 0;
+        overflow: hidden;
+        padding: 0 1.25rem 0.5rem;
+      }
+
+      .cotizador-send-form {
+        display: grid;
+        gap: 0.75rem;
+        align-content: start;
+        min-height: 0;
+        max-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-right: 0.35rem;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .cotizador-send-form label {
+        display: grid;
+        gap: 0.3rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(17, 17, 17, 0.55);
+      }
+
+      .cotizador-send-form input {
+        width: 100%;
+        min-height: 2.45rem;
+        border: 1px solid rgba(17, 17, 17, 0.16);
+        border-radius: 10px;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.92rem;
+        color: #111;
+        background: #fff;
+      }
+
+      .cotizador-send-preview-wrap {
+        min-height: 0;
+        max-height: 100%;
+        overflow: auto;
+        border: 1px solid rgba(17, 17, 17, 0.1);
+        border-radius: 16px;
+        background: #efefef;
+        padding: 0.85rem;
+      }
+
+      .cotizador-send-preview-wrap .cotizador-quote-doc {
+        box-shadow: 0 18px 40px rgba(21, 17, 10, 0.12);
+        transform-origin: top center;
+      }
+
+      .cotizador-send-actions {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.55rem;
+        margin-top: 0.75rem;
+        padding: 1.1rem 1.25rem 1.25rem;
+        border-top: 1px solid rgba(17, 17, 17, 0.08);
+        background: #ffffff;
+      }
+
+      @media (max-width: 900px) {
+        .cotizador-send-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .cotizador-quote-result {
+        border-top: 1px solid rgba(17, 17, 17, 0.08);
+        padding-top: 1rem;
+        margin-top: 0.25rem;
+      }
+
+      .cotizador-quote-totals {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.85rem;
+      }
+
+      @media (max-width: 1100px) {
+        .cotizador-quote-totals {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .cotizador-quote-total-item {
+        background: rgba(17, 17, 17, 0.03);
+        border-radius: 12px;
+        padding: 0.75rem 0.9rem;
+      }
+
+      .cotizador-quote-total-item strong {
+        display: block;
+        font-size: 1.15rem;
+        margin-top: 0.2rem;
+      }
+
+      .cotizador-combo {
+        position: relative;
+      }
+
+      .cotizador-combo-list {
+        position: absolute;
+        z-index: 20;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        max-height: 220px;
+        overflow: auto;
+        background: #fff;
+        border: 1px solid rgba(17, 17, 17, 0.12);
+        border-radius: 12px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+        display: none;
+      }
+
+      .cotizador-combo-list.is-open {
+        display: block;
+      }
+
+      .cotizador-combo-option {
+        width: 100%;
+        text-align: left;
+        border: 0;
+        background: transparent;
+        padding: 0.65rem 0.8rem;
+        cursor: pointer;
+      }
+
+      .cotizador-combo-option:hover,
+      .cotizador-combo-option.is-active {
+        background: rgba(17, 17, 17, 0.05);
+      }
+
+      body.admin-app-view .tracking-modal.cotizador-scroll-modal {
+        align-content: start;
+        justify-items: center;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 1.25rem;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      body.admin-app-view .tracking-modal-card.cotizador-price-modal-card,
+      body.admin-app-view .tracking-modal-card.cotizador-compat-modal-card {
+        width: min(1120px, calc(100vw - 2.5rem)) !important;
+        max-width: none !important;
+        max-height: none;
+        margin: 0 auto;
+        overflow: visible;
+      }
+
+      .cotizador-scroll-modal .cotizador-modal-scroll {
+        max-height: min(70vh, 720px);
+        overflow: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 14px;
+      }
+
+      .cotizador-scroll-modal .cotizador-modal-scroll .tracking-data-table {
+        min-width: 900px;
+      }
+
+      .cotizador-scroll-modal .cotizador-modal-scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #fff;
+      }
+
+      .cotizador-compat-link {
+        border: 0;
+        background: transparent;
+        color: #0b5fff;
+        font: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .cotizador-compat-link:hover {
+        color: #0846b8;
+      }
+
+      .cotizador-page-button {
+        min-width: 42px;
+      }
+
+      .cotizador-page-button.is-active {
+        background: #111;
+        color: #fff;
+        border-color: #111;
+      }
+
+      .cotizador-price-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .cotizador-price-grid label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      @media (max-width: 800px) {
+        .cotizador-stats,
+        .cotizador-quote-grid,
+        .cotizador-quote-totals,
+        .cotizador-price-grid {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -55,14 +932,22 @@
           </div>
         </header>
         <section class="page-hero">
-          <h1>Mantenimientos preventivos</h1>
-          <p class="dashboard-lead">Cada pedido Latam completado (E10) entra automáticamente aquí. El llamado se programa a 6 meses desde la entrega.</p>
-          <div class="page-topbar-actions" style="margin-top:1rem;gap:0.75rem;flex-wrap:wrap">
-            <button id="open-add-maintenance-modal" class="primary-button" type="button">Añadir mantenimiento</button>
-            <button id="backfill-maintenance-button" class="secondary-button" type="button">Sincronizar completados</button>
+          <h1>Mantenimientos</h1>
+          <p class="dashboard-lead">Preventivos programados + cotizador de insumos y compatibilidad por vehículo.</p>
+          <div class="maint-tabs" role="tablist" aria-label="Secciones de mantenimientos">
+            <button class="maint-tab-button is-active" type="button" data-maint-tab="preventivos">Preventivos</button>
+            <button class="maint-tab-button" type="button" data-maint-tab="cotizador">Cotizador</button>
+            <button class="maint-tab-button" type="button" data-maint-tab="diagnosticos">Diagnósticos taller</button>
+            <button class="maint-tab-button" type="button" data-maint-tab="contabilidad">Contabilidad</button>
           </div>
           <p id="maintenance-feedback" class="feedback" aria-live="polite"></p>
         </section>
+
+        <section id="maint-tab-preventivos" class="maint-tab-panel" data-maint-panel="preventivos">
+          <div class="page-topbar-actions" style="margin:0 0 1rem;gap:0.75rem;flex-wrap:wrap">
+            <button id="open-add-maintenance-modal" class="primary-button" type="button">Añadir mantenimiento</button>
+            <button id="backfill-maintenance-button" class="secondary-button" type="button">Sincronizar completados</button>
+          </div>
         <section class="maint-grid">
           <article class="dashboard-card maint-panel maint-panel-clickable" data-detail-bucket="this-month" role="button" tabindex="0" aria-label="Abrir detalle de este mes">
             <header class="maint-panel-header">
@@ -129,6 +1014,10 @@
                   <p class="maint-panel-sub" id="maintenance-calendar-month-label">Mes actual</p>
                 </div>
               </div>
+              <div class="maint-calendar-nav" aria-label="Navegar meses del calendario">
+                <button id="maintenance-calendar-prev" class="maint-calendar-nav-btn" type="button" title="Mes anterior" aria-label="Mes anterior">‹</button>
+                <button id="maintenance-calendar-next" class="maint-calendar-nav-btn" type="button" title="Mes siguiente" aria-label="Mes siguiente">›</button>
+              </div>
             </header>
             <div class="maint-calendar-weekdays" aria-hidden="true">
               <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
@@ -153,19 +1042,25 @@
                 <span class="maint-panel-icon">🚗</span>
                 <div>
                   <h2 class="maint-panel-heading">Programados para llamar</h2>
-                  <p class="maint-panel-sub">Filtra por mes para ver cuántos carros toca contactar (entrega + 6 meses).</p>
+                  <p class="maint-panel-sub">Filtra por rango de fechas (vence a 6 meses) e incluye leads de marketing del cotizador.</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-count">0</strong>
             </header>
             <div class="maint-month-filter-row">
-              <label class="maint-month-filter-label" for="maintenance-month-filter">
-                <span>Mes</span>
-                <select id="maintenance-month-filter" class="tracking-native-select">
-                  <option value="">Todos los meses</option>
-                </select>
+              <label class="maint-month-filter-label" for="maintenance-date-from">
+                <span>Desde</span>
+                <input id="maintenance-date-from" type="date" />
               </label>
-              <p id="maintenance-month-summary" class="maint-month-summary">Selecciona un mes para ver el conteo.</p>
+              <label class="maint-month-filter-label" for="maintenance-date-to">
+                <span>Hasta</span>
+                <input id="maintenance-date-to" type="date" />
+              </label>
+              <div class="maint-date-filter-actions">
+                <button id="maintenance-date-apply" class="cotizador-btn cotizador-btn-dark" type="button">Filtrar</button>
+                <button id="maintenance-date-clear" class="cotizador-btn cotizador-btn-outline" type="button">Limpiar</button>
+              </div>
+              <p id="maintenance-month-summary" class="maint-month-summary">Elige un rango para ver cuántos contactar.</p>
             </div>
             <div class="tracking-table-wrap maint-registered-table-wrap">
               <table class="tracking-data-table maint-registered-table">
@@ -189,22 +1084,895 @@
             </div>
           </article>
         </section>
+        </section>
+
+        <section id="maint-tab-cotizador" class="maint-tab-panel" data-maint-panel="cotizador" hidden>
+          <div class="cotizador-page">
+            <div class="cotizador-stats">
+              <article class="cotizador-stat">
+                <span class="cotizador-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 13h18l-1.5-4.5A2 2 0 0 0 17.6 7H6.4a2 2 0 0 0-1.9 1.5L3 13z"/><path d="M5 17h.01M19 17h.01"/><path d="M5 13v4a1 1 0 0 0 1 1h1.5"/><path d="M16.5 18H18a1 1 0 0 0 1-1v-4"/></svg>
+                </span>
+                <div class="cotizador-stat-copy">
+                  <span>Vehículos</span>
+                  <strong id="cotizador-vehicles-count">0</strong>
+                  <small>En el sistema</small>
+                </div>
+              </article>
+              <article class="cotizador-stat">
+                <span class="cotizador-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 2h6v4H9z"/><path d="M9 12h6M9 16h4"/></svg>
+                </span>
+                <div class="cotizador-stat-copy">
+                  <span>Insumos</span>
+                  <strong id="cotizador-supplies-count">0</strong>
+                  <small>Disponibles</small>
+                </div>
+              </article>
+              <article class="cotizador-stat">
+                <span class="cotizador-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
+                </span>
+                <div class="cotizador-stat-copy">
+                  <span>Stock en 0</span>
+                  <strong id="cotizador-zero-stock-count">0</strong>
+                  <small>Sin inventario</small>
+                </div>
+              </article>
+            </div>
+
+            <div class="cotizador-toolbar">
+              <button id="cotizador-refresh-button" class="cotizador-btn cotizador-btn-outline" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                Actualizar
+              </button>
+              <a id="cotizador-open-prices-button" class="cotizador-btn cotizador-btn-gold" href="/app/admin-cotizador-precios.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>
+                Configurar precios de venta
+              </a>
+              <a id="cotizador-open-insumos-button" class="cotizador-btn cotizador-btn-outline" href="/app/admin-cotizador-insumos.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h8M8 18h5"/></svg>
+                Configurar precios de insumos
+              </a>
+            </div>
+
+            <div id="cotizador-pricing-banner" class="cotizador-card cotizador-pricing-banner" hidden>
+              <p class="maint-panel-sub" id="cotizador-pricing-banner-text" style="margin:0"></p>
+              <div style="display:flex;flex-wrap:wrap;gap:0.55rem">
+                <a class="cotizador-btn cotizador-btn-outline" href="/app/admin-cotizador-insumos.html">Precios de insumos</a>
+                <a class="cotizador-btn cotizador-btn-gold" href="/app/admin-cotizador-precios.html">Precios de venta</a>
+              </div>
+            </div>
+            <p id="cotizador-feedback" class="feedback" aria-live="polite"></p>
+
+            <article class="cotizador-card">
+              <h2 class="cotizador-section-title">
+                <span class="cotizador-section-title-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 13h18l-1.5-4.5A2 2 0 0 0 17.6 7H6.4a2 2 0 0 0-1.9 1.5L3 13z"/><path d="M5 17h.01M19 17h.01"/><path d="M5 13v4a1 1 0 0 0 1 1h1.5"/><path d="M16.5 18H18a1 1 0 0 0 1-1v-4"/></svg>
+                </span>
+                Cotizar por vehículo
+              </h2>
+              <p class="maint-panel-sub">Elige marca, modelo, año y luego la versión/motor. Gasolina y diésel tienen insumos distintos.</p>
+              <div class="cotizador-quote-grid">
+                <label>
+                  <span>Marca</span>
+                  <div class="cotizador-combo">
+                    <input id="cotizador-brand-input" type="text" autocomplete="off" placeholder="Ej: Toyota" />
+                    <div id="cotizador-brand-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                </label>
+                <label>
+                  <span>Modelo</span>
+                  <div class="cotizador-combo">
+                    <input id="cotizador-model-input" type="text" autocomplete="off" placeholder="Ej: Fortuner" />
+                    <div id="cotizador-model-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                </label>
+                <label>
+                  <span>Año</span>
+                  <div class="cotizador-combo">
+                    <input id="cotizador-year-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 2021" />
+                    <div id="cotizador-year-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                </label>
+                <label class="cotizador-version-field">
+                  <span>Versión / motor</span>
+                  <div class="cotizador-combo">
+                    <input id="cotizador-version-input" type="text" autocomplete="off" placeholder="Primero elige marca, modelo y año" disabled />
+                    <input id="cotizador-vehicle-id" type="hidden" value="" />
+                    <div id="cotizador-version-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                </label>
+              </div>
+              <div class="cotizador-quote-actions">
+                <button id="cotizador-quote-button" class="cotizador-btn cotizador-btn-gold" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/><path d="M14 18h2"/></svg>
+                  Cotizar
+                </button>
+                <button id="cotizador-configure-quote-prices" class="cotizador-btn cotizador-btn-outline" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Editar precios de esta versión
+                </button>
+              </div>
+              <div id="cotizador-quote-result" class="cotizador-quote-result">
+                <div class="cotizador-info-banner">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+                  <span>Selecciona marca, modelo, año y versión/motor para ver los insumos.</span>
+                </div>
+              </div>
+              <div id="cotizador-post-quote-actions" class="cotizador-quote-actions" hidden>
+                <button id="cotizador-reset-button" class="cotizador-btn cotizador-btn-ghost" type="button">Reiniciar cotización</button>
+                <button id="cotizador-send-button" class="cotizador-btn cotizador-btn-dark" type="button">Enviar cotización</button>
+              </div>
+            </article>
+
+            <article class="cotizador-card">
+              <div class="cotizador-card-header">
+                <h2 class="cotizador-section-title">
+                  <span class="cotizador-section-title-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
+                  </span>
+                  Inventario / insumos
+                </h2>
+                <button id="cotizador-export-supplies-button" class="cotizador-btn cotizador-btn-dark" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Descargar XLSX
+                </button>
+              </div>
+              <div class="cotizador-filter-row">
+                <div class="cotizador-filter-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  <input id="cotizador-supply-search" type="text" placeholder="Filtrar: 0W-20, 90915-YZZN3..." />
+                </div>
+                <select id="cotizador-supply-type">
+                  <option value="">Todos los tipos</option>
+                  <option value="oil">Aceite motor</option>
+                  <option value="oil_filter">Filtro aceite</option>
+                  <option value="drain_plug_gasket">Empaque / sello</option>
+                  <option value="engine_air_filter">Filtro aire motor</option>
+                  <option value="cabin_air_filter">Filtro cabina / A/C</option>
+                  <option value="other">Servicio taller</option>
+                </select>
+                <div class="cotizador-filter-vehicle-pair">
+                  <div class="cotizador-combo">
+                    <input id="cotizador-supply-brand" type="text" autocomplete="off" placeholder="Marca: Toyota..." />
+                    <div id="cotizador-supply-brand-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                  <div class="cotizador-combo">
+                    <input id="cotizador-supply-model" type="text" autocomplete="off" placeholder="Modelo: Prado..." />
+                    <div id="cotizador-supply-model-list" class="cotizador-combo-list" role="listbox"></div>
+                  </div>
+                </div>
+              </div>
+              <p class="cotizador-supply-count" id="cotizador-supply-filter-info">—</p>
+              <div class="cotizador-table-wrap">
+                <table class="tracking-data-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Especificación / OEM</th>
+                      <th>Stock</th>
+                      <th>Costo</th>
+                      <th>Compatible con</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cotizador-supplies-body">
+                    <tr><td colspan="6"><div class="empty-state">Cargando insumos...</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="cotizador-card">
+              <div class="cotizador-card-header">
+                <h2 class="cotizador-section-title">
+                  <span class="cotizador-section-title-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M3 13h18l-1.5-4.5A2 2 0 0 0 17.6 7H6.4a2 2 0 0 0-1.9 1.5L3 13z"/><path d="M5 17h.01M19 17h.01"/><path d="M5 13v4a1 1 0 0 0 1 1h1.5"/><path d="M16.5 18H18a1 1 0 0 0 1-1v-4"/></svg>
+                  </span>
+                  Vehículos cargados
+                </h2>
+                <p class="maint-panel-sub" id="cotizador-vehicles-page-info" style="margin:0">—</p>
+              </div>
+              <div class="cotizador-table-wrap">
+                <table class="tracking-data-table">
+                  <thead>
+                    <tr>
+                      <th>Marca</th>
+                      <th>Modelo / variante</th>
+                      <th>Motor</th>
+                      <th>Años</th>
+                      <th>Insumos</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cotizador-vehicles-body">
+                    <tr><td colspan="5"><div class="empty-state">Cargando vehículos...</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div id="cotizador-vehicles-pagination" class="cotizador-quote-actions" style="margin-top:0.85rem;margin-bottom:0"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="maint-tab-diagnosticos" class="maint-tab-panel" data-maint-panel="diagnosticos" hidden>
+          <article class="dashboard-card">
+            <header class="maint-panel-header">
+              <div>
+                <h2 class="maint-panel-heading">Diagnósticos del taller</h2>
+                <p class="maint-panel-sub">Reportes generados por el portal de mecánica</p>
+              </div>
+              <button id="mechanic-diagnoses-refresh" class="secondary-button" type="button">Actualizar</button>
+            </header>
+            <div class="tracking-table-wrap">
+              <table class="tracking-data-table">
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Cliente</th>
+                    <th>Vehículo</th>
+                    <th>Placa</th>
+                    <th>Km</th>
+                    <th>Próximo</th>
+                    <th>Fecha</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="mechanic-diagnoses-body">
+                  <tr><td colspan="8"><div class="empty-state">Abre esta pestaña para cargar diagnósticos.</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section id="maint-tab-contabilidad" class="maint-tab-panel" data-maint-panel="contabilidad" hidden>
+          <style>
+            :root {
+              --acct-gold: #a68246;
+              --acct-gold-soft: rgba(166, 130, 70, 0.14);
+              --acct-line: rgba(17, 17, 17, 0.1);
+              --acct-muted: #6b7280;
+              --acct-ink: #171717;
+            }
+
+            .acct-page {
+              display: grid;
+              gap: 1.1rem;
+              max-width: 100%;
+              min-width: 0;
+            }
+
+            .acct-hero h2 {
+              margin: 0;
+              font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+              letter-spacing: 0.02em;
+              text-transform: uppercase;
+            }
+
+            .acct-hero p {
+              margin: 0.4rem 0 0;
+              color: var(--acct-muted);
+              max-width: 52rem;
+            }
+
+            .acct-card {
+              background: #fff;
+              border: 1px solid var(--acct-line);
+              border-radius: 20px;
+              padding: 1.15rem 1.2rem 1.25rem;
+              box-shadow: 0 10px 28px rgba(20, 16, 10, 0.04);
+              min-width: 0;
+            }
+
+            .acct-filters {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(150px, 210px)) auto auto;
+              gap: 0.75rem;
+              align-items: end;
+            }
+
+            .acct-field {
+              display: grid;
+              gap: 0.35rem;
+              min-width: 0;
+            }
+
+            .acct-field > span {
+              font-size: 0.78rem;
+              font-weight: 800;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
+              color: #4b5563;
+            }
+
+            .acct-input-wrap {
+              position: relative;
+              display: flex;
+              align-items: center;
+            }
+
+            .acct-input-wrap svg {
+              position: absolute;
+              left: 0.85rem;
+              width: 17px;
+              height: 17px;
+              stroke: var(--acct-gold);
+              fill: none;
+              stroke-width: 1.8;
+              pointer-events: none;
+            }
+
+            .acct-input-wrap input {
+              width: 100%;
+              min-height: 46px;
+              box-sizing: border-box;
+              border: 1.5px solid rgba(17, 17, 17, 0.12);
+              border-radius: 12px;
+              padding: 0.65rem 0.8rem 0.65rem 2.5rem;
+              font: inherit;
+              background: #fff;
+            }
+
+            .acct-input-wrap input:focus {
+              outline: none;
+              border-color: var(--acct-gold);
+              box-shadow: 0 0 0 3px var(--acct-gold-soft);
+            }
+
+            .acct-btn {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 0.5rem;
+              min-height: 46px;
+              padding: 0.7rem 1.05rem;
+              border-radius: 12px;
+              border: 1.5px solid transparent;
+              font-weight: 800;
+              letter-spacing: 0.03em;
+              text-transform: uppercase;
+              cursor: pointer;
+              white-space: nowrap;
+            }
+
+            .acct-btn svg {
+              width: 17px;
+              height: 17px;
+              stroke: currentColor;
+              fill: none;
+              stroke-width: 2;
+              flex-shrink: 0;
+            }
+
+            .acct-btn-primary {
+              background: linear-gradient(180deg, #c4a35a 0%, var(--acct-gold) 100%);
+              color: #fff;
+              box-shadow: 0 10px 20px rgba(166, 130, 70, 0.25);
+            }
+
+            .acct-btn-ghost {
+              background: #fff;
+              border-color: var(--acct-gold);
+              color: var(--acct-gold);
+            }
+
+            .acct-period-note {
+              margin: 0.85rem 0 0;
+              color: #1f7a45;
+              font-size: 0.9rem;
+              font-weight: 700;
+            }
+
+            .acct-stats {
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+              gap: 0.8rem;
+            }
+
+            .acct-stat {
+              display: flex;
+              align-items: center;
+              gap: 0.85rem;
+              min-height: 96px;
+              background: #fff;
+              border: 1px solid var(--acct-line);
+              border-radius: 18px;
+              padding: 0.95rem 1rem;
+              box-shadow: 0 8px 20px rgba(20, 16, 10, 0.035);
+            }
+
+            .acct-stat-icon {
+              width: 46px;
+              height: 46px;
+              border-radius: 999px;
+              display: grid;
+              place-items: center;
+              background: var(--acct-gold-soft);
+              color: var(--acct-gold);
+              flex-shrink: 0;
+            }
+
+            .acct-stat-icon svg {
+              width: 22px;
+              height: 22px;
+              stroke: currentColor;
+              fill: none;
+              stroke-width: 1.8;
+            }
+
+            .acct-stat-copy span {
+              display: block;
+              font-size: 0.72rem;
+              font-weight: 800;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
+              color: var(--acct-muted);
+            }
+
+            .acct-stat-copy strong {
+              display: block;
+              margin-top: 0.2rem;
+              font-size: 1.45rem;
+              line-height: 1.1;
+              color: var(--acct-ink);
+            }
+
+            .acct-stat-copy small {
+              color: var(--acct-muted);
+              font-size: 0.82rem;
+            }
+
+            .acct-section-title {
+              display: flex;
+              align-items: center;
+              gap: 0.6rem;
+              margin: 0 0 0.35rem;
+              font-size: 1rem;
+              font-weight: 800;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+              color: var(--acct-ink);
+            }
+
+            .acct-section-title svg {
+              width: 20px;
+              height: 20px;
+              stroke: var(--acct-gold);
+              fill: none;
+              stroke-width: 1.8;
+              flex-shrink: 0;
+            }
+
+            .acct-card .maint-panel-sub {
+              margin: 0 0 0.95rem;
+              color: var(--acct-muted);
+            }
+
+            .acct-table-wrap {
+              overflow-x: auto;
+              border: 1px solid var(--acct-line);
+              border-radius: 14px;
+              max-width: 100%;
+            }
+
+            .acct-table-wrap .tracking-data-table {
+              margin: 0;
+              min-width: 860px;
+            }
+
+            .acct-table-wrap .tracking-data-table thead th {
+              background: #f3f4f6;
+              color: #4b5563;
+              font-size: 0.76rem;
+              letter-spacing: 0.05em;
+            }
+
+            .acct-money-input {
+              width: 108px;
+              min-width: 90px;
+              box-sizing: border-box;
+              min-height: 38px;
+              border: 1.5px solid rgba(17, 17, 17, 0.12);
+              border-radius: 10px;
+              padding: 0.35rem 0.5rem;
+              font: inherit;
+            }
+
+            .acct-footer-actions {
+              display: flex;
+              justify-content: flex-end;
+              margin-top: 0.9rem;
+            }
+
+            .acct-bottom-grid {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 1.1rem;
+            }
+
+            .acct-window-field {
+              display: grid;
+              gap: 0.35rem;
+              max-width: 220px;
+              margin-bottom: 0.85rem;
+            }
+
+            .acct-window-field span {
+              font-size: 0.78rem;
+              font-weight: 800;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+              color: #4b5563;
+            }
+
+            .acct-window-field input {
+              min-height: 44px;
+              border: 1.5px solid rgba(17, 17, 17, 0.12);
+              border-radius: 12px;
+              padding: 0.55rem 0.75rem;
+              font: inherit;
+            }
+
+            .acct-tier-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1.2fr auto;
+              gap: 0.55rem;
+              margin-bottom: 0.55rem;
+              align-items: center;
+            }
+
+            .acct-tier-row input {
+              min-width: 0;
+              width: 100%;
+              min-height: 42px;
+              box-sizing: border-box;
+              border: 1.5px solid rgba(17, 17, 17, 0.12);
+              border-radius: 10px;
+              padding: 0.45rem 0.65rem;
+              font: inherit;
+            }
+
+            .acct-tier-remove {
+              min-height: 42px;
+              border: 1.5px solid rgba(17, 17, 17, 0.16);
+              background: #fff;
+              border-radius: 10px;
+              padding: 0.45rem 0.8rem;
+              font-weight: 700;
+              cursor: pointer;
+            }
+
+            .acct-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.6rem;
+              margin-top: 0.85rem;
+            }
+
+            .acct-pay-total {
+              margin: 0.9rem 0 0;
+              color: var(--acct-ink);
+              font-size: 0.98rem;
+            }
+
+            .acct-pay-total strong {
+              color: var(--acct-gold);
+            }
+
+            @media (max-width: 980px) {
+              .acct-filters,
+              .acct-stats,
+              .acct-tier-row {
+                grid-template-columns: 1fr;
+              }
+
+              .acct-btn {
+                width: 100%;
+              }
+            }
+          </style>
+
+          <article class="acct-page">
+            <div class="acct-hero">
+              <h2>Contabilidad del taller</h2>
+              <p>Filtra por periodo para consolidar servicios, facturación, costos, utilidades y pago al equipo según volumen.</p>
+            </div>
+
+            <div class="acct-card">
+              <div class="acct-filters">
+                <label class="acct-field">
+                  <span>Desde</span>
+                  <span class="acct-input-wrap">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <input id="acct-date-from" type="date" />
+                  </span>
+                </label>
+                <label class="acct-field">
+                  <span>Hasta</span>
+                  <span class="acct-input-wrap">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <input id="acct-date-to" type="date" />
+                  </span>
+                </label>
+                <button id="acct-apply-filter" class="acct-btn acct-btn-primary" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16l-6 7v6l-4 2v-8L4 4z"/></svg>
+                  Aplicar periodo
+                </button>
+                <button id="acct-apply-plan-labor" class="acct-btn acct-btn-ghost" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+                  Vincular plan al costo laboral
+                </button>
+              </div>
+              <p id="acct-feedback" class="acct-period-note" aria-live="polite"></p>
+            </div>
+
+            <section class="acct-stats" aria-label="Resumen del periodo">
+              <article class="acct-stat">
+                <span class="acct-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 2h6v4H9z"/><path d="M9 12h6M9 16h4"/></svg>
+                </span>
+                <div class="acct-stat-copy">
+                  <span>Servicios</span>
+                  <strong id="acct-services-count">0</strong>
+                  <small>Realizados en el periodo</small>
+                </div>
+              </article>
+              <article class="acct-stat">
+                <span class="acct-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 10.5c.5-1 1.5-1.5 2.5-1.5s2 .6 2 1.75-1 1.75-2 2.25-2 .9-2 2.1 1 1.9 2.5 1.9 2.1-.6 2.5-1.6"/></svg>
+                </span>
+                <div class="acct-stat-copy">
+                  <span>Facturado</span>
+                  <strong id="acct-billed-total">$0</strong>
+                  <small>Ingresos del periodo</small>
+                </div>
+              </article>
+              <article class="acct-stat">
+                <span class="acct-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </span>
+                <div class="acct-stat-copy">
+                  <span>Costo servicios</span>
+                  <strong id="acct-cost-total">$0</strong>
+                  <small>Insumos + mano de obra</small>
+                </div>
+              </article>
+              <article class="acct-stat">
+                <span class="acct-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-6"/></svg>
+                </span>
+                <div class="acct-stat-copy">
+                  <span>Utilidad</span>
+                  <strong id="acct-profit-total">$0</strong>
+                  <small>Facturado − costo</small>
+                </div>
+              </article>
+            </section>
+
+            <article class="acct-card">
+              <h3 class="acct-section-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+                Servicios del periodo
+              </h3>
+              <p class="maint-panel-sub">Edita lo facturado y los costos por orden. Si el laboral está vacío, se usa la tarifa del plan según volumen del técnico.</p>
+              <div class="acct-table-wrap tracking-table-wrap">
+                <table class="tracking-data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Orden</th>
+                      <th>Técnico</th>
+                      <th>Vehículo</th>
+                      <th>Facturado</th>
+                      <th>Insumos</th>
+                      <th>Laboral</th>
+                      <th>Costo</th>
+                      <th>Utilidad</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="acct-orders-body">
+                    <tr><td colspan="10"><div class="empty-state">Elige un periodo y pulsa Aplicar.</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="acct-footer-actions">
+                <button id="acct-save-all-billing" class="acct-btn acct-btn-ghost" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                  Guardar
+                </button>
+              </div>
+            </article>
+
+            <div class="acct-bottom-grid">
+              <article class="acct-card">
+                <h3 class="acct-section-title">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+                  Pago al equipo (por volumen)
+                </h3>
+                <p class="maint-panel-sub">Ejemplo: en 15 días, 0–5 mantenimientos a $150.000; 6–10 a $130.000; 11–20 a $120.000; 21–30 a $110.000; +31 a $100.000.</p>
+                <label class="acct-window-field">
+                  <span>Ventana (días)</span>
+                  <input id="acct-plan-window" type="number" min="1" max="90" value="15" />
+                </label>
+                <div id="acct-tiers-list"></div>
+                <div class="acct-actions">
+                  <button id="acct-add-tier" class="acct-btn acct-btn-ghost" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+                    Añadir tramo
+                  </button>
+                  <button id="acct-save-plan" class="acct-btn acct-btn-primary" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                    Guardar plan
+                  </button>
+                </div>
+              </article>
+
+              <article class="acct-card">
+                <h3 class="acct-section-title">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Resumen por técnico
+                </h3>
+                <p class="maint-panel-sub">Servicios del periodo, tarifa del plan y pago estimado.</p>
+                <div class="acct-table-wrap tracking-table-wrap">
+                  <table class="tracking-data-table">
+                    <thead>
+                      <tr>
+                        <th>Técnico</th>
+                        <th>Servicios</th>
+                        <th>Tarifa</th>
+                        <th>Pago plan</th>
+                        <th>Utilidad</th>
+                      </tr>
+                    </thead>
+                    <tbody id="acct-tech-body">
+                      <tr><td colspan="5"><div class="empty-state">Sin datos del periodo.</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="acct-pay-total">
+                  Pago total plan: <strong id="acct-mechanic-pay-total">$0</strong>
+                </p>
+              </article>
+            </div>
+          </article>
+        </section>
+
       </section>
     </main>
 
-    <div id="add-maintenance-modal" class="tracking-modal" hidden>
+    <div id="cotizador-send-modal" class="tracking-modal cotizador-send-modal" hidden>
+      <div class="tracking-modal-backdrop" id="cotizador-send-overlay"></div>
+      <section class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="cotizador-send-title">
+        <header class="client-modal-header">
+          <div>
+            <p class="section-tag">Cotizador</p>
+            <h2 id="cotizador-send-title">Enviar cotización</h2>
+            <p class="maint-panel-sub">Completa los datos del cliente. La previsualización se actualiza al instante.</p>
+          </div>
+          <button id="cotizador-send-close" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div class="cotizador-send-layout">
+          <form id="cotizador-send-form" class="cotizador-send-form">
+            <label>
+              <span>Nombre o razón social</span>
+              <input id="cotizador-send-name" name="clientName" type="text" required placeholder="Cliente o empresa" autocomplete="organization" />
+            </label>
+            <label>
+              <span>CC o NIT</span>
+              <input id="cotizador-send-document" name="clientDocument" type="text" required placeholder="Ej: 901588128" />
+            </label>
+            <label>
+              <span>Fecha</span>
+              <input id="cotizador-send-date" name="quoteDate" type="date" required />
+            </label>
+            <label>
+              <span>Correo del cliente</span>
+              <input id="cotizador-send-email" name="clientEmail" type="email" required placeholder="cliente@correo.com" autocomplete="email" />
+            </label>
+            <label>
+              <span>Teléfono (opcional)</span>
+              <input id="cotizador-send-phone" name="clientPhone" type="tel" placeholder="300 123 4567" autocomplete="tel" />
+            </label>
+            <p id="cotizador-send-feedback" class="feedback" aria-live="polite"></p>
+          </form>
+          <div class="cotizador-send-preview-wrap" id="cotizador-send-preview" aria-live="polite">
+            <div class="empty-state">La previsualización aparecerá aquí.</div>
+          </div>
+        </div>
+        <div class="cotizador-send-actions">
+          <button id="cotizador-download-quote" class="cotizador-btn cotizador-btn-outline" type="button">Descargar / imprimir</button>
+          <button id="cotizador-confirm-send" class="cotizador-btn cotizador-btn-gold" type="button">Enviar cotización</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="cotizador-confirm-modal" class="tracking-modal cotizador-confirm-modal" hidden>
+      <div class="tracking-modal-backdrop" id="cotizador-confirm-overlay"></div>
+      <section class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="cotizador-confirm-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="cotizador-confirm-title">Confirmar envío</h2>
+          </div>
+          <button id="cotizador-confirm-close" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div class="cotizador-confirm-body">
+          <p id="cotizador-confirm-text">¿Deseas enviar esta cotización al correo del cliente?</p>
+          <label class="cotizador-marketing-check">
+            <input id="cotizador-marketing-checkbox" type="checkbox" checked />
+            <span>Agregar cliente a la base de datos para marketing en 6 meses</span>
+          </label>
+          <p id="cotizador-confirm-feedback" class="feedback" aria-live="polite"></p>
+        </div>
+        <div class="cotizador-send-actions">
+          <button id="cotizador-confirm-cancel" class="cotizador-btn cotizador-btn-outline" type="button">Cancelar</button>
+          <button id="cotizador-confirm-submit" class="cotizador-btn cotizador-btn-gold" type="button">Enviar cotización</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="cotizador-success-modal" class="tracking-modal cotizador-success-modal" hidden>
+      <div class="tracking-modal-backdrop" id="cotizador-success-overlay"></div>
+      <section class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="cotizador-success-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="cotizador-success-title">Envío exitoso</h2>
+          </div>
+          <button id="cotizador-success-close" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div class="cotizador-success-body">
+          <div class="cotizador-success-icon" aria-hidden="true">✓</div>
+          <strong>Cotización enviada</strong>
+          <p id="cotizador-success-text">El correo llegó al cliente correctamente.</p>
+        </div>
+        <div class="cotizador-send-actions">
+          <button id="cotizador-success-ok" class="cotizador-btn cotizador-btn-gold" type="button">Listo</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="cotizador-compat-modal" class="tracking-modal cotizador-scroll-modal" hidden>
+      <div class="tracking-modal-backdrop" id="cotizador-compat-overlay"></div>
+      <section class="tracking-modal-card cotizador-compat-modal-card" role="dialog" aria-modal="true" aria-labelledby="cotizador-compat-title">
+        <header class="client-modal-header">
+          <div>
+            <h2 id="cotizador-compat-title">Vehículos compatibles</h2>
+            <p class="maint-panel-sub" id="cotizador-compat-subtitle">Insumo</p>
+          </div>
+          <button id="cotizador-compat-close" class="secondary-button" type="button">Cerrar</button>
+        </header>
+        <div class="cotizador-table-wrap cotizador-modal-scroll">
+          <table class="tracking-data-table">
+            <thead>
+              <tr>
+                <th>Marca</th>
+                <th>Modelo / variante</th>
+                <th>Motor</th>
+                <th>Años</th>
+              </tr>
+            </thead>
+            <tbody id="cotizador-compat-body">
+              <tr><td colspan="4"><div class="empty-state">Sin vehículos.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="add-maintenance-modal" class="tracking-modal add-maintenance-modal" hidden>
       <div class="tracking-modal-backdrop" id="add-maintenance-overlay"></div>
-      <section class="tracking-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-maintenance-title">
-        <header class="client-modal-header" style="margin-bottom:1rem">
+      <section class="tracking-modal-card add-maintenance-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-maintenance-title">
+        <header class="client-modal-header add-maintenance-modal-header">
           <div>
             <p class="section-tag">Mantenimientos</p>
             <h2 id="add-maintenance-title">Añadir mantenimiento</h2>
           </div>
-          <button id="add-maintenance-close" class="icon-button" type="button" aria-label="Cerrar">✕</button>
+          <button id="add-maintenance-close" class="icon-button add-maintenance-close" type="button" aria-label="Cerrar">✕</button>
         </header>
-        <form id="add-maintenance-form" class="dashboard-form">
-          <div class="tracking-search-grid">
-            <label>
+        <form id="add-maintenance-form" class="dashboard-form add-maintenance-form">
+          <div class="add-maintenance-grid">
+            <label class="add-maint-span-2">
               <span>Cliente *</span>
               <input id="add-maint-contact-name" name="contactName" type="text" required placeholder="Nombre del cliente" />
             </label>
@@ -249,8 +2017,8 @@
               <input id="add-maint-due-date" name="dueDate" type="date" />
             </label>
           </div>
-          <p class="maint-panel-sub">Si solo pones fecha de entrega, el próximo mantenimiento se calcula a +6 meses.</p>
-          <label>
+          <p class="maint-panel-sub add-maintenance-hint">Si solo pones fecha de entrega, el próximo mantenimiento se calcula a +6 meses.</p>
+          <label class="add-maint-notes">
             <span>Notas</span>
             <textarea id="add-maint-notes" name="contactNotes" rows="3" maxlength="1000" placeholder="Notas internas"></textarea>
           </label>
@@ -263,7 +2031,9 @@
       </section>
     </div>
 
-    <script src="/admin-common.js?v=20260514-viewport07"></script>
-    <script src="/admin-maintenance.js?v=20260727-maint01"></script>
+    <script src="/admin-common.js?v=20260801-sidebar-visitors01"></script>
+    <script src="/admin-maintenance.js?v=20260801-maint13"></script>
+    <script src="/admin-cotizador.js?v=20260801-cot24"></script>
+    <script src="/admin-workshop-accounting.js?v=20260801-acct02"></script>
   </body>
 </html>

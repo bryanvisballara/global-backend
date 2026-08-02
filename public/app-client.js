@@ -37,16 +37,22 @@ function resolveApiBaseUrl() {
 
 function resolveAppPagePath(pageName = "") {
   const normalizedPageName = String(pageName || "").trim().replace(/^\/+/, "");
-  const isEmbeddedAppPage = String(window.location.pathname || "").startsWith("/app/");
-  return `${isEmbeddedAppPage ? "/app" : ""}/${normalizedPageName}`;
+  return `/${normalizedPageName}`;
 }
 
 function isAdministrativeRole(role = "") {
-  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(String(role || "").trim());
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA", "mechanic", "vigilance"].includes(String(role || "").trim());
 }
 
 function resolveAuthenticatedLandingPage(role = "") {
-  return String(role || "").trim() === "brokerUSA"
+  const normalizedRole = String(role || "").trim();
+  if (normalizedRole === "mechanic") {
+    return resolveAppPagePath("mechanic.html");
+  }
+  if (normalizedRole === "vigilance") {
+    return resolveAppPagePath("vigilance.html");
+  }
+  return normalizedRole === "brokerUSA"
     ? resolveAppPagePath("admin-tracking.html")
     : resolveAppPagePath("admin.html");
 }

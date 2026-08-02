@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Global Imports | Portal Mecánica</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260801-adminlight43" />
+    <style>
+      :root {
+        --mech-ink: #111111;
+        --mech-gold: #c4a35a;
+        --mech-gold-soft: #f4ead3;
+        --mech-line: rgba(17, 17, 17, 0.12);
+        --mech-muted: #6b6b6b;
+        --mech-bg: #f3f1ec;
+        --mech-safe-top: env(safe-area-inset-top, 0px);
+        --mech-safe-bottom: env(safe-area-inset-bottom, 0px);
+        --mech-safe-left: env(safe-area-inset-left, 0px);
+        --mech-safe-right: env(safe-area-inset-right, 0px);
+      }
+
+      .global-loading-overlay { display: none !important; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--mech-bg);
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        touch-action: manipulation;
+      }
+
+      /* Avoid admin iPad zoom shrink — workshop needs large tap targets */
+      body.mechanic-ipad-view {
+        zoom: 1 !important;
+        transform: none !important;
+        width: 100% !important;
+        min-height: 100dvh;
+        font-family: Manrope, Arial, sans-serif;
+        color: var(--mech-ink);
+      }
+
+      .mech-shell {
+        min-height: 100dvh;
+        padding:
+          calc(16px + var(--mech-safe-top))
+          calc(18px + var(--mech-safe-right))
+          calc(18px + var(--mech-safe-bottom))
+          calc(18px + var(--mech-safe-left));
+        box-sizing: border-box;
+      }
+
+      .mech-stage {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .mech-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: #fff;
+        border: 1px solid var(--mech-line);
+        border-radius: 22px;
+        padding: 1rem 1.15rem;
+        box-shadow: 0 10px 28px rgba(20, 16, 8, 0.05);
+      }
+
+      .mech-brand-tag {
+        margin: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--mech-gold);
+        font-weight: 800;
+      }
+
+      .mech-brand-title {
+        margin: 0.25rem 0 0;
+        font-family: Syne, Manrope, sans-serif;
+        font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .mech-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .mech-user-chip {
+        display: grid;
+        gap: 0.1rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 16px;
+        background: #f7f5f1;
+        border: 1px solid var(--mech-line);
+        min-width: 180px;
+      }
+
+      .mech-user-chip span {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mech-muted);
+        font-weight: 700;
+      }
+
+      .mech-user-chip strong {
+        font-size: 0.95rem;
+        font-weight: 800;
+      }
+
+      .mech-btn {
+        appearance: none;
+        border: 1px solid var(--mech-line);
+        border-radius: 16px;
+        min-height: 52px;
+        padding: 0.85rem 1.2rem;
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        background: #fff;
+        color: var(--mech-ink);
+      }
+
+      .mech-btn:active { transform: scale(0.985); }
+
+      .mech-btn-primary {
+        background: linear-gradient(180deg, #d4b06a 0%, var(--mech-gold) 100%);
+        border-color: #b89245;
+        color: #15110a;
+        box-shadow: 0 10px 22px rgba(196, 163, 90, 0.28);
+      }
+
+      .mech-btn-dark {
+        background: var(--mech-ink);
+        border-color: var(--mech-ink);
+        color: #fff;
+      }
+
+      .mech-btn-ghost {
+        background: #fff;
+      }
+
+      .mech-btn-block {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .mech-cta-row {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .mech-cta-row .mech-btn-primary {
+        min-height: 58px;
+        font-size: 1.05rem;
+      }
+
+      .mech-feedback {
+        margin: 0;
+        min-height: 1.2em;
+      }
+
+      .mech-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 1rem;
+        align-items: stretch;
+      }
+
+      .mech-card {
+        background: #fff;
+        border: 1px solid var(--mech-line);
+        border-radius: 22px;
+        padding: 1rem 1.1rem 1.15rem;
+        box-shadow: 0 12px 30px rgba(20, 16, 8, 0.05);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .mech-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.9rem;
+      }
+
+      .mech-card-header h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+
+      .mech-card-header p {
+        margin: 0.3rem 0 0;
+        color: var(--mech-muted);
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .mech-month-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .mech-month-nav .mech-btn {
+        min-width: 48px;
+        min-height: 48px;
+        padding: 0;
+        font-size: 1.35rem;
+        line-height: 1;
+      }
+
+      .mech-month-label {
+        min-width: 140px;
+        text-align: center;
+        font-weight: 800;
+        text-transform: capitalize;
+      }
+
+      .mech-weekdays,
+      .mech-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+
+      .mech-weekdays span {
+        text-align: center;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mech-muted);
+        font-weight: 800;
+        padding: 0.2rem 0 0.45rem;
+      }
+
+      .mech-day {
+        min-height: 78px;
+        border: 1px solid var(--mech-line);
+        border-radius: 16px;
+        background: #faf9f7;
+        padding: 0.55rem 0.5rem;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      .mech-day.is-today {
+        background: var(--mech-gold-soft);
+        border-color: rgba(196, 163, 90, 0.55);
+      }
+
+      .mech-day.is-active {
+        border-color: var(--mech-ink);
+        box-shadow: inset 0 0 0 2px var(--mech-ink);
+        background: #fff;
+      }
+
+      .mech-day.is-muted {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+
+      .mech-day-number {
+        display: block;
+        font-weight: 800;
+        font-size: 1.05rem;
+      }
+
+      .mech-day-count {
+        display: none;
+        margin-top: 0.4rem;
+        width: 1.55rem;
+        height: 1.55rem;
+        border-radius: 999px;
+        place-items: center;
+        background: #1f8f4e;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        line-height: 1;
+        box-shadow: 0 2px 8px rgba(31, 143, 78, 0.35);
+      }
+
+      .mech-day-count:not(:empty) {
+        display: grid;
+      }
+
+      .mech-day.is-active .mech-day-count,
+      .mech-day.is-today .mech-day-count {
+        background: #157a40;
+      }
+
+      .mech-day-list {
+        display: grid;
+        gap: 0.7rem;
+        overflow: auto;
+        max-height: min(58vh, 560px);
+        padding-right: 0.15rem;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .mech-count-pill {
+        min-width: 44px;
+        min-height: 44px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--mech-ink);
+        color: #fff;
+        font-weight: 800;
+        font-size: 1.05rem;
+      }
+
+      .mech-vehicle-card {
+        border: 1px solid var(--mech-line);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        background: #faf9f7;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .mech-vehicle-card:active {
+        background: var(--mech-gold-soft);
+      }
+
+      .mech-vehicle-card strong {
+        display: block;
+        font-size: 1.12rem;
+        font-weight: 800;
+      }
+
+      .mech-vehicle-card span {
+        display: block;
+        margin-top: 0.3rem;
+        color: var(--mech-muted);
+        font-size: 0.95rem;
+        line-height: 1.35;
+      }
+
+      .mech-vehicle-card.is-order {
+        border-color: rgba(196, 163, 90, 0.55);
+        background: #fffdf7;
+      }
+
+      .mech-vehicle-card.is-active-order {
+        outline: 2px solid var(--mech-ink);
+      }
+
+      .mech-list-label {
+        margin: 0.35rem 0 0.15rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mech-muted);
+      }
+
+      .mech-status-pill {
+        display: inline-block;
+        margin-top: 0.55rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        background: var(--mech-gold-soft);
+        color: var(--mech-ink);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .mech-details-box {
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.05rem 1.15rem;
+        border: 1px solid var(--mech-line);
+        border-radius: 20px;
+        background: #faf9f7;
+      }
+
+      .mech-details-box .mech-section-title {
+        margin-top: 0;
+      }
+
+      .mech-empty {
+        border: 1px dashed var(--mech-line);
+        border-radius: 18px;
+        padding: 2rem 1rem;
+        text-align: center;
+        color: var(--mech-muted);
+        font-weight: 600;
+        background: #faf9f7;
+      }
+
+      .mech-diagnosis-card {
+        margin-top: 0.25rem;
+        padding-bottom: calc(88px + var(--mech-safe-bottom));
+      }
+
+      .mech-section-title {
+        margin: 1.4rem 0 0.85rem;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--mech-gold);
+        font-weight: 800;
+      }
+
+      .mech-q {
+        display: grid;
+        gap: 0.7rem;
+        margin: 0 0 1.15rem;
+        padding: 0;
+        border: 0;
+      }
+
+      .mech-q legend {
+        font-weight: 800;
+        font-size: 1.05rem;
+        line-height: 1.35;
+        margin-bottom: 0.15rem;
+        padding: 0;
+      }
+
+      .mech-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.55rem;
+      }
+
+      .mech-options label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 54px;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 16px;
+        padding: 0.75rem 0.9rem;
+        cursor: pointer;
+        background: #faf9f7;
+        font-weight: 700;
+        font-size: 0.98rem;
+      }
+
+      .mech-q-note {
+        display: grid;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--mech-muted);
+      }
+
+      .mech-q-note textarea {
+        min-height: 64px !important;
+        resize: vertical;
+        font-weight: 500;
+        color: var(--mech-ink);
+      }
+
+      .mech-photo-previews {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+        gap: 0.65rem;
+        margin-top: 0.75rem;
+      }
+
+      .mech-photo-previews:empty {
+        display: none;
+      }
+
+      .mech-photo-thumb {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1.5px solid var(--mech-line);
+        background: #fff;
+      }
+
+      .mech-photo-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .mech-photo-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(17, 17, 17, 0.82);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+
+      .mech-photo-remove:active {
+        background: #000;
+      }
+
+      .mech-sign-box {
+        margin-top: 1.25rem;
+        padding: 1rem 1.05rem 1.15rem;
+        border: 1px solid var(--mech-line);
+        border-radius: 20px;
+        background: #faf9f7;
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .mech-sign-box .mech-section-title {
+        margin: 0;
+      }
+
+      .mech-sign-canvas-wrap {
+        border: 1.5px dashed var(--mech-line);
+        border-radius: 16px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .mech-sign-canvas-wrap canvas {
+        display: block;
+        width: 100%;
+        height: 160px;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      .mech-sign-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+      }
+
+      .mech-default-check {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.7rem;
+        font-weight: 700;
+        line-height: 1.35;
+        cursor: pointer;
+      }
+
+      .mech-default-check input {
+        width: 1.25rem;
+        height: 1.25rem;
+        margin-top: 0.1rem;
+        accent-color: var(--mech-ink);
+        flex-shrink: 0;
+      }
+
+      .mech-options label:has(input:checked),
+      .mech-chips label:has(input:checked) {
+        border-color: var(--mech-ink);
+        background: var(--mech-gold-soft);
+        box-shadow: inset 0 0 0 1px var(--mech-ink);
+      }
+
+      .mech-options input,
+      .mech-chips input {
+        width: 1.15rem;
+        height: 1.15rem;
+        accent-color: var(--mech-ink);
+        flex-shrink: 0;
+      }
+
+      .mech-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.55rem;
+      }
+
+      .mech-chips label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 52px;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 16px;
+        padding: 0.7rem 0.85rem;
+        background: #faf9f7;
+        font-weight: 700;
+      }
+
+      .mech-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem;
+      }
+
+      .mech-form-grid label,
+      .mech-field {
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .mech-form-grid input,
+      .mech-diag-form input[type="number"],
+      .mech-diag-form input[type="file"],
+      .mech-diag-form textarea {
+        min-height: 54px;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 16px;
+        padding: 0.8rem 0.95rem;
+        font: inherit;
+        font-weight: 600;
+        background: #fff;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .mech-diag-form textarea {
+        min-height: 140px;
+        resize: vertical;
+      }
+
+      .mech-sticky-actions {
+        position: sticky;
+        bottom: calc(10px + var(--mech-safe-bottom));
+        z-index: 20;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+        padding: 0.75rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--mech-line);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 14px 36px rgba(20, 16, 8, 0.12);
+        margin-top: 1rem;
+      }
+
+      .mech-modal[hidden] { display: none !important; }
+
+      .mech-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: grid;
+        place-items: center;
+        padding:
+          calc(12px + var(--mech-safe-top))
+          calc(12px + var(--mech-safe-right))
+          calc(12px + var(--mech-safe-bottom))
+          calc(12px + var(--mech-safe-left));
+      }
+
+      .mech-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 10, 10, 0.45);
+      }
+
+      .mech-modal-card {
+        position: relative;
+        z-index: 1;
+        width: min(820px, 100%);
+        max-height: calc(100dvh - 24px - var(--mech-safe-top) - var(--mech-safe-bottom));
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fff;
+        border-radius: 24px;
+        padding: 1.2rem 1.25rem 1.35rem;
+        border: 1px solid var(--mech-line);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+      }
+
+      .mech-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .mech-modal-header h2 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+
+      .mech-modal-header p {
+        margin: 0.35rem 0 0;
+        color: var(--mech-muted);
+      }
+
+      .mech-modal-card.is-compact {
+        width: min(520px, 100%);
+      }
+
+      .mech-confirm-body,
+      .mech-success-body {
+        display: grid;
+        gap: 1rem;
+        margin: 0.35rem 0 1.15rem;
+      }
+
+      .mech-confirm-body > p,
+      .mech-success-body > p {
+        margin: 0;
+        color: var(--mech-muted);
+        line-height: 1.5;
+        font-size: 1.02rem;
+      }
+
+      .mech-email-check {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.95rem 1rem;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 18px;
+        background: #faf9f7;
+        font-weight: 700;
+        line-height: 1.4;
+        cursor: pointer;
+      }
+
+      .mech-email-check input {
+        width: 1.35rem;
+        height: 1.35rem;
+        margin-top: 0.1rem;
+        accent-color: var(--mech-ink);
+        flex-shrink: 0;
+      }
+
+      .mech-email-check small {
+        display: block;
+        margin-top: 0.3rem;
+        color: var(--mech-muted);
+        font-weight: 600;
+        font-size: 0.88rem;
+      }
+
+      .mech-modal-actions {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 0.7rem;
+      }
+
+      .mech-success-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        margin: 0.2rem auto 0;
+        background: #e8f7ee;
+        color: #157a40;
+        font-size: 1.8rem;
+        font-weight: 800;
+      }
+
+      .mech-success-body {
+        text-align: center;
+      }
+
+      .mech-success-body strong {
+        font-size: 1.25rem;
+      }
+
+      .mech-pick-list {
+        display: grid;
+        gap: 0.7rem;
+        margin-bottom: 0.9rem;
+      }
+
+      /* iPad portrait */
+      @media (max-width: 900px) {
+        .mech-grid,
+        .mech-form-grid,
+        .mech-sticky-actions {
+          grid-template-columns: 1fr;
+        }
+
+        .mech-topbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .mech-topbar-actions {
+          justify-content: space-between;
+        }
+
+        .mech-day-list {
+          max-height: none;
+        }
+      }
+
+      /* iPad landscape: taller calendar cells, roomier day rail */
+      @media (min-width: 901px) and (orientation: landscape) {
+        .mech-day {
+          min-height: 86px;
+        }
+
+        .mech-day-list {
+          max-height: min(62vh, 620px);
+        }
+
+        .mech-shell {
+          padding-left: calc(22px + var(--mech-safe-left));
+          padding-right: calc(22px + var(--mech-safe-right));
+        }
+      }
+    </style>
+  </head>
+  <body class="admin-app-view mechanic-ipad-view">
+    <main class="mech-shell">
+      <section class="mech-stage">
+        <header class="mech-topbar">
+          <div>
+            <p class="mech-brand-tag">Portal mecánica · iPad</p>
+            <h1 class="mech-brand-title">Global Imports Workshop</h1>
+          </div>
+          <div class="mech-topbar-actions">
+            <div class="mech-user-chip">
+              <span id="mech-user-name">Mecánico</span>
+              <strong id="mech-user-email">—</strong>
+            </div>
+            <button id="logout-button" class="mech-btn mech-btn-ghost" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <p id="mech-feedback" class="mech-feedback feedback" aria-live="polite"></p>
+
+        <div class="mech-cta-row">
+          <button id="mech-open-order" class="mech-btn mech-btn-primary" type="button">Abrir orden de servicio</button>
+        </div>
+
+        <div class="mech-grid">
+          <article class="mech-card">
+            <header class="mech-card-header">
+              <div>
+                <h2>Calendario de citas</h2>
+                <p>Solo vehículo · sin datos del cliente</p>
+              </div>
+              <div class="mech-month-nav">
+                <button id="mech-cal-prev" class="mech-btn" type="button" aria-label="Mes anterior">‹</button>
+                <strong class="mech-month-label" id="mech-cal-label">—</strong>
+                <button id="mech-cal-next" class="mech-btn" type="button" aria-label="Mes siguiente">›</button>
+              </div>
+            </header>
+            <div class="mech-weekdays" aria-hidden="true">
+              <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+            </div>
+            <div class="mech-calendar-grid" id="mech-calendar-grid"></div>
+          </article>
+
+          <article class="mech-card">
+            <header class="mech-card-header">
+              <div>
+                <h2 id="mech-day-title">Agenda del día</h2>
+                <p>Citas programadas y órdenes abiertas</p>
+              </div>
+              <strong class="mech-count-pill" id="mech-day-count">0</strong>
+            </header>
+            <div class="mech-day-list" id="mech-day-list"></div>
+          </article>
+        </div>
+
+        <article class="mech-card mech-diagnosis-card" id="mech-diagnosis-card" hidden>
+          <header class="mech-card-header">
+            <div>
+              <h2>Diagnóstico / mantenimiento</h2>
+              <p id="mech-order-summary">Completa el cuestionario con el dedo; las opciones son grandes a propósito.</p>
+            </div>
+          </header>
+          <form id="mech-diagnosis-form" class="mech-diag-form"></form>
+          <div class="mech-sticky-actions">
+            <button id="mech-save-diagnosis" class="mech-btn mech-btn-primary mech-btn-block" type="button">Guardar diagnóstico y generar PDF</button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <div id="mech-order-modal" class="mech-modal" hidden>
+      <div class="mech-modal-backdrop" id="mech-order-overlay"></div>
+      <section class="mech-modal-card" role="dialog" aria-modal="true" aria-labelledby="mech-order-title">
+        <header class="mech-modal-header">
+          <div>
+            <h2 id="mech-order-title">Abrir orden de servicio</h2>
+            <p>Toca una cita de hoy o agrega un vehículo nuevo</p>
+          </div>
+          <button id="mech-order-close" class="mech-btn mech-btn-ghost" type="button">Cerrar</button>
+        </header>
+        <div class="mech-pick-list" id="mech-today-pick-list"></div>
+        <button id="mech-show-walkin" class="mech-btn mech-btn-block" type="button">Agregar vehículo nuevo</button>
+        <form id="mech-walkin-form" class="mech-form-grid" hidden style="margin-top:1rem;">
+          <label><span>Nombre del cliente</span><input name="clientName" required autocomplete="name" /></label>
+          <label><span>Teléfono</span><input name="clientPhone" required inputmode="tel" autocomplete="tel" /></label>
+          <label><span>Correo</span><input name="clientEmail" type="email" inputmode="email" autocomplete="email" /></label>
+          <label><span>Marca</span><input name="brand" required /></label>
+          <label><span>Modelo</span><input name="model" required /></label>
+          <label><span>Año</span><input name="year" inputmode="numeric" /></label>
+          <label><span>Placa</span><input name="plate" required autocomplete="off" /></label>
+          <div style="grid-column:1/-1;">
+            <button class="mech-btn mech-btn-primary mech-btn-block" type="submit">Crear orden</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div id="mech-confirm-modal" class="mech-modal" hidden>
+      <div class="mech-modal-backdrop" id="mech-confirm-overlay"></div>
+      <section class="mech-modal-card is-compact" role="dialog" aria-modal="true" aria-labelledby="mech-confirm-title">
+        <header class="mech-modal-header">
+          <div>
+            <h2 id="mech-confirm-title">Confirmar diagnóstico</h2>
+            <p>Revisa antes de guardar</p>
+          </div>
+          <button id="mech-confirm-close" class="mech-btn mech-btn-ghost" type="button">Cerrar</button>
+        </header>
+        <div class="mech-confirm-body">
+          <p id="mech-confirm-text">¿Confirmas guardar este diagnóstico de servicio?</p>
+          <label class="mech-email-check">
+            <input id="mech-email-checkbox" type="checkbox" checked />
+            <span>
+              Enviar también el diagnóstico / servicio al correo del cliente
+              <small id="mech-confirm-email-hint">Se usará el correo guardado en la orden.</small>
+            </span>
+          </label>
+          <label class="mech-email-check">
+            <input id="mech-marketing-checkbox" type="checkbox" checked />
+            <span>
+              Agregar cliente a marketing para contactarlo a los 6 meses
+              <small>Aparecerá en Mantenimientos → Programados para llamar.</small>
+            </span>
+          </label>
+          <p id="mech-confirm-feedback" class="mech-feedback feedback" aria-live="polite"></p>
+        </div>
+        <div class="mech-modal-actions">
+          <button id="mech-confirm-cancel" class="mech-btn mech-btn-ghost" type="button">Cancelar</button>
+          <button id="mech-confirm-submit" class="mech-btn mech-btn-primary" type="button">Confirmar</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="mech-success-modal" class="mech-modal" hidden>
+      <div class="mech-modal-backdrop" id="mech-success-overlay"></div>
+      <section class="mech-modal-card is-compact" role="dialog" aria-modal="true" aria-labelledby="mech-success-title">
+        <header class="mech-modal-header">
+          <div>
+            <h2 id="mech-success-title">Listo</h2>
+          </div>
+          <button id="mech-success-close" class="mech-btn mech-btn-ghost" type="button">Cerrar</button>
+        </header>
+        <div class="mech-success-body">
+          <div class="mech-success-icon" aria-hidden="true">✓</div>
+          <strong>Diagnóstico guardado</strong>
+          <p id="mech-success-text">El PDF del servicio está listo para imprimir.</p>
+        </div>
+        <div class="mech-modal-actions">
+          <button id="mech-success-print" class="mech-btn mech-btn-primary" type="button">Imprimir PDF</button>
+          <button id="mech-success-ok" class="mech-btn mech-btn-dark" type="button">Listo</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="/admin-common.js?v=20260801-adminlight43"></script>
+    <script src="/mechanic.js?v=20260801-mech11"></script>
+  </body>
+</html>

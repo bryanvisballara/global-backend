@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Precios de venta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight37" />
+    <link rel="stylesheet" href="/admin-mobile-form.css?v=20260514-ipadsafe26" />
+    <style>
+      .global-loading-overlay { display: none !important; }
+
+      .cp-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: auto;
+        min-height: 40px;
+        padding: 0.55rem 1.15rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-weight: 700;
+        font-size: 0.86rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 140ms ease, filter 140ms ease, background 140ms ease;
+      }
+
+      .cp-btn:active { transform: translateY(1px); }
+
+      .cp-btn-gold {
+        background: linear-gradient(180deg, #f0c46a, #b6862d);
+        border-color: #b6862d;
+        color: #111;
+      }
+
+      .cp-btn-gold:hover { filter: brightness(1.04); }
+
+      .cp-btn-outline {
+        background: #fff;
+        border-color: rgba(182, 134, 45, 0.55);
+        color: #8a6420;
+      }
+
+      .cp-btn-outline:hover {
+        background: rgba(216, 170, 82, 0.14);
+        border-color: #b6862d;
+      }
+
+      .cp-btn-dark {
+        background: #1a1a1a;
+        border-color: #1a1a1a;
+        color: #f5e6c8;
+      }
+
+      .cp-btn-ghost {
+        background: transparent;
+        border-color: rgba(17, 17, 17, 0.16);
+        color: #111;
+      }
+
+      .cp-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin: 0 0 1rem;
+      }
+
+      .cp-stat {
+        background: #fff;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 16px;
+        padding: 0.95rem 1rem;
+      }
+
+      .cp-stat span {
+        display: block;
+        color: var(--muted, #666);
+        font-size: 0.82rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .cp-stat strong {
+        display: block;
+        font-size: 1.55rem;
+        line-height: 1.1;
+      }
+
+      .cp-stat.is-ready strong { color: #1f7a4d; }
+      .cp-stat.is-warn strong { color: #9a6b12; }
+      .cp-stat.is-miss strong { color: #a33b3b; }
+
+      .cp-card {
+        background: #fff;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+      }
+
+      .cp-card h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.15rem;
+      }
+
+      .cp-sub {
+        margin: 0 0 0.85rem;
+        color: var(--muted, #666);
+        font-size: 0.92rem;
+      }
+
+      .cp-global-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: end;
+      }
+
+      .cp-global-row label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 220px;
+      }
+
+      .cp-global-row input {
+        min-height: 42px;
+        width: 100%;
+      }
+
+      .cp-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        align-items: start;
+      }
+
+      .cp-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .cp-chip {
+        border: 1px solid rgba(17, 17, 17, 0.14);
+        background: #fff;
+        color: #333;
+        border-radius: 999px;
+        min-height: 34px;
+        padding: 0.35rem 0.85rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .cp-chip.is-active {
+        background: #d8aa52;
+        border-color: #d8aa52;
+        color: #111;
+      }
+
+      .cp-search {
+        width: 100%;
+        min-height: 42px;
+        margin-bottom: 0.75rem;
+      }
+
+      .cp-vehicle-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.55rem;
+        max-height: min(42vh, 420px);
+        overflow: auto;
+        padding-right: 0.15rem;
+      }
+
+      .cp-vehicle-item {
+        text-align: left;
+        border: 1px solid rgba(17, 17, 17, 0.1);
+        background: #fff;
+        border-radius: 14px;
+        padding: 0.8rem 0.9rem;
+        cursor: pointer;
+        transition: border-color 140ms ease, background 140ms ease;
+      }
+
+      .cp-vehicle-item:hover {
+        border-color: rgba(182, 134, 45, 0.55);
+        background: rgba(216, 170, 82, 0.08);
+      }
+
+      .cp-vehicle-item.is-selected {
+        border-color: #b6862d;
+        background: rgba(216, 170, 82, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(182, 134, 45, 0.25);
+      }
+
+      .cp-vehicle-item strong {
+        display: block;
+        margin-bottom: 0.2rem;
+      }
+
+      .cp-vehicle-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 0.75rem;
+        color: #555;
+        font-size: 0.82rem;
+      }
+
+      .cp-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .cp-badge-ok {
+        background: rgba(31, 122, 77, 0.12);
+        color: #1f7a4d;
+      }
+
+      .cp-badge-warn {
+        background: rgba(154, 107, 18, 0.14);
+        color: #9a6b12;
+      }
+
+      .cp-badge-miss {
+        background: rgba(163, 59, 59, 0.12);
+        color: #a33b3b;
+      }
+
+      .cp-editor-empty {
+        border: 1px dashed rgba(17, 17, 17, 0.18);
+        border-radius: 14px;
+        padding: 1.4rem 1rem;
+        text-align: center;
+        color: #666;
+      }
+
+      .cp-editor-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .cp-editor-grid label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .cp-editor-grid input {
+        min-height: 42px;
+      }
+
+      .cp-totals {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.55rem;
+        margin: 0.75rem 0 1rem;
+      }
+
+      .cp-total-item {
+        background: rgba(17, 17, 17, 0.03);
+        border-radius: 12px;
+        padding: 0.7rem 0.8rem;
+      }
+
+      .cp-total-item span {
+        display: block;
+        font-size: 0.78rem;
+        color: #666;
+      }
+
+      .cp-total-item strong {
+        display: block;
+        font-size: 1.05rem;
+      }
+
+      .cp-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 0.85rem;
+      }
+
+      .cp-table-wrap {
+        overflow: auto;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 12px;
+      }
+
+      .cp-table-wrap table {
+        min-width: 760px;
+      }
+
+      .cp-table-wrap input {
+        min-height: 36px;
+        width: 100%;
+        max-width: 140px;
+      }
+
+      .cp-table-wrap .cp-line-cost {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .cp-sale-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        border: 1px solid rgba(182, 134, 45, 0.35);
+        border-radius: 14px;
+        background: rgba(216, 170, 82, 0.08);
+      }
+
+      .cp-sale-box h3 {
+        margin: 0 0 0.35rem;
+        font-size: 1rem;
+      }
+
+      .cp-sale-modes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin: 0.75rem 0;
+      }
+
+      .cp-sale-mode {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-height: 38px;
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid rgba(17, 17, 17, 0.14);
+        background: #fff;
+        cursor: pointer;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .cp-sale-mode:has(input:checked) {
+        border-color: #b6862d;
+        background: rgba(216, 170, 82, 0.18);
+      }
+
+      .cp-sale-fields {
+        display: grid;
+        grid-template-columns: minmax(180px, 260px) minmax(180px, 1fr);
+        gap: 0.75rem;
+        align-items: end;
+      }
+
+      .cp-sale-fields label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .cp-sale-fields input {
+        min-height: 42px;
+      }
+
+      .cp-sale-preview {
+        margin-top: 0.75rem;
+        font-weight: 800;
+        font-size: 1.05rem;
+      }
+
+      @media (max-width: 980px) {
+        .cp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .cp-vehicle-list {
+          grid-template-columns: 1fr;
+          max-height: none;
+        }
+        .cp-editor-grid,
+        .cp-totals,
+        .cp-sale-fields { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body class="admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center">
+            <a class="secondary-button back-link" href="/app/admin-maintenance.html?tab=cotizador">← Volver al cotizador</a>
+            <a class="cp-btn cp-btn-outline" href="/app/admin-cotizador-insumos.html">Precios de insumos</a>
+          </div>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="page-hero">
+          <h1>Precios de venta</h1>
+          <p class="dashboard-lead">
+            Define mano de obra y el precio de venta por versión. Los costos de insumos se configuran en la sección de insumos.
+          </p>
+        </section>
+
+        <p id="cp-feedback" class="feedback" aria-live="polite"></p>
+
+        <div class="cp-stats" id="cp-stats">
+          <article class="cp-stat"><span>Vehículos</span><strong id="cp-stat-total">0</strong></article>
+          <article class="cp-stat is-ready"><span>Listos con stock</span><strong id="cp-stat-ready">0</strong></article>
+          <article class="cp-stat is-warn"><span>Listos sin precio</span><strong id="cp-stat-needs">0</strong></article>
+          <article class="cp-stat is-miss"><span>Falta stock</span><strong id="cp-stat-miss">0</strong></article>
+        </div>
+
+        <article class="cp-card">
+          <h2>Mano de obra del servicio</h2>
+          <p class="cp-sub">Valores predeterminados del taller. La de mantenimiento se puede ajustar por versión; el alistamiento es global.</p>
+          <div class="cp-global-row">
+            <label>
+              <span>Mano de obra mantenimiento (COP)</span>
+              <input id="cp-global-labor" type="number" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Mano de obra alistamiento (COP)</span>
+              <input id="cp-global-alistamiento" type="number" min="0" step="1000" />
+            </label>
+            <button id="cp-save-global" class="cp-btn cp-btn-gold" type="button">Guardar mano de obra</button>
+          </div>
+        </article>
+
+        <div class="cp-layout">
+          <article class="cp-card">
+            <h2>Versiones</h2>
+            <p class="cp-sub">Elige una versión. El detalle de costos y precio de venta aparece abajo.</p>
+            <div class="cp-filters" id="cp-filters">
+              <button class="cp-chip is-active" type="button" data-filter="needs">Listos sin precio</button>
+              <button class="cp-chip" type="button" data-filter="ready">Listos con stock</button>
+              <button class="cp-chip" type="button" data-filter="missing">Falta stock</button>
+              <button class="cp-chip" type="button" data-filter="all">Todas</button>
+            </div>
+            <input id="cp-search" class="cp-search" type="search" placeholder="Buscar: Toyota Fortuner diésel, Prado 2.7..." autocomplete="off" />
+            <div id="cp-vehicle-list" class="cp-vehicle-list">
+              <div class="empty-state">Cargando vehículos...</div>
+            </div>
+          </article>
+
+          <article class="cp-card" id="cp-editor-card">
+            <h2 id="cp-editor-title">Editar versión</h2>
+            <p class="cp-sub" id="cp-editor-sub">Selecciona una versión arriba para fijar costos, mano de obra y precio de venta.</p>
+            <div id="cp-editor">
+              <div class="cp-editor-empty">Elige una versión para empezar.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260514-viewport07"></script>
+    <script src="/admin-cotizador-precios.js?v=20260801-cp04"></script>
+  </body>
+</html>

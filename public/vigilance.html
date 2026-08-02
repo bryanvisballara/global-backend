@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Global Imports | Portal Vigilancia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260801-adminlight43" />
+    <style>
+      :root {
+        --vig-ink: #111111;
+        --vig-gold: #c4a35a;
+        --vig-gold-soft: #f4ead3;
+        --vig-line: rgba(17, 17, 17, 0.12);
+        --vig-muted: #6b6b6b;
+        --vig-bg: #f3f1ec;
+        --vig-safe-top: env(safe-area-inset-top, 0px);
+        --vig-safe-bottom: env(safe-area-inset-bottom, 0px);
+        --vig-safe-left: env(safe-area-inset-left, 0px);
+        --vig-safe-right: env(safe-area-inset-right, 0px);
+      }
+
+      .global-loading-overlay { display: none !important; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--vig-bg);
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        touch-action: manipulation;
+      }
+
+      body.vigilance-ipad-view {
+        zoom: 1 !important;
+        transform: none !important;
+        width: 100% !important;
+        min-height: 100dvh;
+        font-family: Manrope, Arial, sans-serif;
+        color: var(--vig-ink);
+      }
+
+      .vig-shell {
+        min-height: 100dvh;
+        padding:
+          calc(16px + var(--vig-safe-top))
+          calc(18px + var(--vig-safe-right))
+          calc(18px + var(--vig-safe-bottom))
+          calc(18px + var(--vig-safe-left));
+        box-sizing: border-box;
+      }
+
+      .vig-stage {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .vig-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: #fff;
+        border: 1px solid var(--vig-line);
+        border-radius: 22px;
+        padding: 1rem 1.15rem;
+        box-shadow: 0 10px 28px rgba(20, 16, 8, 0.05);
+      }
+
+      .vig-brand-tag {
+        margin: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--vig-gold);
+        font-weight: 800;
+      }
+
+      .vig-brand-title {
+        margin: 0.25rem 0 0;
+        font-family: Syne, Manrope, sans-serif;
+        font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .vig-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .vig-user-chip {
+        display: grid;
+        gap: 0.1rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 16px;
+        background: #f7f5f1;
+        border: 1px solid var(--vig-line);
+        min-width: 180px;
+      }
+
+      .vig-user-chip span {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--vig-muted);
+        font-weight: 700;
+      }
+
+      .vig-user-chip strong {
+        font-size: 0.95rem;
+        font-weight: 800;
+      }
+
+      .vig-btn {
+        appearance: none;
+        border: 1px solid var(--vig-line);
+        border-radius: 16px;
+        min-height: 52px;
+        padding: 0.85rem 1.2rem;
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        background: #fff;
+        color: var(--vig-ink);
+      }
+
+      .vig-btn:active { transform: scale(0.985); }
+
+      .vig-btn-primary {
+        background: linear-gradient(180deg, #d4b06a 0%, var(--vig-gold) 100%);
+        border-color: #b89245;
+        color: #15110a;
+        box-shadow: 0 10px 22px rgba(196, 163, 90, 0.28);
+      }
+
+      .vig-btn-ghost { background: #fff; }
+
+      .vig-btn-block { width: 100%; }
+
+      .vig-cta-row {
+        display: grid;
+        grid-template-columns: auto 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      .vig-cta-row .vig-btn {
+        min-height: 58px;
+        font-size: 1.02rem;
+      }
+
+      .vig-btn-exit {
+        background: linear-gradient(180deg, #2a2a2a 0%, #151515 100%);
+        border-color: #0d0d0d;
+        color: #f5e6c8;
+        box-shadow: 0 10px 22px rgba(20, 16, 10, 0.22);
+      }
+
+      .vig-feedback {
+        margin: 0;
+        min-height: 1.2em;
+      }
+
+      .vig-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 1rem;
+        align-items: stretch;
+      }
+
+      .vig-card {
+        background: #fff;
+        border: 1px solid var(--vig-line);
+        border-radius: 22px;
+        padding: 1rem 1.1rem 1.15rem;
+        box-shadow: 0 12px 30px rgba(20, 16, 8, 0.05);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .vig-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.9rem;
+      }
+
+      .vig-card-header h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+
+      .vig-card-header p {
+        margin: 0.3rem 0 0;
+        color: var(--vig-muted);
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .vig-month-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .vig-month-nav .vig-btn {
+        min-width: 48px;
+        min-height: 48px;
+        padding: 0;
+        font-size: 1.35rem;
+        line-height: 1;
+      }
+
+      .vig-month-label {
+        min-width: 140px;
+        text-align: center;
+        font-weight: 800;
+        text-transform: capitalize;
+      }
+
+      .vig-weekdays,
+      .vig-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+
+      .vig-weekdays span {
+        text-align: center;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--vig-muted);
+        font-weight: 800;
+        padding: 0.2rem 0 0.45rem;
+      }
+
+      .vig-day {
+        min-height: 78px;
+        border: 1px solid var(--vig-line);
+        border-radius: 16px;
+        background: #faf9f7;
+        padding: 0.55rem 0.5rem;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      .vig-day.is-today {
+        background: var(--vig-gold-soft);
+        border-color: rgba(196, 163, 90, 0.55);
+      }
+
+      .vig-day.is-active {
+        border-color: var(--vig-ink);
+        box-shadow: inset 0 0 0 2px var(--vig-ink);
+        background: #fff;
+      }
+
+      .vig-day.is-muted {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+
+      .vig-day-number {
+        display: block;
+        font-weight: 800;
+        font-size: 1.05rem;
+      }
+
+      .vig-day-count {
+        display: none;
+        margin-top: 0.4rem;
+        width: 1.55rem;
+        height: 1.55rem;
+        border-radius: 999px;
+        place-items: center;
+        background: #1f8f4e;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 2px 8px rgba(31, 143, 78, 0.35);
+      }
+
+      .vig-day-count:not(:empty) { display: grid; }
+
+      .vig-day.is-active .vig-day-count,
+      .vig-day.is-today .vig-day-count { background: #157a40; }
+
+      .vig-day-list {
+        display: grid;
+        gap: 0.7rem;
+        overflow: auto;
+        max-height: min(58vh, 560px);
+        padding-right: 0.15rem;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .vig-count-pill {
+        min-width: 44px;
+        min-height: 44px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--vig-ink);
+        color: #fff;
+        font-weight: 800;
+        font-size: 1.05rem;
+      }
+
+      .vig-agenda-item {
+        border: 1px solid var(--vig-line);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        background: #faf9f7;
+        text-align: left;
+        width: 100%;
+      }
+
+      .vig-agenda-item strong {
+        display: block;
+        font-size: 1.08rem;
+        font-weight: 800;
+      }
+
+      .vig-agenda-item span {
+        display: block;
+        margin-top: 0.3rem;
+        color: var(--vig-muted);
+        font-size: 0.95rem;
+        line-height: 1.35;
+      }
+
+      .vig-badge {
+        display: inline-block;
+        margin-top: 0.55rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .vig-badge-maintenance {
+        background: var(--vig-gold-soft);
+        color: var(--vig-ink);
+      }
+
+      .vig-badge-visitor {
+        background: #e8f0ff;
+        color: #1a4a8a;
+      }
+
+      .vig-empty {
+        border: 1px dashed var(--vig-line);
+        border-radius: 18px;
+        padding: 2rem 1rem;
+        text-align: center;
+        color: var(--vig-muted);
+        font-weight: 600;
+        background: #faf9f7;
+      }
+
+      .vig-open-list {
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .vig-open-item {
+        border: 1px solid rgba(196, 163, 90, 0.55);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        background: #fffdf7;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .vig-open-item:active { background: var(--vig-gold-soft); }
+
+      .vig-open-item strong {
+        display: block;
+        font-size: 1.1rem;
+        font-weight: 800;
+      }
+
+      .vig-open-item span {
+        display: block;
+        margin-top: 0.3rem;
+        color: var(--vig-muted);
+        font-size: 0.95rem;
+      }
+
+      .vig-form-card {
+        margin-top: 0.25rem;
+        padding-bottom: calc(88px + var(--vig-safe-bottom));
+      }
+
+      .vig-form-card[hidden] { display: none !important; }
+
+      .vig-section-title {
+        margin: 1.4rem 0 0.85rem;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--vig-gold);
+        font-weight: 800;
+      }
+
+      .vig-section-title:first-child { margin-top: 0; }
+
+      .vig-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem;
+      }
+
+      .vig-form-grid label,
+      .vig-field {
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .vig-form-grid input,
+      .vig-form-grid select,
+      .vig-form input[type="number"],
+      .vig-form input[type="file"],
+      .vig-form textarea {
+        min-height: 54px;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 16px;
+        padding: 0.8rem 0.95rem;
+        font: inherit;
+        font-weight: 600;
+        background: #fff;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .vig-form textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .vig-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.55rem;
+      }
+
+      .vig-chips label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 52px;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 16px;
+        padding: 0.7rem 0.85rem;
+        background: #faf9f7;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .vig-chips input {
+        width: 1.15rem;
+        height: 1.15rem;
+        accent-color: var(--vig-ink);
+        flex-shrink: 0;
+      }
+
+      .vig-chips label:has(input:checked) {
+        border-color: var(--vig-ink);
+        background: var(--vig-gold-soft);
+        box-shadow: inset 0 0 0 1px var(--vig-ink);
+      }
+
+      .vig-docs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.55rem;
+      }
+
+      .vig-docs label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 52px;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 16px;
+        padding: 0.7rem 0.85rem;
+        background: #faf9f7;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .vig-docs label:has(input:checked) {
+        border-color: var(--vig-ink);
+        background: var(--vig-gold-soft);
+      }
+
+      .vig-accessory-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.65rem;
+        align-items: center;
+        padding: 0.75rem 0.85rem;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 16px;
+        background: #faf9f7;
+        margin-bottom: 0.55rem;
+      }
+
+      .vig-accessory-row label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .vig-accessory-row input[type="text"] {
+        min-height: 48px;
+      }
+
+      .vig-photo-previews {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+        gap: 0.65rem;
+        margin-top: 0.75rem;
+      }
+
+      .vig-photo-previews:empty { display: none; }
+
+      .vig-photo-thumb {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1.5px solid var(--vig-line);
+        background: #fff;
+      }
+
+      .vig-photo-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .vig-photo-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(17, 17, 17, 0.82);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+
+      .vig-sign-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+
+      .vig-sign-box {
+        padding: 1rem 1.05rem 1.15rem;
+        border: 1px solid var(--vig-line);
+        border-radius: 20px;
+        background: #faf9f7;
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .vig-sign-box .vig-section-title { margin: 0; }
+
+      .vig-sign-canvas-wrap {
+        border: 1.5px dashed var(--vig-line);
+        border-radius: 16px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .vig-sign-canvas-wrap canvas {
+        display: block;
+        width: 100%;
+        height: 160px;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      .vig-sticky-actions {
+        position: sticky;
+        bottom: calc(10px + var(--vig-safe-bottom));
+        z-index: 20;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+        padding: 0.75rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--vig-line);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 14px 36px rgba(20, 16, 8, 0.12);
+        margin-top: 1rem;
+      }
+
+      .vig-exit-summary {
+        margin-bottom: 1rem;
+        padding: 1rem 1.05rem;
+        border: 1px solid var(--vig-line);
+        border-radius: 20px;
+        background: #faf9f7;
+      }
+
+      .vig-exit-summary strong {
+        display: block;
+        font-size: 1.1rem;
+      }
+
+      .vig-exit-summary span {
+        display: block;
+        margin-top: 0.35rem;
+        color: var(--vig-muted);
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 900px) {
+        .vig-grid,
+        .vig-form-grid,
+        .vig-sign-grid,
+        .vig-cta-row {
+          grid-template-columns: 1fr;
+        }
+
+        .vig-topbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .vig-topbar-actions { justify-content: space-between; }
+
+        .vig-day-list { max-height: none; }
+      }
+
+      @media (min-width: 901px) and (orientation: landscape) {
+        .vig-day { min-height: 86px; }
+
+        .vig-day-list { max-height: min(62vh, 620px); }
+
+        .vig-shell {
+          padding-left: calc(22px + var(--vig-safe-left));
+          padding-right: calc(22px + var(--vig-safe-right));
+        }
+      }
+    </style>
+  </head>
+  <body class="admin-app-view vigilance-ipad-view">
+    <main class="vig-shell">
+      <section class="vig-stage">
+        <header class="vig-topbar">
+          <div>
+            <p class="vig-brand-tag">Portal vigilancia · iPad</p>
+            <h1 class="vig-brand-title">Global Imports Security</h1>
+          </div>
+          <div class="vig-topbar-actions">
+            <div class="vig-user-chip">
+              <span id="vig-user-name">Vigilancia</span>
+              <strong id="vig-user-email">—</strong>
+            </div>
+            <button id="logout-button" class="vig-btn vig-btn-ghost" type="button">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <p id="vig-feedback" class="vig-feedback feedback" aria-live="polite"></p>
+
+        <div class="vig-cta-row">
+          <button id="vig-scroll-agenda" class="vig-btn vig-btn-ghost" type="button">Ver agenda</button>
+          <button id="vig-new-entry" class="vig-btn vig-btn-primary" type="button">Registrar ingreso</button>
+          <button id="vig-new-exit" class="vig-btn vig-btn-exit" type="button">Registrar salida</button>
+        </div>
+
+        <div class="vig-grid" id="vig-agenda-section">
+          <article class="vig-card">
+            <header class="vig-card-header">
+              <div>
+                <h2>Calendario del mes</h2>
+                <p>Citas de mantenimiento y visitas vitrina</p>
+              </div>
+              <div class="vig-month-nav">
+                <button id="vig-cal-prev" class="vig-btn" type="button" aria-label="Mes anterior">‹</button>
+                <strong class="vig-month-label" id="vig-cal-label">—</strong>
+                <button id="vig-cal-next" class="vig-btn" type="button" aria-label="Mes siguiente">›</button>
+              </div>
+            </header>
+            <div class="vig-weekdays" aria-hidden="true">
+              <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+            </div>
+            <div class="vig-calendar-grid" id="vig-calendar-grid"></div>
+          </article>
+
+          <article class="vig-card">
+            <header class="vig-card-header">
+              <div>
+                <h2 id="vig-day-title">Agenda del día</h2>
+                <p>Mantenimiento y visitantes programados</p>
+              </div>
+              <strong class="vig-count-pill" id="vig-day-count">0</strong>
+            </header>
+            <div class="vig-day-list" id="vig-day-list"></div>
+          </article>
+        </div>
+
+        <article class="vig-card">
+          <header class="vig-card-header">
+            <div>
+              <h2>Ingresos abiertos</h2>
+              <p>Vehículos dentro del predio · toca para registrar salida</p>
+            </div>
+          </header>
+          <div class="vig-open-list" id="vig-open-reports"></div>
+        </article>
+
+        <article class="vig-card vig-form-card" id="vig-entry-card" hidden>
+          <header class="vig-card-header">
+            <div>
+              <h2>Registro de ingreso</h2>
+              <p id="vig-entry-summary">Completa el acta de ingreso del vehículo</p>
+            </div>
+            <button id="vig-close-entry" class="vig-btn vig-btn-ghost" type="button">Cerrar</button>
+          </header>
+
+          <form id="vig-entry-form" class="vig-form">
+            <h3 class="vig-section-title">Datos generales</h3>
+            <div class="vig-form-grid">
+              <label><span>Fecha de ingreso</span><input id="vig-entry-date" name="entryDate" type="date" required /></label>
+              <label><span>Hora de ingreso</span><input id="vig-entry-time" name="entryTime" type="time" required /></label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Turno</span></p>
+            <div class="vig-chips" id="vig-shift-chips">
+              <label><input type="radio" name="shift" value="morning" required /> Mañana</label>
+              <label><input type="radio" name="shift" value="afternoon" /> Tarde</label>
+              <label><input type="radio" name="shift" value="night" /> Noche</label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Medio de llegada</span></p>
+            <div class="vig-chips" id="vig-arrival-chips">
+              <label><input type="radio" name="arrivalMethod" value="own" required /> Propio</label>
+              <label><input type="radio" name="arrivalMethod" value="tow" /> Grúa</label>
+              <label><input type="radio" name="arrivalMethod" value="transporter" /> Transportadora</label>
+            </div>
+
+            <h3 class="vig-section-title">Vehículo</h3>
+            <div class="vig-form-grid">
+              <label><span>Placa</span><input name="plate" required autocomplete="off" style="text-transform:uppercase;" /></label>
+              <label><span>VIN</span><input name="vin" autocomplete="off" style="text-transform:uppercase;" /></label>
+              <label><span>Marca</span><input name="brand" required /></label>
+              <label><span>Modelo</span><input name="model" required /></label>
+              <label><span>Año</span><input name="year" inputmode="numeric" /></label>
+              <label><span>Color</span><input name="color" /></label>
+              <label><span>Versión</span><input name="version" /></label>
+              <label><span>Kilometraje</span><input name="mileage" type="number" inputmode="numeric" min="0" /></label>
+            </div>
+            <h3 class="vig-section-title">Quien entrega</h3>
+            <div class="vig-form-grid">
+              <label><span>Nombre completo</span><input name="delivererName" required autocomplete="name" /></label>
+              <label><span>Documento</span><input name="delivererDocument" autocomplete="off" /></label>
+              <label><span>Teléfono</span><input name="delivererPhone" inputmode="tel" autocomplete="tel" /></label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Relación</span></p>
+            <div class="vig-chips">
+              <label><input type="radio" name="delivererRelationship" value="propietario" /> Propietario</label>
+              <label><input type="radio" name="delivererRelationship" value="conductor" /> Conductor</label>
+              <label><input type="radio" name="delivererRelationship" value="transportadora" /> Transportadora</label>
+              <label><input type="radio" name="delivererRelationship" value="otro" /> Otro</label>
+            </div>
+
+            <h3 class="vig-section-title">Documentos recibidos</h3>
+            <div class="vig-docs" id="vig-documents">
+              <label><input type="checkbox" name="doc" value="Tarjeta de propiedad" /> Tarjeta de propiedad</label>
+              <label><input type="checkbox" name="doc" value="SOAT" /> SOAT</label>
+              <label><input type="checkbox" name="doc" value="Revisión TM" /> Revisión TM</label>
+              <label><input type="checkbox" name="doc" value="Manual" /> Manual</label>
+              <label><input type="checkbox" name="doc" value="Documentos de importación" /> Documentos de importación</label>
+              <label><input type="checkbox" name="doc" value="Otros" /> Otros</label>
+            </div>
+
+            <h3 class="vig-section-title">Accesorios</h3>
+            <div id="vig-accessories-list"></div>
+
+            <h3 class="vig-section-title">Observaciones</h3>
+            <div class="vig-form-grid">
+              <label><span>Observaciones de ingreso</span><textarea name="entryObservations" placeholder="Estado al ingreso, daños visibles…"></textarea></label>
+              <label><span>Observaciones generales</span><textarea name="generalObservations" placeholder="Notas adicionales…"></textarea></label>
+            </div>
+
+            <h3 class="vig-section-title">Fotos de ingreso</h3>
+            <label class="vig-field">
+              <span>Adjuntar fotos (máx. 12)</span>
+              <input id="vig-entry-photos-input" name="photos" type="file" accept="image/*" capture="environment" multiple />
+            </label>
+            <div class="vig-photo-previews" id="vig-entry-photo-previews" aria-live="polite"></div>
+
+            <h3 class="vig-section-title">Firmas de ingreso</h3>
+            <div class="vig-sign-grid">
+              <div class="vig-sign-box">
+                <h4 class="vig-section-title">Firma quien entrega</h4>
+                <div class="vig-sign-canvas-wrap">
+                  <canvas id="vig-deliverer-signature" width="720" height="220" aria-label="Firma quien entrega"></canvas>
+                </div>
+                <button id="vig-clear-deliverer-sig" class="vig-btn vig-btn-ghost" type="button">Limpiar firma</button>
+              </div>
+              <div class="vig-sign-box">
+                <h4 class="vig-section-title">Firma seguridad (recibe)</h4>
+                <div class="vig-form-grid" style="margin-bottom:0.5rem;">
+                  <label><span>Nombre seguridad</span><input name="securityName" required /></label>
+                  <label><span>Documento seguridad</span><input name="securityDocument" autocomplete="off" /></label>
+                </div>
+                <div class="vig-sign-canvas-wrap">
+                  <canvas id="vig-security-signature" width="720" height="220" aria-label="Firma seguridad"></canvas>
+                </div>
+                <button id="vig-clear-security-sig" class="vig-btn vig-btn-ghost" type="button">Limpiar firma</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="vig-sticky-actions">
+            <button id="vig-save-entry" class="vig-btn vig-btn-primary vig-btn-block" type="button">Guardar ingreso</button>
+          </div>
+        </article>
+
+        <article class="vig-card vig-form-card" id="vig-exit-card" hidden>
+          <header class="vig-card-header">
+            <div>
+              <h2>Registro de salida</h2>
+              <p id="vig-exit-summary">Completa el acta de salida del vehículo</p>
+            </div>
+            <button id="vig-close-exit" class="vig-btn vig-btn-ghost" type="button">Cerrar</button>
+          </header>
+
+          <div class="vig-exit-summary" id="vig-exit-vehicle-info" hidden></div>
+
+          <form id="vig-exit-form" class="vig-form">
+            <h3 class="vig-section-title">Datos generales</h3>
+            <div class="vig-form-grid">
+              <label><span>Fecha de salida</span><input id="vig-exit-date" name="exitDate" type="date" required /></label>
+              <label><span>Hora de salida</span><input id="vig-exit-time" name="exitTime" type="time" required /></label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Turno</span></p>
+            <div class="vig-chips">
+              <label><input type="radio" name="shift" value="morning" required /> Mañana</label>
+              <label><input type="radio" name="shift" value="afternoon" /> Tarde</label>
+              <label><input type="radio" name="shift" value="night" /> Noche</label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Medio de salida</span></p>
+            <div class="vig-chips">
+              <label><input type="radio" name="departureMethod" value="own" required /> Propio</label>
+              <label><input type="radio" name="departureMethod" value="tow" /> Grúa</label>
+              <label><input type="radio" name="departureMethod" value="transporter" /> Transportadora</label>
+            </div>
+
+            <h3 class="vig-section-title">Vehículo</h3>
+            <div class="vig-form-grid">
+              <label><span>Placa</span><input name="plate" required autocomplete="off" style="text-transform:uppercase;" /></label>
+              <label><span>VIN</span><input name="vin" autocomplete="off" style="text-transform:uppercase;" /></label>
+              <label><span>Marca</span><input name="brand" required /></label>
+              <label><span>Modelo</span><input name="model" required /></label>
+              <label><span>Año</span><input name="year" inputmode="numeric" /></label>
+              <label><span>Color</span><input name="color" /></label>
+              <label><span>Versión</span><input name="version" /></label>
+              <label><span>Kilometraje</span><input name="mileage" type="number" inputmode="numeric" min="0" /></label>
+            </div>
+
+            <h3 class="vig-section-title">Quien recibe</h3>
+            <div class="vig-form-grid">
+              <label><span>Nombre completo</span><input name="exitDelivererName" required autocomplete="name" /></label>
+              <label><span>Documento</span><input name="exitDelivererDocument" autocomplete="off" /></label>
+              <label><span>Teléfono</span><input name="exitDelivererPhone" inputmode="tel" autocomplete="tel" /></label>
+            </div>
+            <p class="vig-field" style="margin-top:0.85rem;"><span>Relación</span></p>
+            <div class="vig-chips">
+              <label><input type="radio" name="exitDelivererRelationship" value="propietario" /> Propietario</label>
+              <label><input type="radio" name="exitDelivererRelationship" value="conductor" /> Conductor</label>
+              <label><input type="radio" name="exitDelivererRelationship" value="transportadora" /> Transportadora</label>
+              <label><input type="radio" name="exitDelivererRelationship" value="otro" /> Otro</label>
+            </div>
+
+            <h3 class="vig-section-title">Documentos recibidos</h3>
+            <div class="vig-docs" id="vig-exit-documents">
+              <label><input type="checkbox" name="doc" value="Tarjeta de propiedad" /> Tarjeta de propiedad</label>
+              <label><input type="checkbox" name="doc" value="SOAT" /> SOAT</label>
+              <label><input type="checkbox" name="doc" value="Revisión TM" /> Revisión TM</label>
+              <label><input type="checkbox" name="doc" value="Manual" /> Manual</label>
+              <label><input type="checkbox" name="doc" value="Documentos de importación" /> Documentos de importación</label>
+              <label><input type="checkbox" name="doc" value="Otros" /> Otros</label>
+            </div>
+
+            <h3 class="vig-section-title">Accesorios</h3>
+            <div id="vig-exit-accessories-list"></div>
+
+            <h3 class="vig-section-title">Observaciones</h3>
+            <div class="vig-form-grid">
+              <label><span>Observaciones de salida</span><textarea name="exitObservations" placeholder="Estado al salir, daños visibles…"></textarea></label>
+              <label><span>Observaciones generales</span><textarea name="generalObservations" placeholder="Notas adicionales…"></textarea></label>
+            </div>
+
+            <h3 class="vig-section-title">Fotos de salida</h3>
+            <label class="vig-field">
+              <span>Adjuntar fotos (máx. 12)</span>
+              <input id="vig-exit-photos-input" name="photos" type="file" accept="image/*" capture="environment" multiple />
+            </label>
+            <div class="vig-photo-previews" id="vig-exit-photo-previews" aria-live="polite"></div>
+
+            <h3 class="vig-section-title">Firmas de salida</h3>
+            <div class="vig-sign-grid">
+              <div class="vig-sign-box">
+                <h4 class="vig-section-title">Firma quien recibe</h4>
+                <div class="vig-sign-canvas-wrap">
+                  <canvas id="vig-exit-deliverer-signature" width="720" height="220" aria-label="Firma quien recibe"></canvas>
+                </div>
+                <button id="vig-clear-exit-deliverer-sig" class="vig-btn vig-btn-ghost" type="button">Limpiar firma</button>
+              </div>
+              <div class="vig-sign-box">
+                <h4 class="vig-section-title">Firma seguridad (entrega)</h4>
+                <div class="vig-form-grid" style="margin-bottom:0.5rem;">
+                  <label><span>Nombre seguridad</span><input name="exitReceiverName" required /></label>
+                  <label><span>Documento seguridad</span><input name="exitReceiverDocument" autocomplete="off" /></label>
+                </div>
+                <div class="vig-sign-canvas-wrap">
+                  <canvas id="vig-exit-receiver-signature" width="720" height="220" aria-label="Firma seguridad (entrega)"></canvas>
+                </div>
+                <button id="vig-clear-exit-receiver-sig" class="vig-btn vig-btn-ghost" type="button">Limpiar firma</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="vig-sticky-actions">
+            <button id="vig-save-exit" class="vig-btn vig-btn-exit vig-btn-block" type="button">Guardar salida</button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260801-adminlight43"></script>
+    <script src="/vigilance.js?v=20260801-vig05"></script>
+  </body>
+</html>

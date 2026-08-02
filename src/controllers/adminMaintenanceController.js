@@ -1,5 +1,6 @@
 const Maintenance = require("../models/Maintenance");
 const ClientMaintenanceVehicle = require("../models/ClientMaintenanceVehicle");
+const CotizadorMarketingLead = require("../models/CotizadorMarketingLead");
 const Order = require("../models/Order");
 const {
   CLIENT_PREVENTIVE_MAINTENANCE_CYCLE_MONTHS,
@@ -12,6 +13,71 @@ const {
   buildMonthKey,
   parseMonthKey,
 } = require("../services/maintenanceScheduleService");
+
+function parseDateBoundary(value, endOfDay = false) {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return null;
+  }
+  const [year, month, day] = raw.split("-").map(Number);
+  if (endOfDay) {
+    return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  }
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+}
+
+function isDateInRange(dateValue, fromDate, toDate) {
+  const date = toUtcNoon(dateValue);
+  if (!date) {
+    return false;
+  }
+  if (fromDate && date < fromDate) {
+    return false;
+  }
+  if (toDate && date > toDate) {
+    return false;
+  }
+  return true;
+}
+
+function mapMarketingLeadRow(lead) {
+  const vehicleLabel = String(lead.vehicleLabel || "").trim();
+  const [brand = "", model = ""] = vehicleLabel.split(/\s+/);
+  const leadSource = String(lead.source || "").trim().toLowerCase();
+  const fromWorkshop = leadSource === "taller" || leadSource === "mechanic" || leadSource === "workshop";
+  return {
+    id: String(lead._id),
+    source: fromWorkshop ? "taller_marketing" : "cotizador_marketing",
+    status: "scheduled",
+    contactName: lead.name || "",
+    contactPhone: lead.phone || "",
+    contactEmail: lead.email || "",
+    client: {
+      name: lead.name || "",
+      email: lead.email || "",
+      phone: lead.phone || "",
+    },
+    vehicleSnapshot: {
+      brand: brand || vehicleLabel || (fromWorkshop ? "Taller" : "Cotización"),
+      model: model || "",
+      version: vehicleLabel,
+      vin: lead.identification || "",
+    },
+    activationDate: lead.createdAt || null,
+    dueDate: lead.followUpAt || null,
+    order: null,
+    marketingLeadId: String(lead._id),
+  };
+}
+
+const ALLOWED_ADMIN_CONTACT_STATUSES = [
+  "pending",
+  "contacted",
+  "will_service",
+  "serviced_elsewhere",
+  "not_interested",
+  "appointment_scheduled",
+];
 
 function addDays(dateValue, daysToAdd) {
   const nextDate = new Date(dateValue);
@@ -133,6 +199,10 @@ function mapOrderMaintenanceRow(order, maintenanceRecord) {
     contactName: maintenanceRecord?.contactName || "",
     contactPhone: maintenanceRecord?.contactPhone || "",
     contactEmail: maintenanceRecord?.contactEmail || "",
+    adminContactStatus: maintenanceRecord?.adminContactStatus || "pending",
+    adminAppointmentDate: maintenanceRecord?.adminAppointmentDate || null,
+    adminAppointmentTime: maintenanceRecord?.adminAppointmentTime || "",
+    adminLastContactAt: maintenanceRecord?.adminLastContactAt || null,
     vehicleSnapshot: maintenanceRecord?.vehicleSnapshot || {
       brand: order?.vehicle?.brand || "",
       model: order?.vehicle?.model || "",
@@ -165,16 +235,126 @@ function mapManualMaintenanceRow(maintenanceRecord) {
     contactName: maintenanceRecord?.contactName || "",
     contactPhone: maintenanceRecord?.contactPhone || "",
     contactEmail: maintenanceRecord?.contactEmail || "",
+    adminContactStatus: maintenanceRecord?.adminContactStatus || "pending",
+    adminAppointmentDate: maintenanceRecord?.adminAppointmentDate || null,
+    adminAppointmentTime: maintenanceRecord?.adminAppointmentTime || "",
+    adminLastContactAt: maintenanceRecord?.adminLastContactAt || null,
     vehicleSnapshot: maintenanceRecord?.vehicleSnapshot || {},
   };
+}
+
+function mapOrderMaintenanceToContactVehicle(item) {
+  return {
+    _id: item.maintenanceId || item.order?._id,
+    brand: item.vehicleSnapshot?.brand || item.order?.vehicle?.brand || "",
+    model: item.vehicleSnapshot?.model || item.order?.vehicle?.model || "",
+    version: item.vehicleSnapshot?.version || item.order?.vehicle?.version || "",
+    plate: item.vehicleSnapshot?.plate || item.order?.vehicle?.plate || item.order?.trackingNumber || "",
+    year: item.vehicleSnapshot?.year || item.order?.vehicle?.year || null,
+    usualDailyKm: null,
+    currentMileage: item.reportedMileage,
+    lastPreventiveMaintenanceDate: item.activationDate,
+    dueDateBySchedule: item.dueDate,
+    client: item.client,
+    user: null,
+    source: item.source,
+    recordType: "maintenance",
+    adminContactStatus: item.adminContactStatus || "pending",
+    adminContactNotes: item.contactNotes || "",
+    adminAppointmentDate: item.adminAppointmentDate || null,
+    adminAppointmentTime: item.adminAppointmentTime || "",
+    adminLastContactAt: item.adminLastContactAt || null,
+  };
+}
+
+function mapMaintenanceDocumentToContactVehicle(maintenance) {
+  const plain = maintenance.toObject ? maintenance.toObject() : maintenance;
+  const order = plain.order && typeof plain.order === "object" ? plain.order : null;
+  const snap = plain.vehicleSnapshot || {};
+
+  return {
+    _id: plain._id,
+    brand: snap.brand || order?.vehicle?.brand || "",
+    model: snap.model || order?.vehicle?.model || "",
+    version: snap.version || order?.vehicle?.version || "",
+    plate: snap.plate || order?.vehicle?.plate || order?.trackingNumber || "",
+    year: snap.year || order?.vehicle?.year || null,
+    usualDailyKm: null,
+    currentMileage: plain.reportedMileage ?? null,
+    lastPreventiveMaintenanceDate: plain.activationDate || null,
+    dueDateBySchedule: plain.dueDate || null,
+    client: plain.client || null,
+    user: null,
+    source: plain.source || (order ? "order" : "manual"),
+    recordType: "maintenance",
+    adminContactStatus: plain.adminContactStatus || "pending",
+    adminContactNotes: plain.contactNotes || "",
+    adminAppointmentDate: plain.adminAppointmentDate || null,
+    adminAppointmentTime: plain.adminAppointmentTime || "",
+    adminLastContactAt: plain.adminLastContactAt || null,
+  };
+}
+
+function applyAdminContactFields(target, {
+  adminContactStatus,
+  adminContactNotes,
+  adminAppointmentDate,
+  adminAppointmentTime,
+  notesField = "adminContactNotes",
+}) {
+  if (adminContactStatus !== undefined) {
+    if (!ALLOWED_ADMIN_CONTACT_STATUSES.includes(adminContactStatus)) {
+      return { error: { status: 400, message: "Invalid contact status" } };
+    }
+
+    target.adminContactStatus = adminContactStatus;
+  }
+
+  if (typeof adminContactNotes === "string") {
+    target[notesField] = adminContactNotes.trim();
+  }
+
+  if (adminAppointmentDate !== undefined) {
+    if (adminAppointmentDate === null || adminAppointmentDate === "") {
+      target.adminAppointmentDate = null;
+    } else {
+      const parsedAppointmentDate = toUtcNoon(adminAppointmentDate);
+
+      if (!parsedAppointmentDate) {
+        return { error: { status: 400, message: "Invalid appointment date" } };
+      }
+
+      target.adminAppointmentDate = parsedAppointmentDate;
+    }
+  }
+
+  if (adminAppointmentTime !== undefined) {
+    if (adminAppointmentTime === null || adminAppointmentTime === "") {
+      target.adminAppointmentTime = "";
+    } else if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(String(adminAppointmentTime))) {
+      return { error: { status: 400, message: "Invalid appointment time" } };
+    } else {
+      target.adminAppointmentTime = String(adminAppointmentTime);
+    }
+  }
+
+  if (target.adminContactStatus === "appointment_scheduled" && !target.adminAppointmentDate) {
+    target.adminAppointmentDate = toUtcNoon(new Date());
+  }
+
+  target.adminLastContactAt = new Date();
+  return { error: null };
 }
 
 async function listMaintenance(req, res) {
   try {
     const dueOnly = req.query.dueOnly === "true";
     const selectedMonth = parseMonthKey(req.query.month);
+    const fromDate = parseDateBoundary(req.query.from, false);
+    const toDate = parseDateBoundary(req.query.to, true);
+    const hasDateRange = Boolean(fromDate || toDate);
 
-    const [maintenanceDocuments, clientMaintenanceVehicles, latamOrders] = await Promise.all([
+    const [maintenanceDocuments, clientMaintenanceVehicles, latamOrders, marketingLeads] = await Promise.all([
       Maintenance.find({})
         .populate("client", "name email phone")
         .sort({ dueDate: 1 })
@@ -188,6 +368,9 @@ async function listMaintenance(req, res) {
           .populate("client", "name email phone")
           .sort({ updatedAt: -1 })
         : Promise.resolve([]),
+      CotizadorMarketingLead.find({})
+        .sort({ followUpAt: 1 })
+        .lean(),
     ]);
 
     const now = new Date();
@@ -215,16 +398,22 @@ async function listMaintenance(req, res) {
         return !orderId || !coveredOrderIds.has(orderId);
       });
 
-    const registeredOrderMaintenance = [...orderMaintenanceRows, ...manualMaintenanceRows]
+    const marketingLeadRows = marketingLeads.map(mapMarketingLeadRow).filter((item) => item.dueDate);
+
+    const registeredOrderMaintenance = [...orderMaintenanceRows, ...manualMaintenanceRows, ...marketingLeadRows]
       .sort((left, right) => new Date(left.dueDate || 0).getTime() - new Date(right.dueDate || 0).getTime());
 
     const filteredMaintenance = dueOnly
       ? registeredOrderMaintenance.filter((item) => item.dueDate <= now && ["scheduled", "due", "contacted", "sin_programar"].includes(item.status))
       : registeredOrderMaintenance;
 
-    const monthFilteredMaintenance = selectedMonth
+    let monthFilteredMaintenance = selectedMonth
       ? filteredMaintenance.filter((item) => buildMonthKey(item.dueDate) === selectedMonth.key)
       : filteredMaintenance;
+
+    if (hasDateRange) {
+      monthFilteredMaintenance = filteredMaintenance.filter((item) => isDateInRange(item.dueDate, fromDate, toDate));
+    }
 
     const vehiclesWithScheduleDate = clientMaintenanceVehicles
       .map((vehicle) => {
@@ -252,40 +441,12 @@ async function listMaintenance(req, res) {
 
     const dueByDateThisMonth = [
       ...vehiclesWithScheduleDate.filter((vehicle) => isWithinDaysRange(now, vehicle.dueDateBySchedule, 15)),
-      ...orderDueThisMonth.map((item) => ({
-        _id: item.maintenanceId || item.order?._id,
-        brand: item.vehicleSnapshot?.brand || item.order?.vehicle?.brand || "",
-        model: item.vehicleSnapshot?.model || item.order?.vehicle?.model || "",
-        version: item.vehicleSnapshot?.version || item.order?.vehicle?.version || "",
-        plate: item.vehicleSnapshot?.plate || item.order?.vehicle?.plate || item.order?.trackingNumber || "",
-        year: item.vehicleSnapshot?.year || item.order?.vehicle?.year || null,
-        usualDailyKm: null,
-        currentMileage: item.reportedMileage,
-        lastPreventiveMaintenanceDate: item.activationDate,
-        dueDateBySchedule: item.dueDate,
-        client: item.client,
-        user: null,
-        source: item.source,
-      })),
+      ...orderDueThisMonth.map(mapOrderMaintenanceToContactVehicle),
     ];
 
     const dueByDateNextMonth = [
       ...vehiclesWithScheduleDate.filter((vehicle) => isWithinDaysRange(nextMonthReferenceDate, vehicle.dueDateBySchedule, 15)),
-      ...orderDueNextMonth.map((item) => ({
-        _id: item.maintenanceId || item.order?._id,
-        brand: item.vehicleSnapshot?.brand || item.order?.vehicle?.brand || "",
-        model: item.vehicleSnapshot?.model || item.order?.vehicle?.model || "",
-        version: item.vehicleSnapshot?.version || item.order?.vehicle?.version || "",
-        plate: item.vehicleSnapshot?.plate || item.order?.vehicle?.plate || item.order?.trackingNumber || "",
-        year: item.vehicleSnapshot?.year || item.order?.vehicle?.year || null,
-        usualDailyKm: null,
-        currentMileage: item.reportedMileage,
-        lastPreventiveMaintenanceDate: item.activationDate,
-        dueDateBySchedule: item.dueDate,
-        client: item.client,
-        user: null,
-        source: item.source,
-      })),
+      ...orderDueNextMonth.map(mapOrderMaintenanceToContactVehicle),
     ];
 
     const dueByMileageReached = clientMaintenanceVehicles
@@ -307,7 +468,7 @@ async function listMaintenance(req, res) {
       })
       .filter((vehicle) => Number(vehicle.estimatedKmSinceLastMaintenance || 0) >= 5000);
 
-    const appointmentScheduledThisMonth = clientMaintenanceVehicles
+    const appointmentScheduledFromClientVehicles = clientMaintenanceVehicles
       .map((vehicle) => {
         if (vehicle.adminContactStatus !== "appointment_scheduled") {
           return null;
@@ -320,21 +481,41 @@ async function listMaintenance(req, res) {
           return null;
         }
 
-        if (!isSameMonthAndYear(appointmentDate, nowUtcNoon)) {
+        return {
+          ...vehicle.toObject(),
+          appointmentDate,
+          recordType: "client_vehicle",
+        };
+      })
+      .filter(Boolean);
+
+    const appointmentScheduledFromOrders = registeredOrderMaintenance
+      .filter((item) => item.adminContactStatus === "appointment_scheduled" && item.maintenanceId)
+      .map((item) => {
+        const appointmentDateSource = item.adminAppointmentDate || item.adminLastContactAt;
+        const appointmentDate = toUtcNoon(appointmentDateSource);
+
+        if (!appointmentDate) {
           return null;
         }
 
         return {
-          ...vehicle.toObject(),
+          ...mapOrderMaintenanceToContactVehicle(item),
           appointmentDate,
         };
       })
-      .filter(Boolean)
+      .filter(Boolean);
+
+    const appointmentScheduled = [...appointmentScheduledFromClientVehicles, ...appointmentScheduledFromOrders]
       .sort((left, right) => {
         const leftDateTime = `${new Date(left.appointmentDate).toISOString().slice(0, 10)}T${left.adminAppointmentTime || "23:59"}:00.000Z`;
         const rightDateTime = `${new Date(right.appointmentDate).toISOString().slice(0, 10)}T${right.adminAppointmentTime || "23:59"}:00.000Z`;
         return new Date(leftDateTime).getTime() - new Date(rightDateTime).getTime();
       });
+
+    const appointmentScheduledThisMonth = appointmentScheduled.filter((vehicle) => (
+      isSameMonthAndYear(toUtcNoon(vehicle.appointmentDate), nowUtcNoon)
+    ));
 
     const scheduledCallsByMonth = buildMonthSummary(registeredOrderMaintenance);
 
@@ -350,11 +531,19 @@ async function listMaintenance(req, res) {
           count: monthFilteredMaintenance.length,
         }
         : null,
+      selectedDateRange: hasDateRange
+        ? {
+          from: req.query.from || null,
+          to: req.query.to || null,
+          count: monthFilteredMaintenance.length,
+        }
+        : null,
       scheduledCallsByMonth,
       clientMaintenanceVehicles,
       dueByDateThisMonth,
       dueByDateNextMonth,
       dueByMileageReached,
+      appointmentScheduled,
       appointmentScheduledThisMonth,
       cycleMonths: CLIENT_PREVENTIVE_MAINTENANCE_CYCLE_MONTHS,
     });
@@ -510,8 +699,6 @@ async function updateMaintenance(req, res) {
   }
 }
 
-const ALLOWED_ADMIN_CONTACT_STATUSES = ["pending", "contacted", "will_service", "serviced_elsewhere", "not_interested", "appointment_scheduled"];
-
 async function updateClientMaintenanceVehicle(req, res) {
   try {
     const { vehicleId } = req.params;
@@ -522,61 +709,68 @@ async function updateClientMaintenanceVehicle(req, res) {
       adminAppointmentTime,
     } = req.body;
 
+    const contactPayload = {
+      adminContactStatus,
+      adminContactNotes,
+      adminAppointmentDate,
+      adminAppointmentTime,
+    };
+
     const vehicle = await ClientMaintenanceVehicle.findById(vehicleId)
       .populate("user", "name email phone")
       .populate("client", "name email phone");
 
-    if (!vehicle) {
+    if (vehicle) {
+      const applied = applyAdminContactFields(vehicle, contactPayload);
+
+      if (applied.error) {
+        return res.status(applied.error.status).json({ message: applied.error.message });
+      }
+
+      await vehicle.save();
+
+      return res.status(200).json({
+        message: "Vehicle contact info updated",
+        vehicle,
+      });
+    }
+
+    // Rows from "Este mes / Próximo mes" can use Maintenance IDs (order/manual preventivos),
+    // or occasionally the Order ID when no maintenance document was linked yet.
+    let maintenance = await Maintenance.findById(vehicleId)
+      .populate("client", "name email phone")
+      .populate("order");
+
+    if (!maintenance) {
+      maintenance = await Maintenance.findOne({ order: vehicleId })
+        .populate("client", "name email phone")
+        .populate("order");
+    }
+
+    if (!maintenance) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    if (adminContactStatus !== undefined) {
-      if (!ALLOWED_ADMIN_CONTACT_STATUSES.includes(adminContactStatus)) {
-        return res.status(400).json({ message: "Invalid contact status" });
-      }
+    const appliedMaintenance = applyAdminContactFields(maintenance, {
+      ...contactPayload,
+      notesField: "contactNotes",
+    });
 
-      vehicle.adminContactStatus = adminContactStatus;
+    if (appliedMaintenance.error) {
+      return res.status(appliedMaintenance.error.status).json({ message: appliedMaintenance.error.message });
     }
 
-    if (typeof adminContactNotes === "string") {
-      vehicle.adminContactNotes = adminContactNotes.trim();
-    }
-
-    if (adminAppointmentDate !== undefined) {
-      if (adminAppointmentDate === null || adminAppointmentDate === "") {
-        vehicle.adminAppointmentDate = null;
-      } else {
-        const parsedAppointmentDate = toUtcNoon(adminAppointmentDate);
-
-        if (!parsedAppointmentDate) {
-          return res.status(400).json({ message: "Invalid appointment date" });
-        }
-
-        vehicle.adminAppointmentDate = parsedAppointmentDate;
+    if (maintenance.adminContactStatus === "contacted" || maintenance.adminContactStatus === "appointment_scheduled") {
+      if (maintenance.status === "scheduled" || maintenance.status === "due") {
+        maintenance.status = "contacted";
       }
     }
 
-    if (adminAppointmentTime !== undefined) {
-      if (adminAppointmentTime === null || adminAppointmentTime === "") {
-        vehicle.adminAppointmentTime = "";
-      } else if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(String(adminAppointmentTime))) {
-        return res.status(400).json({ message: "Invalid appointment time" });
-      } else {
-        vehicle.adminAppointmentTime = String(adminAppointmentTime);
-      }
-    }
-
-    if (vehicle.adminContactStatus === "appointment_scheduled" && !vehicle.adminAppointmentDate) {
-      vehicle.adminAppointmentDate = toUtcNoon(new Date());
-    }
-
-    vehicle.adminLastContactAt = new Date();
-
-    await vehicle.save();
+    await maintenance.save();
 
     return res.status(200).json({
       message: "Vehicle contact info updated",
-      vehicle,
+      vehicle: mapMaintenanceDocumentToContactVehicle(maintenance),
     });
   } catch (error) {
     return res.status(500).json({ message: "Error updating vehicle contact info" });

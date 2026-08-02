@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Precios de insumos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260501-adminlight37" />
+    <link rel="stylesheet" href="/admin-mobile-form.css?v=20260514-ipadsafe26" />
+    <style>
+      .global-loading-overlay { display: none !important; }
+
+      .ci-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: auto;
+        min-height: 40px;
+        padding: 0.55rem 1.15rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-weight: 700;
+        font-size: 0.86rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .ci-btn-gold {
+        background: linear-gradient(180deg, #f0c46a, #b6862d);
+        border-color: #b6862d;
+        color: #111;
+      }
+
+      .ci-btn-outline {
+        background: #fff;
+        border-color: rgba(182, 134, 45, 0.55);
+        color: #8a6420;
+      }
+
+      .ci-card {
+        background: #fff;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+      }
+
+      .ci-card h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.15rem;
+      }
+
+      .ci-sub {
+        margin: 0 0 0.85rem;
+        color: var(--muted, #666);
+        font-size: 0.92rem;
+      }
+
+      .ci-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: end;
+        margin-bottom: 0.85rem;
+      }
+
+      .ci-toolbar label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 180px;
+        flex: 1;
+      }
+
+      .ci-toolbar input,
+      .ci-toolbar select {
+        min-height: 42px;
+        width: 100%;
+      }
+
+      .ci-table-wrap {
+        overflow: auto;
+        border: 1px solid rgba(17, 17, 17, 0.08);
+        border-radius: 12px;
+      }
+
+      .ci-table-wrap table {
+        min-width: 860px;
+      }
+
+      .ci-table-wrap input {
+        min-height: 36px;
+        width: 100%;
+        max-width: 140px;
+      }
+
+      .ci-dirty {
+        background: rgba(216, 170, 82, 0.12);
+      }
+
+      .ci-count {
+        margin: 0 0 0.75rem;
+        color: #555;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body class="admin-app-view">
+    <main class="dashboard-shell">
+      <section class="dashboard-stage">
+        <div class="dashboard-sheen"></div>
+        <header class="page-topbar">
+          <a class="secondary-button back-link" href="/app/admin-maintenance.html?tab=cotizador">← Volver al cotizador</a>
+          <div class="page-topbar-actions">
+            <div class="admin-badge">
+              <span id="admin-name">Administrador</span>
+              <strong id="admin-email">admin@globalimports.com</strong>
+            </div>
+            <button id="logout-button" class="secondary-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+          </div>
+        </header>
+
+        <section class="page-hero">
+          <h1>Precios de insumos</h1>
+          <p class="dashboard-lead">
+            Define el costo de cada aceite, filtro y servicio. Ese valor se usa automáticamente en todos los mantenimientos que lo necesiten.
+          </p>
+        </section>
+
+        <p id="ci-feedback" class="feedback" aria-live="polite"></p>
+
+        <article class="ci-card">
+          <h2>Inventario de costos</h2>
+          <p class="ci-sub">Edita el costo unitario y guarda. No hace falta repetirlo carro por carro.</p>
+          <div class="ci-toolbar">
+            <label>
+              <span>Buscar</span>
+              <input id="ci-search" type="search" placeholder="0W-20, 90915, shampoo..." autocomplete="off" />
+            </label>
+            <label>
+              <span>Tipo</span>
+              <select id="ci-type">
+                <option value="">Todos</option>
+                <option value="oil">Aceite motor</option>
+                <option value="oil_filter">Filtro aceite</option>
+                <option value="drain_plug_gasket">Empaque / sello</option>
+                <option value="engine_air_filter">Filtro aire motor</option>
+                <option value="cabin_air_filter">Filtro cabina / A/C</option>
+                <option value="other">Servicio taller</option>
+              </select>
+            </label>
+            <button id="ci-save-all" class="ci-btn ci-btn-gold" type="button">Guardar cambios</button>
+            <a class="ci-btn ci-btn-outline" href="/app/admin-cotizador-precios.html">Ir a precios de venta</a>
+          </div>
+          <p class="ci-count" id="ci-count">Cargando...</p>
+          <div class="ci-table-wrap">
+            <table class="tracking-data-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Insumo</th>
+                  <th>OEM</th>
+                  <th>Vehículos</th>
+                  <th>Stock</th>
+                  <th>Costo unitario (COP)</th>
+                </tr>
+              </thead>
+              <tbody id="ci-body">
+                <tr><td colspan="6"><div class="empty-state">Cargando insumos...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/admin-common.js?v=20260514-viewport07"></script>
+    <script src="/admin-cotizador-insumos.js?v=20260801-ci01"></script>
+  </body>
+</html>

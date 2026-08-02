@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Global Imports | Lamentamos tu partida</title>
+    <meta name="description" content="Lamentamos tu partida. Queremos seguir mejorando y tu recomendación puede ayudarnos." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260420-accountdeleted01" />
+  </head>
+  <body class="login-page account-deleted-page">
+    <main class="app-shell reset-page-shell">
+      <section class="device-stage">
+        <div class="device-sheen"></div>
+
+        <div class="brand-zone">
+          <img class="brand-symbol" src="/logoblancoleon.png" alt="Logo blanco de león" />
+          <img class="brand-wordmark" src="/textoblancoglobal.png" alt="Texto blanco Global" />
+        </div>
+
+        <section class="auth-panel reset-password-panel account-deleted-panel">
+          <div class="auth-copy">
+            <h2>Lamentamos tu partida</h2>
+            <p>
+              Los clientes son muy importantes para nosotros. Gracias por haber sido parte de Global Imports.
+            </p>
+            <p>
+              Si deseas dejarnos una recomendación o contarnos qué podríamos mejorar, estaremos muy atentos a tu mensaje.
+            </p>
+          </div>
+
+          <form id="deleted-account-feedback-form" class="dashboard-form account-deleted-feedback-form">
+            <label>
+              <span>Tu recomendación (opcional)</span>
+              <textarea
+                id="deleted-account-recommendation"
+                name="recommendation"
+                rows="5"
+                maxlength="2000"
+                placeholder="Cuéntanos qué podríamos mejorar para ti y para futuros clientes"
+              ></textarea>
+            </label>
+
+            <button id="deleted-account-feedback-submit" class="primary-button" type="submit">
+              Enviar recomendación
+            </button>
+
+            <p id="deleted-account-feedback" class="feedback" aria-live="polite"></p>
+
+            <div class="account-deleted-actions">
+              <a class="secondary-button" href="/index.html">Volver al acceso</a>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="/account-deleted.js?v=20260420-accountdeleted01"></script>
+  </body>
+</html>
