@@ -940,7 +940,7 @@ async function findStoryPreferringCars(preferredTopic, { excludeUrls = [] } = {}
 }
 
 function getBogotaDateKey(date = new Date()) {
-  return getBogotaParts(date).date;
+  return getBogotaParts(date).dateKey;
 }
 
 async function getRegenerateQuotaStatus(date = new Date()) {
