@@ -239,9 +239,9 @@
     pipeSpeed: 2.8,
     pipeGap: 168,
     pipeWidth: 72,
-    spawnEveryMs: 1650,
-    minPipeSpacing: 280,
-    maxPipes: 3,
+    spawnEveryMs: 1380,
+    minPipeSpacing: 215,
+    maxPipes: 4,
     groundHeight: 56,
   };
 
@@ -552,14 +552,11 @@
       }
 
       const trailingPipe = state.pipes[state.pipes.length - 1];
-      if (!trailingPipe) {
-        return true;
+      if (trailingPipe && trailingPipe.x > width - DEFAULTS.minPipeSpacing) {
+        return false;
       }
 
-      // Keep a real gap between poles even when FPS drops (timer-based spawn + frame move).
-      const nextSpawnX = width + 20;
-      const horizontalGap = nextSpawnX - trailingPipe.x;
-      return horizontalGap >= DEFAULTS.minPipeSpacing + DEFAULTS.pipeWidth;
+      return true;
     }
 
     function spawnPipe() {
@@ -747,13 +744,8 @@
     }
 
     function update(now) {
-      // Normalize motion to ~60fps so lag does not stack poles closer together.
-      const frameScale = lastFrame
-        ? clamp((now - lastFrame) / (1000 / 60), 0.75, 2.25)
-        : 1;
-
       state.clouds.forEach((cloud) => {
-        cloud.x -= cloud.speed * frameScale;
+        cloud.x -= cloud.speed;
         if (cloud.x < -80) {
           cloud.x = width + 40;
         }
@@ -764,16 +756,16 @@
         return;
       }
 
-      state.car.vy += DEFAULTS.gravity * frameScale;
+      state.car.vy += DEFAULTS.gravity;
       state.car.vy = clamp(state.car.vy, -9, 11);
-      state.car.y += state.car.vy * frameScale;
+      state.car.y += state.car.vy;
 
       if (now - lastSpawn >= DEFAULTS.spawnEveryMs && spawnPipe()) {
         lastSpawn = now;
       }
 
       state.pipes.forEach((pipe) => {
-        pipe.x -= DEFAULTS.pipeSpeed * frameScale;
+        pipe.x -= DEFAULTS.pipeSpeed;
         if (!pipe.passed && pipe.x + DEFAULTS.pipeWidth < state.car.x) {
           pipe.passed = true;
           state.score += 1;
@@ -833,6 +825,20 @@
       }
     }
 
+    function onVisibilityChange() {
+      if (document.hidden) {
+        paused = true;
+        return;
+      }
+
+      // Avoid catch-up spawn/lag bursts after the app returns from background.
+      lastFrame = performance.now();
+      if (state.mode === "playing") {
+        lastSpawn = performance.now();
+      }
+      paused = false;
+    }
+
     backButton.addEventListener("click", () => {
       options.onExit?.();
     });
@@ -840,6 +846,7 @@
     shell.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     sprite.addEventListener("load", () => {
       if (mounted) {
@@ -863,6 +870,7 @@
 
     resize();
     resetGame();
+    lastFrame = performance.now();
     animationId = window.requestAnimationFrame(loop);
 
     const gameApi = {
@@ -870,14 +878,21 @@
         paused = true;
       },
       resume() {
+        lastFrame = performance.now();
+        if (state.mode === "playing") {
+          lastSpawn = performance.now();
+        }
         paused = false;
       },
       destroy() {
         mounted = false;
+        paused = true;
         window.cancelAnimationFrame(animationId);
+        animationId = 0;
         shell.removeEventListener("pointerdown", onPointerDown);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("resize", resize);
+        document.removeEventListener("visibilitychange", onVisibilityChange);
         root.replaceChildren();
         if (activeRunningGame === gameApi) {
           activeRunningGame = null;
@@ -974,6 +989,7 @@
 
     let activeScreen = "menu";
     let gameInstance = null;
+    let startGameToken = 0;
     void preloadAllGameSounds();
 
     function showScreen(screenName) {
@@ -999,6 +1015,10 @@
         gameInstance.destroy();
         gameInstance = null;
       }
+      if (activeRunningGame) {
+        activeRunningGame.destroy();
+        activeRunningGame = null;
+      }
     }
 
     function startGame() {
@@ -1009,12 +1029,16 @@
         resolvePlayerName(options);
       }
 
+      const activeLaunchToken = ++startGameToken;
       stopGame();
       showScreen("game");
+      playButton.disabled = true;
 
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          if (activeScreen !== "game") {
+          playButton.disabled = false;
+
+          if (activeLaunchToken !== startGameToken || activeScreen !== "game") {
             return;
           }
 
@@ -1073,6 +1097,7 @@
   }
 
   let activeInstance = null;
+  let activeRoot = null;
 
   window.SequoiaFlappyGame = {
     mount(rootElement, options = {}) {
@@ -1080,7 +1105,13 @@
         return null;
       }
 
+      // Avoid remounting the hub on every tab tap — that can leave duplicate loops.
+      if (activeInstance && activeRoot === rootElement) {
+        return activeInstance;
+      }
+
       this.unmount();
+      activeRoot = rootElement;
       activeInstance = createHub(rootElement, options);
       return activeInstance;
     },
@@ -1089,12 +1120,20 @@
         activeInstance.destroy();
         activeInstance = null;
       }
+      activeRoot = null;
+      if (activeRunningGame) {
+        activeRunningGame.destroy();
+        activeRunningGame = null;
+      }
     },
     pause() {
       activeInstance?.pause();
     },
     resume() {
       activeInstance?.resume();
+    },
+    isMounted() {
+      return Boolean(activeInstance);
     },
   };
 })();

@@ -4760,12 +4760,15 @@ function setActiveView(viewName, options = {}) {
   }
 
   if (GLOBAL_HERO_GAME_ENABLED && nextViewName === "sequoia-game") {
-    window.SequoiaFlappyGame?.mount(sequoiaGameRoot, {
-      authenticated: true,
-      getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
-    });
+    if (!window.SequoiaFlappyGame?.isMounted?.()) {
+      window.SequoiaFlappyGame?.mount(sequoiaGameRoot, {
+        authenticated: true,
+        getPlayerName: () => String(state.user?.name || state.user?.fullName || "").trim(),
+      });
+    }
     window.SequoiaFlappyGame?.resume();
   } else if (GLOBAL_HERO_GAME_ENABLED) {
+    window.SequoiaFlappyGame?.pause();
     window.SequoiaFlappyGame?.unmount();
   }
 }
