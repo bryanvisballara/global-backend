@@ -296,65 +296,266 @@ async function downloadImageBuffer(url) {
   }
 }
 
-async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "" }) {
+function buildImagePrompt({ title, topic }) {
+  const topicHints = {
+    Supercars: "exotic supercar on a coastal highway at golden hour",
+    "Autos de lujo": "luxury sedan in a modern showroom with dramatic lighting",
+    Hypercars: "hypercar on an empty mountain road at dusk",
+    Yates: "luxury megayacht on calm Mediterranean water at sunset",
+    "Lanchas deportivas": "sport yacht cutting through turquoise water",
+    "Jets privados": "private jet on a premium airport tarmac at blue hour",
+    Clásicos: "classic collector car in a refined garage",
+    Motorsport: "motorsport race car on track with motion and sparks",
+    "Eléctricos de lujo": "sleek luxury electric car in a futuristic city night",
+    "Estilo náutico": "luxury marina with yachts and warm evening lights",
+  };
+
+  const scene = topicHints[topic] || "luxury lifestyle scene with cars yachts or private jets";
+
+  return [
+    "Photorealistic editorial photograph for a luxury brand magazine cover.",
+    `Subject: ${scene}.`,
+    `Inspired by: ${title}.`,
+    "Cinematic lighting, rich contrast, premium atmosphere, shallow depth of field.",
+    "No text, no logos, no watermarks, no people faces close-up.",
+    "Horizontal 16:9 composition with dark left side suitable for text overlay.",
+  ].join(" ");
+}
+
+async function generateBackgroundWithOpenAi({ title, topic }) {
+  if (!openAiClient) {
+    return null;
+  }
+
+  const model = String(process.env.OPENAI_IMAGE_MODEL || "gpt-image-1").trim();
+  const prompt = buildImagePrompt({ title, topic });
+
+  try {
+    const response = await openAiClient.images.generate({
+      model,
+      prompt,
+      size: model.includes("dall-e-3") ? "1792x1024" : "1536x1024",
+      quality: model.includes("dall-e-3") ? "standard" : "high",
+      n: 1,
+    });
+
+    const first = response?.data?.[0];
+    if (first?.b64_json) {
+      return Buffer.from(first.b64_json, "base64");
+    }
+
+    if (first?.url) {
+      return downloadImageBuffer(first.url);
+    }
+  } catch (error) {
+    console.warn("[POSTS_AUTO] OpenAI image generation failed:", error.message || error);
+
+    if (model !== "dall-e-3") {
+      try {
+        const fallback = await openAiClient.images.generate({
+          model: "dall-e-3",
+          prompt,
+          size: "1792x1024",
+          quality: "standard",
+          n: 1,
+        });
+        const first = fallback?.data?.[0];
+        if (first?.b64_json) {
+          return Buffer.from(first.b64_json, "base64");
+        }
+        if (first?.url) {
+          return downloadImageBuffer(first.url);
+        }
+      } catch (fallbackError) {
+        console.warn("[POSTS_AUTO] DALL-E fallback failed:", fallbackError.message || fallbackError);
+      }
+    }
+  }
+
+  return null;
+}
+
+async function scrapeOpenGraphImage(articleUrl = "") {
+  if (!articleUrl || !/^https?:\/\//i.test(articleUrl)) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(articleUrl, {
+      headers: {
+        "User-Agent": "GlobalImportsPostsBot/1.0",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+    const patterns = [
+      /property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
+      /content=["']([^"']+)["'][^>]*property=["']og:image["']/i,
+      /name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i,
+      /content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      const imageUrl = normalizeText(match?.[1] || "");
+      if (imageUrl.startsWith("http")) {
+        return downloadImageBuffer(imageUrl);
+      }
+    }
+  } catch {
+    // ignore scrape failures
+  }
+
+  return null;
+}
+
+const TOPIC_STOCK_IMAGES = {
+  Supercars:
+    "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+  "Autos de lujo":
+    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+  Hypercars:
+    "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1600&q=80",
+  Yates:
+    "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1600&q=80",
+  "Lanchas deportivas":
+    "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1600&q=80",
+  "Jets privados":
+    "https://images.unsplash.com/photo-1540962351504-169cc2eecd6e?auto=format&fit=crop&w=1600&q=80",
+  Clásicos:
+    "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1600&q=80",
+  Motorsport:
+    "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1600&q=80",
+  "Eléctricos de lujo":
+    "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&w=1600&q=80",
+  "Estilo náutico":
+    "https://images.unsplash.com/photo-1605281317010-fe5ffe798166?auto=format&fit=crop&w=1600&q=80",
+};
+
+async function fetchTopicStockImage(topic = "") {
+  const url =
+    TOPIC_STOCK_IMAGES[topic] ||
+    "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1600&q=80";
+  return downloadImageBuffer(url);
+}
+
+async function resolveBackgroundBuffer({ title, topic, storyImageUrl = "", storyUrl = "" }) {
+  const generated = await generateBackgroundWithOpenAi({ title, topic });
+  if (generated) {
+    return { buffer: generated, source: "openai" };
+  }
+
+  const storyBuffer = await downloadImageBuffer(storyImageUrl);
+  if (storyBuffer) {
+    return { buffer: storyBuffer, source: "rss" };
+  }
+
+  const ogBuffer = await scrapeOpenGraphImage(storyUrl);
+  if (ogBuffer) {
+    return { buffer: ogBuffer, source: "og" };
+  }
+
+  const stockBuffer = await fetchTopicStockImage(topic);
+  if (stockBuffer) {
+    return { buffer: stockBuffer, source: "stock" };
+  }
+
+  return { buffer: null, source: "none" };
+}
+
+async function buildBrandedImageBuffer({ title, topic, storyImageUrl = "", storyUrl = "" }) {
   const width = 1200;
   const height = 675;
-  const lines = wrapTitleLines(title, 30, 3);
+  const lines = wrapTitleLines(title, 26, 3);
+  const titleStartY = 250;
   const titleSvg = lines
     .map(
       (line, index) =>
-        `<text x="72" y="${250 + index * 58}" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="800" fill="#F7E7C4">${escapeXml(line)}</text>`
+        `<text x="64" y="${titleStartY + index * 62}" font-family="Georgia, 'Times New Roman', serif" font-size="48" font-weight="700" fill="#FFF8EA">${escapeXml(line)}</text>`
     )
     .join("");
 
-  const storyBuffer = await downloadImageBuffer(storyImageUrl);
-  const svg = `
+  const { buffer: backgroundBuffer, source: backgroundSource } = await resolveBackgroundBuffer({
+    title,
+    topic,
+    storyImageUrl,
+    storyUrl,
+  });
+
+  let baseImage;
+
+  if (backgroundBuffer) {
+    baseImage = sharp(backgroundBuffer)
+      .resize(width, height, { fit: "cover", position: "centre" })
+      .modulate({ brightness: 0.9, saturation: 1.08 });
+  } else {
+    const fallbackSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1A1410"/>
+            <stop offset="100%" stop-color="#3A2A18"/>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg)"/>
+      </svg>
+    `;
+    baseImage = sharp(Buffer.from(fallbackSvg));
+  }
+
+  const overlaySvg = `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#14110D"/>
-          <stop offset="55%" stop-color="#1C1812"/>
-          <stop offset="100%" stop-color="#2A2118"/>
+        <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="rgba(8,6,4,0.82)"/>
+          <stop offset="42%" stop-color="rgba(8,6,4,0.48)"/>
+          <stop offset="100%" stop-color="rgba(8,6,4,0.08)"/>
+        </linearGradient>
+        <linearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+          <stop offset="100%" stop-color="rgba(0,0,0,0.4)"/>
         </linearGradient>
       </defs>
-      <rect width="${width}" height="${height}" rx="36" fill="url(#bg)"/>
-      <rect x="48" y="48" width="250" height="42" rx="21" fill="rgba(216,170,82,0.16)"/>
-      <text x="72" y="76" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#D8AA52">GLOBAL IMPORTS</text>
-      <text x="72" y="150" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#B8A07A">${escapeXml(topic || "Lifestyle")}</text>
+      <rect width="${width}" height="${height}" fill="url(#shade)"/>
+      <rect width="${width}" height="${height}" fill="url(#bottom)"/>
+      <rect x="64" y="54" width="236" height="34" rx="17" fill="rgba(216,170,82,0.95)"/>
+      <text x="82" y="77" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#1A1208">GLOBAL IMPORTS</text>
+      <text x="64" y="150" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#E8C57A">${escapeXml(String(topic || "Lifestyle").toUpperCase())}</text>
       ${titleSvg}
-      <rect x="72" y="470" width="72" height="8" rx="4" fill="#D8AA52"/>
-      <text x="72" y="530" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600" fill="#C9B896">Lujo sobre ruedas, agua y cielo</text>
+      <rect x="64" y="460" width="64" height="4" rx="2" fill="#D8AA52"/>
+      <text x="64" y="510" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#F0E2C4">Lujo sobre ruedas, agua y cielo</text>
     </svg>
   `;
 
-  const base = sharp(Buffer.from(svg)).png();
-  const composites = [];
-
-  if (storyBuffer) {
-    composites.push({
-      input: await sharp(storyBuffer).resize(360, 360, { fit: "cover" }).png().toBuffer(),
-      top: 150,
-      left: 760,
-    });
-  }
+  const composites = [
+    {
+      input: await sharp(Buffer.from(overlaySvg)).png().toBuffer(),
+      top: 0,
+      left: 0,
+    },
+  ];
 
   const logo = await loadBrandLogoBuffer();
   if (logo) {
     composites.push({
       input: await sharp(logo)
-        .resize(88, 88, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize(78, 78, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer(),
-      top: 540,
-      left: 1050,
+      top: 560,
+      left: 1080,
     });
   }
 
-  if (composites.length) {
-    return base.composite(composites).png().toBuffer();
-  }
-
-  return base.png().toBuffer();
+  const output = await baseImage.composite(composites).png().toBuffer();
+  output.__backgroundSource = backgroundSource;
+  return output;
 }
 
 async function storeBrandedImage(buffer, preferredName = "global-auto") {
@@ -463,7 +664,9 @@ async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
     title: copy.title,
     topic: story.topic,
     storyImageUrl: story.imageUrl,
+    storyUrl: story.url,
   });
+  console.info(`[POSTS_AUTO] image background source=${imageBuffer.__backgroundSource || "unknown"}`);
   const media = await storeBrandedImage(imageBuffer, `global-${resolvedSlot}`);
   const publisherId = await resolvePublisherUserId();
   const draftDoc = await createDraftFromStory({
