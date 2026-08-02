@@ -2512,6 +2512,216 @@ body.admin-posts-page .regenerate-quota-note.is-exhausted {
   color: #8a3b2f;
 }
 
+body.admin-posts-page .regenerate-progress-modal {
+  z-index: 60;
+}
+
+body.admin-posts-page .regenerate-progress-card {
+  width: min(520px, calc(100vw - 32px));
+  max-width: 520px;
+  gap: 18px;
+}
+
+body.admin-posts-page .regen-preview-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 72% 40%, rgba(216, 170, 82, 0.22), transparent 42%),
+    linear-gradient(135deg, #141414 0%, #2a2218 48%, #0f0f10 100%);
+  border: 1px solid rgba(216, 170, 82, 0.22);
+}
+
+body.admin-posts-page .regen-preview-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 18%,
+    rgba(255, 255, 255, 0.12) 42%,
+    transparent 68%
+  );
+  transform: translateX(-120%);
+  animation: regenShimmer 1.8s ease-in-out infinite;
+}
+
+body.admin-posts-page .regen-preview-copy {
+  position: absolute;
+  left: 18px;
+  right: 28%;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  z-index: 1;
+}
+
+body.admin-posts-page .regen-preview-eyebrow {
+  width: fit-content;
+  color: rgba(216, 170, 82, 0.92);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+body.admin-posts-page .regen-preview-title-line {
+  display: block;
+  height: 14px;
+  width: 92%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+body.admin-posts-page .regen-preview-title-line.short {
+  width: 64%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+body.admin-posts-page .regen-preview-caption {
+  margin-top: 4px;
+  color: rgba(255, 248, 235, 0.78);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+body.admin-posts-page .regen-preview-logo {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background:
+    radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.35), transparent 55%),
+    rgba(255, 255, 255, 0.08);
+  z-index: 1;
+}
+
+body.admin-posts-page .regen-progress-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+body.admin-posts-page .regen-progress-steps li {
+  position: relative;
+  padding: 10px 12px 10px 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f7f5f1;
+  color: #7a7a7a;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+body.admin-posts-page .regen-progress-steps li::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.16);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+body.admin-posts-page .regen-progress-steps li.is-active {
+  border-color: rgba(216, 170, 82, 0.45);
+  background: rgba(216, 170, 82, 0.12);
+  color: #1f1f1f;
+}
+
+body.admin-posts-page .regen-progress-steps li.is-active::before {
+  border-color: transparent;
+  border-top-color: #b8892d;
+  animation: spinnerRotate 800ms linear infinite;
+}
+
+body.admin-posts-page .regen-progress-steps li.is-done {
+  border-color: rgba(60, 140, 90, 0.22);
+  background: rgba(60, 140, 90, 0.08);
+  color: #1f1f1f;
+}
+
+body.admin-posts-page .regen-progress-steps li.is-done::before {
+  content: "✓";
+  display: grid;
+  place-items: center;
+  border-color: #3c8c5a;
+  background: #3c8c5a;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: none;
+  animation: none;
+  transform: none;
+}
+
+body.admin-posts-page .regen-progress-meter {
+  display: grid;
+  gap: 8px;
+}
+
+body.admin-posts-page .regen-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+body.admin-posts-page .regen-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c79a3d, #e2c078 55%, #b8892d);
+  transition: width 280ms ease;
+}
+
+body.admin-posts-page .regen-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #666666;
+  font-size: 0.88rem;
+}
+
+body.admin-posts-page .regen-progress-meta strong {
+  color: #1f1f1f;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes regenShimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (max-width: 720px) {
+  body.admin-posts-page .regenerate-progress-card {
+    width: min(100vw - 20px, 520px);
+    padding: 18px;
+  }
+
+  body.admin-posts-page .regen-preview-copy {
+    left: 14px;
+    right: 22%;
+    bottom: 14px;
+  }
+}
+
 body.admin-posts-page #scheduled-posts-list {
   max-height: 420px;
   min-height: 0;

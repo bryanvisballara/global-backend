@@ -48,12 +48,177 @@ if (requireAdminAccess()) {
   const successActionModal = document.getElementById("success-action-modal");
   const successActionDescription = document.getElementById("success-action-description");
   const successActionClose = document.getElementById("success-action-close");
+  const regenerateProgressModal = document.getElementById("regenerate-progress-modal");
+  const regenerateProgressSubtitle = document.getElementById("regenerate-progress-subtitle");
+  const regenerateProgressSteps = document.getElementById("regenerate-progress-steps");
+  const regenerateProgressBar = document.getElementById("regenerate-progress-bar");
+  const regenerateProgressPercent = document.getElementById("regenerate-progress-percent");
+  const regenerateProgressStatus = document.getElementById("regenerate-progress-status");
+  const regeneratePreviewCaption = regenerateProgressModal?.querySelector(".regen-preview-caption");
 
   let allPosts = [];
   let regenerateQuota = null;
   let confirmResolver = null;
   let pendingSubmitAction = "publish";
   let postMediaPreviewUrls = [];
+  let regenerateProgressTimer = null;
+  let regenerateProgressValue = 0;
+
+  const REGENERATE_STEPS = [
+    {
+      key: "story",
+      label: "Buscando noticia de autos de lujo",
+      status: "Consultando fuentes de noticias…",
+      caption: "Buscando noticia…",
+      target: 22,
+    },
+    {
+      key: "copy",
+      label: "Escribiendo título y texto",
+      status: "OpenAI está redactando el copy…",
+      caption: "Escribiendo textos…",
+      target: 48,
+    },
+    {
+      key: "image",
+      label: "Diseñando imagen con OpenAI",
+      status: "Generando y componiendo la imagen…",
+      caption: "Diseñando imagen…",
+      target: 82,
+    },
+    {
+      key: "finish",
+      label: "Aplicando cambios al borrador",
+      status: "Guardando el borrador regenerado…",
+      caption: "Finalizando…",
+      target: 94,
+    },
+  ];
+
+  function setRegenerateProgress(percent, { status, caption, stepKey } = {}) {
+    regenerateProgressValue = Math.max(0, Math.min(100, Math.round(percent)));
+
+    if (regenerateProgressBar) {
+      regenerateProgressBar.style.width = `${regenerateProgressValue}%`;
+    }
+
+    if (regenerateProgressPercent) {
+      regenerateProgressPercent.textContent = `${regenerateProgressValue}%`;
+    }
+
+    if (status && regenerateProgressStatus) {
+      regenerateProgressStatus.textContent = status;
+    }
+
+    if (caption && regeneratePreviewCaption) {
+      regeneratePreviewCaption.textContent = caption;
+    }
+
+    if (stepKey && regenerateProgressSteps) {
+      const stepNodes = Array.from(regenerateProgressSteps.querySelectorAll("[data-step]"));
+      const activeIndex = stepNodes.findIndex((node) => node.dataset.step === stepKey);
+
+      stepNodes.forEach((node, index) => {
+        node.classList.toggle("is-done", activeIndex >= 0 && index < activeIndex);
+        node.classList.toggle("is-active", index === activeIndex);
+      });
+    }
+  }
+
+  function stopRegenerateProgressTicker() {
+    if (regenerateProgressTimer) {
+      window.clearInterval(regenerateProgressTimer);
+      regenerateProgressTimer = null;
+    }
+  }
+
+  function openRegenerateProgressModal() {
+    if (!regenerateProgressModal) {
+      return;
+    }
+
+    stopRegenerateProgressTicker();
+    regenerateProgressValue = 4;
+
+    if (regenerateProgressSubtitle) {
+      regenerateProgressSubtitle.textContent = "OpenAI está creando contenido e imagen nuevos…";
+    }
+
+    setRegenerateProgress(4, {
+      status: REGENERATE_STEPS[0].status,
+      caption: REGENERATE_STEPS[0].caption,
+      stepKey: REGENERATE_STEPS[0].key,
+    });
+
+    toggleModal(regenerateProgressModal, true);
+
+    const startedAt = Date.now();
+    regenerateProgressTimer = window.setInterval(() => {
+      const elapsedMs = Date.now() - startedAt;
+      let nextStep = REGENERATE_STEPS[0];
+      let nextPercent = 8;
+
+      if (elapsedMs < 4500) {
+        nextStep = REGENERATE_STEPS[0];
+        nextPercent = 8 + (elapsedMs / 4500) * (REGENERATE_STEPS[0].target - 8);
+      } else if (elapsedMs < 14000) {
+        nextStep = REGENERATE_STEPS[1];
+        nextPercent =
+          REGENERATE_STEPS[0].target +
+          ((elapsedMs - 4500) / 9500) * (REGENERATE_STEPS[1].target - REGENERATE_STEPS[0].target);
+      } else if (elapsedMs < 42000) {
+        nextStep = REGENERATE_STEPS[2];
+        nextPercent =
+          REGENERATE_STEPS[1].target +
+          ((elapsedMs - 14000) / 28000) * (REGENERATE_STEPS[2].target - REGENERATE_STEPS[1].target);
+      } else {
+        nextStep = REGENERATE_STEPS[3];
+        const finishProgress = Math.min(1, (elapsedMs - 42000) / 35000);
+        nextPercent =
+          REGENERATE_STEPS[2].target +
+          finishProgress * (REGENERATE_STEPS[3].target - REGENERATE_STEPS[2].target);
+      }
+
+      // Never reach 100% until the request finishes.
+      nextPercent = Math.min(94, nextPercent);
+      if (nextPercent > regenerateProgressValue) {
+        setRegenerateProgress(nextPercent, {
+          status: nextStep.status,
+          caption: nextStep.caption,
+          stepKey: nextStep.key,
+        });
+      }
+    }, 220);
+  }
+
+  async function finishRegenerateProgressModal({ success = true, message = "" } = {}) {
+    stopRegenerateProgressTicker();
+
+    if (!regenerateProgressModal) {
+      return;
+    }
+
+    if (success) {
+      if (regenerateProgressSubtitle) {
+        regenerateProgressSubtitle.textContent = "Listo. La noticia se regeneró correctamente.";
+      }
+
+      const stepNodes = Array.from(regenerateProgressSteps?.querySelectorAll("[data-step]") || []);
+      stepNodes.forEach((node) => {
+        node.classList.add("is-done");
+        node.classList.remove("is-active");
+      });
+
+      setRegenerateProgress(100, {
+        status: message || "Regeneración completada",
+        caption: "Imagen lista",
+      });
+
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+    }
+
+    toggleModal(regenerateProgressModal, false);
+  }
 
   function updateRegenerateQuotaNote(quota = regenerateQuota) {
     if (!regenerateQuotaNote) {
@@ -137,9 +302,12 @@ if (requireAdminAccess()) {
   }
 
   function syncModalState() {
-    const hasOpenModal = [postsManagerModal, confirmActionModal, successActionModal].some(
-      (modal) => modal && !modal.hidden
-    );
+    const hasOpenModal = [
+      postsManagerModal,
+      confirmActionModal,
+      successActionModal,
+      regenerateProgressModal,
+    ].some((modal) => modal && !modal.hidden);
 
     document.body.classList.toggle("modal-open", hasOpenModal);
   }
@@ -160,7 +328,9 @@ if (requireAdminAccess()) {
       resolver(false);
     }
 
-    [postsManagerModal, confirmActionModal, successActionModal].forEach((modal) => {
+    stopRegenerateProgressTicker();
+
+    [postsManagerModal, confirmActionModal, successActionModal, regenerateProgressModal].forEach((modal) => {
       if (modal) {
         modal.hidden = true;
       }
@@ -621,25 +791,37 @@ if (requireAdminAccess()) {
       return;
     }
 
-    const result = await fetchJson(`/api/admin/posts/${postId}/regenerate-draft`, {
-      method: "POST",
-      loadingMessage: "Buscando noticia y regenerando contenido...",
-      requestTimeoutMs: 120000,
-    });
+    openRegenerateProgressModal();
 
-    if (result.quota) {
-      regenerateQuota = result.quota;
-      updateRegenerateQuotaNote(regenerateQuota);
+    try {
+      const result = await fetchJson(`/api/admin/posts/${postId}/regenerate-draft`, {
+        method: "POST",
+        loadingMessage: false,
+        requestTimeoutMs: 120000,
+      });
+
+      if (result.quota) {
+        regenerateQuota = result.quota;
+        updateRegenerateQuotaNote(regenerateQuota);
+      }
+
+      const left = Number(result.quota?.remaining);
+      const leftText = Number.isFinite(left)
+        ? ` Quedan ${left} regeneración${left === 1 ? "" : "es"} hoy.`
+        : "";
+
+      await finishRegenerateProgressModal({
+        success: true,
+        message: `Noticia regenerada.${leftText}`,
+      });
+
+      setFeedback(postFeedback, `Noticia regenerada.${leftText}`, "success");
+      showSuccessModal(`La noticia se regeneró con textos e imagen nuevos.${leftText}`);
+      await loadPostsPage();
+    } catch (error) {
+      await finishRegenerateProgressModal({ success: false });
+      throw error;
     }
-
-    const left = Number(result.quota?.remaining);
-    const leftText = Number.isFinite(left)
-      ? ` Quedan ${left} regeneración${left === 1 ? "" : "es"} hoy.`
-      : "";
-
-    setFeedback(postFeedback, `Noticia regenerada.${leftText}`, "success");
-    showSuccessModal(`La noticia se regeneró con textos e imagen nuevos.${leftText}`);
-    await loadPostsPage();
   }
 
   async function submitPost(action) {

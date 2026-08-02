@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" href="/iconoglobal.jpg" />
-    <link rel="stylesheet" href="/styles.css?v=20260802-regen-news01" />
+    <link rel="stylesheet" href="/styles.css?v=20260802-regen-progress01" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260515-ipadtouch27" />
   </head>
   <body class="admin-posts-page admin-app-view">
@@ -129,7 +129,50 @@
         </div>
       </section>
     </div>
+    <div id="regenerate-progress-modal" class="client-modal regenerate-progress-modal" hidden>
+      <div class="client-modal-overlay"></div>
+      <section class="client-modal-card admin-modal-card regenerate-progress-card" role="dialog" aria-modal="true" aria-labelledby="regenerate-progress-title" aria-busy="true">
+        <div class="admin-brand-mark">
+          <img src="/logoblancoleon.png" alt="Global Imports" />
+          <span>Global Imports</span>
+        </div>
+        <header class="client-modal-header">
+          <div>
+            <h2 id="regenerate-progress-title">Regenerando noticia</h2>
+            <p id="regenerate-progress-subtitle" class="modal-copy">OpenAI está creando contenido e imagen nuevos…</p>
+          </div>
+        </header>
+
+        <div class="regen-preview-frame" aria-hidden="true">
+          <div class="regen-preview-shimmer"></div>
+          <div class="regen-preview-copy">
+            <span class="regen-preview-eyebrow">SUPERCARS</span>
+            <span class="regen-preview-title-line"></span>
+            <span class="regen-preview-title-line short"></span>
+            <span class="regen-preview-caption">Diseñando imagen…</span>
+          </div>
+          <div class="regen-preview-logo"></div>
+        </div>
+
+        <ol id="regenerate-progress-steps" class="regen-progress-steps">
+          <li data-step="story" class="is-active">Buscando noticia de autos de lujo</li>
+          <li data-step="copy">Escribiendo título y texto</li>
+          <li data-step="image">Diseñando imagen con OpenAI</li>
+          <li data-step="finish">Aplicando cambios al borrador</li>
+        </ol>
+
+        <div class="regen-progress-meter" aria-live="polite">
+          <div class="regen-progress-track">
+            <div id="regenerate-progress-bar" class="regen-progress-bar" style="width: 4%"></div>
+          </div>
+          <div class="regen-progress-meta">
+            <span id="regenerate-progress-status">Iniciando…</span>
+            <strong id="regenerate-progress-percent">4%</strong>
+          </div>
+        </div>
+      </section>
+    </div>
     <script src="/admin-common.js?v=20260802-header-logout01"></script>
-    <script src="/admin-posts.js?v=20260802-regen-news01"></script>
+    <script src="/admin-posts.js?v=20260802-regen-progress01"></script>
   </body>
 </html>
