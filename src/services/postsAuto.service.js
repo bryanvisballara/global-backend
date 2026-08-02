@@ -17,10 +17,10 @@ const GLOBAL_POST_TOPICS = [
   { key: "yachts", label: "Yates", query: "luxury yacht megayacht launch" },
   { key: "sport_boats", label: "Lanchas deportivas", query: "sport yacht powerboat luxury boat" },
   { key: "private_jets", label: "Jets privados", query: "private jet luxury aviation Gulfstream" },
-  { key: "classic_cars", label: "Clásicos", query: "classic car auction collector car" },
-  { key: "motorsport", label: "Motorsport", query: "Formula 1 Le Mans GT racing" },
-  { key: "ev_luxury", label: "Eléctricos de lujo", query: "luxury electric supercar Rivian Lucid" },
-  { key: "marine_lifestyle", label: "Estilo náutico", query: "superyacht marina lifestyle" },
+  { key: "classic_cars", label: "Clásicos", query: "classic car auction Ferrari Porsche collector automobile -game -gta -xbox -playstation" },
+  { key: "motorsport", label: "Motorsport", query: "Formula 1 race car Le Mans GT racing automobile" },
+  { key: "ev_luxury", label: "Eléctricos de lujo", query: "luxury electric car Rivian Lucid Porsche Taycan" },
+  { key: "marine_lifestyle", label: "Estilo náutico", query: "superyacht marina luxury yacht lifestyle" },
 ];
 
 function normalizeText(value) {
@@ -427,11 +427,11 @@ const TOPIC_STOCK_IMAGES = {
   "Lanchas deportivas":
     "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1600&q=80",
   "Jets privados":
-    "https://images.unsplash.com/photo-1540962351504-169cc2eecd6e?auto=format&fit=crop&w=1600&q=80",
+    "https://images.unsplash.com/photo-1474302770733-de1e391ee063?auto=format&fit=crop&w=1600&q=80",
   Clásicos:
     "https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1600&q=80",
   Motorsport:
-    "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1600&q=80",
+    "https://images.unsplash.com/photo-1504707748692-419802cf492d?auto=format&fit=crop&w=1600&q=80",
   "Eléctricos de lujo":
     "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&w=1600&q=80",
   "Estilo náutico":
