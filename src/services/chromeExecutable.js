@@ -24,6 +24,15 @@ function resolveLocalChromeExecutablePath() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || "";
 }
 
+function loadSparticuzChromium() {
+  try {
+    const chromiumModule = require("@sparticuz/chromium");
+    return chromiumModule?.default || chromiumModule;
+  } catch (_error) {
+    return null;
+  }
+}
+
 async function resolveChromeLaunchOptions() {
   const localExecutablePath = resolveLocalChromeExecutablePath();
 
@@ -41,10 +50,9 @@ async function resolveChromeLaunchOptions() {
     };
   }
 
-  let chromium;
-  try {
-    chromium = require("@sparticuz/chromium");
-  } catch (_error) {
+  const chromium = loadSparticuzChromium();
+
+  if (!chromium || typeof chromium.executablePath !== "function") {
     const error = new Error(
       "No se encontró Chrome/Chromium para generar el PDF. Instala @sparticuz/chromium o configura PUPPETEER_EXECUTABLE_PATH."
     );
@@ -52,13 +60,16 @@ async function resolveChromeLaunchOptions() {
     throw error;
   }
 
+  const executablePath = await chromium.executablePath();
+  const chromiumArgs = typeof chromium.args === "function"
+    ? await chromium.args()
+    : (Array.isArray(chromium.args) ? chromium.args : []);
+
   return {
-    headless: chromium.headless ?? true,
-    executablePath: await chromium.executablePath(),
+    headless: chromium.headless ?? "shell",
+    executablePath,
     args: [
-      ...(Array.isArray(chromium.args) ? chromium.args : []),
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
+      ...chromiumArgs,
       "--disable-dev-shm-usage",
       "--font-render-hinting=none",
       "--hide-scrollbars",
