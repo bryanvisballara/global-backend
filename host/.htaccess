@@ -1,5 +1,12 @@
 RewriteEngine On
 
+# Canonical host: www breaks cross-origin login to Render unless CORS lists it.
+RewriteCond %{HTTP_HOST} ^www\.globalimports\.app$ [NC]
+RewriteRule ^(.*)$ https://globalimports.app/$1 [R=301,L]
+
+RewriteCond %{HTTP_HOST} ^www\.globalimports\.co$ [NC]
+RewriteRule ^(.*)$ https://globalimports.co/$1 [R=301,L]
+
 RewriteRule ^app/(.*)$ /$1 [R=302,L]
 
 <IfModule mod_headers.c>
