@@ -11759,6 +11759,12 @@ body.admin-app-view .admin-role-segment {
   gap: 10px;
 }
 
+@media (min-width: 900px) {
+  body.admin-app-view .admin-role-segment {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 body.admin-app-view .admin-role-choice {
   position: relative;
   display: block;
@@ -11809,8 +11815,6 @@ body.admin-app-view .admin-role-choice input:disabled + span {
     grid-template-columns: 1fr;
   }
 }
-
-
 
 body.admin-app-view .dashboard-form select option,
 body.admin-app-view .dashboard-form select optgroup,

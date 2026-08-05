@@ -27,7 +27,7 @@
   const emailInput = document.getElementById("admin-create-email");
   const passwordInput = document.getElementById("admin-create-password");
   const roleRow = document.getElementById("admin-create-role-row");
-  const roleInputs = Array.from(document.querySelectorAll('input[name="admin-create-role"]'));
+  const roleSegment = document.getElementById("admin-create-role-segment");
   const submitButton = document.getElementById("admin-create-submit");
   const usersBody = document.getElementById("admin-users-body");
   const usersCount = document.getElementById("admin-users-count");
@@ -35,6 +35,20 @@
 
   let currentRole = "";
   let currentUserId = "";
+
+  const LATAM_CREATE_ROLES = [
+    { value: "admin", label: "Administrador" },
+    { value: "mechanic", label: "Mantenimiento" },
+    { value: "vigilance", label: "Vigilancia" },
+    { value: "brokerUSA", label: "Broker USA" },
+  ];
+
+  const USA_CREATE_ROLES = [
+    { value: "adminUSA", label: "Administrador USA" },
+    { value: "brokerUSA", label: "Broker USA" },
+    { value: "mechanic", label: "Mantenimiento" },
+    { value: "vigilance", label: "Vigilancia" },
+  ];
 
   function escapeHtml(value) {
     return String(value || "")
@@ -58,49 +72,93 @@
   }
 
   function formatRoleLabel(role) {
-    if (role === "manager") {
-      return "Gerente";
+    const labels = {
+      manager: "Gerente",
+      gerenteUSA: "Gerente USA",
+      admin: "Administrador",
+      adminUSA: "Administrador USA",
+      brokerUSA: "Broker USA",
+      mechanic: "Mantenimiento",
+      vigilance: "Vigilancia",
+    };
+
+    return labels[String(role || "").trim()] || String(role || "-");
+  }
+
+  function getCreatableRoles() {
+    if (currentRole === "manager") {
+      return LATAM_CREATE_ROLES;
     }
 
-    if (role === "gerenteUSA") {
-      return "Gerente USA";
+    if (currentRole === "gerenteUSA") {
+      return USA_CREATE_ROLES;
     }
 
-    if (role === "admin") {
-      return "Administrador";
-    }
+    return [];
+  }
 
-    if (role === "adminUSA") {
-      return "Administrador USA";
-    }
+  function getDefaultRoleValue() {
+    return getCreatableRoles()[0]?.value || "";
+  }
 
-    if (role === "brokerUSA") {
-      return "Broker USA";
-    }
-
-    return String(role || "-");
+  function getRoleInputs() {
+    return Array.from(document.querySelectorAll('input[name="admin-create-role"]'));
   }
 
   function getSelectedAdministrativeRole() {
-    const checked = roleInputs.find((input) => input.checked);
-    return String(checked?.value || "adminUSA").trim() === "brokerUSA" ? "brokerUSA" : "adminUSA";
+    const allowed = getCreatableRoles().map((item) => item.value);
+    const checked = getRoleInputs().find((input) => input.checked);
+    const value = String(checked?.value || "").trim();
+
+    if (allowed.includes(value)) {
+      return value;
+    }
+
+    return getDefaultRoleValue();
   }
 
   function setSelectedAdministrativeRole(role) {
-    const nextRole = String(role || "").trim() === "brokerUSA" ? "brokerUSA" : "adminUSA";
+    const allowed = getCreatableRoles().map((item) => item.value);
+    const nextRole = allowed.includes(String(role || "").trim())
+      ? String(role).trim()
+      : getDefaultRoleValue();
 
-    roleInputs.forEach((input) => {
+    getRoleInputs().forEach((input) => {
       input.checked = input.value === nextRole;
     });
   }
 
-  function getRequestedAdministrativeRole() {
-    if (currentRole === "gerenteUSA") {
-      return getSelectedAdministrativeRole();
+  function renderRoleOptions(preferredRole = "") {
+    if (!roleSegment) {
+      return;
     }
 
-    if (currentRole === "manager") {
-      return "admin";
+    const options = getCreatableRoles();
+
+    if (!options.length) {
+      roleSegment.innerHTML = "";
+      return;
+    }
+
+    const selected = options.some((item) => item.value === preferredRole)
+      ? preferredRole
+      : options[0].value;
+
+    roleSegment.innerHTML = options
+      .map(
+        (item) => `
+          <label class="admin-role-choice">
+            <input type="radio" name="admin-create-role" value="${escapeHtml(item.value)}" ${item.value === selected ? "checked" : ""} />
+            <span>${escapeHtml(item.label)}</span>
+          </label>
+        `
+      )
+      .join("");
+  }
+
+  function getRequestedAdministrativeRole() {
+    if (currentRole === "gerenteUSA" || currentRole === "manager") {
+      return getSelectedAdministrativeRole();
     }
 
     return "";
@@ -121,11 +179,11 @@
     }
 
     if (currentRole === "manager") {
-      return userRole === "admin";
+      return ["admin", "mechanic", "vigilance", "brokerUSA"].includes(userRole);
     }
 
     if (currentRole === "gerenteUSA") {
-      return ["adminUSA", "brokerUSA"].includes(userRole);
+      return ["adminUSA", "brokerUSA", "mechanic", "vigilance"].includes(userRole);
     }
 
     return false;
@@ -200,7 +258,8 @@
 
   function updateCreateAvailability() {
     const canCreateAdmins = canManageAdministrativeUsers();
-    const canPickRole = currentRole === "gerenteUSA";
+    const canPickRole = ["manager", "gerenteUSA"].includes(currentRole);
+    const previousRole = getSelectedAdministrativeRole();
 
     if (createCard) {
       createCard.hidden = !canCreateAdmins;
@@ -218,14 +277,10 @@
       roleRow.hidden = !canPickRole;
     }
 
-    roleInputs.forEach((input) => {
-      input.disabled = !canPickRole;
-    });
-
     if (canPickRole) {
-      setSelectedAdministrativeRole(getSelectedAdministrativeRole());
-    } else {
-      setSelectedAdministrativeRole("adminUSA");
+      renderRoleOptions(previousRole || getDefaultRoleValue());
+    } else if (roleSegment) {
+      roleSegment.innerHTML = "";
     }
   }
 
@@ -246,6 +301,11 @@
 
     if (!name || !email || !password) {
       setFeedback(feedback, "Completa nombre, email y contraseña.", "error");
+      return;
+    }
+
+    if (!role) {
+      setFeedback(feedback, "Selecciona un tipo de usuario.", "error");
       return;
     }
 
@@ -313,7 +373,7 @@
       return loadAdministrativeUsers();
     })
     .catch((error) => {
-      usersBody.innerHTML = `<tr><td colspan="5"><div class="empty-state">${escapeHtml(error.message || "No se pudo cargar la sesión administrativa")}</div></td></tr>`;
+      usersBody.innerHTML = `<tr><td colspan="6"><div class="empty-state">${escapeHtml(error.message || "No se pudo cargar la sesión administrativa")}</div></td></tr>`;
       setFeedback(feedback, error.message || "No se pudieron cargar los usuarios administrativos.", "error");
     });
 })();

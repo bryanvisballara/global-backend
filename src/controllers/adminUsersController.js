@@ -14,19 +14,25 @@ function isUsaAdministrativeRole(role) {
 
 function resolveAdministrativeRoleToCreate(requesterRole, requestedRole) {
   const normalizedRequesterRole = String(requesterRole || "").trim();
+  const requested = String(requestedRole || "").trim();
 
   if (normalizedRequesterRole === "manager") {
-    const requested = String(requestedRole || "").trim();
-    if (requested === "mechanic") return "mechanic";
-    if (requested === "vigilance") return "vigilance";
+    if (["admin", "mechanic", "vigilance", "brokerUSA"].includes(requested)) {
+      return requested;
+    }
+
     return "admin";
   }
 
-  if (normalizedRequesterRole !== "gerenteUSA") {
-    return "";
+  if (normalizedRequesterRole === "gerenteUSA") {
+    if (["adminUSA", "brokerUSA", "mechanic", "vigilance"].includes(requested)) {
+      return requested;
+    }
+
+    return "adminUSA";
   }
 
-  return String(requestedRole || "").trim() === "brokerUSA" ? "brokerUSA" : "adminUSA";
+  return "";
 }
 
 async function listUsers(req, res) {
@@ -42,8 +48,8 @@ async function listUsers(req, res) {
 async function listAdministrativeUsers(req, res) {
   try {
     const rolesToList = isUsaAdministrativeRole(req.user?.role)
-      ? ["gerenteusa", "adminusa", "brokerusa"]
-      : ["manager", "admin", "mechanic", "vigilance"];
+      ? ["gerenteusa", "adminusa", "brokerusa", "mechanic", "vigilance"]
+      : ["manager", "admin", "mechanic", "vigilance", "brokerusa"];
 
     const roleRegexMatchers = rolesToList.map((role) => new RegExp(`^${role}$`, "i"));
 
@@ -121,7 +127,11 @@ async function deleteAdministrativeUser(req, res) {
     const requesterRole = String(req.user?.role || "");
     const requesterId = String(req.user?._id || req.user?.id || "").trim();
     const administrativeUserId = String(req.params.adminUserId || "").trim();
-    const rolesAllowedToDelete = requesterRole === "gerenteUSA" ? ["adminUSA", "brokerUSA"] : requesterRole === "manager" ? ["admin"] : [];
+    const rolesAllowedToDelete = requesterRole === "gerenteUSA"
+      ? ["adminUSA", "brokerUSA", "mechanic", "vigilance"]
+      : requesterRole === "manager"
+        ? ["admin", "mechanic", "vigilance", "brokerUSA"]
+        : [];
 
     if (!rolesAllowedToDelete.length) {
       return res.status(403).json({ message: "Forbidden" });
