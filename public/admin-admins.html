@@ -7,10 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=20260802-header-logout02" />
+    <link rel="stylesheet" href="/styles.css?v=20260805-adminrole01" />
     <link rel="stylesheet" href="/admin-mobile-fix.css?v=20260514-ipadsafe26" />
   </head>
-  <body class="admin-app-view">
+  <body class="admin-app-view admin-admins-page">
     <main class="dashboard-shell">
       <section class="dashboard-stage">
         <div class="dashboard-sheen"></div>
@@ -48,13 +48,19 @@
                     <label><span>Contraseña</span><input id="admin-create-password" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" /></label>
                   </div>
                   <div id="admin-create-role-row" class="form-row" hidden>
-                    <label>
-                      <span>Tipo de usuario</span>
-                      <select id="admin-create-role">
-                        <option value="adminUSA">Administrador USA</option>
-                        <option value="brokerUSA">Broker USA</option>
-                      </select>
-                    </label>
+                    <div class="admin-role-field">
+                      <span class="admin-role-field-label">Tipo de usuario</span>
+                      <div class="admin-role-segment" role="radiogroup" aria-label="Tipo de usuario">
+                        <label class="admin-role-choice">
+                          <input type="radio" name="admin-create-role" value="adminUSA" checked />
+                          <span>Administrador USA</span>
+                        </label>
+                        <label class="admin-role-choice">
+                          <input type="radio" name="admin-create-role" value="brokerUSA" />
+                          <span>Broker USA</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   <div class="modal-actions-row">
                     <button id="admin-create-submit" class="primary-button" type="submit">Crear administrador</button>
@@ -95,6 +101,6 @@
     </main>
 
     <script src="/admin-common.js?v=20260802-header-logout01"></script>
-    <script src="/admin-admins.js?v=20260502-adminusers-broker01"></script>
+    <script src="/admin-admins.js?v=20260805-adminrole01"></script>
   </body>
 </html>
