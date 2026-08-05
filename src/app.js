@@ -38,6 +38,9 @@ const adminPagePattern = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i;
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://teal-flamingo-532353.hostingersite.com",
   "https://globalimports.app",
+  "https://www.globalimports.app",
+  "https://globalimports.co",
+  "https://www.globalimports.co",
   "https://global-backend-bdbx.onrender.com",
 ];
 
@@ -59,19 +62,80 @@ function normalizeOrigin(originValue) {
   return `https://${trimmedOrigin}`.replace(/\/$/, "");
 }
 
+function stripWwwHostname(hostname = "") {
+  return String(hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, "");
+}
+
+function expandOriginVariants(originValue) {
+  const normalizedOrigin = normalizeOrigin(originValue);
+
+  if (!normalizedOrigin) {
+    return [];
+  }
+
+  try {
+    const parsedOrigin = new URL(normalizedOrigin);
+    const hostnameWithoutWww = stripWwwHostname(parsedOrigin.hostname);
+    const variants = new Set([normalizedOrigin]);
+
+    if (hostnameWithoutWww) {
+      variants.add(`${parsedOrigin.protocol}//${hostnameWithoutWww}`);
+      variants.add(`${parsedOrigin.protocol}//www.${hostnameWithoutWww}`);
+    }
+
+    return Array.from(variants);
+  } catch {
+    return [normalizedOrigin];
+  }
+}
+
 function resolveAllowedOrigins() {
+  const defaultOrigins = DEFAULT_ALLOWED_ORIGINS.flatMap((originValue) => expandOriginVariants(originValue));
+
   if (corsOrigin === "*") {
-    return DEFAULT_ALLOWED_ORIGINS.map((originValue) => normalizeOrigin(originValue)).filter(Boolean);
+    return Array.from(new Set(defaultOrigins));
   }
 
   const configuredOrigins = corsOrigin
     .split(",")
-    .map((item) => normalizeOrigin(item))
-    .filter(Boolean);
-
-  const defaultOrigins = DEFAULT_ALLOWED_ORIGINS.map((originValue) => normalizeOrigin(originValue)).filter(Boolean);
+    .flatMap((item) => expandOriginVariants(item));
 
   return Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
+}
+
+function isAllowedCorsOrigin(originValue) {
+  if (!originValue) {
+    return true;
+  }
+
+  const normalizedRequestOrigin = normalizeOrigin(originValue);
+  const allowedOrigins = resolveAllowedOrigins();
+
+  if (allowedOrigins.includes(normalizedRequestOrigin)) {
+    return true;
+  }
+
+  try {
+    const requestUrl = new URL(normalizedRequestOrigin);
+    const requestHost = stripWwwHostname(requestUrl.hostname);
+
+    return allowedOrigins.some((allowedOrigin) => {
+      try {
+        const allowedUrl = new URL(allowedOrigin);
+        return (
+          allowedUrl.protocol === requestUrl.protocol &&
+          stripWwwHostname(allowedUrl.hostname) === requestHost
+        );
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
+  }
 }
 
 function sanitizeDownloadFileName(fileName, fallback = "document.pdf") {
@@ -364,11 +428,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    const allowedOrigins = resolveAllowedOrigins();
-
-    const normalizedRequestOrigin = normalizeOrigin(origin);
-
-    if (!origin || allowedOrigins.includes(normalizedRequestOrigin)) {
+    if (isAllowedCorsOrigin(origin)) {
       return callback(null, true);
     }
 

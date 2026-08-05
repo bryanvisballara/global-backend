@@ -812,7 +812,7 @@ loginForm.addEventListener("submit", async (event) => {
   } catch (error) {
     const errorMessage = error?.message === "Failed to fetch"
       ? isProductionApiRequest()
-        ? "No pudimos conectar con la API de producción. Revisa CORS o disponibilidad del backend en Render."
+        ? "No pudimos conectar con el servidor. Entra en https://globalimports.app (sin www) o prueba de nuevo en unos segundos."
         : "No pudimos conectar con la API local. Verifica que el servidor siga corriendo en el puerto 10000."
       : error.message;
     setFeedback(errorMessage, "error");
