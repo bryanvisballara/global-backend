@@ -1,5 +1,6 @@
 const fs = require("fs");
 const puppeteer = require("puppeteer-core");
+const { resolveChromeLaunchOptions } = require("./chromeExecutable");
 const {
   COMPANY,
   buildQuoteDocumentHtml,
@@ -180,29 +181,6 @@ function buildPrintableQuoteHtml(documentHtml, assetBase) {
 </html>`;
 }
 
-function resolveChromeExecutablePath() {
-  const fromEnv = String(
-    process.env.PUPPETEER_EXECUTABLE_PATH
-    || process.env.CHROME_PATH
-    || process.env.GOOGLE_CHROME_BIN
-    || ""
-  ).trim();
-  if (fromEnv && fs.existsSync(fromEnv)) {
-    return fromEnv;
-  }
-
-  const candidates = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/snap/bin/chromium",
-  ];
-
-  return candidates.find((candidate) => fs.existsSync(candidate)) || "";
-}
-
 async function buildQuotePdfBuffer(payload) {
   const assetBase = resolveAssetBaseUrl();
   const logoUrl = String(
@@ -224,33 +202,15 @@ async function buildQuotePdfBuffer(payload) {
   });
 
   const fullHtml = buildPrintableQuoteHtml(documentHtml, assetBase);
-  const executablePath = resolveChromeExecutablePath();
-  if (!executablePath) {
-    const error = new Error(
-      "No se encontró Chrome/Chromium para generar el PDF de la cotización. Configura PUPPETEER_EXECUTABLE_PATH."
-    );
-    error.status = 500;
-    throw error;
-  }
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--font-render-hinting=none",
-      "--hide-scrollbars",
-    ],
-  });
+  const launchOptions = await resolveChromeLaunchOptions();
+  const browser = await puppeteer.launch(launchOptions);
 
   try {
     const page = await browser.newPage();
     // Above 820px breakpoint so desktop columns stay active.
     await page.setViewport({ width: 1100, height: 1400, deviceScaleFactor: 1 });
     await page.setContent(fullHtml, {
-      waitUntil: ["load", "networkidle0"],
+      waitUntil: "domcontentloaded",
       timeout: 60_000,
     });
     await page.evaluate(async () => {

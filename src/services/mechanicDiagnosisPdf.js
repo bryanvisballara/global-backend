@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer-core");
+const { resolveChromeLaunchOptions } = require("./chromeExecutable");
 
 const GOLD = "#c4a35a";
 const INK = "#111111";
@@ -137,27 +138,6 @@ function formatServiceDate(value) {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function resolveChromeExecutablePath() {
-  const fromEnv = String(
-    process.env.PUPPETEER_EXECUTABLE_PATH
-    || process.env.CHROME_PATH
-    || process.env.GOOGLE_CHROME_BIN
-    || ""
-  ).trim();
-  if (fromEnv && fs.existsSync(fromEnv)) {
-    return fromEnv;
-  }
-  const candidates = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/snap/bin/chromium",
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) || "";
 }
 
 function fileToDataUri(absolutePath) {
@@ -849,23 +829,13 @@ function buildDiagnosisHtml(order) {
 }
 
 async function buildMechanicDiagnosisPdfBuffer(order) {
-  const executablePath = resolveChromeExecutablePath();
-  if (!executablePath) {
-    const error = new Error("No se encontró Chrome/Chromium para generar el PDF del diagnóstico.");
-    error.status = 500;
-    throw error;
-  }
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-  });
+  const launchOptions = await resolveChromeLaunchOptions();
+  const browser = await puppeteer.launch(launchOptions);
 
   try {
     const page = await browser.newPage();
     await page.setContent(buildDiagnosisHtml(order), {
-      waitUntil: ["load", "networkidle0"],
+      waitUntil: "domcontentloaded",
       timeout: 60_000,
     });
     await new Promise((resolve) => setTimeout(resolve, 300));

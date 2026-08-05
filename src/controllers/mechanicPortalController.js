@@ -442,6 +442,18 @@ async function createServiceOrder(req, res) {
         return res.status(400).json({ message: "Selecciona una cita válida del día" });
       }
 
+      const existingOpenOrder = await MechanicServiceOrder.findOne({
+        sourceId,
+        status: { $in: ["open", "diagnosis_saved"] },
+      }).sort({ updatedAt: -1, createdAt: -1 });
+
+      if (existingOpenOrder) {
+        return res.status(200).json({
+          message: "Orden de servicio reabierta",
+          order: serializeOrder(existingOpenOrder),
+        });
+      }
+
       if (recordType === "client_vehicle") {
         const vehicle = await ClientMaintenanceVehicle.findById(sourceId).populate("user", "name email phone").populate("client", "name email phone").lean();
         if (!vehicle) {

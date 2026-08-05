@@ -237,11 +237,12 @@
     if (dayAppointments.length) {
       parts.push(`<p class="mech-list-label">Citas programadas</p>`);
       parts.push(dayAppointments.map((item) => `
-        <div class="mech-vehicle-card">
+        <button class="mech-vehicle-card" type="button" data-source-id="${escapeHtml(item.id)}" data-record-type="${escapeHtml(item.recordType)}">
           <strong>${escapeHtml(vehicleTitle(item))}</strong>
           <span>${escapeHtml(item.version || "Sin versión")} · Placa ${escapeHtml(item.plate || "—")}</span>
           <span>${item.appointmentTime ? `Hora ${escapeHtml(item.appointmentTime)}` : "Sin hora asignada"}</span>
-        </div>
+          <span class="mech-status-pill">Abrir orden</span>
+        </button>
       `).join(""));
     }
 
@@ -249,6 +250,12 @@
     dayList.querySelectorAll("button[data-order-id]").forEach((button) => {
       button.addEventListener("click", () => {
         openExistingOrder(button.dataset.orderId)
+          .catch((error) => setFeedback?.(feedback, error.message, "error"));
+      });
+    });
+    dayList.querySelectorAll("button[data-source-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        createOrderFromAppointment(button.dataset.sourceId, button.dataset.recordType)
           .catch((error) => setFeedback?.(feedback, error.message, "error"));
       });
     });
