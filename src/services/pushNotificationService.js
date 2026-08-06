@@ -481,6 +481,27 @@ function isFcmConfigured() {
   return isFcmV1Configured() || isFcmLegacyConfigured();
 }
 
+function arePostPushNotificationsDisabled() {
+  const flag = String(process.env.DISABLE_POST_PUSH_NOTIFICATIONS || "").trim().toLowerCase() === "true";
+
+  if (!flag) {
+    return false;
+  }
+
+  const nodeEnv = String(process.env.NODE_ENV || "").trim().toLowerCase();
+
+  // Never silently disable feed pushes in production (Render).
+  if (nodeEnv === "production") {
+    logPushWarningOnce(
+      "disable-post-push-ignored-in-production",
+      "[push] DISABLE_POST_PUSH_NOTIFICATIONS=true is set but ignored because NODE_ENV=production."
+    );
+    return false;
+  }
+
+  return true;
+}
+
 function normalizeFirebaseDataPayload(data) {
   const normalizedPayload = {};
 
@@ -727,27 +748,28 @@ async function removeInvalidDeviceTokens(tokens = []) {
 }
 
 async function sendPublishedPostNotifications(post) {
-  if (String(process.env.DISABLE_POST_PUSH_NOTIFICATIONS || "").trim().toLowerCase() === "true") {
-    console.info("[push] Post push notifications disabled by DISABLE_POST_PUSH_NOTIFICATIONS.");
+  if (arePostPushNotificationsDisabled()) {
+    console.info("[push] Post push notifications disabled by DISABLE_POST_PUSH_NOTIFICATIONS (non-production only).");
     return { sent: 0, skipped: 0, disabled: true };
   }
 
   if (!post || post.pushNotificationSentAt) {
-    return { sent: 0, skipped: 0 };
+    return { sent: 0, skipped: 0, alreadySent: Boolean(post?.pushNotificationSentAt) };
   }
 
   const users = await User.find({ role: "client", isActive: true, "pushDevices.0": { $exists: true } })
-    .select("pushDevices notificationBadgeCount");
+    .select("pushDevices notificationBadgeCount email");
 
   if (!users.length) {
-    await Post.findByIdAndUpdate(post._id, { $set: { pushNotificationSentAt: new Date() } });
-    return { sent: 0, skipped: 0 };
+    console.warn("[push] No client users with registered push devices; skipping post notification mark.");
+    return { sent: 0, skipped: 0, noDevices: true };
   }
 
   const baseNotification = getNotificationPayload(post);
   const invalidTokens = [];
   let sent = 0;
   let skipped = 0;
+  let configBlocked = 0;
 
   for (const user of users) {
     const nextBadgeCount = Math.max(0, Number(user.notificationBadgeCount || 0) + 1);
@@ -761,13 +783,19 @@ async function sendPublishedPostNotifications(post) {
 
     for (const device of user.pushDevices || []) {
       try {
-        if (device.provider === "apns" && device.platform === "ios") {
+        const provider = String(device?.provider || "").trim().toLowerCase();
+        const platform = String(device?.platform || "").trim().toLowerCase();
+        const isApnsDevice = provider === "apns" || (platform === "ios" && provider !== "fcm");
+        const isFcmDevice = provider === "fcm" || platform === "android";
+
+        if (isApnsDevice && platform !== "android") {
           if (!isApnsConfigured()) {
             logPushWarningOnce(
               "apns-missing-config",
               "[push] Skipping APNs notification because APNS_TEAM_ID, APNS_KEY_ID, APNS_PRIVATE_KEY or APNS_BUNDLE_ID is missing."
             );
             skipped += 1;
+            configBlocked += 1;
             continue;
           }
 
@@ -788,13 +816,14 @@ async function sendPublishedPostNotifications(post) {
           continue;
         }
 
-        if (device.provider === "fcm") {
+        if (isFcmDevice) {
           if (!isFcmConfigured()) {
             logPushWarningOnce(
               "fcm-missing-config",
               "[push] Skipping FCM notification because Firebase credentials are not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in Render."
             );
             skipped += 1;
+            configBlocked += 1;
             continue;
           }
 
@@ -804,11 +833,16 @@ async function sendPublishedPostNotifications(post) {
             sent += 1;
           } else if (["NotRegistered", "InvalidRegistration"].includes(result.reason)) {
             invalidTokens.push(device.token);
+          } else {
+            skipped += 1;
           }
 
           continue;
         }
 
+        console.warn(
+          `[push] Skipping unsupported device provider=${provider || "unknown"} platform=${platform || "unknown"}`
+        );
         skipped += 1;
       } catch (error) {
         console.error(
@@ -824,9 +858,52 @@ async function sendPublishedPostNotifications(post) {
     await removeInvalidDeviceTokens(invalidTokens);
   }
 
-  await Post.findByIdAndUpdate(post._id, { $set: { pushNotificationSentAt: new Date() } });
+  // Only mark as sent when at least one delivery succeeded, or every device was attempted
+  // without being blocked by missing server credentials (so we can retry after config fixes).
+  if (sent > 0 || (skipped > 0 && configBlocked === 0)) {
+    await Post.findByIdAndUpdate(post._id, { $set: { pushNotificationSentAt: new Date() } });
+  } else {
+    console.warn(
+      `[push] Post ${String(post._id)} left unsent (sent=${sent}, skipped=${skipped}, configBlocked=${configBlocked}).`
+    );
+  }
 
-  return { sent, skipped };
+  console.info(`[push] Post ${String(post._id)} notification summary: sent=${sent} skipped=${skipped} users=${users.length}`);
+
+  return { sent, skipped, configBlocked };
+}
+
+async function sendPendingPublishedPostNotifications({ maxAgeHours = 72, limit = 25 } = {}) {
+  if (arePostPushNotificationsDisabled()) {
+    return { processed: 0, sent: 0, skipped: 0, disabled: true };
+  }
+
+  const since = new Date(Date.now() - Math.max(1, Number(maxAgeHours) || 72) * 60 * 60 * 1000);
+  const pendingPosts = await Post.find({
+    status: "published",
+    pushNotificationSentAt: null,
+    publishedAt: { $gte: since },
+  })
+    .sort({ publishedAt: -1 })
+    .limit(Math.max(1, Number(limit) || 25));
+
+  let sent = 0;
+  let skipped = 0;
+
+  for (const post of pendingPosts) {
+    const result = await sendPublishedPostNotifications(post).catch((error) => {
+      console.error(`[push] Pending post ${String(post?._id)} failed`, error?.message || error);
+      return { sent: 0, skipped: 1 };
+    });
+    sent += Number(result?.sent || 0);
+    skipped += Number(result?.skipped || 0);
+  }
+
+  if (pendingPosts.length) {
+    console.info(`[push] Pending post notifications processed=${pendingPosts.length} sent=${sent} skipped=${skipped}`);
+  }
+
+  return { processed: pendingPosts.length, sent, skipped };
 }
 
 async function sendTrackingUpdateNotifications(order, step, previousStep = null) {
@@ -906,6 +983,7 @@ module.exports = {
   ADMIN_NOTIFICATION_ROLES,
   PUSH_SOUND_FILENAME,
   buildAdminNotificationUserQuery,
+  sendPendingPublishedPostNotifications,
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
   sendPublishedPostNotifications,

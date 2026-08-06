@@ -727,7 +727,7 @@ function syncNativePushToken() {
 }
 
 function setFeedback(element, message, type = "") {
-  if (!element) {s
+  if (!element) {
     return;
   }
 

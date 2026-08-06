@@ -1,6 +1,6 @@
 const Post = require("../models/Post");
 const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/cloudinary");
-const { sendPublishedPostNotifications } = require("../services/pushNotificationService");
+const { sendPendingPublishedPostNotifications, sendPublishedPostNotifications } = require("../services/pushNotificationService");
 const {
   countDraftPosts,
   generateGlobalDraft,
@@ -209,8 +209,17 @@ async function publishDueScheduledPosts() {
   }).populate("publishedBy", "name email role");
 
   await Promise.all(
-    publishedPosts.map((post) => sendPublishedPostNotifications(post).catch(() => null))
+    publishedPosts.map((post) =>
+      sendPublishedPostNotifications(post).catch((error) => {
+        console.error(`[push] Scheduled post ${String(post?._id)} failed`, error?.message || error);
+        return null;
+      })
+    )
   );
+
+  await sendPendingPublishedPostNotifications({ maxAgeHours: 72, limit: 25 }).catch((error) => {
+    console.error("[push] Pending published post notifications failed", error?.message || error);
+  });
 
   return duePosts.length;
 }
@@ -264,13 +273,19 @@ async function createPost(req, res) {
 
     const populatedPost = await Post.findById(post._id).populate("publishedBy", "name email role");
 
+    let pushResult = null;
+
     if (finalStatus === "published") {
-      await sendPublishedPostNotifications(populatedPost).catch(() => null);
+      pushResult = await sendPublishedPostNotifications(populatedPost).catch((error) => {
+        console.error(`[push] Create post ${String(populatedPost?._id)} failed`, error?.message || error);
+        return { sent: 0, skipped: 0, error: error?.message || "push failed" };
+      });
     }
 
     return res.status(201).json({
       message: "Post created successfully",
       post: populatedPost,
+      push: pushResult,
     });
   } catch (error) {
     if (error.message === "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.") {
@@ -409,11 +424,15 @@ async function publishDraft(req, res) {
     await draft.save();
 
     const populatedPost = await Post.findById(draft._id).populate("publishedBy", "name email role");
-    await sendPublishedPostNotifications(populatedPost).catch(() => null);
+    const pushResult = await sendPublishedPostNotifications(populatedPost).catch((error) => {
+      console.error(`[push] Publish draft ${String(populatedPost?._id)} failed`, error?.message || error);
+      return { sent: 0, skipped: 0, error: error?.message || "push failed" };
+    });
 
     return res.status(200).json({
       message: "Borrador publicado correctamente",
       post: populatedPost,
+      push: pushResult,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Error publishing draft" });

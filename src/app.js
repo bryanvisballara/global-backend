@@ -569,9 +569,28 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
+  const nodeEnv = String(process.env.NODE_ENV || "").trim().toLowerCase();
+  const disablePostPushFlag = String(process.env.DISABLE_POST_PUSH_NOTIFICATIONS || "").trim().toLowerCase() === "true";
+
   res.status(200).json({
     status: isDatabaseReady() ? "ok" : "degraded",
     database: isDatabaseReady() ? "connected" : "disconnected",
+    push: {
+      postPushDisabled: disablePostPushFlag && nodeEnv !== "production",
+      disableFlagIgnoredInProduction: disablePostPushFlag && nodeEnv === "production",
+      apnsConfigured: Boolean(
+        process.env.APNS_TEAM_ID &&
+          process.env.APNS_KEY_ID &&
+          process.env.APNS_PRIVATE_KEY &&
+          process.env.APNS_BUNDLE_ID
+      ),
+      fcmConfigured: Boolean(
+        ((process.env.FIREBASE_PROJECT_ID || process.env.FCM_PROJECT_ID) &&
+          process.env.FIREBASE_CLIENT_EMAIL &&
+          process.env.FIREBASE_PRIVATE_KEY) ||
+          process.env.FCM_SERVER_KEY
+      ),
+    },
   });
 });
 
