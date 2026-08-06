@@ -1145,8 +1145,13 @@ function renderAdminNotificationsList(notifications = []) {
     .join("");
 }
 
+function canUseAdminNotifications() {
+  const role = String(getCurrentRole() || "").trim();
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(role);
+}
+
 async function refreshAdminNotifications({ renderList = false } = {}) {
-  if (!getAuthToken()) {
+  if (!getAuthToken() || !canUseAdminNotifications()) {
     setAdminNotificationsCount(0);
     if (renderList) {
       renderAdminNotificationsList([]);

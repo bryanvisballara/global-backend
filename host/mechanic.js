@@ -671,6 +671,14 @@
     return document.getElementById("mech-signature-canvas");
   }
 
+  function resolveSignatureAssetUrl(url) {
+    const value = String(url || "").trim();
+    if (!value) return "";
+    if (/^(data:|blob:|https?:)/i.test(value)) return value;
+    const apiBase = String(window.AdminApp?.resolveApiBaseUrl?.() || window.location.origin).replace(/\/$/, "");
+    return `${apiBase}${value.startsWith("/") ? value : `/${value}`}`;
+  }
+
   function clearSignatureCanvas() {
     const canvas = getSignatureCanvas();
     if (!canvas) return;
@@ -683,26 +691,66 @@
   }
 
   function isSignatureBlank() {
+    if (signatureState.usingSavedUrl && !signatureState.dirty) {
+      return false;
+    }
+
     const canvas = getSignatureCanvas();
     if (!canvas) return true;
-    const ctx = canvas.getContext("2d");
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < data.length; i += 4) {
-      // non-white pixel
-      if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) {
-        return false;
+
+    try {
+      const ctx = canvas.getContext("2d");
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) {
+          return false;
+        }
       }
+      return true;
+    } catch (_error) {
+      return !(signatureState.usingSavedUrl || signatureState.dirty);
     }
-    return true;
+  }
+
+  async function fetchSignatureObjectUrl(url) {
+    const absoluteUrl = resolveSignatureAssetUrl(url);
+    if (!absoluteUrl) return "";
+
+    if (absoluteUrl.startsWith("data:") || absoluteUrl.startsWith("blob:")) {
+      return absoluteUrl;
+    }
+
+    const authToken = getAuthToken?.();
+    const response = await fetch(absoluteUrl, {
+      credentials: "include",
+      mode: "cors",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error("No se pudo cargar la firma guardada");
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   }
 
   function drawSignatureFromUrl(url) {
     const canvas = getSignatureCanvas();
     if (!canvas || !url) return Promise.resolve(false);
     const ctx = canvas.getContext("2d");
-    return new Promise((resolve) => {
-      const image = new Image();
-      image.onload = () => {
+
+    return (async () => {
+      let objectUrl = "";
+      try {
+        objectUrl = await fetchSignatureObjectUrl(url);
+        const image = await new Promise((resolve, reject) => {
+          const nextImage = new Image();
+          nextImage.onload = () => resolve(nextImage);
+          nextImage.onerror = () => reject(new Error("Firma inválida"));
+          nextImage.src = objectUrl;
+        });
+
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         const scale = Math.min(canvas.width / image.width, canvas.height / image.height);
@@ -713,11 +761,25 @@
         ctx.drawImage(image, x, y, width, height);
         signatureState.dirty = false;
         signatureState.usingSavedUrl = true;
-        resolve(true);
-      };
-      image.onerror = () => resolve(false);
-      image.src = url;
-    });
+        return true;
+      } catch (_error) {
+        return false;
+      } finally {
+        if (objectUrl && objectUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+    })();
+  }
+
+  function readSignatureDataUrl() {
+    const canvas = getSignatureCanvas();
+    if (!canvas) return "";
+    try {
+      return canvas.toDataURL("image/png");
+    } catch (_error) {
+      return "";
+    }
   }
 
   function setupSignaturePad(defaultUrl = "") {
@@ -776,11 +838,17 @@
     document.getElementById("mech-load-signature")?.addEventListener("click", () => {
       const url = currentOrder?.technicianSignatureUrl || mechanicDefaults.signatureUrl || "";
       if (!url) return;
-      drawSignatureFromUrl(url).catch(() => {});
+      drawSignatureFromUrl(url).then((ok) => {
+        if (!ok) setFeedback?.(feedback, "No se pudo cargar la firma guardada.", "error");
+      });
     });
 
     if (defaultUrl) {
-      drawSignatureFromUrl(defaultUrl).catch(() => {});
+      drawSignatureFromUrl(defaultUrl).then((ok) => {
+        if (!ok) {
+          // Keep blank canvas; user can still draw or retry load.
+        }
+      });
     }
   }
 
@@ -1039,7 +1107,12 @@
       document.getElementById("mech-save-tech-default")?.checked ? "true" : "false"
     );
     if (signatureState.dirty || (hasDrawnSignature && !signatureState.usingSavedUrl)) {
-      formData.append("technicianSignatureDataUrl", canvas.toDataURL("image/png"));
+      const signatureDataUrl = readSignatureDataUrl();
+      if (signatureDataUrl) {
+        formData.append("technicianSignatureDataUrl", signatureDataUrl);
+      } else if (savedSignatureUrl) {
+        formData.append("technicianSignatureUrl", savedSignatureUrl);
+      }
     } else if (savedSignatureUrl) {
       formData.append("technicianSignatureUrl", savedSignatureUrl);
     }

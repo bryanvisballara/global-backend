@@ -525,6 +525,8 @@ frontendStaticDirectories.forEach((staticDirectory) => {
 
 app.use("/uploads", express.static(uploadsDirectory, {
   setHeaders(res, filePath) {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     if (filePath.endsWith(".pdf")) {
       const downloadName = sanitizeDownloadFileName(path.basename(filePath), "document.pdf");
       res.setHeader("Content-Type", "application/pdf");
