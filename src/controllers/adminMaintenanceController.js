@@ -219,6 +219,32 @@ function mapOrderMaintenanceRow(order, maintenanceRecord) {
   };
 }
 
+function resolveMaintenanceContactClient(item) {
+  const contactName = String(item?.contactName || "").trim();
+  const contactPhone = String(item?.contactPhone || "").trim();
+  const contactEmail = String(item?.contactEmail || "").trim();
+  const existingClient = item?.client && typeof item.client === "object" ? item.client : null;
+
+  if (existingClient && (existingClient.name || existingClient.phone || existingClient.email)) {
+    return {
+      ...existingClient,
+      name: existingClient.name || contactName || "",
+      phone: existingClient.phone || contactPhone || "",
+      email: existingClient.email || contactEmail || "",
+    };
+  }
+
+  if (contactName || contactPhone || contactEmail) {
+    return {
+      name: contactName,
+      phone: contactPhone,
+      email: contactEmail,
+    };
+  }
+
+  return existingClient;
+}
+
 function mapManualMaintenanceRow(maintenanceRecord) {
   const dueDate = toUtcNoon(maintenanceRecord?.dueDate);
 
@@ -230,7 +256,8 @@ function mapManualMaintenanceRow(maintenanceRecord) {
     maintenanceId: String(maintenanceRecord?._id || "").trim(),
     source: "manual",
     order: null,
-    client: maintenanceRecord?.client || null,
+    client: resolveMaintenanceContactClient(maintenanceRecord),
+    createdAt: maintenanceRecord?.createdAt || null,
     activationDate: toUtcNoon(maintenanceRecord?.activationDate),
     dueDate,
     status: resolveMaintenanceStatus(dueDate, maintenanceRecord?.status),
@@ -249,6 +276,8 @@ function mapManualMaintenanceRow(maintenanceRecord) {
 }
 
 function mapOrderMaintenanceToContactVehicle(item) {
+  const client = resolveMaintenanceContactClient(item);
+
   return {
     _id: item.maintenanceId || item.order?._id,
     brand: item.vehicleSnapshot?.brand || item.order?.vehicle?.brand || "",
@@ -260,7 +289,10 @@ function mapOrderMaintenanceToContactVehicle(item) {
     currentMileage: item.reportedMileage,
     lastPreventiveMaintenanceDate: item.activationDate,
     dueDateBySchedule: item.dueDate,
-    client: item.client,
+    client,
+    contactName: item.contactName || client?.name || "",
+    contactPhone: item.contactPhone || client?.phone || "",
+    contactEmail: item.contactEmail || client?.email || "",
     user: null,
     source: item.source,
     recordType: "maintenance",
@@ -276,6 +308,7 @@ function mapMaintenanceDocumentToContactVehicle(maintenance) {
   const plain = maintenance.toObject ? maintenance.toObject() : maintenance;
   const order = plain.order && typeof plain.order === "object" ? plain.order : null;
   const snap = plain.vehicleSnapshot || {};
+  const client = resolveMaintenanceContactClient(plain);
 
   return {
     _id: plain._id,
@@ -288,7 +321,10 @@ function mapMaintenanceDocumentToContactVehicle(maintenance) {
     currentMileage: plain.reportedMileage ?? null,
     lastPreventiveMaintenanceDate: plain.activationDate || null,
     dueDateBySchedule: plain.dueDate || null,
-    client: plain.client || null,
+    client,
+    contactName: plain.contactName || client?.name || "",
+    contactPhone: plain.contactPhone || client?.phone || "",
+    contactEmail: plain.contactEmail || client?.email || "",
     user: null,
     source: plain.source || (order ? "order" : "manual"),
     recordType: "maintenance",
@@ -438,15 +474,49 @@ async function listMaintenance(req, res) {
 
     const nextMonthReferenceDate = addMonthsLocal(now, 1);
 
-    const orderDueThisMonth = registeredOrderMaintenance.filter((item) => isSameMonthAndYear(toUtcNoon(item.dueDate), nowUtcNoon));
+    // Manuales recién añadidos (o con entrega este mes) deben poder agendarse aunque el
+    // vencimiento preventivo (+6 meses) caiga en otro mes.
+    const pendingManualNeedsAttentionThisMonth = (item) => {
+      if (String(item.source || "").trim() !== "manual") {
+        return false;
+      }
+
+      if (String(item.adminContactStatus || "pending").trim() !== "pending") {
+        return false;
+      }
+
+      const createdAt = toUtcNoon(item.createdAt);
+      const activationDate = toUtcNoon(item.activationDate);
+
+      return Boolean(
+        (createdAt && isSameMonthAndYear(createdAt, nowUtcNoon))
+        || (activationDate && isSameMonthAndYear(activationDate, nowUtcNoon))
+      );
+    };
+
+    const orderDueThisMonth = registeredOrderMaintenance.filter((item) => {
+      const dueDate = toUtcNoon(item.dueDate);
+      return (dueDate && isSameMonthAndYear(dueDate, nowUtcNoon))
+        || pendingManualNeedsAttentionThisMonth(item);
+    });
     const orderDueNextMonth = registeredOrderMaintenance.filter((item) => {
       const dueDate = toUtcNoon(item.dueDate);
       return dueDate && isSameMonthAndYear(dueDate, nextMonthReferenceDate);
     });
 
+    const dueByDateThisMonthIds = new Set();
     const dueByDateThisMonth = [
       ...vehiclesWithScheduleDate.filter((vehicle) => isWithinDaysRange(now, vehicle.dueDateBySchedule, 15)),
-      ...orderDueThisMonth.map(mapOrderMaintenanceToContactVehicle),
+      ...orderDueThisMonth
+        .map(mapOrderMaintenanceToContactVehicle)
+        .filter((vehicle) => {
+          const id = String(vehicle?._id || "").trim();
+          if (!id || dueByDateThisMonthIds.has(id)) {
+            return false;
+          }
+          dueByDateThisMonthIds.add(id);
+          return true;
+        }),
     ];
 
     const dueByDateNextMonth = [
@@ -818,11 +888,9 @@ async function updateClientMaintenanceVehicle(req, res) {
       previousContactStatus !== "appointment_scheduled" &&
       maintenance.adminContactStatus === "appointment_scheduled"
     ) {
-      const ownerName = maintenance.client?.name || "Cliente";
-      const vehicleLabel = [
-        maintenance.order?.vehicle?.brand,
-        maintenance.order?.vehicle?.model,
-      ].filter(Boolean).join(" ") || "Vehículo";
+      const mappedVehicle = mapMaintenanceDocumentToContactVehicle(maintenance);
+      const ownerName = mappedVehicle.client?.name || mappedVehicle.contactName || "Cliente";
+      const vehicleLabel = [mappedVehicle.brand, mappedVehicle.model].filter(Boolean).join(" ") || "Vehículo";
       await createAdminNotification({
         type: "maintenance_appointment",
         title: "Cita de mantenimiento agendada",

@@ -349,7 +349,7 @@
 
     appointmentsList.innerHTML = items.map((vehicle) => {
       const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
-      const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+      const ownerName = vehicle.user?.name || vehicle.client?.name || vehicle.contactName || "Cliente";
       const appointmentDate = toAppointmentDate(vehicle);
       const id = String(vehicle._id || vehicle.id || "");
       return `
@@ -411,7 +411,7 @@
     } else {
       appointmentsDayList.innerHTML = dayItems.map((vehicle) => {
         const title = [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ");
-        const ownerName = vehicle.user?.name || vehicle.client?.name || "Cliente";
+        const ownerName = vehicle.user?.name || vehicle.client?.name || vehicle.contactName || "Cliente";
         const id = String(vehicle._id || vehicle.id || "");
         return `
           <article class="maint-vehicle-card maint-appointment-card" data-vehicle-id="${id}">

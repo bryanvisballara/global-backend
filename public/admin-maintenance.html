@@ -955,7 +955,7 @@
                 <span class="maint-panel-icon">🔔</span>
                 <div>
                   <h2 class="maint-panel-heading">Este mes</h2>
-                  <p class="maint-panel-sub">Pedidos Latam + registros cliente con vencimiento este mes</p>
+                  <p class="maint-panel-sub">Vence este mes + registros manuales añadidos este mes (para agendar)</p>
                 </div>
               </div>
               <strong class="maint-panel-count" id="maintenance-by-date-count">0</strong>
@@ -2017,7 +2017,7 @@
               <input id="add-maint-due-date" name="dueDate" type="date" />
             </label>
           </div>
-          <p class="maint-panel-sub add-maintenance-hint">Si solo pones fecha de entrega, el próximo mantenimiento se calcula a +6 meses.</p>
+          <p class="maint-panel-sub add-maintenance-hint">Si solo pones fecha de entrega, el próximo se calcula a +6 meses; el registro igual aparece en «Este mes» para contactar y agendar.</p>
           <label class="add-maint-notes">
             <span>Notas</span>
             <textarea id="add-maint-notes" name="contactNotes" rows="3" maxlength="1000" placeholder="Notas internas"></textarea>
@@ -2032,7 +2032,7 @@
     </div>
 
     <script src="/admin-common.js?v=20260802-header-logout01"></script>
-    <script src="/admin-maintenance.js?v=20260802-maint-quote01"></script>
+    <script src="/admin-maintenance.js?v=20260808-manual-sched01"></script>
     <script src="/admin-cotizador.js?v=20260801-cot24"></script>
     <script src="/admin-workshop-accounting.js?v=20260801-acct02"></script>
   </body>
