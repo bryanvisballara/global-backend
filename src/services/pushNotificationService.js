@@ -157,25 +157,29 @@ async function sendNotificationToDevices(devices = [], notification) {
         if (result.ok) {
           sent += 1;
 
-          if (result.resolvedApsEnvironment && device.token) {
-            environmentUpdates.set(device.token, result.resolvedApsEnvironment);
+          if (device.token && (result.resolvedApsEnvironment || result.topic)) {
+            environmentUpdates.set(device.token, {
+              apsEnvironment: result.resolvedApsEnvironment || device.apsEnvironment || "",
+              bundleId: result.topic || device.bundleId || "",
+            });
           }
 
           continue;
         }
 
-        if (["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"].includes(result.reason)) {
-          invalidTokens.push(device.token);
-          skipped += 1;
-        } else if (Array.isArray(result.attemptedHosts) && result.attemptedHosts.length > 1) {
+        const failureReason = String(result.reason || result.primaryReason || "");
+
+        if (["BadDeviceToken", "Unregistered", "ExpiredToken"].includes(failureReason)) {
           invalidTokens.push(device.token);
           skipped += 1;
           console.warn(
-            `[push] Removing stale APNs token ${previewPushToken(device.token)} after failed attempts on ${result.attemptedHosts.join(", ")}.`
+            `[push] Removing invalid APNs token ${previewPushToken(device.token)} reason=${failureReason}`
           );
         } else {
+          // TopicDisallowed / BadEnvironmentKeyInToken / DeviceTokenNotForTopic are config mismatches.
+          // Keep the token so a later fix (topic/env) can deliver without forcing re-login.
           console.warn(
-            `[push] APNs rejected notification for token ${previewPushToken(device.token)} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} primaryReason=${String(result.primaryReason || "none")} primaryHost=${String(result.primaryHost || "none")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
+            `[push] APNs rejected notification for token ${previewPushToken(device.token)} host=${String(result.host || "unknown")} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${failureReason || "unknown"} primaryReason=${String(result.primaryReason || "none")} primaryHost=${String(result.primaryHost || "none")} attemptedTopics=${Array.isArray(result.attemptedTopics) ? result.attemptedTopics.join("|") : "none"} apsEnvironment=${String(device?.apsEnvironment || "unknown")} (token kept)`
           );
           skipped += 1;
         }
@@ -221,9 +225,10 @@ async function sendNotificationToDevices(devices = [], notification) {
   return {
     sent,
     skipped,
-    environmentUpdates: Array.from(environmentUpdates.entries()).map(([token, apsEnvironment]) => ({
+    environmentUpdates: Array.from(environmentUpdates.entries()).map(([token, update]) => ({
       token,
-      apsEnvironment,
+      apsEnvironment: update.apsEnvironment,
+      bundleId: update.bundleId,
     })),
   };
 }
@@ -235,8 +240,8 @@ async function applyPushDeviceEnvironmentUpdates(user, environmentUpdates = []) 
 
   const updatesByToken = new Map(
     environmentUpdates
-      .filter((entry) => entry?.token && entry?.apsEnvironment)
-      .map((entry) => [String(entry.token), String(entry.apsEnvironment)])
+      .filter((entry) => entry?.token && (entry?.apsEnvironment || entry?.bundleId))
+      .map((entry) => [String(entry.token), entry])
   );
 
   if (!updatesByToken.size) {
@@ -246,17 +251,28 @@ async function applyPushDeviceEnvironmentUpdates(user, environmentUpdates = []) 
   let changed = false;
 
   user.pushDevices = user.pushDevices.map((device) => {
-    const nextEnvironment = updatesByToken.get(String(device?.token || ""));
+    const update = updatesByToken.get(String(device?.token || ""));
 
-    if (!nextEnvironment || device.apsEnvironment === nextEnvironment) {
+    if (!update) {
+      return device;
+    }
+
+    const plain = device.toObject ? device.toObject() : { ...device };
+    const nextEnvironment = normalizeApsEnvironment(update.apsEnvironment) || plain.apsEnvironment;
+    const nextBundleId = normalizeApnsTopic(update.bundleId) || plain.bundleId || "";
+    const environmentChanged = Boolean(nextEnvironment && plain.apsEnvironment !== nextEnvironment);
+    const bundleChanged = Boolean(nextBundleId && plain.bundleId !== nextBundleId);
+
+    if (!environmentChanged && !bundleChanged) {
       return device;
     }
 
     changed = true;
     return {
-      ...device,
-      apsEnvironment: nextEnvironment,
-      lastRegisteredAt: device.lastRegisteredAt || new Date(),
+      ...plain,
+      ...(environmentChanged ? { apsEnvironment: nextEnvironment } : {}),
+      ...(bundleChanged ? { bundleId: nextBundleId } : {}),
+      lastRegisteredAt: plain.lastRegisteredAt || new Date(),
     };
   });
 
@@ -316,14 +332,59 @@ function buildApnsJwt() {
   });
 }
 
+function normalizeApsEnvironment(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (["development", "sandbox", "debug", "dev"].includes(normalized)) {
+    return "development";
+  }
+
+  if (["production", "prod", "release"].includes(normalized)) {
+    return "production";
+  }
+
+  return "";
+}
+
+function normalizeApnsTopic(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
+
+function getApnsTopicCandidates(device = {}) {
+  const topics = [];
+  const pushTopic = (value) => {
+    const topic = normalizeApnsTopic(value);
+
+    if (topic && !topics.includes(topic)) {
+      topics.push(topic);
+    }
+  };
+
+  pushTopic(device?.bundleId);
+  pushTopic(process.env.APNS_BUNDLE_ID);
+  pushTopic(process.env.APNS_BUNDLE_ID_FALLBACK);
+
+  for (const topic of [...topics]) {
+    if (topic.endsWith(".dev")) {
+      pushTopic(topic.slice(0, -4));
+    } else {
+      pushTopic(`${topic}.dev`);
+    }
+  }
+
+  return topics;
+}
+
 function getApnsTopic(device = {}) {
-  return String(device?.bundleId || process.env.APNS_BUNDLE_ID || "").trim();
+  return getApnsTopicCandidates(device)[0] || "";
 }
 
 function resolveApnsHost(device = {}) {
-  const deviceEnvironment = String(device?.apsEnvironment || "").trim().toLowerCase();
+  const deviceEnvironment = normalizeApsEnvironment(device?.apsEnvironment);
 
-  if (deviceEnvironment === "development" || deviceEnvironment === "sandbox") {
+  if (deviceEnvironment === "development") {
     return "https://api.sandbox.push.apple.com";
   }
 
@@ -351,14 +412,11 @@ function alternateApnsHost(host = "") {
 function resolveApnsHostsToTry(device = {}) {
   const productionHost = "https://api.push.apple.com";
   const sandboxHost = "https://api.sandbox.push.apple.com";
-
-  if (process.env.APNS_USE_PRODUCTION === "true") {
-    return [productionHost, sandboxHost];
-  }
-
   const preferredHost = resolveApnsHost(device);
   const alternateHost = alternateApnsHost(preferredHost);
 
+  // Prefer the device-reported APS environment. Only fall back to the other host
+  // when Apple returns BadEnvironmentKeyInToken.
   return preferredHost === alternateHost
     ? [preferredHost]
     : [preferredHost, alternateHost];
@@ -369,9 +427,9 @@ function previewPushToken(token = "") {
   return normalizedToken ? `${normalizedToken.slice(0, 8)}...` : "unknown";
 }
 
-function sendApnsNotificationToHost(device, notification, host) {
+function sendApnsNotificationToHost(device, notification, host, topic) {
   return new Promise((resolve, reject) => {
-    const topic = getApnsTopic(device);
+    const resolvedTopic = normalizeApnsTopic(topic) || getApnsTopic(device);
     const client = http2.connect(host);
 
     client.on("error", reject);
@@ -380,7 +438,9 @@ function sendApnsNotificationToHost(device, notification, host) {
       ":method": "POST",
       ":path": `/3/device/${device.token}`,
       authorization: `bearer ${buildApnsJwt()}`,
-      "apns-topic": topic,
+      "apns-topic": resolvedTopic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
       "content-type": "application/json",
     });
 
@@ -399,7 +459,12 @@ function sendApnsNotificationToHost(device, notification, host) {
       client.close();
 
       if (statusCode >= 200 && statusCode < 300) {
-        resolve({ ok: true, host, topic, resolvedApsEnvironment: hostToApsEnvironment(host) });
+        resolve({
+          ok: true,
+          host,
+          topic: resolvedTopic,
+          resolvedApsEnvironment: hostToApsEnvironment(host),
+        });
         return;
       }
 
@@ -412,7 +477,7 @@ function sendApnsNotificationToHost(device, notification, host) {
         // Keep default reason.
       }
 
-      resolve({ ok: false, reason, statusCode, topic, host });
+      resolve({ ok: false, reason, statusCode, topic: resolvedTopic, host });
     });
     request.on("error", (error) => {
       client.close();
@@ -442,37 +507,92 @@ function sendApnsNotificationToHost(device, notification, host) {
 
 async function sendApnsNotification(device, notification) {
   const hostsToTry = resolveApnsHostsToTry(device);
+  const topicsToTry = getApnsTopicCandidates(device);
+  const attemptedHosts = [];
+  const attemptedTopics = [];
   let lastResult = null;
   let firstFailureReason = "";
+  let primaryHost = hostsToTry[0] || "";
 
-  for (let index = 0; index < hostsToTry.length; index += 1) {
-    const host = hostsToTry[index];
-    const result = await sendApnsNotificationToHost(device, notification, host);
-    lastResult = result;
+  if (!topicsToTry.length) {
+    return {
+      ok: false,
+      reason: "MissingAPNsTopic",
+      statusCode: 0,
+      topic: "",
+      host: primaryHost,
+      attemptedHosts: hostsToTry,
+      attemptedTopics: [],
+      primaryHost,
+      primaryReason: "MissingAPNsTopic",
+    };
+  }
 
-    if (result.ok) {
-      if (index > 0) {
-        console.info(
-          `[push] APNs delivered token ${previewPushToken(device.token)} using fallback host ${host} after ${firstFailureReason || "initial failure"} on ${hostsToTry[0]}.`
-        );
+  for (let hostIndex = 0; hostIndex < hostsToTry.length; hostIndex += 1) {
+    const host = hostsToTry[hostIndex];
+    attemptedHosts.push(host);
+    let environmentMismatchOnHost = false;
+
+    for (const topic of topicsToTry) {
+      if (!attemptedTopics.includes(topic)) {
+        attemptedTopics.push(topic);
       }
 
-      return result;
+      const result = await sendApnsNotificationToHost(device, notification, host, topic);
+      lastResult = result;
+
+      if (result.ok) {
+        if (hostIndex > 0 || topic !== topicsToTry[0]) {
+          console.info(
+            `[push] APNs delivered token ${previewPushToken(device.token)} host=${host} topic=${topic} after ${firstFailureReason || "initial failure"}.`
+          );
+        }
+
+        return {
+          ...result,
+          attemptedHosts,
+          attemptedTopics,
+        };
+      }
+
+      if (!firstFailureReason) {
+        firstFailureReason = String(result.reason || "APNs request failed");
+        primaryHost = host;
+      }
+
+      console.warn(
+        `[push] APNs attempt failed for token ${previewPushToken(device.token)} host=${host} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
+      );
+
+      if (["BadDeviceToken", "Unregistered", "ExpiredToken"].includes(result.reason)) {
+        return {
+          ...result,
+          attemptedHosts,
+          attemptedTopics,
+          primaryHost: host,
+          primaryReason: result.reason,
+        };
+      }
+
+      if (result.reason === "BadEnvironmentKeyInToken") {
+        environmentMismatchOnHost = true;
+        break;
+      }
+
+      // TopicDisallowed / DeviceTokenNotForTopic → try next topic on same host.
     }
 
-    if (!firstFailureReason) {
-      firstFailureReason = String(result.reason || "APNs request failed");
+    if (!environmentMismatchOnHost && hostIndex === 0 && normalizeApsEnvironment(device?.apsEnvironment)) {
+      // Known environment failed for all topics; still try the alternate host once.
+      continue;
     }
-
-    console.warn(
-      `[push] APNs attempt failed for token ${previewPushToken(device.token)} host=${host} topic=${String(result.topic || "unknown")} status=${Number(result.statusCode || 0)} reason=${String(result.reason || "unknown")} apsEnvironment=${String(device?.apsEnvironment || "unknown")}`
-    );
   }
 
   return {
     ...lastResult,
-    attemptedHosts: hostsToTry,
-    primaryHost: hostsToTry[0],
+    attemptedHosts,
+    attemptedTopics,
+    primaryHost,
     primaryReason: firstFailureReason || lastResult?.reason || "APNs request failed",
   };
 }

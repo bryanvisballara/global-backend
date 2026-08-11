@@ -1205,9 +1205,9 @@ async function registerClientPushDevice(req, res) {
     const appVersion = req.body.appVersion ? String(req.body.appVersion).trim() : undefined;
     const bundleId = String(req.body?.bundleId || "").trim();
     const rawApsEnvironment = String(req.body?.apsEnvironment || "").trim().toLowerCase();
-    const apsEnvironment = ["development", "production"].includes(rawApsEnvironment)
-      ? rawApsEnvironment
-      : undefined;
+    const normalizedApsEnvironment = ["development", "sandbox", "debug", "dev"].includes(rawApsEnvironment)
+      ? "development"
+      : (["production", "prod", "release"].includes(rawApsEnvironment) ? "production" : undefined);
 
     if (!token || !platform || !provider) {
       return res.status(400).json({ message: "token, platform and provider are required" });
@@ -1230,21 +1230,31 @@ async function registerClientPushDevice(req, res) {
       }
     );
 
-    const nextDevices = (Array.isArray(req.user.pushDevices) ? req.user.pushDevices : []).filter((item) => {
+    const previousDevices = Array.isArray(req.user.pushDevices) ? req.user.pushDevices : [];
+    const previousIosApnsDevice = previousDevices.find(
+      (item) => item?.platform === "ios" && item?.provider === "apns"
+    );
+    const previousSameToken = previousDevices.find((item) => item?.token === token);
+
+    const nextDevices = previousDevices.filter((item) => {
       if (platform === "ios" && provider === "apns") {
         return !(item?.platform === "ios" && item?.provider === "apns");
       }
 
       return item?.token !== token;
     });
+
     const existingDeviceIndex = nextDevices.findIndex((item) => item.token === token);
+    const inherited = previousSameToken || previousIosApnsDevice || {};
+    const resolvedApsEnvironment = normalizedApsEnvironment || inherited.apsEnvironment || undefined;
+    const resolvedBundleId = bundleId || inherited.bundleId || "";
     const nextDevice = {
       token,
       platform,
       provider,
-      appVersion,
-      bundleId,
-      ...(apsEnvironment ? { apsEnvironment } : {}),
+      appVersion: appVersion || inherited.appVersion,
+      bundleId: resolvedBundleId,
+      ...(resolvedApsEnvironment ? { apsEnvironment: resolvedApsEnvironment } : {}),
       lastRegisteredAt: new Date(),
     };
 
@@ -1258,15 +1268,16 @@ async function registerClientPushDevice(req, res) {
     await req.user.save();
 
     console.info(
-      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} apsEnvironment=${apsEnvironment || "unknown"} token=${String(token).slice(0, 8)}... devices=${req.user.pushDevices.length}`
+      `[push][register] Registered client push device for user ${String(req.user?._id || "unknown")} ${String(req.user?.email || "").trim().toLowerCase()}: provider=${provider} platform=${platform} apsEnvironment=${resolvedApsEnvironment || "unknown"} bundleId=${resolvedBundleId || "unknown"} token=${String(token).slice(0, 8)}... devices=${req.user.pushDevices.length}`
     );
 
     return res.status(200).json({
-      message: "Push device registered successfully",
-      pushDevices: req.user.pushDevices,
+      message: "Push device registered",
+      device: nextDevice,
+      devices: req.user.pushDevices,
     });
   } catch (error) {
-    return res.status(500).json({ message: "Error registering push device" });
+    return res.status(500).json({ message: error.message || "Error registering push device" });
   }
 }
 

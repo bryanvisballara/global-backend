@@ -29,6 +29,7 @@ const state = {
   notifications: [],
   activeView: "home",
   registeredPushToken: "",
+  registeredPushSignature: "",
   feedPosts: [],
   feedOffset: 0,
   feedHasMore: true,
@@ -695,7 +696,19 @@ function toggleFeedCommentLike(postId, commentId) {
 }
 
 async function registerNativePushToken(pushInfo) {
-  if (!pushInfo?.token || state.registeredPushToken === pushInfo.token) {
+  if (!pushInfo?.token) {
+    return;
+  }
+
+  const signature = [
+    pushInfo.token,
+    pushInfo.apsEnvironment || "",
+    pushInfo.bundleId || "",
+    pushInfo.platform || "ios",
+    pushInfo.provider || "apns",
+  ].join("|");
+
+  if (state.registeredPushSignature === signature) {
     return;
   }
 
@@ -712,6 +725,7 @@ async function registerNativePushToken(pushInfo) {
   });
 
   state.registeredPushToken = pushInfo.token;
+  state.registeredPushSignature = signature;
 }
 
 function syncNativePushToken() {
@@ -725,6 +739,8 @@ function syncNativePushToken() {
     console.warn("[push][client-portal] No se pudo registrar el token nativo.", error);
   });
 }
+
+window.syncNativePushToken = syncNativePushToken;
 
 function setFeedback(element, message, type = "") {
   if (!element) {

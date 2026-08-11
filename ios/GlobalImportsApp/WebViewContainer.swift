@@ -106,6 +106,8 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
             return profileEnvironment
         }
 
+        // Fall back to build configuration when the embedded profile cannot be parsed
+        // (some TestFlight/App Store installs still expose production APS entitlements).
         #if DEBUG
         return "development"
         #else
@@ -130,14 +132,23 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
             return nil
         }
 
-        return apsEnvironment == "development" ? "development" : "production"
+        let normalized = apsEnvironment.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized == "development" || normalized == "sandbox" {
+            return "development"
+        }
+
+        if normalized == "production" {
+            return "production"
+        }
+
+        return nil
     }
 
     private func injectPushTokenIfNeeded() {
         guard !latestPushToken.isEmpty else { return }
 
         let apsEnvironment = resolveApsEnvironment()
-        NSLog("[push][ios] Injecting APNs token into WKWebView (apsEnvironment=%@)", apsEnvironment)
+        NSLog("[push][ios] Injecting APNs token into WKWebView (apsEnvironment=%@ bundleId=%@)", apsEnvironment, Bundle.main.bundleIdentifier ?? "unknown")
 
         let escapedToken = latestPushToken.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
@@ -154,9 +165,16 @@ final class WebViewStore: NSObject, ObservableObject, WKScriptMessageHandler {
           apsEnvironment: \"\(apsEnvironment)\"
         };
         window.dispatchEvent(new CustomEvent('globalimports:push-token', { detail: window.__globalImportsNativePush }));
+        if (typeof window.syncNativePushToken === 'function') {
+          try { window.syncNativePushToken(); } catch (e) {}
+        }
         """
 
-        webView.evaluateJavaScript(script)
+        webView.evaluateJavaScript(script, completionHandler: { _, error in
+            if let error {
+                NSLog("[push][ios] Failed injecting APNs token: %@", error.localizedDescription)
+            }
+        })
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {

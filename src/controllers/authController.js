@@ -325,28 +325,20 @@ async function resetPassword(req, res) {
 async function login(req, res) {
   try {
     const { email, password } = req.body;
-    console.log("[LOGIN] MONGODB_URI:", process.env.MONGODB_URI);
-    console.log("[LOGIN] Email recibido:", email);
-    console.log("[LOGIN] Password recibido:", password);
 
     if (!email || !password) {
-      console.log("[LOGIN] Faltan email o password");
       return res.status(400).json({ message: "Email and password are required" });
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    console.log("[LOGIN] Usuario encontrado:", user ? user.email : null);
 
     if (!user) {
-      console.log("[LOGIN] Usuario no existe");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const passwordMatches = await bcrypt.compare(password, user.password);
-    console.log("[LOGIN] Password coincide:", passwordMatches);
 
     if (!passwordMatches) {
-      console.log("[LOGIN] Password incorrecto");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 

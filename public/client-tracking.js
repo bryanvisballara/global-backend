@@ -35,6 +35,7 @@ function isAppleTouchDownloadEnvironment() {
   return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1);
 }
 let registeredPushToken = "";
+let registeredPushSignature = "";
 let activeTrackingOrder = null;
 let touchStartY = 0;
 let pullDistance = 0;
@@ -143,7 +144,19 @@ function fetchPublicTracking(trackingNumber) {
 }
 
 async function registerNativePushToken(pushInfo) {
-  if (!pushInfo?.token || registeredPushToken === pushInfo.token) {
+  if (!pushInfo?.token) {
+    return;
+  }
+
+  const signature = [
+    pushInfo.token,
+    pushInfo.apsEnvironment || "",
+    pushInfo.bundleId || "",
+    pushInfo.platform || "ios",
+    pushInfo.provider || "apns",
+  ].join("|");
+
+  if (registeredPushSignature === signature) {
     return;
   }
 
@@ -160,6 +173,7 @@ async function registerNativePushToken(pushInfo) {
   });
 
   registeredPushToken = pushInfo.token;
+  registeredPushSignature = signature;
   console.info("[push][tracking] Native push token registered for authenticated client.");
 }
 
@@ -172,6 +186,8 @@ function syncNativePushToken() {
 
   registerNativePushToken(nativePushInfo).catch(() => null);
 }
+
+window.syncNativePushToken = syncNativePushToken;
 
 function setFeedback(message, type = "") {
   if (!trackingFeedback) {
