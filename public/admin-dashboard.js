@@ -387,6 +387,8 @@ function getOrderTrackingSteps(order) {
       label: String(sourceStep?.label || template.label),
       confirmed: derivedConfirmed,
       inProgress: derivedInProgress,
+      confirmedAt: sourceStep?.confirmedAt || latestUpdate?.updatedAt || latestUpdate?.createdAt || null,
+      updatedAt: latestUpdate?.updatedAt || sourceStep?.updatedAt || sourceStep?.confirmedAt || null,
     };
   });
 
@@ -538,6 +540,38 @@ function renderGlobalEvents(events) {
     .join("");
 }
 
+function pickLatestDate(values) {
+  return values.reduce((latestDate, value) => {
+    if (!value) {
+      return latestDate;
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return latestDate;
+    }
+
+    if (!latestDate) {
+      return value;
+    }
+
+    return parsed.getTime() >= new Date(latestDate).getTime() ? value : latestDate;
+  }, null);
+}
+
+function resolveOrderCompletionEventDate(order, eventDates = []) {
+  const lastConfirmedStep = [...getOrderTrackingSteps(order)]
+    .reverse()
+    .find((step) => step?.confirmed && (step?.confirmedAt || step?.updatedAt));
+
+  return pickLatestDate([
+    ...eventDates,
+    lastConfirmedStep?.confirmedAt,
+    lastConfirmedStep?.updatedAt,
+  ]);
+}
+
 function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenance = [] }) {
   return orders.flatMap((order) => {
     const orderId = String(order?._id || order?.id || "").trim();
@@ -550,17 +584,23 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
     const trackingEvents = getOrderTrackingEvents(order).filter((event) => shouldIncludeGlobalTrackingEvent(event));
     const isCompletedOrder = isOrderCompleted(order);
     const completedStatusCode = `E${stageTemplates.length + 1}`;
-    const buildCompletedEvent = (dateValue) => ({
-      date: dateValue ? new Date(new Date(dateValue).getTime() + 1).toISOString() : null,
-      trackingNumber,
-      detailUrl,
-      statusCode: completedStatusCode,
-      statusTitle: `Pedido completado - ${completedStageCard.label}`,
-      vehicle: vehicleLabel,
-      clientName,
-      orderRegion,
-      sortStateIndex: stageTemplates.length,
-    });
+    const buildCompletedEvent = (dateValue) => {
+      if (!dateValue) {
+        return null;
+      }
+
+      return {
+        date: new Date(new Date(dateValue).getTime() + 1).toISOString(),
+        trackingNumber,
+        detailUrl,
+        statusCode: completedStatusCode,
+        statusTitle: `Pedido completado - ${completedStageCard.label}`,
+        vehicle: vehicleLabel,
+        clientName,
+        orderRegion,
+        sortStateIndex: stageTemplates.length,
+      };
+    };
 
     if (trackingEvents.length) {
       const mappedEvents = trackingEvents.map((event) => ({
@@ -579,21 +619,12 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
         return mappedEvents;
       }
 
-      const latestTrackingDate = trackingEvents.reduce((latestDate, event) => {
-        const eventDate = event.updatedAt || event.createdAt || null;
+      const completionDate = resolveOrderCompletionEventDate(
+        order,
+        mappedEvents.map((event) => event.date)
+      );
 
-        if (!eventDate) {
-          return latestDate;
-        }
-
-        if (!latestDate) {
-          return eventDate;
-        }
-
-        return new Date(eventDate).getTime() >= new Date(latestDate).getTime() ? eventDate : latestDate;
-      }, order?.updatedAt || null);
-
-      return mappedEvents.concat(buildCompletedEvent(latestTrackingDate || order?.updatedAt || order?.createdAt || null));
+      return mappedEvents.concat(buildCompletedEvent(completionDate)).filter(Boolean);
     }
 
     const fallbackEvents = getOrderTrackingSteps(order)
@@ -620,19 +651,12 @@ function collectGlobalEvents({ orders = [], posts = [], requests = [], maintenan
       return fallbackEvents;
     }
 
-    const fallbackCompletionDate = fallbackEvents.reduce((latestDate, event) => {
-      if (!event?.date) {
-        return latestDate;
-      }
+    const completionDate = resolveOrderCompletionEventDate(
+      order,
+      fallbackEvents.map((event) => event.date)
+    );
 
-      if (!latestDate) {
-        return event.date;
-      }
-
-      return new Date(event.date).getTime() >= new Date(latestDate).getTime() ? event.date : latestDate;
-    }, order?.updatedAt || null);
-
-    return fallbackEvents.concat(buildCompletedEvent(fallbackCompletionDate || order?.updatedAt || order?.createdAt || null));
+    return fallbackEvents.concat(buildCompletedEvent(completionDate)).filter(Boolean);
   })
     .filter((event) => event && event.date)
     .sort((a, b) => {
