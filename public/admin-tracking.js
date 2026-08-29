@@ -243,6 +243,26 @@ function renderOrderFinancialActions(order) {
   `;
 }
 
+function renderOrderNotesPanel(order) {
+  const notes = normalizeText(order?.notes || "");
+
+  return `
+    <article class="tracking-order-notes-panel${notes ? "" : " is-empty"}">
+      <span class="tracking-order-notes-label">Observaciones</span>
+      <p class="tracking-order-notes-text">${notes ? escapeHtml(notes) : "Sin observaciones registradas."}</p>
+    </article>
+  `;
+}
+
+function renderOrderOverviewFooter(order) {
+  return `
+    <div class="tracking-order-overview-footer">
+      ${renderOrderFinancialActions(order)}
+      ${renderOrderNotesPanel(order)}
+    </div>
+  `;
+}
+
 function isHiddenTransitionCompletionEvent(title = "") {
   return normalizeText(title).toLowerCase().startsWith("etapa completada al avanzar");
 }
@@ -3025,7 +3045,7 @@ function renderTrackingOverview(order) {
             </article>
             ` : ""}
           </div>
-          ${renderOrderFinancialActions(order)}
+          ${renderOrderOverviewFooter(order)}
         </article>
         ${renderStageTransitionCardMarkup(order)}
       </div>
