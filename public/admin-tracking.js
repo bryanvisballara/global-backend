@@ -354,11 +354,27 @@ function renderOrderRegionBadge(order) {
 }
 
 function formatDateLabel(value) {
+  if (typeof window.AdminApp?.formatDate === "function") {
+    return window.AdminApp.formatDate(value);
+  }
+
   if (!value) {
     return "Sin fecha";
   }
 
-  return new Date(value).toLocaleDateString("es-CO", {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Sin fecha";
+  }
+
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
+
+  return parsedDate.toLocaleDateString("es-CO", {
+    timeZone: isUtcMidnight ? "UTC" : "America/Bogota",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -3981,11 +3997,17 @@ function formatDateInputValue(value) {
     return "";
   }
 
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
 
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: isUtcMidnight ? "UTC" : "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsedDate);
 }
 
 function openPaymentDateModal(orderId) {

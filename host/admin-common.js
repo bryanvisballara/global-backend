@@ -327,12 +327,35 @@ async function fetchJson(path, options = {}) {
   }
 }
 
+function resolveDateDisplayTimeZone(dateValue) {
+  const parsedDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "America/Bogota";
+  }
+
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
+
+  // Date-only values were stored as UTC midnight and must keep that calendar day.
+  return isUtcMidnight ? "UTC" : "America/Bogota";
+}
+
 function formatDate(dateValue) {
   if (!dateValue) {
     return "Sin fecha";
   }
 
-  return new Date(dateValue).toLocaleDateString("es-VE", {
+  const parsedDate = new Date(dateValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Sin fecha";
+  }
+
+  return parsedDate.toLocaleDateString("es-CO", {
+    timeZone: resolveDateDisplayTimeZone(parsedDate),
     year: "numeric",
     month: "short",
     day: "numeric",

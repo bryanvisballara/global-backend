@@ -3226,6 +3226,27 @@ body.tracking-detail-mode #tracking-form {
   order: 2;
 }
 
+/* Pull the order detail cards closer to the page header. */
+body.tracking-detail-mode .page-hero {
+  margin-top: 8px;
+}
+
+body.tracking-detail-mode .page-hero h1 {
+  margin-top: 0;
+}
+
+body.tracking-detail-mode .module-layout {
+  margin-top: 6px;
+}
+
+body.tracking-detail-mode .tracking-overview-stack {
+  gap: 12px;
+}
+
+body.tracking-detail-mode .tracking-order-hero-grid {
+  align-items: start;
+}
+
 .tracking-selector-panel {
   display: grid;
   gap: 16px;
@@ -4316,31 +4337,94 @@ body.admin-uppercase-view *::placeholder {
 
 .tracking-stage-transition-card-inline {
   width: 100%;
-  height: 100%;
-  align-self: stretch;
-  padding: 24px;
+  height: auto;
+  align-self: start;
+  padding: 20px;
+  align-content: start;
+  gap: 10px;
 }
 
 .tracking-stage-transition-card-inline strong {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 800;
 }
 
 .tracking-stage-transition-card-inline p {
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .tracking-stage-transition-card-inline .tracking-stage-transition-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .tracking-stage-transition-card-inline .tracking-stage-transition-button {
   justify-content: center;
-  min-height: 52px;
-  font-size: 0.96rem;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
   font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tracking-stage-transition-card-inline .tracking-stage-transition-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.tracking-order-overview-footer {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.tracking-order-overview-footer .tracking-order-accounting-action {
+  margin-top: 0;
+  align-content: start;
+}
+
+.tracking-order-notes-panel {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(15, 23, 42, 0.03);
+  min-width: 0;
+}
+
+.tracking-order-notes-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.tracking-order-notes-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tracking-order-notes-panel.is-empty .tracking-order-notes-text {
+  color: var(--muted);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .tracking-order-overview-footer {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tracking-stage-transition-complete-row {
@@ -8541,6 +8625,14 @@ body .tracking-search-page .page-hero h1 {
 
 .clients-row-actions .maintenance-action-icon:hover {
   background: #f3f3f3;
+}
+
+.clients-edit-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .clients-row-actions .maintenance-action-icon.is-danger {

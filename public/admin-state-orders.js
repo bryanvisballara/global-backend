@@ -164,7 +164,13 @@
       return "Sin fecha";
     }
 
+    const isUtcMidnight =
+      resolvedDate.getUTCHours() === 0
+      && resolvedDate.getUTCMinutes() === 0
+      && resolvedDate.getUTCSeconds() === 0;
+
     return resolvedDate.toLocaleDateString("es-CO", {
+      timeZone: isUtcMidnight ? "UTC" : "America/Bogota",
       year: "numeric",
       month: "short",
       day: "numeric",

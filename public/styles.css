@@ -8627,6 +8627,14 @@ body .tracking-search-page .page-hero h1 {
   background: #f3f3f3;
 }
 
+.clients-edit-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
 .clients-row-actions .maintenance-action-icon.is-danger {
   color: #d84f4f;
   border-color: rgba(216, 79, 79, 0.34);

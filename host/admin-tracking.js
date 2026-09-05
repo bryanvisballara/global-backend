@@ -243,6 +243,26 @@ function renderOrderFinancialActions(order) {
   `;
 }
 
+function renderOrderNotesPanel(order) {
+  const notes = normalizeText(order?.notes || "");
+
+  return `
+    <article class="tracking-order-notes-panel${notes ? "" : " is-empty"}">
+      <span class="tracking-order-notes-label">Observaciones</span>
+      <p class="tracking-order-notes-text">${notes ? escapeHtml(notes) : "Sin observaciones registradas."}</p>
+    </article>
+  `;
+}
+
+function renderOrderOverviewFooter(order) {
+  return `
+    <div class="tracking-order-overview-footer">
+      ${renderOrderFinancialActions(order)}
+      ${renderOrderNotesPanel(order)}
+    </div>
+  `;
+}
+
 function isHiddenTransitionCompletionEvent(title = "") {
   return normalizeText(title).toLowerCase().startsWith("etapa completada al avanzar");
 }
@@ -334,11 +354,27 @@ function renderOrderRegionBadge(order) {
 }
 
 function formatDateLabel(value) {
+  if (typeof window.AdminApp?.formatDate === "function") {
+    return window.AdminApp.formatDate(value);
+  }
+
   if (!value) {
     return "Sin fecha";
   }
 
-  return new Date(value).toLocaleDateString("es-CO", {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Sin fecha";
+  }
+
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
+
+  return parsedDate.toLocaleDateString("es-CO", {
+    timeZone: isUtcMidnight ? "UTC" : "America/Bogota",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -3025,7 +3061,7 @@ function renderTrackingOverview(order) {
             </article>
             ` : ""}
           </div>
-          ${renderOrderFinancialActions(order)}
+          ${renderOrderOverviewFooter(order)}
         </article>
         ${renderStageTransitionCardMarkup(order)}
       </div>
@@ -3961,11 +3997,17 @@ function formatDateInputValue(value) {
     return "";
   }
 
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
 
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: isUtcMidnight ? "UTC" : "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsedDate);
 }
 
 function openPaymentDateModal(orderId) {

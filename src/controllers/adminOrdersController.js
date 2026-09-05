@@ -77,32 +77,27 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "other",
 ]);
 const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
-const DEFAULT_ADMIN_TRACKING_EMAIL_RECIPIENT_NAME_PATTERNS = [/alejandro/i, /erick/i, /erik/i];
+const DEFAULT_ADMIN_TRACKING_EMAILS = [
+  "sintegrationllc@gmail.com",
+  "anthony-vergel@hotmail.com",
+  "herman@globalus.com",
+  "ltorres@globalusa.com",
+];
 const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
 
 function resolveAdminTrackingEmailAllowlistEmails() {
-  return String(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST || "")
+  const fromEnv = String(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+
+  return fromEnv.length ? fromEnv : DEFAULT_ADMIN_TRACKING_EMAILS;
 }
 
 function resolveAdminTrackingEmailRecipientQuery() {
-  const allowlistEmails = resolveAdminTrackingEmailAllowlistEmails();
-
-  if (allowlistEmails.length) {
-    return {
-      isActive: true,
-      email: { $in: allowlistEmails },
-    };
-  }
-
   return {
     isActive: true,
-    email: { $exists: true, $ne: null },
-    $or: DEFAULT_ADMIN_TRACKING_EMAIL_RECIPIENT_NAME_PATTERNS.map((pattern) => ({
-      name: { $regex: pattern },
-    })),
+    email: { $in: resolveAdminTrackingEmailAllowlistEmails() },
   };
 }
 
@@ -520,6 +515,32 @@ function getCurrentTrackingStepIndex(steps = [], orderStatus = "") {
   }
 
   return steps.length - 1;
+}
+
+function resolveTrackingEmailProgress(order, updatedStep) {
+  const totalSteps = 10;
+  const stepKey = String(updatedStep?.key || "").trim();
+  const templateIndex = TRACKING_STATE_TEMPLATES.findIndex((step) => step.key === stepKey);
+  let currentStepNumber = templateIndex >= 0 ? templateIndex + 1 : 0;
+
+  if (!currentStepNumber && Array.isArray(order?.trackingSteps)) {
+    const orderIndex = order.trackingSteps.findIndex((step) => String(step?.key || "") === stepKey);
+    currentStepNumber = orderIndex >= 0 ? orderIndex + 1 : 0;
+  }
+
+  if (!currentStepNumber) {
+    const fallbackIndex = getCurrentTrackingStepIndex(order?.trackingSteps || [], order?.status);
+    currentStepNumber = fallbackIndex >= 0 ? fallbackIndex + 1 : 1;
+  }
+
+  if (stepKey === "completed" || String(order?.status || "").trim().toLowerCase() === "completed") {
+    currentStepNumber = totalSteps;
+  }
+
+  return {
+    currentStepNumber: Math.min(Math.max(currentStepNumber, 1), totalSteps),
+    totalSteps,
+  };
 }
 
 function canTransitionTrackingStep(requester, currentIndex, targetIndex, orderRegion = "latam") {
@@ -1096,6 +1117,7 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
   const vehicleLabel = [order?.vehicle?.brand, order?.vehicle?.model, order?.vehicle?.version]
     .filter(Boolean)
     .join(" ") || "tu vehículo";
+  const trackingProgress = resolveTrackingEmailProgress(order, updatedStep);
 
   const results = await Promise.allSettled(
     recipients.map((recipient) =>
@@ -1107,6 +1129,8 @@ async function sendTrackingUpdateEmails(order, previousStep, updatedStep) {
         previousStateLabel: previousStep?.label || "Inicio del proceso",
         nextStateLabel: updatedStep?.label || "Nuevo estado",
         stepNotes: updatedStep?.notes || "Tu vehículo sigue avanzando dentro del proceso de importación.",
+        currentStepNumber: trackingProgress.currentStepNumber,
+        totalSteps: trackingProgress.totalSteps,
       })
     )
   );
@@ -1154,6 +1178,7 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
     order?.vehicle?.internalIdentifier || order?.vehicle?.description || "Sin identificador"
   ).trim();
   const vin = String(order?.vehicle?.vin || "Sin VIN").trim();
+  const trackingProgress = resolveTrackingEmailProgress(order, updatedStep);
   const results = await Promise.allSettled(
     admins.map((admin) =>
       sendOrderTrackingUpdateEmail({
@@ -1164,6 +1189,8 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
         previousStateLabel: previousStep?.label || "Inicio del proceso",
         nextStateLabel: updatedStep?.label || "Nuevo estado",
         stepNotes: updatedStep?.notes || "El pedido recibió una nueva actualización de tracking.",
+        currentStepNumber: trackingProgress.currentStepNumber,
+        totalSteps: trackingProgress.totalSteps,
       })
     )
   );
@@ -1726,13 +1753,29 @@ function normalizeOptionalString(value) {
   return normalizedValue || undefined;
 }
 
-function resolveOrderPurchaseDate(value) {
-  if (!value) {
-    return new Date();
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BUSINESS_TIMEZONE_OFFSET = "-05:00";
+
+function parseBusinessDateTime(value, { fallbackNow = false } = {}) {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return fallbackNow ? new Date() : null;
   }
 
-  const parsedDate = new Date(value);
-  return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+  const parsedDate = DATE_ONLY_PATTERN.test(rawValue)
+    ? new Date(`${rawValue}T00:00:00.000${BUSINESS_TIMEZONE_OFFSET}`)
+    : new Date(rawValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return fallbackNow ? new Date() : null;
+  }
+
+  return parsedDate;
+}
+
+function resolveOrderPurchaseDate(value) {
+  return parseBusinessDateTime(value, { fallbackNow: true });
 }
 
 function escapeRegex(value) {
@@ -1887,7 +1930,10 @@ async function createOrder(req, res) {
     const assignedBrokerId = normalizeOptionalString(req.body.assignedBrokerId);
     const notes = normalizeOptionalString(req.body.notes);
     const purchaseDate = resolveOrderPurchaseDate(req.body.purchaseDate);
-    const expectedArrivalDate = normalizeOptionalString(req.body.expectedArrivalDate);
+    const expectedArrivalDateRaw = normalizeOptionalString(req.body.expectedArrivalDate);
+    const expectedArrivalDate = expectedArrivalDateRaw
+      ? parseBusinessDateTime(expectedArrivalDateRaw)
+      : undefined;
     const parsedYear = Number.parseInt(String(req.body.year || "").trim(), 10);
     const vehicle = {
       brand,
@@ -2200,9 +2246,9 @@ async function updateOrder(req, res) {
         if (!req.body.paymentDate) {
           order.paymentDate = null;
         } else {
-          const parsedPaymentDate = new Date(req.body.paymentDate);
+          const parsedPaymentDate = parseBusinessDateTime(req.body.paymentDate);
 
-          if (Number.isNaN(parsedPaymentDate.getTime())) {
+          if (!parsedPaymentDate) {
             return res.status(400).json({ message: "paymentDate must be a valid date" });
           }
 
@@ -2341,7 +2387,7 @@ async function updateOrder(req, res) {
     }
 
     if (purchaseDate) {
-      order.purchaseDate = purchaseDate;
+      order.purchaseDate = parseBusinessDateTime(purchaseDate, { fallbackNow: false }) || purchaseDate;
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, "paymentDate")) {
@@ -2352,9 +2398,9 @@ async function updateOrder(req, res) {
       if (!req.body.paymentDate) {
         order.paymentDate = null;
       } else {
-        const parsedPaymentDate = new Date(req.body.paymentDate);
+        const parsedPaymentDate = parseBusinessDateTime(req.body.paymentDate);
 
-        if (Number.isNaN(parsedPaymentDate.getTime())) {
+        if (!parsedPaymentDate) {
           return res.status(400).json({ message: "paymentDate must be a valid date" });
         }
 
@@ -2363,7 +2409,7 @@ async function updateOrder(req, res) {
     }
 
     if (expectedArrivalDate) {
-      order.expectedArrivalDate = expectedArrivalDate;
+      order.expectedArrivalDate = parseBusinessDateTime(expectedArrivalDate) || expectedArrivalDate;
     }
 
     if (Array.isArray(media)) {
