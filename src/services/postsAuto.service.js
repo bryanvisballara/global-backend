@@ -1,4 +1,3 @@
-const { OpenAI } = require("openai");
 const sharp = require("sharp");
 const path = require("path");
 const fs = require("fs/promises");
@@ -6,9 +5,20 @@ const Post = require("../models/Post");
 const User = require("../models/User");
 const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/cloudinary");
 
-const openAiClient = String(process.env.OPENAI_API_KEY || "").trim()
-  ? new OpenAI({ apiKey: String(process.env.OPENAI_API_KEY || "").trim() })
-  : null;
+// Auto news drafts permanently disabled — do not instantiate OpenAI.
+const POSTS_AUTO_ENABLED = false;
+const openAiClient = null;
+
+function assertPostsAutoEnabled() {
+  if (POSTS_AUTO_ENABLED && openAiClient) {
+    return;
+  }
+
+  const error = new Error("Las publicaciones automáticas están desactivadas. Ya no se generan ni regeneran borradores con OpenAI.");
+  error.statusCode = 410;
+  error.code = "POSTS_AUTO_DISABLED";
+  throw error;
+}
 
 const GLOBAL_POST_TOPICS = [
   // Car-first pool (~20 of every 21 picks)
@@ -966,6 +976,8 @@ async function createDraftFromStory({ story, copy, media, slotKey, publisherId }
 }
 
 async function generateGlobalDraft({ slotKey = "", force = false } = {}) {
+  assertPostsAutoEnabled();
+
   const resolvedSlot = slotKey || resolveSlotKey(new Date()) || `manual-${Date.now()}`;
 
   if (!force && !String(resolvedSlot).startsWith("manual-")) {
@@ -1124,6 +1136,8 @@ async function consumeRegenerateQuota({ userId = null, postId = null } = {}) {
 }
 
 async function regenerateExistingDraft(postId, { userId = null } = {}) {
+  assertPostsAutoEnabled();
+
   const draft = await Post.findOne({ _id: postId, status: "draft" });
 
   if (!draft) {
@@ -1192,6 +1206,10 @@ async function regenerateExistingDraft(postId, { userId = null } = {}) {
 }
 
 async function runScheduledGlobalDraftJob(now = new Date()) {
+  if (!POSTS_AUTO_ENABLED) {
+    return { ran: false, reason: "Publicaciones automáticas desactivadas." };
+  }
+
   const slotKey = resolveSlotKey(now);
 
   if (!slotKey) {

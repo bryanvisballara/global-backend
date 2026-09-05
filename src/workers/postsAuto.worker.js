@@ -1,7 +1,8 @@
 const { runScheduledGlobalDraftJob, getBogotaParts } = require("../services/postsAuto.service");
 
 const POLL_INTERVAL_MS = Number(process.env.POSTS_AUTO_POLL_MS || 60_000);
-const ENABLED = String(process.env.POSTS_AUTO_ENABLED || "true").trim().toLowerCase() !== "false";
+// Permanently off: auto news drafts used OpenAI and are no longer wanted.
+const ENABLED = false;
 
 let intervalRef = null;
 let inProgress = false;
@@ -31,7 +32,7 @@ async function runPostsAutoCycle() {
 
 function startPostsAutoWorker() {
   if (!ENABLED) {
-    console.info("[POSTS_AUTO] worker disabled (POSTS_AUTO_ENABLED=false)");
+    console.info("[POSTS_AUTO] worker disabled (auto news drafts permanently off)");
     return;
   }
 

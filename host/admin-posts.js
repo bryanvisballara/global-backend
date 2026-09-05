@@ -652,7 +652,7 @@ if (requireAdminAccess()) {
     }
 
     if (!draftPosts.length) {
-      renderEmptyState(draftPostsList, "Todavía no hay borradores automáticos.");
+      renderEmptyState(draftPostsList, "No hay borradores pendientes.");
       return;
     }
 
@@ -676,7 +676,6 @@ if (requireAdminAccess()) {
           <div class="draft-post-actions">
             <button class="primary-button" type="button" data-draft-action="publish" data-post-id="${escapeHtml(post._id)}">Publicar</button>
             <a class="secondary-button" href="${getEditPostUrl(post._id)}">Editar</a>
-            <button class="secondary-button" type="button" data-draft-action="regenerate" data-post-id="${escapeHtml(post._id)}">Regenerar noticia</button>
             <button class="secondary-button" type="button" data-draft-action="discard" data-post-id="${escapeHtml(post._id)}">Descartar</button>
           </div>
         </article>
@@ -710,12 +709,9 @@ if (requireAdminAccess()) {
 
   async function loadPostsPage() {
     await loadAdminSession();
-    const [postsData] = await Promise.all([
-      fetchJson("/api/admin/posts", {
-        loadingMessage: "Cargando publicaciones...",
-      }),
-      loadRegenerateQuota(),
-    ]);
+    const postsData = await fetchJson("/api/admin/posts", {
+      loadingMessage: "Cargando publicaciones...",
+    });
     allPosts = postsData.posts || [];
     sessionStorage.setItem("globalPublishedPosts", JSON.stringify(allPosts));
     renderPosts(allPosts);
@@ -764,64 +760,11 @@ if (requireAdminAccess()) {
   }
 
   async function regenerateDraftPost(postId) {
-    const remaining = Number(regenerateQuota?.remaining);
-    const limit = Number(regenerateQuota?.limit || 2);
-
-    if (regenerateQuota && remaining <= 0) {
-      setFeedback(
-        postFeedback,
-        `Límite diario alcanzado: solo ${limit} regeneraciones por día (hora Colombia).`,
-        "error"
-      );
-      return;
-    }
-
-    const remainingLabel =
-      Number.isFinite(remaining) && remaining >= 0
-        ? ` Te quedan ${remaining} de ${limit} hoy.`
-        : ` Máximo ${limit} por día.`;
-
-    const confirmed = await askForConfirmation({
-      title: "Regenerar noticia",
-      description: `Se buscará una noticia nueva (prioridad autos de lujo), se reescribirán los textos y se rediseñará la imagen.${remainingLabel}`,
-      confirmLabel: "Regenerar noticia",
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    openRegenerateProgressModal();
-
-    try {
-      const result = await fetchJson(`/api/admin/posts/${postId}/regenerate-draft`, {
-        method: "POST",
-        loadingMessage: false,
-        requestTimeoutMs: 120000,
-      });
-
-      if (result.quota) {
-        regenerateQuota = result.quota;
-        updateRegenerateQuotaNote(regenerateQuota);
-      }
-
-      const left = Number(result.quota?.remaining);
-      const leftText = Number.isFinite(left)
-        ? ` Quedan ${left} regeneración${left === 1 ? "" : "es"} hoy.`
-        : "";
-
-      await finishRegenerateProgressModal({
-        success: true,
-        message: `Noticia regenerada.${leftText}`,
-      });
-
-      setFeedback(postFeedback, `Noticia regenerada.${leftText}`, "success");
-      showSuccessModal(`La noticia se regeneró con textos e imagen nuevos.${leftText}`);
-      await loadPostsPage();
-    } catch (error) {
-      await finishRegenerateProgressModal({ success: false });
-      throw error;
-    }
+    setFeedback(
+      postFeedback,
+      "Las publicaciones automáticas están desactivadas. Ya no se regeneran borradores con OpenAI.",
+      "error"
+    );
   }
 
   async function submitPost(action) {

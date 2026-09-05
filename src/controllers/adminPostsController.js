@@ -3,10 +3,6 @@ const { isCloudinaryConfigured, uploadBufferToCloudinary } = require("../config/
 const { sendPendingPublishedPostNotifications, sendPublishedPostNotifications } = require("../services/pushNotificationService");
 const {
   countDraftPosts,
-  generateGlobalDraft,
-  getRegenerateQuotaStatus,
-  regenerateExistingDraft,
-  QuotaExceededError,
 } = require("../services/postsAuto.service");
 
 function isValidDate(value) {
@@ -440,56 +436,30 @@ async function publishDraft(req, res) {
 }
 
 async function generateDraft(req, res) {
-  try {
-    const force = String(req.body?.force || req.query?.force || "").trim() === "true";
-    const result = await generateGlobalDraft({
-      slotKey: force ? `manual-${Date.now()}` : "",
-      force,
-    });
-
-    return res.status(result.skipped ? 200 : 201).json({
-      message: result.skipped ? result.reason : "Borrador generado correctamente",
-      skipped: Boolean(result.skipped),
-      post: result.draft,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message || "Error generating draft" });
-  }
+  return res.status(410).json({
+    message: "Las publicaciones automáticas están desactivadas. Ya no se generan borradores con OpenAI.",
+    code: "POSTS_AUTO_DISABLED",
+  });
 }
 
 async function getRegenerateQuota(req, res) {
-  try {
-    const quota = await getRegenerateQuotaStatus();
-    return res.status(200).json({ quota });
-  } catch (error) {
-    return res.status(500).json({ message: error.message || "Error reading regenerate quota" });
-  }
+  return res.status(200).json({
+    quota: {
+      used: 0,
+      limit: 0,
+      remaining: 0,
+      canRegenerate: false,
+      dateKey: null,
+      disabled: true,
+    },
+  });
 }
 
 async function regenerateDraft(req, res) {
-  try {
-    const { postId } = req.params;
-    const result = await regenerateExistingDraft(postId, {
-      userId: req.user?._id || req.user?.id || null,
-    });
-
-    return res.status(200).json({
-      message: "Noticia regenerada correctamente",
-      post: result.draft,
-      quota: result.quota,
-    });
-  } catch (error) {
-    if (error instanceof QuotaExceededError || error.code === "REGENERATE_QUOTA_EXCEEDED") {
-      return res.status(429).json({
-        message: error.message,
-        quota: error.quota || null,
-      });
-    }
-
-    return res.status(error.statusCode || 500).json({
-      message: error.message || "Error regenerating draft",
-    });
-  }
+  return res.status(410).json({
+    message: "Las publicaciones automáticas están desactivadas. Ya no se regeneran borradores con OpenAI.",
+    code: "POSTS_AUTO_DISABLED",
+  });
 }
 
 module.exports = {
