@@ -79,7 +79,6 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
 const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
 const DEFAULT_ADMIN_TRACKING_EMAILS = [
   "sintegrationllc@gmail.com",
-  "anthony-vergel@hotmail.com",
   "herman@globalus.com",
   "ltorres@globalusa.com",
 ];
