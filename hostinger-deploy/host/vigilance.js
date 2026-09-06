@@ -13,7 +13,7 @@
   const MAX_PHOTOS = 12;
 
   function redirectToLogin() {
-    window.location.replace("/app/index.html");
+    window.location.replace("/index.html");
   }
 
   function requireVigilanceAccess() {

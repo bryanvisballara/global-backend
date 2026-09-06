@@ -17,11 +17,15 @@ function resolveOrdersApiBaseUrl() {
 }
 
 function buildLegacyPurchaseDate() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+  const bogotaParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
-  return `${now.getFullYear()}-${month}-${day}`;
+  // Date-only strings are UTC midnight; pin the calendar day to Colombia.
+  return `${bogotaParts}T12:00:00-05:00`;
 }
 
 function normalizeAdminPathname(pathname = window.location.pathname) {
@@ -36,10 +40,7 @@ function isEmbeddedTrackingOrderFormPage() {
 }
 
 function resolveAdminHtmlPath(fileName) {
-  const pathname = normalizeAdminPathname();
-  const useAppPrefix = pathname.startsWith("/app/") || pathname === "/app";
-
-  return `${useAppPrefix ? "/app" : ""}/${fileName}`.replace(/\/{2,}/g, "/");
+  return `/${String(fileName || "").replace(/^\/+/, "")}`;
 }
 
 function normalizeRole(role) {

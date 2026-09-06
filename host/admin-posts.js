@@ -296,7 +296,7 @@ if (requireAdminAccess()) {
   }
 
   function getEditPostUrl(postId) {
-    const editUrl = new URL("/app/admin-post-edit.html", window.location.origin);
+    const editUrl = new URL("/admin-post-edit.html", window.location.origin);
     editUrl.searchParams.set("postId", postId);
     return editUrl.toString();
   }

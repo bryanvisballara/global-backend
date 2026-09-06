@@ -1298,7 +1298,7 @@
       setFeedback?.(feedback, "Primero cotiza una versión, o abre Configurar precios de venta.", "error");
       return;
     }
-    window.location.href = `/app/admin-cotizador-precios.html?vehicleId=${encodeURIComponent(vehicleId)}`;
+    window.location.href = `/admin-cotizador-precios.html?vehicleId=${encodeURIComponent(vehicleId)}`;
   });
   compatOverlay?.addEventListener("click", closeCompatModal);
   compatClose?.addEventListener("click", closeCompatModal);

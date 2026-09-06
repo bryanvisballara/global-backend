@@ -1,6 +1,10 @@
 .sequoia-game-view {
-  display: grid;
+  display: none;
   gap: 0;
+}
+
+.sequoia-game-view.is-active {
+  display: grid;
   min-height: calc(100dvh - 120px);
 }
 

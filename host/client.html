@@ -14,8 +14,8 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260802-floatnav08" />
-    <link rel="stylesheet" href="/client-sequoia-game.css?v=20260802-pipespace02" />
+    <link rel="stylesheet" href="/styles.css?v=20260906-acc-hide01" />
+    <link rel="stylesheet" href="/client-sequoia-game.css?v=20260906-gamehide01" />
   </head>
   <body>
     <main class="client-shell">
@@ -281,16 +281,209 @@
           <section class="client-view" data-view="maintenance">
             <div class="client-section-head">
               <div>
-                <p class="section-tag">Mantenimiento preventivo</p>
-                <h2>Cotiza tu mantenimiento</h2>
-                <p class="dashboard-lead">Recibe ofertas y cupones especiales para los mantenimientos de tu vehículo con Global Imports y sus aliados.</p>
+                <h2>Taller</h2>
+                <p class="dashboard-lead">Elige el servicio para tu vehículo</p>
               </div>
             </div>
 
-            <button id="client-add-maintenance-vehicle-button" class="primary-button" type="button">Cotiza tu mantenimiento</button>
-            <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
+            <section class="order-experience-shell" aria-label="Servicios del taller">
+              <div class="workshop-service-grid">
+                <button
+                  class="order-vehicle-card"
+                  type="button"
+                  data-workshop-service="mantenimientos"
+                  style="--vehicle-image:url('/taller-mantenimientos.jpg')"
+                >
+                  <span class="order-vehicle-title">Mantenimientos</span>
+                </button>
+                <button
+                  class="order-vehicle-card"
+                  type="button"
+                  data-workshop-service="detailing"
+                  style="--vehicle-image:url('/taller-detailing.jpg')"
+                >
+                  <span class="order-vehicle-title">Detailing</span>
+                </button>
+                <button
+                  class="order-vehicle-card"
+                  type="button"
+                  data-workshop-service="accesorios"
+                  style="--vehicle-image:url('/taller-accesorios.jpg')"
+                >
+                  <span class="order-vehicle-title">Accesorios</span>
+                </button>
+              </div>
+            </section>
 
-            <div id="client-maintenance-list" class="client-maintenance-list"></div>
+          </section>
+
+          <section class="client-view" data-view="maintenance-includes">
+            <div class="client-section-head client-section-head-options">
+              <div>
+                <h2>Mantenimientos</h2>
+                <p class="dashboard-lead">Todo lo que incluye tu servicio</p>
+              </div>
+              <button id="maintenance-includes-back" class="icon-button" type="button" aria-label="Volver al taller">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m14.4 5-7 7 7 7 1.4-1.4L10.2 12l5.6-5.6Z"></path>
+                </svg>
+              </button>
+            </div>
+
+            <section id="maint-story" class="maint-story" aria-label="Qué incluye tu mantenimiento">
+              <h3 class="maint-story-title maint-story-anim" style="--delay:0ms">Qué incluye tu mantenimiento</h3>
+
+              <article class="maint-story-block">
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:520ms">
+                  <img src="/taller-incluye-aceite.jpg" alt="Cambio de aceite y filtros del mantenimiento" />
+                </figure>
+                <ol class="maint-story-list">
+                  <li class="maint-story-anim" style="--delay:980ms">Cambio de aceite de motor</li>
+                  <li class="maint-story-anim" style="--delay:1220ms">Cambio de filtro de aceite de motor</li>
+                  <li class="maint-story-anim" style="--delay:1460ms">Cambio de filtro de aire de motor</li>
+                  <li class="maint-story-anim" style="--delay:1700ms">Cambio de filtro de aire de cabina</li>
+                </ol>
+              </article>
+
+              <article class="maint-story-block">
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:2140ms">
+                  <img src="/taller-incluye-diagnostico.jpg" alt="Inspección y diagnóstico del vehículo" />
+                </figure>
+                <ol class="maint-story-list">
+                  <li class="maint-story-anim" style="--delay:2580ms">
+                    <span class="maint-story-item-copy">
+                      <strong>Inspección y diagnóstico del vehículo</strong>
+                      <small>Revisamos cada sistema, hacemos diagnóstico computarizado y te entregamos un informe claro del estado de tu vehículo.</small>
+                    </span>
+                  </li>
+                </ol>
+              </article>
+
+              <article class="maint-story-block">
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:3040ms">
+                  <img src="/taller-incluye-gratis.jpg" alt="Servicios de detailing incluidos gratis" />
+                </figure>
+                <h4 class="maint-story-free-title maint-story-anim" style="--delay:3480ms">Recibe Gratis:</h4>
+                <ol class="maint-story-list">
+                  <li class="maint-story-anim" style="--delay:3720ms">Lavado</li>
+                  <li class="maint-story-anim" style="--delay:3940ms">Encerado</li>
+                  <li class="maint-story-anim" style="--delay:4160ms">Hidratación y limpieza de cueros e interiores</li>
+                  <li class="maint-story-anim" style="--delay:4380ms">Protección de partes negras</li>
+                  <li class="maint-story-anim" style="--delay:4600ms">Ambientador</li>
+                  <li class="maint-story-anim" style="--delay:4820ms">Aditivo limpia vidrios</li>
+                </ol>
+              </article>
+
+              <button id="client-add-maintenance-vehicle-button" class="primary-button maint-story-anim" type="button" style="--delay:5260ms">Agenda tu mantenimiento</button>
+              <p id="client-maintenance-feedback" class="feedback" aria-live="polite"></p>
+              <div id="client-maintenance-list" class="client-maintenance-list"></div>
+            </section>
+          </section>
+
+          <section class="client-view" data-view="maintenance-detailing">
+            <div class="client-section-head client-section-head-options">
+              <div>
+                <h2>Detailing</h2>
+                <p class="dashboard-lead">Tratamiento cerámico y polarizados</p>
+              </div>
+              <button id="maintenance-detailing-back" class="icon-button" type="button" aria-label="Volver al taller">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m14.4 5-7 7 7 7 1.4-1.4L10.2 12l5.6-5.6Z"></path>
+                </svg>
+              </button>
+            </div>
+
+            <section id="detailing-story" class="maint-story" aria-label="Detailing">
+              <h3 class="maint-story-title maint-story-anim" style="--delay:0ms">Tratamiento cerámico</h3>
+
+              <article class="maint-story-block">
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:480ms">
+                  <img src="/taller-ceramico.jpg" alt="Proceso de tratamiento cerámico" />
+                </figure>
+                <ol class="maint-story-steps">
+                  <li class="maint-story-step maint-story-anim" style="--delay:960ms">
+                    <strong>1. Lavado y Secado</strong>
+                    <span>Se lava el vehículo por completo para retirar el polvo y la suciedad superficial. Se usa un champú de pH neutro y se seca la carrocería con una microfibra limpia.</span>
+                  </li>
+                  <li class="maint-story-step maint-story-anim" style="--delay:1240ms">
+                    <strong>2. Descontaminación</strong>
+                    <span>Se pasa una barra de arcilla (clay bar) y un producto químico removedor de fierro (IronX). Este paso elimina partículas adheridas que no salen con un lavado normal.</span>
+                  </li>
+                  <li class="maint-story-step maint-story-anim" style="--delay:1520ms">
+                    <strong>3. Pulido o Corrección de Pintura</strong>
+                    <span>Se utiliza una máquina pulidora para quitar rayones leves, marcas de agua y opacidad. Se deja la pintura lisa y brillante para que el líquido cerámico se adhiera bien.</span>
+                  </li>
+                  <li class="maint-story-step maint-story-anim" style="--delay:1800ms">
+                    <strong>4. Desengrase</strong>
+                    <span>Se limpia toda la superficie con un preparador de pintura o alcohol isopropílico. Se borran los restos de aceites y ceras que dejó el pulidor.</span>
+                  </li>
+                  <li class="maint-story-step maint-story-anim" style="--delay:2080ms">
+                    <strong>5. Aplicación del Recubrimiento Cerámico</strong>
+                    <span>Se extiende el líquido cerámico por secciones pequeñas.</span>
+                  </li>
+                  <li class="maint-story-step maint-story-anim" style="--delay:2360ms">
+                    <strong>6. Curado</strong>
+                    <span>Se deja reposar el auto bajo techo entre 12 y 48 horas para el secado inicial.</span>
+                  </li>
+                </ol>
+                <button id="detailing-ceramic-button" class="primary-button maint-story-anim" type="button" style="--delay:2780ms">Agenda tu tratamiento cerámico</button>
+              </article>
+
+              <article class="maint-story-block">
+                <h3 class="maint-story-title maint-story-anim" style="--delay:3220ms">Polarizados</h3>
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:3480ms">
+                  <img src="/taller-polarizado.jpg" alt="Servicio de polarizados" />
+                </figure>
+                <p class="maint-story-highlight maint-story-anim" style="--delay:3920ms">Confort y protección en cada viaje: menos calor, más privacidad y un look premium.</p>
+                <ol class="maint-story-list">
+                  <li class="maint-story-anim" style="--delay:4160ms">Protección UV, menor temperatura y mayor privacidad</li>
+                  <li class="maint-story-anim" style="--delay:4380ms">Seguridad en el cristal e instalación profesional sin burbujas</li>
+                  <li class="maint-story-anim" style="--delay:4600ms">Proceso: limpieza, corte preciso, instalación y resultado final</li>
+                  <li class="maint-story-anim" style="--delay:4820ms">Tonos disponibles: 70%, 50%, 35%, 20% y 5%</li>
+                </ol>
+                <button id="detailing-polarizado-button" class="primary-button maint-story-anim" type="button" style="--delay:5240ms">Agenda tu polarizado</button>
+              </article>
+
+              <p id="client-detailing-feedback" class="feedback" aria-live="polite"></p>
+            </section>
+          </section>
+
+          <section class="client-view" data-view="maintenance-accesorios">
+            <div class="client-section-head client-section-head-options">
+              <div>
+                <h2>Accesorios</h2>
+                <p class="dashboard-lead">Personaliza tu camino</p>
+              </div>
+              <button id="maintenance-accesorios-back" class="icon-button" type="button" aria-label="Volver al taller">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="m14.4 5-7 7 7 7 1.4-1.4L10.2 12l5.6-5.6Z"></path>
+                </svg>
+              </button>
+            </div>
+
+            <section id="accesorios-story" class="maint-story" aria-label="Accesorios">
+              <h3 class="maint-story-title maint-story-anim" style="--delay:0ms">Accesorios</h3>
+              <article class="maint-story-block">
+                <figure class="maint-story-figure maint-story-anim maint-story-anim-image" style="--delay:480ms">
+                  <img src="/taller-accesorios-catalogo.jpg" alt="Catálogo de accesorios para personalizar tu vehículo" />
+                </figure>
+                <p class="maint-story-highlight maint-story-anim" style="--delay:920ms">Más que accesorios, es tu estilo de vida. Instalación profesional y calidad garantizada.</p>
+                <ol class="maint-story-list">
+                  <li class="maint-story-anim" style="--delay:1160ms">Rines: estilo que marca la diferencia</li>
+                  <li class="maint-story-anim" style="--delay:1380ms">Llantas: tracción y resistencia para todo terreno</li>
+                  <li class="maint-story-anim" style="--delay:1600ms">Exploradoras: más visibilidad y seguridad</li>
+                  <li class="maint-story-anim" style="--delay:1820ms">Tiros de arrastre: listo para cualquier aventura</li>
+                  <li class="maint-story-anim" style="--delay:2040ms">Portaequipajes: lleva más, sin límites</li>
+                  <li class="maint-story-anim" style="--delay:2260ms">Cubiertas de cajuela: protección y versatilidad</li>
+                  <li class="maint-story-anim" style="--delay:2480ms">Estribos: comodidad y acceso en todo momento</li>
+                  <li class="maint-story-anim" style="--delay:2700ms">Barras y defensas: mayor protección en cada viaje</li>
+                  <li class="maint-story-anim" style="--delay:2920ms">Snorkel: prepárate para nuevos terrenos</li>
+                  <li class="maint-story-anim" style="--delay:3140ms">Accesorios adicionales para personalizar tu vehículo</li>
+                </ol>
+                <button id="accesorios-quote-button" class="primary-button maint-story-anim" type="button" style="--delay:3560ms">Cotiza tus accesorios</button>
+              </article>
+              <p id="client-accesorios-feedback" class="feedback" aria-live="polite"></p>
+            </section>
           </section>
 
           <section class="client-view" data-view="virtual-dealership">
@@ -351,7 +544,7 @@
             <span class="client-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17Zm0 1.7a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Zm-.85 2.9h1.7v3.05H16v1.7h-3.15V16h-1.7v-3.15H8v-1.7h3.15Z"></path></svg>
             </span>
-            <span>Orden</span>
+            <span>Ordena</span>
           </button>
           <button class="client-nav-button" type="button" data-view-target="maintenance" title="Mantenimiento" aria-label="Mantenimiento">
             <span class="client-nav-icon" aria-hidden="true">
@@ -401,8 +594,8 @@
       <section class="client-modal-card" role="dialog" aria-modal="true" aria-labelledby="maintenance-vehicle-title">
         <header class="client-modal-header">
           <div>
-            <p class="section-tag">Mantenimiento</p>
-            <h2 id="maintenance-vehicle-title">Cotiza tu mantenimiento</h2>
+            <p class="section-tag" id="maintenance-vehicle-tag">Mantenimiento</p>
+            <h2 id="maintenance-vehicle-title">Agenda tu mantenimiento</h2>
           </div>
           <button id="maintenance-vehicle-close" class="icon-button" type="button" aria-label="Cerrar formulario de vehículo">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4Z"></path></svg>
@@ -420,14 +613,14 @@
             <label><span>Año</span><input name="year" type="number" min="1900" max="2100" required /></label>
           </div>
 
-          <div class="form-row two-up">
-            <label><span>Kilometraje actual</span><input name="currentMileage" type="number" min="0" required /></label>
+          <div id="maintenance-mileage-plate-row" class="form-row two-up">
+            <label id="maintenance-mileage-field"><span>Kilometraje actual</span><input name="currentMileage" type="number" min="0" required /></label>
             <label><span>Placa</span><input name="plate" type="text" required /></label>
           </div>
 
-          <label><span>Usualmente, ¿cuántos km recorres al día?</span><input name="usualDailyKm" type="number" min="10" max="200" required /></label>
+          <label id="maintenance-daily-km-field"><span>Usualmente, ¿cuántos km recorres al día?</span><input name="usualDailyKm" type="number" min="10" max="200" required /></label>
 
-          <label>
+          <label id="maintenance-driving-city-field">
             <span>¿En dónde lo manejas?</span>
             <select name="drivingCity" required>
               <option value="">Selecciona una ciudad</option>
@@ -439,11 +632,16 @@
             </select>
           </label>
 
-          <label><span>Último mantenimiento preventivo que le hiciste</span><input name="lastPreventiveMaintenanceDate" type="date" required /></label>
+          <label id="maintenance-last-service-field"><span>Último mantenimiento preventivo que le hiciste</span><input name="lastPreventiveMaintenanceDate" type="date" required /></label>
+
+          <label id="accessories-request-field" hidden>
+            <span>¿Qué accesorio deseas instalar en tu vehículo?</span>
+            <textarea name="desiredAccessory" rows="3" maxlength="400" placeholder="Ej. rines, portaequipajes, estribos, defensas..."></textarea>
+          </label>
 
           <div id="maintenance-quote-schedule-fields" class="form-row two-up">
             <label>
-              <span>¿Para qué fecha quieres el mantenimiento?</span>
+              <span id="maintenance-preferred-date-label">¿Para qué fecha quieres el mantenimiento?</span>
               <input name="preferredMaintenanceDate" type="date" required />
             </label>
             <label>
@@ -535,6 +733,6 @@
     </div>
 
     <script src="/client-sequoia-game.js?v=20260802-pipespace02"></script>
-    <script src="/client-portal.js?v=20260905-feed-author01"></script>
+    <script src="/client-portal.js?v=20260906-acc-city01"></script>
   </body>
 </html>

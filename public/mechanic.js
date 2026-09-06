@@ -10,7 +10,7 @@
   } = window.AdminApp || {};
 
   function redirectToLogin() {
-    window.location.replace("/app/index.html");
+    window.location.replace("/index.html");
   }
 
   function requireMechanicAccess() {

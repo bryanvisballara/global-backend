@@ -270,7 +270,8 @@ function attachLogout(buttonId = "logout-button") {
   });
 }
 
-window.__performAdminLogout = () => performLogout(document.getElementById("logout-button"));
+window.__performAdminLogout = () =>
+  performLogout(document.getElementById("logout-button") || document.getElementById("logout-button-sidebar"));
 
 async function fetchJson(path, options = {}) {
   const { loadingMessage = "Cargando...", requestTimeoutMs = 45000, ...fetchOptions } = options;
@@ -326,12 +327,35 @@ async function fetchJson(path, options = {}) {
   }
 }
 
+function resolveDateDisplayTimeZone(dateValue) {
+  const parsedDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "America/Bogota";
+  }
+
+  const isUtcMidnight =
+    parsedDate.getUTCHours() === 0
+    && parsedDate.getUTCMinutes() === 0
+    && parsedDate.getUTCSeconds() === 0;
+
+  // Date-only values were stored as UTC midnight and must keep that calendar day.
+  return isUtcMidnight ? "UTC" : "America/Bogota";
+}
+
 function formatDate(dateValue) {
   if (!dateValue) {
     return "Sin fecha";
   }
 
-  return new Date(dateValue).toLocaleDateString("es-VE", {
+  const parsedDate = new Date(dateValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Sin fecha";
+  }
+
+  return parsedDate.toLocaleDateString("es-CO", {
+    timeZone: resolveDateDisplayTimeZone(parsedDate),
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -380,36 +404,68 @@ function setFeedback(element, message, type = "") {
   element.className = `feedback${type ? ` ${type}` : ""}`;
 }
 
+function adminNavIcon(name) {
+  const icons = {
+    dashboard:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/></svg>',
+    clipboard:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h6"/><path d="M8.5 4.5h-1A2.5 2.5 0 0 0 5 7v12.5A2.5 2.5 0 0 0 7.5 22h9a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 0-2.5-2.5h-1"/><rect x="9" y="2.5" width="6" height="3.5" rx="1.2"/><path d="M9 11h6M9 15h4"/></svg>',
+    car:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 15.5V14a2 2 0 0 1 1.2-1.8l1.7-.8 1.4-3.1A2.5 2.5 0 0 1 11.1 7h1.8a2.5 2.5 0 0 1 2.3 1.3l1.4 3.1 1.7.8A2 2 0 0 1 19.5 14v1.5"/><path d="M4.5 16.5h2.2M17.3 16.5h2.2"/><circle cx="7.5" cy="16.5" r="1.7"/><circle cx="16.5" cy="16.5" r="1.7"/><path d="M9.3 16.5h5.4"/><path d="M8 10.8h8"/></svg>',
+    user:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg>',
+    "shield-x":
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 5.5 5.8v5.3c0 4.3 2.8 7.8 6.5 9.1 3.7-1.3 6.5-4.8 6.5-9.1V5.8L12 3.2z"/><path d="m9.8 10.2 4.4 4.4M14.2 10.2l-4.4 4.4"/></svg>',
+    trash:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5h14"/><path d="M9.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 6v1.5"/><path d="M8.5 7.5 9.2 19a1.5 1.5 0 0 0 1.5 1.4h2.6a1.5 1.5 0 0 0 1.5-1.4l.7-11.5"/><circle cx="12" cy="13.2" r="1.3"/><path d="M10.2 16.2a2.2 2.2 0 0 1 3.6 0"/></svg>',
+    cart:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h1.6l1.4 10.2A1.5 1.5 0 0 0 8.5 16.5h8.3a1.5 1.5 0 0 0 1.5-1.2L20 8H7"/><circle cx="9.5" cy="19.2" r="1.2"/><circle cx="16.5" cy="19.2" r="1.2"/></svg>',
+    wrench:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a3.8 3.8 0 0 0-5.1 5.1L4.2 16.8a1.7 1.7 0 0 0 2.4 2.4l5.4-5.4a3.8 3.8 0 0 0 5.1-5.1l-2.2 2.2-2.2-2.2 2-2z"/></svg>',
+    chart:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5h15"/><path d="M6.5 15.5 10 12l3 2.5 4.5-6"/><path d="M15 8.5h2.5V11"/></svg>',
+    document:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h5.5L18.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5z"/><path d="M13.5 3.5V8H18.5"/><path d="M9.5 12h5M9.5 15.5h3.5"/></svg>',
+    store:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5 6 5.5h12l1.5 5"/><path d="M5 10.5h14v8A1.5 1.5 0 0 1 17.5 20h-11A1.5 1.5 0 0 1 5 18.5v-8z"/><path d="M10 20v-5.5h4V20"/><path d="M4.5 10.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5c.8 1 2 1.5 3.5 1.5s2.7-.5 3.5-1.5"/></svg>',
+    "shield-user":
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 5.5 5.8v5.3c0 4.3 2.8 7.8 6.5 9.1 3.7-1.3 6.5-4.8 6.5-9.1V5.8L12 3.2z"/><circle cx="12" cy="10" r="2"/><path d="M8.8 15.2a3.4 3.4 0 0 1 6.4 0"/></svg>',
+  };
+
+  return icons[name] || icons.dashboard;
+}
+
 function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
   const currentPath = String(pathname || window.location.pathname || "").toLowerCase();
   const isUsaRole = isUsaAdministrativeRole(currentRole);
   const brandLabel = isUsaRole ? "Global Imports USA" : "Global Imports";
   const navSections = [
     {
-      title: "Gestion",
+      title: "Gestión",
       items: [
-        { href: "/admin.html", label: "DASHBOARD", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
-        { href: "/admin-tracking.html", label: "PEDIDOS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
-        { href: "/admin-vehicles.html", label: "VEHICULOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
-        { href: "/admin-clients.html", label: "CLIENTES", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
+        { href: "/admin.html", label: "Dashboard", icon: "dashboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin.html"] },
+        { href: "/admin-tracking.html", label: "Pedidos", icon: "clipboard", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-tracking.html", "/admin-orders.html"] },
+        { href: "/admin-vehicles.html", label: "Vehículos", icon: "car", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-vehicles.html"] },
+        { href: "/admin-clients.html", label: "Clientes", icon: "user", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-clients.html"] },
       ],
     },
     {
       title: "Control",
       items: [
-        { href: "/admin-deleted-accounts.html", label: "CUENTAS ELIMINADAS", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
-        { href: "/admin-client-requests.html", label: "SOLICITUDES DE COMPRA", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
-        { href: "/admin-maintenance.html", label: "MANTENIMIENTOS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
-        { href: "/admin-visitors.html", label: "VISITANTES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-visitors.html"] },
-        { href: "/admin-gate-reports.html", label: "REPORTE DE INGRESOS Y SALIDAS", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-gate-reports.html"] },
+        { href: "/admin-deleted-accounts.html", label: "Cuentas eliminadas", icon: "shield-x", adminCreatorOnly: false, latamOnly: false, activePaths: ["/admin-deleted-accounts.html"] },
+        { href: "/admin-order-deletion-requests.html", label: "Solicitudes de eliminación", icon: "trash", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-order-deletion-requests.html"] },
+        { href: "/admin-client-requests.html", label: "Solicitudes de compra", icon: "cart", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-client-requests.html"] },
+        { href: "/admin-maintenance.html", label: "Mantenimientos", icon: "wrench", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-maintenance.html"] },
+        { href: "/admin-visitors.html", label: "Visitantes", icon: "user", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-visitors.html"] },
+        { href: "/admin-gate-reports.html", label: "Reporte de ingresos y salidas", icon: "chart", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-gate-reports.html"] },
       ],
     },
     {
       title: "Contenido",
       items: [
-        { href: "/admin-posts.html", label: "PUBLICACIONES", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
-        { href: "/admin-virtual-dealership.html", label: "CONCESIONARIO VIRTUAL", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
-        { href: "/admin-admins.html", label: "CREACION DE ADMINISTRADORES", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
+        { href: "/admin-posts.html", label: "Publicaciones", icon: "document", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-posts.html", "/admin-post-edit.html"] },
+        { href: "/admin-virtual-dealership.html", label: "Concesionario virtual", icon: "store", adminCreatorOnly: false, latamOnly: true, activePaths: ["/admin-virtual-dealership.html"] },
+        { href: "/admin-admins.html", label: "Creación de administradores", icon: "shield-user", adminCreatorOnly: true, latamOnly: false, activePaths: ["/admin-admins.html"] },
       ],
     },
   ];
@@ -436,7 +492,7 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
         classes.push("admin-latam-only");
       }
 
-      return `<a class="${classes.join(" ")}" href="${item.href}">${item.label}</a>`;
+      return `<a class="${classes.join(" ")}" href="${item.href}"><span class="admin-nav-icon" aria-hidden="true">${adminNavIcon(item.icon)}</span><span class="admin-nav-label">${item.label}</span>${item.href === "/admin-posts.html" ? '<span class="admin-nav-badge" id="admin-posts-draft-badge" hidden>0</span>' : ""}</a>`;
         })
         .join("");
 
@@ -466,15 +522,50 @@ function buildAdminSidebar(pathname, currentRole = getCurrentRole()) {
     </nav>
 
     <div class="admin-sidebar-footer">
-      <div class="admin-badge admin-badge-sidebar">
-        <span id="admin-name-sidebar">Administrador</span>
-        <strong id="admin-email-sidebar">admin@globalimports.com</strong>
+      <div class="admin-sidebar-user-card">
+        <span class="admin-sidebar-avatar" id="admin-avatar-sidebar" aria-hidden="true">AD</span>
+        <div class="admin-sidebar-user-meta">
+          <strong class="admin-sidebar-user-name" id="admin-name-sidebar">Administrador</strong>
+          <span class="admin-sidebar-user-email" id="admin-email-sidebar">admin@globalimports.com</span>
+        </div>
+        <span class="admin-sidebar-user-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+        </span>
       </div>
-      <button id="logout-button-sidebar" class="secondary-button admin-logout-button" type="button" onclick="window.__performAdminLogout?.(); return false;">Cerrar sesión</button>
+      <button id="logout-button-sidebar" class="admin-logout-button" type="button" onclick="window.__performAdminLogout?.(); return false;">
+        <span class="admin-logout-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.5H7.5A2 2 0 0 0 5.5 7.5v9A2 2 0 0 0 7.5 18.5H10"/><path d="M13 12h6.5"/><path d="m16.5 9 3 3-3 3"/></svg>
+        </span>
+        <span>Cerrar sesión</span>
+      </button>
     </div>
   `;
 
   return sidebar;
+}
+
+function getAdminInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return "AD";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+}
+
+function syncAdminSidebarAvatar(name) {
+  const initials = getAdminInitials(name);
+  document.querySelectorAll(".admin-sidebar-avatar, .admin-header-avatar").forEach((avatar) => {
+    avatar.textContent = initials;
+  });
 }
 
 function injectAdminSidebarLayout() {
@@ -491,7 +582,45 @@ function injectAdminSidebarLayout() {
     return;
   }
 
-  if (stage.querySelector(".admin-sidebar")) {
+  const existingSidebar = stage.querySelector(".admin-sidebar");
+  const freshSidebar = buildAdminSidebar(currentPath, getCurrentRole());
+
+  if (existingSidebar) {
+    const existingNav = existingSidebar.querySelector(".admin-sidebar-nav");
+    const freshNav = freshSidebar.querySelector(".admin-sidebar-nav");
+    const existingFooter = existingSidebar.querySelector(".admin-sidebar-footer");
+    const freshFooter = freshSidebar.querySelector(".admin-sidebar-footer");
+
+    if (existingNav && freshNav) {
+      existingNav.replaceWith(freshNav);
+    }
+
+    if (existingFooter && freshFooter) {
+      const keepPrimaryIds = Boolean(existingFooter.querySelector("#admin-name, #logout-button"));
+      const freshName = freshFooter.querySelector("#admin-name-sidebar");
+      const freshEmail = freshFooter.querySelector("#admin-email-sidebar");
+      const freshLogout = freshFooter.querySelector("#logout-button-sidebar");
+      const freshAvatar = freshFooter.querySelector("#admin-avatar-sidebar");
+
+      if (keepPrimaryIds) {
+        if (freshName) {
+          freshName.id = "admin-name";
+        }
+        if (freshEmail) {
+          freshEmail.id = "admin-email";
+        }
+        if (freshLogout) {
+          freshLogout.id = "logout-button";
+        }
+        if (freshAvatar) {
+          freshAvatar.id = "admin-avatar";
+        }
+      }
+
+      existingFooter.replaceWith(freshFooter);
+      attachLogout(keepPrimaryIds ? "logout-button" : "logout-button-sidebar");
+    }
+
     return;
   }
 
@@ -512,7 +641,7 @@ function injectAdminSidebarLayout() {
     main.appendChild(node);
   });
 
-  layout.appendChild(buildAdminSidebar(currentPath, getCurrentRole()));
+  layout.appendChild(freshSidebar);
   layout.appendChild(main);
   stage.appendChild(layout);
 
@@ -582,6 +711,7 @@ function initializeAdminSidebarDrawer() {
 
   document.body.classList.add("admin-drawer-ready");
   ensureSidebarToggleButton();
+  initializeAdminNotificationsBell();
 
   const desktopMediaQuery = window.matchMedia("(min-width: 1101px) and (hover: hover) and (pointer: fine)");
   const isAppleTouchDevice = () => {
@@ -770,28 +900,431 @@ async function loadAdminSession(nameId = "admin-name", emailId = "admin-email") 
     sessionStorage.setItem("globalAppRole", user.role);
   }
 
+  const displayName = user.name || "Administrador";
+  const displayEmail = user.email || "admin@globalimports.com";
+
   if (nameElement) {
-    nameElement.textContent = user.name || "Administrador";
+    nameElement.textContent = displayName;
   }
 
   if (emailElement) {
-    emailElement.textContent = user.email || "admin@globalimports.com";
+    emailElement.textContent = displayEmail;
   }
 
   const sidebarNameElement = document.getElementById("admin-name-sidebar");
   const sidebarEmailElement = document.getElementById("admin-email-sidebar");
+  const headerNameElement = document.getElementById("admin-name-top");
+  const headerEmailElement = document.getElementById("admin-email-top");
 
   if (sidebarNameElement) {
-    sidebarNameElement.textContent = user.name || "Administrador";
+    sidebarNameElement.textContent = displayName;
   }
 
   if (sidebarEmailElement) {
-    sidebarEmailElement.textContent = user.email || "admin@globalimports.com";
+    sidebarEmailElement.textContent = displayEmail;
   }
 
+  if (headerNameElement) {
+    headerNameElement.textContent = displayName;
+  }
+
+  if (headerEmailElement) {
+    headerEmailElement.textContent = displayEmail;
+  }
+
+  syncAdminSidebarAvatar(displayName);
   applyManagerNavigationVisibility(user.role);
+  refreshPostsDraftBadge().catch(() => null);
+  refreshAdminNotifications().catch(() => null);
 
   return user;
+}
+
+async function refreshPostsDraftBadge() {
+  const badge = document.getElementById("admin-posts-draft-badge");
+
+  if (!badge) {
+    return 0;
+  }
+
+  const hideBadge = () => {
+    badge.hidden = true;
+    badge.textContent = "";
+    badge.style.display = "none";
+  };
+
+  if (!getAuthToken()) {
+    hideBadge();
+    return 0;
+  }
+
+  try {
+    const data = await fetchJson("/api/admin/posts/draft-count", {
+      loadingMessage: false,
+    });
+    const count = Number(data?.count) || 0;
+    const shouldShow = count >= 1;
+
+    badge.hidden = !shouldShow;
+    badge.textContent = shouldShow ? String(count) : "";
+    badge.style.display = shouldShow ? "" : "none";
+    return count;
+  } catch {
+    hideBadge();
+    return 0;
+  }
+}
+
+function escapeAdminHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function createAdminNotificationsBell() {
+  const root = document.createElement("div");
+  root.className = "admin-notifications";
+  root.innerHTML = `
+    <button class="admin-notifications-toggle" type="button" aria-label="Notificaciones" aria-expanded="false">
+      <span class="admin-notifications-bell-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4.2 1.5 5.8 2 6.5H4.5c.5-.7 2-2.3 2-6.5Z"/>
+          <path d="M10 18.5a2 2 0 0 0 4 0"/>
+        </svg>
+      </span>
+      <span class="admin-notifications-count" id="admin-notifications-count" hidden>0</span>
+    </button>
+    <div class="admin-notifications-panel" id="admin-notifications-panel" hidden>
+      <div class="admin-notifications-panel-header">
+        <strong>Notificaciones</strong>
+        <button class="admin-notifications-mark-all" type="button" title="Marcar todas como leídas" aria-label="Marcar todas como leídas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 13.5 9.5 18 19 6.5"/>
+          </svg>
+        </button>
+      </div>
+      <div class="admin-notifications-list" id="admin-notifications-list"></div>
+    </div>
+  `;
+  return root;
+}
+
+function bindAdminHeaderUserMenu(userWrap) {
+  if (!userWrap || userWrap.dataset.bound === "true") {
+    return;
+  }
+
+  userWrap.dataset.bound = "true";
+  const userToggle = userWrap.querySelector(".admin-header-user-toggle");
+  const userMenu = userWrap.querySelector(".admin-header-user-menu");
+
+  userToggle?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const willOpen = Boolean(userMenu?.hidden);
+    closeAdminNotificationsPanel();
+    if (userMenu) {
+      userMenu.hidden = !willOpen;
+    }
+    userToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".admin-header-user")) {
+      if (userMenu) {
+        userMenu.hidden = true;
+      }
+      userToggle?.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  const logoutButton = userWrap.querySelector("#logout-button");
+  if (logoutButton) {
+    attachLogout(logoutButton.id || "logout-button");
+  }
+}
+
+function ensureAdminHeaderCluster() {
+  const existingCluster = document.querySelector(".admin-header-cluster");
+  if (existingCluster) {
+    bindAdminHeaderUserMenu(existingCluster.querySelector(".admin-header-user"));
+    return existingCluster.querySelector(".admin-notifications") || existingCluster;
+  }
+
+  const actions =
+    document.querySelector(".page-topbar-actions") ||
+    document.querySelector(".admin-dashboard-header-actions");
+
+  if (!actions) {
+    return null;
+  }
+
+  const existingName =
+    actions.querySelector("#admin-name") ||
+    actions.querySelector("#admin-name-top") ||
+    document.getElementById("admin-name");
+  const existingEmail =
+    actions.querySelector("#admin-email") ||
+    document.getElementById("admin-email");
+  const existingLogout = actions.querySelector("#logout-button") || document.getElementById("logout-button");
+
+  const nameId = existingName?.id || "admin-name";
+  const emailId = existingEmail?.id || "admin-email";
+  const nameText = existingName?.textContent?.trim() || "Administrador";
+  const emailText = existingEmail?.textContent?.trim() || "admin@globalimports.com";
+  const initials = getAdminInitials(nameText);
+
+  actions.querySelectorAll(".admin-badge, .admin-user-chip").forEach((node) => node.remove());
+  if (existingLogout && actions.contains(existingLogout)) {
+    existingLogout.remove();
+  }
+
+  const cluster = document.createElement("div");
+  cluster.className = "admin-header-cluster";
+
+  const bell = createAdminNotificationsBell();
+  const divider = document.createElement("span");
+  divider.className = "admin-header-divider";
+  divider.setAttribute("aria-hidden", "true");
+
+  const userWrap = document.createElement("div");
+  userWrap.className = "admin-header-user";
+  userWrap.innerHTML = `
+    <button class="admin-header-user-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+      <span class="admin-header-avatar" id="admin-header-avatar" aria-hidden="true">${escapeAdminHtml(initials)}</span>
+      <span class="admin-header-user-meta">
+        <strong class="admin-header-user-name" id="${escapeAdminHtml(nameId)}">${escapeAdminHtml(nameText)}</strong>
+        <span class="admin-header-user-email" id="${escapeAdminHtml(emailId)}">${escapeAdminHtml(emailText)}</span>
+      </span>
+      <span class="admin-header-user-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+      </span>
+    </button>
+    <div class="admin-header-user-menu" id="admin-header-user-menu" hidden>
+      <button id="logout-button" class="admin-header-logout-button" type="button">Cerrar sesión</button>
+    </div>
+  `;
+
+  cluster.appendChild(bell);
+  cluster.appendChild(divider);
+  cluster.appendChild(userWrap);
+  actions.prepend(cluster);
+  bindAdminHeaderUserMenu(userWrap);
+  return bell;
+}
+
+function ensureAdminNotificationsBell() {
+  const existing = document.querySelector(".admin-notifications");
+  if (existing) {
+    bindAdminHeaderUserMenu(document.querySelector(".admin-header-user"));
+    return existing;
+  }
+
+  return ensureAdminHeaderCluster();
+}
+
+function setAdminNotificationsCount(count) {
+  const badge = document.getElementById("admin-notifications-count");
+  if (!badge) {
+    return;
+  }
+
+  const safeCount = Number(count) || 0;
+  const shouldShow = safeCount >= 1;
+  badge.hidden = !shouldShow;
+  badge.textContent = shouldShow ? String(safeCount > 99 ? "99+" : safeCount) : "";
+  badge.style.display = shouldShow ? "" : "none";
+}
+
+function renderAdminNotificationsList(notifications = []) {
+  const list = document.getElementById("admin-notifications-list");
+  if (!list) {
+    return;
+  }
+
+  if (!notifications.length) {
+    list.innerHTML = `<p class="admin-notifications-empty">No hay notificaciones nuevas.</p>`;
+    return;
+  }
+
+  list.innerHTML = notifications
+    .map((item) => {
+      const unreadClass = item.isRead ? "" : " is-unread";
+      const when = item.createdAt ? formatDateTimeInBogota(item.createdAt) : "";
+      return `
+        <article class="admin-notification-item${unreadClass}" data-notification-id="${escapeAdminHtml(item.id)}" data-deep-link="${escapeAdminHtml(item.deepLink)}">
+          <button class="admin-notification-main" type="button">
+            <strong>${escapeAdminHtml(item.title)}</strong>
+            <span>${escapeAdminHtml(item.body || "")}</span>
+            <small>${escapeAdminHtml(when)}</small>
+          </button>
+          <button class="admin-notification-dismiss" type="button" title="Eliminar" aria-label="Eliminar notificación" data-dismiss-id="${escapeAdminHtml(item.id)}">×</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function canUseAdminNotifications() {
+  const role = String(getCurrentRole() || "").trim();
+  return ["admin", "manager", "adminUSA", "gerenteUSA", "brokerUSA"].includes(role);
+}
+
+async function refreshAdminNotifications({ renderList = false } = {}) {
+  if (!getAuthToken() || !canUseAdminNotifications()) {
+    setAdminNotificationsCount(0);
+    if (renderList) {
+      renderAdminNotificationsList([]);
+    }
+    return { count: 0, notifications: [] };
+  }
+
+  try {
+    if (renderList) {
+      const data = await fetchJson("/api/admin/notifications?limit=40", {
+        loadingMessage: false,
+      });
+      const notifications = data.notifications || [];
+      renderAdminNotificationsList(notifications);
+      const unread = notifications.filter((item) => !item.isRead).length;
+      setAdminNotificationsCount(unread);
+      return { count: unread, notifications };
+    }
+
+    const data = await fetchJson("/api/admin/notifications/unread-count", {
+      loadingMessage: false,
+    });
+    const count = Number(data?.count) || 0;
+    setAdminNotificationsCount(count);
+    return { count, notifications: [] };
+  } catch {
+    setAdminNotificationsCount(0);
+    if (renderList) {
+      renderAdminNotificationsList([]);
+    }
+    return { count: 0, notifications: [] };
+  }
+}
+
+function closeAdminNotificationsPanel() {
+  const panel = document.getElementById("admin-notifications-panel");
+  const toggle = document.querySelector(".admin-notifications-toggle");
+  if (panel) {
+    panel.hidden = true;
+  }
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+  }
+}
+
+function initializeAdminNotificationsBell() {
+  const currentPath = String(window.location.pathname || "");
+  const isAdminHtmlRoute = /^\/(?:app\/)?admin(?:-[a-z0-9-]+)?\.html$/i.test(currentPath);
+
+  if (!isAdminHtmlRoute) {
+    return;
+  }
+
+  const root = ensureAdminNotificationsBell();
+  bindAdminHeaderUserMenu(document.querySelector(".admin-header-user"));
+
+  if (!root || root.dataset.bound === "true") {
+    refreshAdminNotifications().catch(() => null);
+    return;
+  }
+
+  root.dataset.bound = "true";
+  const toggle = root.querySelector(".admin-notifications-toggle");
+  const panel = root.querySelector(".admin-notifications-panel");
+  const markAllButton = root.querySelector(".admin-notifications-mark-all");
+  const list = root.querySelector(".admin-notifications-list");
+
+  toggle?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const willOpen = Boolean(panel?.hidden);
+    if (!willOpen) {
+      closeAdminNotificationsPanel();
+      return;
+    }
+
+    const userMenu = document.getElementById("admin-header-user-menu");
+    const userToggle = document.querySelector(".admin-header-user-toggle");
+    if (userMenu) {
+      userMenu.hidden = true;
+    }
+    userToggle?.setAttribute("aria-expanded", "false");
+
+    panel.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    await refreshAdminNotifications({ renderList: true });
+  });
+
+  markAllButton?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await fetchJson("/api/admin/notifications/read-all", {
+        method: "POST",
+        loadingMessage: false,
+      });
+      await refreshAdminNotifications({ renderList: true });
+    } catch {
+      // ignore
+    }
+  });
+
+  list?.addEventListener("click", async (event) => {
+    const dismissButton = event.target.closest("[data-dismiss-id]");
+    if (dismissButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const notificationId = dismissButton.dataset.dismissId;
+      try {
+        await fetchJson(`/api/admin/notifications/${notificationId}`, {
+          method: "DELETE",
+          loadingMessage: false,
+        });
+        await refreshAdminNotifications({ renderList: true });
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const itemButton = event.target.closest(".admin-notification-main");
+    const item = itemButton?.closest("[data-notification-id]");
+    if (!item) {
+      return;
+    }
+
+    event.preventDefault();
+    const notificationId = item.dataset.notificationId;
+    const deepLink = item.dataset.deepLink || "/admin.html";
+
+    try {
+      await fetchJson(`/api/admin/notifications/${notificationId}/read`, {
+        method: "POST",
+        loadingMessage: false,
+      });
+    } catch {
+      // continue navigation even if mark-read fails
+    }
+
+    closeAdminNotificationsPanel();
+    window.location.href = deepLink;
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".admin-notifications")) {
+      closeAdminNotificationsPanel();
+    }
+  });
+
+  refreshAdminNotifications().catch(() => null);
 }
 
 injectAdminSidebarLayout();
@@ -813,9 +1346,20 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncAdminViewportMetrics();
     forceHideAnyLoadingOverlay();
+    refreshPostsDraftBadge().catch(() => null);
+    refreshAdminNotifications().catch(() => null);
   }
 });
 window.setTimeout(forceHideAnyLoadingOverlay, 0);
+window.setTimeout(() => {
+  refreshPostsDraftBadge().catch(() => null);
+  initializeAdminNotificationsBell();
+  refreshAdminNotifications().catch(() => null);
+}, 800);
+window.setInterval(() => {
+  refreshPostsDraftBadge().catch(() => null);
+  refreshAdminNotifications().catch(() => null);
+}, 60000);
 
 window.AdminApp = {
   attachLogout,
@@ -834,6 +1378,8 @@ window.AdminApp = {
   populateSelect,
   performLogout,
   redirectToLogin,
+  refreshAdminNotifications,
+  refreshPostsDraftBadge,
   resetLoadingOverlay,
   renderEmptyState,
   requireAdminAccess,

@@ -24,7 +24,7 @@
   const BUCKET_CONFIG = {
     "this-month": {
       title: "Mantenimientos · Este mes",
-      subtitle: "Vehículos cuyo próximo mantenimiento preventivo (6 meses) vence este mes. Ventana +/-15 días.",
+      subtitle: "Vence este mes, o registros manuales añadidos/entregados este mes pendientes de contactar.",
       dataKey: "dueByDateThisMonth",
       type: "date",
     },
@@ -235,11 +235,11 @@
         return true;
       }
 
-      const name = String(v.user?.name || v.client?.name || "").toLowerCase();
+      const name = String(v.user?.name || v.client?.name || v.contactName || "").toLowerCase();
       const plate = String(v.plate || "").toLowerCase();
       const brand = String(v.brand || "").toLowerCase();
       const model = String(v.model || "").toLowerCase();
-      const phone = String(v.user?.phone || v.client?.phone || "").toLowerCase();
+      const phone = String(v.user?.phone || v.client?.phone || v.contactPhone || "").toLowerCase();
       const city = String(v.drivingCity || "").toLowerCase();
 
       return name.includes(query) || plate.includes(query) || brand.includes(query) || model.includes(query) || phone.includes(query) || city.includes(query);
@@ -261,8 +261,8 @@
 
     tableBody.innerHTML = vehicles.map((vehicle) => {
       const id = String(vehicle._id || vehicle.id || "");
-      const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
-      const ownerPhoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
+      const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || vehicle.contactName || "Cliente");
+      const ownerPhoneRaw = vehicle.user?.phone || vehicle.client?.phone || vehicle.contactPhone || "";
       const drivingCity = escapeHtml(vehicle.drivingCity || "Sin ubicación");
       const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Sin nombre");
       const lastContact = vehicle.adminLastContactAt ? formatDate(vehicle.adminLastContactAt) : "-";
@@ -333,9 +333,9 @@
 
       listEl.innerHTML = items.map((vehicle) => {
         const id = String(vehicle._id || vehicle.id || "");
-        const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || "Cliente");
+        const ownerName = escapeHtml(vehicle.user?.name || vehicle.client?.name || vehicle.contactName || "Cliente");
         const vehicleTitle = escapeHtml([vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(" ") || "Vehículo");
-        const phoneRaw = vehicle.user?.phone || vehicle.client?.phone || "";
+        const phoneRaw = vehicle.user?.phone || vehicle.client?.phone || vehicle.contactPhone || "";
         const drivingCity = escapeHtml(vehicle.drivingCity || "Sin ubicación");
         const apptDate = vehicle.adminAppointmentDate || vehicle.appointmentDate;
         const apptDateLabel = apptDate ? formatDate(apptDate) : "Sin fecha";

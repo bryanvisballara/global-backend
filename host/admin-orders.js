@@ -40,10 +40,7 @@ function isEmbeddedTrackingOrderFormPage() {
 }
 
 function resolveAdminHtmlPath(fileName) {
-  const pathname = normalizeAdminPathname();
-  const useAppPrefix = pathname.startsWith("/app/") || pathname === "/app";
-
-  return `${useAppPrefix ? "/app" : ""}/${fileName}`.replace(/\/{2,}/g, "/");
+  return `/${String(fileName || "").replace(/^\/+/, "")}`;
 }
 
 function normalizeRole(role) {

@@ -291,7 +291,7 @@
         </table>
       </div>
       <p class="cp-sub" style="margin-top:0.75rem">
-        Los costos de insumos se editan en <a href="/app/admin-cotizador-insumos.html">Configurar precios de insumos</a>. Aquí puedes ajustarlos rápido si hace falta; el cambio aplica a todos los carros que usen ese insumo.
+        Los costos de insumos se editan en <a href="/admin-cotizador-insumos.html">Configurar precios de insumos</a>. Aquí puedes ajustarlos rápido si hace falta; el cambio aplica a todos los carros que usen ese insumo.
       </p>
 
       <div class="cp-sale-box">

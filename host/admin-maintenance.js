@@ -290,7 +290,7 @@
           return;
         }
 
-        window.location.href = `/app/admin-maintenance-detail.html?bucket=${encodeURIComponent(bucket)}`;
+        window.location.href = `/admin-maintenance-detail.html?bucket=${encodeURIComponent(bucket)}`;
       };
 
       card.addEventListener("click", navigate);

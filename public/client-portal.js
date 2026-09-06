@@ -114,7 +114,7 @@ installZoomGuards();
 
 function getInitialViewFromUrl() {
   const urlView = new URLSearchParams(window.location.search).get("view");
-  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
+  const allowedViews = new Set(["home", "tracking", "order", "order-options", "order-configurator", "maintenance", "maintenance-includes", "maintenance-detailing", "maintenance-accesorios", "virtual-dealership", "pago-separacion", "pago-exitoso"]);
 
   if (GLOBAL_HERO_GAME_ENABLED) {
     allowedViews.add("sequoia-game");
@@ -147,9 +147,7 @@ function redirectToLogin() {
 }
 
 function buildDeletedAccountPageUrl(feedbackToken = "") {
-  const pagePath = window.location.pathname.startsWith("/app/")
-    ? "/app/account-deleted.html"
-    : "/account-deleted.html";
+  const pagePath = "/account-deleted.html";
   const deletedAccountUrl = new URL(pagePath, window.location.origin);
 
   if (feedbackToken) {
@@ -223,6 +221,24 @@ const orderVehicleCarousel = document.getElementById("order-vehicle-carousel");
 const orderActionCards = document.getElementById("order-experience-actions");
 const orderOptionsBackButton = document.getElementById("order-options-back");
 const orderConfigBackButton = document.getElementById("order-config-back");
+const maintenanceIncludesBackButton = document.getElementById("maintenance-includes-back");
+const maintenanceIncludesStory = document.getElementById("maint-story");
+const maintenanceDetailingBackButton = document.getElementById("maintenance-detailing-back");
+const detailingStory = document.getElementById("detailing-story");
+const detailingCeramicButton = document.getElementById("detailing-ceramic-button");
+const detailingPolarizadoButton = document.getElementById("detailing-polarizado-button");
+const detailingFeedback = document.getElementById("client-detailing-feedback");
+const maintenanceAccesoriosBackButton = document.getElementById("maintenance-accesorios-back");
+const accesoriosStory = document.getElementById("accesorios-story");
+const accesoriosQuoteButton = document.getElementById("accesorios-quote-button");
+const accesoriosFeedback = document.getElementById("client-accesorios-feedback");
+const maintenanceVehicleTag = document.getElementById("maintenance-vehicle-tag");
+const maintenanceLastServiceField = document.getElementById("maintenance-last-service-field");
+const maintenanceMileageField = document.getElementById("maintenance-mileage-field");
+const maintenanceDailyKmField = document.getElementById("maintenance-daily-km-field");
+const maintenancePreferredDateLabel = document.getElementById("maintenance-preferred-date-label");
+const maintenanceDrivingCityField = document.getElementById("maintenance-driving-city-field");
+const accessoriesRequestField = document.getElementById("accessories-request-field");
 const sequoiaGameRoot = document.getElementById("sequoia-game-root");
 const sequoiaConfigImageFrame = document.getElementById("sequoia-config-image-frame");
 const sequoiaConfigMainImage = document.getElementById("sequoia-config-main-image");
@@ -344,6 +360,68 @@ let sequoiaVisionHintTimeout = null;
 let virtualDealershipModalImages = [];
 let virtualDealershipModalImageIndex = 0;
 let editingMaintenanceVehicleId = "";
+let workshopBookingService = "maintenance";
+
+const WORKSHOP_BOOKING_COPY = {
+  maintenance: {
+    tag: "Mantenimiento",
+    title: "Agenda tu mantenimiento",
+    submit: "Agendar ahora",
+    dateLabel: "¿Para qué fecha quieres el mantenimiento?",
+    whatsappIntro: "Hola Global Imports, quiero cotizar un mantenimiento.",
+    saving: "Guardando y preparando tu cotización...",
+    success: "Vehículo guardado. Te estamos abriendo WhatsApp para cotizar tu mantenimiento.",
+  },
+  ceramic: {
+    tag: "Detailing",
+    title: "Agenda tu tratamiento cerámico",
+    submit: "Agendar ahora",
+    dateLabel: "¿Para qué fecha quieres el tratamiento cerámico?",
+    whatsappIntro: "Hola Global Imports, quiero agendar un tratamiento cerámico.",
+    saving: "Guardando y preparando tu agendamiento...",
+    success: "Datos guardados. Te estamos abriendo WhatsApp para agendar tu tratamiento cerámico.",
+  },
+  polarizado: {
+    tag: "Detailing",
+    title: "Agenda tu polarizado",
+    submit: "Agendar ahora",
+    dateLabel: "¿Para qué fecha quieres el polarizado?",
+    whatsappIntro: "Hola Global Imports, quiero agendar un polarizado.",
+    saving: "Guardando y preparando tu agendamiento...",
+    success: "Datos guardados. Te estamos abriendo WhatsApp para agendar tu polarizado.",
+  },
+  accesorios: {
+    tag: "Accesorios",
+    title: "Cotiza tus accesorios",
+    submit: "Cotizar ahora",
+    dateLabel: "¿Para qué fecha quieres la cotización o instalación?",
+    whatsappIntro: "Hola Global Imports, quiero cotizar accesorios para mi vehículo.",
+    saving: "Guardando y preparando tu cotización...",
+    success: "Datos guardados. Te estamos abriendo WhatsApp para cotizar tus accesorios.",
+  },
+};
+
+function resolveWorkshopBookingCopy() {
+  return WORKSHOP_BOOKING_COPY[workshopBookingService] || WORKSHOP_BOOKING_COPY.maintenance;
+}
+
+function resolveWorkshopFeedback() {
+  if (state.activeView === "maintenance-detailing") {
+    return detailingFeedback || maintenanceFeedback;
+  }
+
+  if (state.activeView === "maintenance-accesorios") {
+    return accesoriosFeedback || maintenanceFeedback;
+  }
+
+  return maintenanceFeedback;
+}
+
+function isWorkshopServiceWithoutMileage() {
+  return workshopBookingService === "ceramic"
+    || workshopBookingService === "polarizado"
+    || workshopBookingService === "accesorios";
+}
 let virtualDealershipVideoContext = {
   vehicleTitle: "",
   publicationUrl: "",
@@ -3021,32 +3099,97 @@ function resolveMaintenanceVehicleKey(vehicle, index) {
 
 function setMaintenanceVehicleModalMode(mode) {
   const isEdit = mode === "edit";
+  const copy = resolveWorkshopBookingCopy();
   const quoteFields = document.getElementById("maintenance-quote-schedule-fields");
   const preferredDateInput = maintenanceVehicleForm?.elements?.preferredMaintenanceDate;
   const preferredTimeInput = maintenanceVehicleForm?.elements?.preferredMaintenanceTime;
+  if (maintenanceVehicleTag) {
+    maintenanceVehicleTag.textContent = isEdit ? "Mantenimiento" : copy.tag;
+  }
 
   if (maintenanceVehicleTitle) {
-    maintenanceVehicleTitle.textContent = isEdit ? "Edita tu vehículo" : "Cotiza tu mantenimiento";
+    maintenanceVehicleTitle.textContent = isEdit ? "Edita tu vehículo" : copy.title;
   }
 
   if (maintenanceVehicleSubmitButton) {
-    maintenanceVehicleSubmitButton.textContent = isEdit ? "Guardar cambios" : "Cotizar ahora";
+    maintenanceVehicleSubmitButton.textContent = isEdit ? "Guardar cambios" : copy.submit;
+  }
+
+  if (maintenancePreferredDateLabel) {
+    maintenancePreferredDateLabel.textContent = copy.dateLabel;
+  }
+
+  const hideMileageFields = !isEdit && isWorkshopServiceWithoutMileage();
+  const mileageInput = maintenanceVehicleForm?.elements?.currentMileage;
+  const dailyKmInput = maintenanceVehicleForm?.elements?.usualDailyKm;
+
+  if (maintenanceMileageField) {
+    maintenanceMileageField.hidden = hideMileageFields;
+  }
+
+  if (maintenanceDailyKmField) {
+    maintenanceDailyKmField.hidden = hideMileageFields;
+  }
+
+  const mileagePlateRow = document.getElementById("maintenance-mileage-plate-row");
+  if (mileagePlateRow) {
+    mileagePlateRow.classList.toggle("is-single-field", hideMileageFields);
+  }
+
+  if (mileageInput) {
+    mileageInput.required = !hideMileageFields;
+    if (hideMileageFields) {
+      mileageInput.value = "";
+    }
+  }
+
+  if (dailyKmInput) {
+    dailyKmInput.required = !hideMileageFields;
+    if (hideMileageFields) {
+      dailyKmInput.value = "";
+    }
+  }
+
+  const drivingCityInput = maintenanceVehicleForm?.elements?.drivingCity;
+  if (maintenanceDrivingCityField) {
+    maintenanceDrivingCityField.hidden = hideMileageFields;
+  }
+
+  if (drivingCityInput) {
+    drivingCityInput.required = !hideMileageFields;
+    if (hideMileageFields) {
+      drivingCityInput.value = "";
+    }
+  }
+
+  const isAccessoriesBooking = !isEdit && workshopBookingService === "accesorios";
+  const accessoryInput = maintenanceVehicleForm?.elements?.desiredAccessory;
+
+  if (accessoriesRequestField) {
+    accessoriesRequestField.hidden = !isAccessoriesBooking;
+  }
+
+  if (accessoryInput) {
+    accessoryInput.required = isAccessoriesBooking;
+    if (!isAccessoriesBooking) {
+      accessoryInput.value = "";
+    }
   }
 
   if (quoteFields) {
-    quoteFields.hidden = isEdit;
+    quoteFields.hidden = isEdit || isAccessoriesBooking;
   }
 
   if (preferredDateInput) {
-    preferredDateInput.required = !isEdit;
-    if (isEdit) {
+    preferredDateInput.required = !isEdit && !isAccessoriesBooking;
+    if (isEdit || isAccessoriesBooking) {
       preferredDateInput.value = "";
     }
   }
 
   if (preferredTimeInput) {
-    preferredTimeInput.required = !isEdit;
-    if (isEdit) {
+    preferredTimeInput.required = !isEdit && !isAccessoriesBooking;
+    if (isEdit || isAccessoriesBooking) {
       preferredTimeInput.value = "";
     }
   }
@@ -3494,14 +3637,31 @@ async function submitDeleteAccount() {
   }
 }
 
+function resetWorkshopStory(storyNode) {
+  storyNode?.classList.remove("is-ready");
+}
+
+function playWorkshopStory(storyNode) {
+  if (!storyNode) {
+    return;
+  }
+
+  resetWorkshopStory(storyNode);
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      storyNode.classList.add("is-ready");
+    });
+  });
+}
+
 function refreshMaintenanceButtonLabel() {
   if (!addMaintenanceVehicleButton) {
     return;
   }
 
   addMaintenanceVehicleButton.textContent = state.maintenanceVehicles.length
-    ? "Cotiza otro mantenimiento"
-    : "Cotiza tu mantenimiento";
+    ? "Agenda otro mantenimiento"
+    : "Agenda tu mantenimiento";
 }
 
 function renderMaintenanceList() {
@@ -3610,19 +3770,20 @@ function buildMaintenanceQuoteWhatsappMessage(payload = {}) {
     .trim();
 
   return [
-    "Hola Global Imports, quiero cotizar un mantenimiento.",
+    resolveWorkshopBookingCopy().whatsappIntro,
     "",
+    `Servicio: ${resolveWorkshopBookingCopy().title.replace(/^Agenda tu /i, "").trim()}`,
     `Nombre: ${userName}`,
     userEmail ? `Email: ${userEmail}` : "",
     userPhone ? `Teléfono: ${userPhone}` : "",
     `Vehículo: ${vehicleTitle || "Sin detalle"}`,
     `Placa: ${payload.plate || "N/A"}`,
-    `Kilometraje actual: ${payload.currentMileage || "N/A"}`,
-    `Km diarios usuales: ${payload.usualDailyKm || "N/A"}`,
-    `Ciudad: ${payload.drivingCity || "N/A"}`,
-    `Último mantenimiento: ${payload.lastPreventiveMaintenanceDate || "N/A"}`,
-    `Fecha deseada: ${payload.preferredMaintenanceDate || "N/A"}`,
-    `Hora deseada: ${payload.preferredMaintenanceTime || "N/A"}`,
+    workshopBookingService === "maintenance" ? `Kilometraje actual: ${payload.currentMileage || "N/A"}` : "",
+    workshopBookingService === "maintenance" ? `Km diarios usuales: ${payload.usualDailyKm || "N/A"}` : "",
+    workshopBookingService === "maintenance" ? `Ciudad: ${payload.drivingCity || "N/A"}` : "",
+    workshopBookingService === "accesorios" ? `Accesorio a instalar: ${payload.desiredAccessory || "N/A"}` : `Último mantenimiento: ${payload.lastPreventiveMaintenanceDate || "N/A"}`,
+    workshopBookingService === "accesorios" ? "" : `Fecha deseada: ${payload.preferredMaintenanceDate || "N/A"}`,
+    workshopBookingService === "accesorios" ? "" : `Hora deseada: ${payload.preferredMaintenanceTime || "N/A"}`,
   ]
     .filter((line) => line !== "")
     .join("\n");
@@ -3642,40 +3803,52 @@ async function submitMaintenanceVehicleForm() {
   }
 
   const formData = new FormData(maintenanceVehicleForm);
-  const usualDailyKm = Number(formData.get("usualDailyKm"));
   const isEditing = Boolean(editingMaintenanceVehicleId);
+  const skipMileageFields = !isEditing && isWorkshopServiceWithoutMileage();
+  const isAccessoriesBooking = !isEditing && workshopBookingService === "accesorios";
+  const usualDailyKm = skipMileageFields ? 10 : Number(formData.get("usualDailyKm"));
+  const desiredAccessory = String(formData.get("desiredAccessory") || "").trim();
 
-  if (Number.isNaN(usualDailyKm) || usualDailyKm < 10 || usualDailyKm > 200) {
+  if (!skipMileageFields && (Number.isNaN(usualDailyKm) || usualDailyKm < 10 || usualDailyKm > 200)) {
     throw new Error("Los kms diarios deben estar entre 10 y 200");
   }
+
+  if (isAccessoriesBooking && !desiredAccessory) {
+    throw new Error("Indica qué accesorio deseas instalar en tu vehículo.");
+  }
+
+  const todayInBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
   const payload = {
     brand: formData.get("brand"),
     model: formData.get("model"),
     version: formData.get("version"),
     year: formData.get("year"),
-    currentMileage: formData.get("currentMileage"),
+    currentMileage: skipMileageFields ? 0 : formData.get("currentMileage"),
     usualDailyKm,
-    drivingCity: formData.get("drivingCity"),
+    drivingCity: skipMileageFields ? "Bogota" : formData.get("drivingCity"),
     plate: formData.get("plate"),
     lastPreventiveMaintenanceDate: formData.get("lastPreventiveMaintenanceDate"),
-    preferredMaintenanceDate: formData.get("preferredMaintenanceDate"),
-    preferredMaintenanceTime: formData.get("preferredMaintenanceTime"),
+    preferredMaintenanceDate: isAccessoriesBooking ? todayInBogota : formData.get("preferredMaintenanceDate"),
+    preferredMaintenanceTime: isAccessoriesBooking ? "09:00" : formData.get("preferredMaintenanceTime"),
+    desiredAccessory,
   };
 
-  if (!isEditing) {
+  if (!isEditing && !isAccessoriesBooking) {
     if (!String(payload.preferredMaintenanceDate || "").trim()) {
-      throw new Error("Indica la fecha en la que quieres el mantenimiento.");
+      throw new Error("Indica la fecha en la que quieres el servicio.");
     }
 
     if (!String(payload.preferredMaintenanceTime || "").trim()) {
-      throw new Error("Indica la hora en la que quieres el mantenimiento.");
+      throw new Error("Indica la hora en la que quieres el servicio.");
     }
   }
 
+  const bookingCopy = resolveWorkshopBookingCopy();
+
   setFeedback(
-    maintenanceFeedback,
-    isEditing ? "Actualizando vehículo..." : "Guardando y preparando tu cotización..."
+    resolveWorkshopFeedback(),
+    isEditing ? "Actualizando vehículo..." : bookingCopy.saving
   );
 
   await fetchJson(isEditing
@@ -3690,12 +3863,12 @@ async function submitMaintenanceVehicleForm() {
   if (!isEditing) {
     openMaintenanceQuoteWhatsapp(buildMaintenanceQuoteWhatsappMessage(payload));
     setFeedback(
-      maintenanceFeedback,
-      "Vehículo guardado. Te estamos abriendo WhatsApp para cotizar tu mantenimiento.",
+      resolveWorkshopFeedback(),
+      bookingCopy.success,
       "success"
     );
   } else {
-    setFeedback(maintenanceFeedback, "Vehículo actualizado correctamente.", "success");
+    setFeedback(resolveWorkshopFeedback(), "Vehículo actualizado correctamente.", "success");
   }
 
   await loadDashboard();
@@ -4748,7 +4921,8 @@ function setActiveView(viewName, options = {}) {
   navButtons.forEach((button) => {
     const targetView = button.dataset.viewTarget;
     const shouldHighlightOrder = targetView === "order" && (nextViewName === "order-options" || nextViewName === "order-configurator");
-    button.classList.toggle("is-active", targetView === nextViewName || shouldHighlightOrder);
+    const shouldHighlightTaller = targetView === "maintenance" && (nextViewName === "maintenance-includes" || nextViewName === "maintenance-detailing" || nextViewName === "maintenance-accesorios");
+    button.classList.toggle("is-active", targetView === nextViewName || shouldHighlightOrder || shouldHighlightTaller);
   });
 
   window.moveClientNavRing?.({ animate: Boolean(previousView && previousView !== nextViewName) });
@@ -4767,6 +4941,24 @@ function setActiveView(viewName, options = {}) {
         setFeedback(requestFeedback, "No se pudo cargar el configurador Sequoia. Intenta de nuevo.", "error");
       });
   }
+  if (nextViewName === "maintenance-includes") {
+    playWorkshopStory(maintenanceIncludesStory);
+  } else {
+    resetWorkshopStory(maintenanceIncludesStory);
+  }
+
+  if (nextViewName === "maintenance-detailing") {
+    playWorkshopStory(detailingStory);
+  } else {
+    resetWorkshopStory(detailingStory);
+  }
+
+  if (nextViewName === "maintenance-accesorios") {
+    playWorkshopStory(accesoriosStory);
+  } else {
+    resetWorkshopStory(accesoriosStory);
+  }
+
   if (nextViewName === "pago-separacion") {
     initPagoSeparacionView();
   }
@@ -5091,11 +5283,57 @@ maintenanceVehicleForm?.addEventListener("submit", async (event) => {
   try {
     await submitMaintenanceVehicleForm();
   } catch (error) {
-    setFeedback(maintenanceFeedback, error.message, "error");
+    setFeedback(resolveWorkshopFeedback(), error.message, "error");
   }
 });
 
-addMaintenanceVehicleButton?.addEventListener("click", openMaintenanceVehicleModal);
+addMaintenanceVehicleButton?.addEventListener("click", () => {
+  workshopBookingService = "maintenance";
+  openMaintenanceVehicleModal();
+});
+
+detailingCeramicButton?.addEventListener("click", () => {
+  workshopBookingService = "ceramic";
+  openMaintenanceVehicleModal();
+});
+
+detailingPolarizadoButton?.addEventListener("click", () => {
+  workshopBookingService = "polarizado";
+  openMaintenanceVehicleModal();
+});
+
+accesoriosQuoteButton?.addEventListener("click", () => {
+  workshopBookingService = "accesorios";
+  openMaintenanceVehicleModal();
+});
+
+document.querySelectorAll("[data-workshop-service]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (button.dataset.workshopService === "mantenimientos") {
+      setActiveView("maintenance-includes", { direction: "forward" });
+    }
+
+    if (button.dataset.workshopService === "detailing") {
+      setActiveView("maintenance-detailing", { direction: "forward" });
+    }
+
+    if (button.dataset.workshopService === "accesorios") {
+      setActiveView("maintenance-accesorios", { direction: "forward" });
+    }
+  });
+});
+
+maintenanceIncludesBackButton?.addEventListener("click", () => {
+  setActiveView("maintenance", { direction: "backward" });
+});
+
+maintenanceDetailingBackButton?.addEventListener("click", () => {
+  setActiveView("maintenance", { direction: "backward" });
+});
+
+maintenanceAccesoriosBackButton?.addEventListener("click", () => {
+  setActiveView("maintenance", { direction: "backward" });
+});
 maintenanceVehicleClose?.addEventListener("click", closeMaintenanceVehicleModal);
 maintenanceVehicleOverlay?.addEventListener("click", closeMaintenanceVehicleModal);
 
@@ -5129,6 +5367,7 @@ maintenanceList?.addEventListener("click", (event) => {
     const vehicle = state.maintenanceVehicles.find((item) => String(item._id || item.id || "") === vehicleId);
 
     if (vehicle) {
+      workshopBookingService = "maintenance";
       openMaintenanceVehicleModal(vehicle);
     }
 

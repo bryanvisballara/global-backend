@@ -22,6 +22,10 @@ if (requireAdminAccess()) {
   const createModal = document.getElementById("client-create-modal");
   const openCreateButton = document.getElementById("clients-new-button");
   const cancelCreateButton = document.getElementById("client-create-cancel");
+  const clientCreateTitle = document.getElementById("client-create-title");
+  const clientCreateCopy = createModal?.querySelector(".modal-copy");
+  const clientSubmitButton = document.getElementById("client-submit-button");
+  const clientFormFeedback = document.getElementById("client-form-feedback");
   const clientsTotalCount = document.getElementById("clients-total-count");
   const clientsWithOrdersCount = document.getElementById("clients-with-orders-count");
   const clientsWithoutOrdersCount = document.getElementById("clients-without-orders-count");
@@ -36,6 +40,7 @@ if (requireAdminAccess()) {
   let allClients = [];
   let orderStatsByClientId = new Map();
   let initOverlayWatchdog = null;
+  let editingClient = null;
 
   function forceClearLoadingState() {
     if (typeof resetLoadingOverlay === "function") {
@@ -71,11 +76,60 @@ if (requireAdminAccess()) {
     clientsResultsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state">${escapeHtml(message)}</div></td></tr>`;
   }
 
+  function setClientModalMode(mode = "create") {
+    const isEdit = mode === "edit";
+
+    if (clientCreateTitle) {
+      clientCreateTitle.textContent = isEdit ? "Editar cliente" : "Crear cliente";
+    }
+
+    if (clientCreateCopy) {
+      clientCreateCopy.textContent = isEdit
+        ? "Actualiza la información del cliente seleccionado."
+        : "Completa la información para registrar un nuevo cliente.";
+    }
+
+    if (clientSubmitButton) {
+      clientSubmitButton.textContent = isEdit ? "Guardar cambios" : "Crear cliente";
+    }
+  }
+
+  function fillClientForm(client = {}) {
+    if (!clientForm) {
+      return;
+    }
+
+    const fields = ["name", "email", "phone", "identification", "address", "city", "country", "notes"];
+    fields.forEach((fieldName) => {
+      if (clientForm.elements[fieldName]) {
+        clientForm.elements[fieldName].value = String(client[fieldName] || "");
+      }
+    });
+  }
+
   function openCreateModal() {
     if (!createModal) {
       return false;
     }
 
+    editingClient = null;
+    clientForm?.reset();
+    setClientModalMode("create");
+    setFeedback(clientFormFeedback, "");
+    createModal.hidden = false;
+    document.body.classList.add("modal-open");
+    return false;
+  }
+
+  function openEditModal(client) {
+    if (!createModal || !client) {
+      return false;
+    }
+
+    editingClient = client;
+    fillClientForm(client);
+    setClientModalMode("edit");
+    setFeedback(clientFormFeedback, "");
     createModal.hidden = false;
     document.body.classList.add("modal-open");
     return false;
@@ -86,6 +140,9 @@ if (requireAdminAccess()) {
       return false;
     }
 
+    editingClient = null;
+    clientForm?.reset();
+    setClientModalMode("create");
     createModal.hidden = true;
     document.body.classList.remove("modal-open");
     return false;
@@ -176,9 +233,16 @@ if (requireAdminAccess()) {
             <strong>${escapeHtml(client.name || "Sin nombre")}</strong>
             <small>${escapeHtml(client.identification ? `ID ${client.identification}` : "Sin identificación")}</small>
           </td>
-          <td data-label="Contacto">${escapeHtml(contactLine)}</td>
-          <td data-label="Ubicación">${escapeHtml(locationLine)}</td>
+          <td data-label="Contacto">
+            ${escapeHtml(contactLine)}
+            <small>${escapeHtml(locationLine)}</small>
+          </td>
           <td data-label="Pedidos">${escapeHtml(String(orderCount))}</td>
+          <td data-label="Acciones" class="clients-actions-cell">
+            <div class="clients-row-actions">
+              <button class="secondary-button clients-edit-button" type="button" data-edit-client="${escapeHtml(clientId)}">Editar</button>
+            </div>
+          </td>
         </tr>
       `;
     }).join("");
@@ -239,28 +303,45 @@ if (requireAdminAccess()) {
     event.preventDefault();
     const formData = new FormData(clientForm);
 
-    setFeedback(clientFeedback, "Creando cliente...");
+    const payload = {
+      name: normalizeUppercaseInputValue(formData.get("name")),
+      email: normalizeUppercaseInputValue(formData.get("email")),
+      phone: normalizeUppercaseInputValue(formData.get("phone")),
+      identification: normalizeUppercaseInputValue(formData.get("identification")),
+      address: normalizeUppercaseInputValue(formData.get("address")),
+      city: normalizeUppercaseInputValue(formData.get("city")),
+      country: normalizeUppercaseInputValue(formData.get("country")),
+      notes: normalizeUppercaseInputValue(formData.get("notes")),
+    };
+    const isEdit = Boolean(editingClient?._id || editingClient?.id);
+
+    setFeedback(clientFormFeedback, isEdit ? "Guardando cambios..." : "Creando cliente...");
+    setFeedback(clientFeedback, isEdit ? "Guardando cambios..." : "Creando cliente...");
 
     try {
-      await fetchJson("/api/admin/clients", {
-        method: "POST",
-        body: JSON.stringify({
-          name: normalizeUppercaseInputValue(formData.get("name")),
-          email: normalizeUppercaseInputValue(formData.get("email")),
-          phone: normalizeUppercaseInputValue(formData.get("phone")),
-          identification: normalizeUppercaseInputValue(formData.get("identification")),
-          address: normalizeUppercaseInputValue(formData.get("address")),
-          city: normalizeUppercaseInputValue(formData.get("city")),
-          country: normalizeUppercaseInputValue(formData.get("country")),
-          notes: normalizeUppercaseInputValue(formData.get("notes")),
-        }),
-      });
+      if (isEdit) {
+        const clientId = String(editingClient._id || editingClient.id);
+        await fetchJson(`/api/admin/clients/${encodeURIComponent(clientId)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            ...payload,
+            clientRegion: editingClient.clientRegion || "",
+          }),
+        });
+        setFeedback(clientFeedback, "Cliente actualizado correctamente.", "success");
+      } else {
+        await fetchJson("/api/admin/clients", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setFeedback(clientFeedback, "Cliente creado correctamente.", "success");
+      }
 
       clientForm.reset();
-      setFeedback(clientFeedback, "Cliente creado correctamente.", "success");
       closeCreateModal();
       await loadClients();
     } catch (error) {
+      setFeedback(clientFormFeedback, error.message, "error");
       setFeedback(clientFeedback, error.message, "error");
     }
   });
@@ -283,6 +364,24 @@ if (requireAdminAccess()) {
     if (typeof cursorStart === "number" && typeof cursorEnd === "number") {
       field.setSelectionRange(cursorStart, cursorEnd);
     }
+  });
+
+  clientsResultsBody?.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-client]");
+
+    if (!editButton) {
+      return;
+    }
+
+    const clientId = String(editButton.dataset.editClient || "");
+    const client = allClients.find((entry) => String(entry._id || entry.id || "") === clientId);
+
+    if (!client) {
+      setFeedback(clientFeedback, "No se encontró el cliente seleccionado.", "error");
+      return;
+    }
+
+    openEditModal(client);
   });
 
   openCreateButton?.addEventListener("click", openCreateModal);
