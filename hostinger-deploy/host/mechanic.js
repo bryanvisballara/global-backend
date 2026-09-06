@@ -814,6 +814,15 @@
     }
   }
 
+  function isSameOriginAsset(url) {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      return parsed.origin === window.location.origin;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async function fetchSignatureObjectUrl(url) {
     const absoluteUrl = resolveSignatureAssetUrl(url);
     if (!absoluteUrl) return "";
@@ -822,9 +831,10 @@
       return absoluteUrl;
     }
 
-    const authToken = getAuthToken?.();
+    const sameOrigin = isSameOriginAsset(absoluteUrl);
+    const authToken = sameOrigin ? getAuthToken?.() : "";
     const response = await fetch(absoluteUrl, {
-      credentials: "include",
+      credentials: sameOrigin ? "include" : "omit",
       mode: "cors",
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     });
@@ -837,6 +847,18 @@
     return URL.createObjectURL(blob);
   }
 
+  function loadSignatureImage(src) {
+    return new Promise((resolve, reject) => {
+      const nextImage = new Image();
+      if (!src.startsWith("data:") && !src.startsWith("blob:") && !isSameOriginAsset(src)) {
+        nextImage.crossOrigin = "anonymous";
+      }
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error("Firma inválida"));
+      nextImage.src = src;
+    });
+  }
+
   function drawSignatureFromUrl(url) {
     const canvas = getSignatureCanvas();
     if (!canvas || !url) return Promise.resolve(false);
@@ -845,13 +867,12 @@
     return (async () => {
       let objectUrl = "";
       try {
-        objectUrl = await fetchSignatureObjectUrl(url);
-        const image = await new Promise((resolve, reject) => {
-          const nextImage = new Image();
-          nextImage.onload = () => resolve(nextImage);
-          nextImage.onerror = () => reject(new Error("Firma inválida"));
-          nextImage.src = objectUrl;
-        });
+        try {
+          objectUrl = await fetchSignatureObjectUrl(url);
+        } catch (_fetchError) {
+          objectUrl = resolveSignatureAssetUrl(url);
+        }
+        const image = await loadSignatureImage(objectUrl);
 
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
