@@ -126,6 +126,10 @@
     ] },
   ];
 
+  const INSPECTION = window.MechanicInspectionCatalog || {};
+  const INSPECTION_GROUPS = Array.isArray(INSPECTION.INSPECTION_GROUPS) ? INSPECTION.INSPECTION_GROUPS : [];
+  const PAINT_DEFECT = Array.isArray(INSPECTION.PAINT_DEFECT) ? INSPECTION.PAINT_DEFECT : [];
+
   const COMPLEMENTARY = [
     "Alineación", "Balanceo", "Cambio líquido de frenos", "Cambio refrigerante",
     "Limpieza de inyectores", "Limpieza cuerpo de aceleración", "Rotación de llantas",
@@ -426,6 +430,18 @@
           <label><span>Año</span><input name="year" inputmode="numeric" value="${escapeHtml(v.year || "")}" /></label>
           <label><span>Versión</span><input name="version" value="${escapeHtml(v.version || "")}" /></label>
           <label><span>Placa</span><input name="plate" required autocomplete="off" value="${escapeHtml(v.plate || "")}" /></label>
+          <label><span>Color</span><input name="color" value="${escapeHtml(v.color || "")}" /></label>
+          <label><span>Clase</span><input name="vehicleClass" placeholder="Campero, automóvil…" value="${escapeHtml(v.vehicleClass || "")}" /></label>
+          <label><span>Carrocería</span><input name="bodyType" placeholder="Wagon, sedan…" value="${escapeHtml(v.bodyType || "")}" /></label>
+          <label><span>Combustible</span><input name="fuel" value="${escapeHtml(v.fuel || "")}" /></label>
+          <label><span>Tipo de pintura</span><input name="paintType" placeholder="Metalizada…" value="${escapeHtml(v.paintType || "")}" /></label>
+          <label><span>Servicio</span><input name="serviceType" placeholder="Particular" value="${escapeHtml(v.serviceType || "")}" /></label>
+          <label><span>N° motor</span><input name="engineNumber" value="${escapeHtml(v.engineNumber || "")}" /></label>
+          <label><span>N° chasis</span><input name="chassisNumber" value="${escapeHtml(v.chassisNumber || "")}" /></label>
+          <label><span>N° serial</span><input name="serialNumber" value="${escapeHtml(v.serialNumber || "")}" /></label>
+          <label><span>Cilindraje</span><input name="cylinderCapacity" value="${escapeHtml(v.cylinderCapacity || "")}" /></label>
+          <label><span>Tipo de caja</span><input name="transmissionType" value="${escapeHtml(v.transmissionType || "")}" /></label>
+          <label><span>Nacionalidad</span><input name="nationality" value="${escapeHtml(v.nationality || "")}" /></label>
           <div style="grid-column:1/-1;">
             <button id="mech-save-details" class="mech-btn mech-btn-ghost mech-btn-block" type="button">Guardar cambios de datos</button>
           </div>
@@ -461,6 +477,71 @@
         </fieldset>
       `;
     });
+
+    const inspectionItems = diagnosis.inspectionItems && typeof diagnosis.inspectionItems === "object"
+      ? diagnosis.inspectionItems
+      : {};
+    const measurements = diagnosis.measurements && typeof diagnosis.measurements === "object"
+      ? diagnosis.measurements
+      : {};
+
+    html += `<div class="mech-section-title">Revisión punto a punto</div>
+      <p style="margin:-0.35rem 0 0.85rem;color:var(--mech-muted);font-size:0.92rem;">
+        Completa los sistemas, carrocería y mediciones. Puedes marcar una sección completa y luego ajustar lo que no esté bueno.
+      </p>`;
+
+    INSPECTION_GROUPS.forEach((group) => {
+      const options = (INSPECTION.statusListForKind?.(group.kind) || []).map((item) => (
+        `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+      )).join("");
+      const fillValue = INSPECTION.defaultFillValue?.(group.kind) || "bueno";
+      html += `
+        <section class="mech-insp-section" data-insp-group="${escapeHtml(group.id)}">
+          <div class="mech-insp-head">
+            <strong>${escapeHtml(group.title)}</strong>
+            <button class="mech-btn mech-btn-ghost mech-insp-fill" type="button" data-group="${escapeHtml(group.id)}" data-value="${escapeHtml(fillValue)}">
+              Marcar todo ${group.kind === "fluid" ? "Normal" : "Bueno"}
+            </button>
+          </div>
+          <div class="mech-insp-grid">
+            ${group.items.map(([id, label]) => `
+              <label class="mech-insp-row">
+                <span>${escapeHtml(label)}</span>
+                <select name="insp_${id}">
+                  <option value="">Sin revisar</option>
+                  ${options}
+                </select>
+              </label>
+            `).join("")}
+          </div>
+        </section>
+      `;
+    });
+
+    const paintOptions = PAINT_DEFECT.map((item) => (
+      `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+    )).join("");
+
+    html += `
+      <div class="mech-section-title">Mediciones y pintura</div>
+      <div class="mech-form-grid">
+        <label><span>Llanta del. izq. (%)</span><input name="tireFl" type="number" min="0" max="100" step="1" inputmode="numeric" value="${measurements.tireFl ?? ""}" /></label>
+        <label><span>Llanta del. der. (%)</span><input name="tireFr" type="number" min="0" max="100" step="1" inputmode="numeric" value="${measurements.tireFr ?? ""}" /></label>
+        <label><span>Llanta tra. izq. (%)</span><input name="tireRl" type="number" min="0" max="100" step="1" inputmode="numeric" value="${measurements.tireRl ?? ""}" /></label>
+        <label><span>Llanta tra. der. (%)</span><input name="tireRr" type="number" min="0" max="100" step="1" inputmode="numeric" value="${measurements.tireRr ?? ""}" /></label>
+        <label><span>Frenos eje delantero (%)</span><input name="brakeFront" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="${measurements.brakeFront ?? ""}" /></label>
+        <label><span>Frenos eje trasero (%)</span><input name="brakeRear" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="${measurements.brakeRear ?? ""}" /></label>
+        <label><span>Suspensión izquierda (%)</span><input name="suspensionLeft" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="${measurements.suspensionLeft ?? ""}" /></label>
+        <label><span>Suspensión derecha (%)</span><input name="suspensionRight" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="${measurements.suspensionRight ?? ""}" /></label>
+        <label><span>Impurezas de pintura</span><select name="paintImpurities"><option value="">Sin revisar</option>${paintOptions}</select></label>
+        <label><span>Marcas de lijado</span><select name="paintSanding"><option value="">Sin revisar</option>${paintOptions}</select></label>
+        <label><span>Piel de naranja</span><select name="paintOrangePeel"><option value="">Sin revisar</option>${paintOptions}</select></label>
+      </div>
+      <label class="mech-field">
+        <span>Novedades de inspección</span>
+        <textarea name="inspectionFindings" maxlength="4000" placeholder="Hallazgos de carrocería, seguridad, oxidación, testigos, stickers, etc.">${escapeHtml(diagnosis.inspectionFindings || "")}</textarea>
+      </label>
+    `;
 
     const selectedComplementary = new Set(
       Array.isArray(diagnosis.complementaryServices) ? diagnosis.complementaryServices : []
@@ -529,9 +610,30 @@
     `;
 
     diagnosisForm.innerHTML = html;
+    INSPECTION_GROUPS.forEach((group) => {
+      group.items.forEach(([id]) => {
+        const select = diagnosisForm.querySelector(`[name="insp_${id}"]`);
+        if (select && inspectionItems[id]) select.value = inspectionItems[id];
+      });
+    });
+    ["paintImpurities", "paintSanding", "paintOrangePeel"].forEach((name) => {
+      const select = diagnosisForm.querySelector(`[name="${name}"]`);
+      if (select && measurements[name]) select.value = measurements[name];
+    });
     diagnosisForm.addEventListener("change", updateNextKmPreview);
     document.getElementById("mech-save-details")?.addEventListener("click", () => {
       saveOrderDetails().catch((error) => setFeedback?.(feedback, error.message, "error"));
+    });
+    diagnosisForm.querySelectorAll(".mech-insp-fill").forEach((button) => {
+      button.addEventListener("click", () => {
+        const groupId = button.dataset.group;
+        const value = button.dataset.value || "";
+        const group = INSPECTION_GROUPS.find((item) => item.id === groupId);
+        group?.items.forEach(([id]) => {
+          const select = diagnosisForm.querySelector(`[name="insp_${id}"]`);
+          if (select) select.value = value;
+        });
+      });
     });
     updateNextKmPreview();
     setupPhotoPicker();
@@ -867,6 +969,18 @@
       year: get("year"),
       version: get("version"),
       plate: get("plate"),
+      color: get("color"),
+      vehicleClass: get("vehicleClass"),
+      bodyType: get("bodyType"),
+      fuel: get("fuel"),
+      paintType: get("paintType"),
+      serviceType: get("serviceType"),
+      engineNumber: get("engineNumber"),
+      chassisNumber: get("chassisNumber"),
+      serialNumber: get("serialNumber"),
+      cylinderCapacity: get("cylinderCapacity"),
+      transmissionType: get("transmissionType"),
+      nationality: get("nationality"),
     };
 
     if (!payload.clientName || !payload.brand || !payload.model || !payload.plate) {
@@ -1095,8 +1209,36 @@
     });
     const complementary = Array.from(diagnosisForm.querySelectorAll('input[name="complementaryServices"]:checked'))
       .map((input) => input.value);
+    const inspectionPayload = {};
+    INSPECTION_GROUPS.forEach((group) => {
+      group.items.forEach(([id]) => {
+        const value = diagnosisForm.querySelector(`[name="insp_${id}"]`)?.value || "";
+        if (value) inspectionPayload[id] = value;
+      });
+    });
+    const measurementNames = [
+      "tireFl", "tireFr", "tireRl", "tireRr",
+      "brakeFront", "brakeRear",
+      "suspensionLeft", "suspensionRight",
+      "paintImpurities", "paintSanding", "paintOrangePeel",
+    ];
+    const measurementsPayload = {};
+    measurementNames.forEach((name) => {
+      measurementsPayload[name] = diagnosisForm.elements[name]?.value || "";
+    });
+    const extraNames = [
+      "color", "vehicleClass", "bodyType", "fuel", "paintType", "serviceType",
+      "engineNumber", "chassisNumber", "serialNumber", "cylinderCapacity",
+      "transmissionType", "nationality",
+    ];
+    extraNames.forEach((name) => {
+      formData.append(name, diagnosisForm.elements[name]?.value || "");
+    });
     formData.append("complementaryServices", JSON.stringify(complementary));
     formData.append("questionNotes", JSON.stringify(notesPayload));
+    formData.append("inspectionItems", JSON.stringify(inspectionPayload));
+    formData.append("measurements", JSON.stringify(measurementsPayload));
+    formData.append("inspectionFindings", diagnosisForm.elements.inspectionFindings?.value || "");
     formData.append("observations", diagnosisForm.elements.observations?.value || "");
     formData.append("currentKm", diagnosisForm.elements.currentKm?.value || "");
     formData.append("sendEmail", sendEmail ? "true" : "false");

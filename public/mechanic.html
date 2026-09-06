@@ -481,6 +481,58 @@
         color: var(--mech-ink);
       }
 
+      .mech-insp-section {
+        margin: 0 0 1.1rem;
+        padding: 0.85rem 0.9rem;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 18px;
+        background: #faf9f7;
+      }
+
+      .mech-insp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        margin-bottom: 0.7rem;
+      }
+
+      .mech-insp-head strong {
+        font-size: 0.95rem;
+      }
+
+      .mech-insp-head .mech-btn {
+        min-height: 38px;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.78rem;
+      }
+
+      .mech-insp-grid {
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .mech-insp-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 148px;
+        gap: 0.55rem;
+        align-items: center;
+      }
+
+      .mech-insp-row span {
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .mech-insp-row select {
+        min-height: 44px;
+        border: 1.5px solid var(--mech-line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 0.4rem 0.55rem;
+        font-weight: 700;
+      }
+
       .mech-photo-previews {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
@@ -898,7 +950,7 @@
           <header class="mech-card-header">
             <div>
               <h2>Diagnóstico / mantenimiento</h2>
-              <p id="mech-order-summary">Completa el cuestionario con el dedo; las opciones son grandes a propósito.</p>
+              <p id="mech-order-summary">Completa el resumen, la revisión punto a punto y las mediciones para el PDF.</p>
             </div>
           </header>
           <form id="mech-diagnosis-form" class="mech-diag-form"></form>
@@ -993,6 +1045,7 @@
     </div>
 
     <script src="/admin-common.js?v=20260806-mech13"></script>
-    <script src="/mechanic.js?v=20260906-apppath01"></script>
+    <script src="/mechanic-inspection-catalog.js?v=20260906-insp01"></script>
+    <script src="/mechanic.js?v=20260906-insp02"></script>
   </body>
 </html>

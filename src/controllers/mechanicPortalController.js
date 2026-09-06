@@ -13,6 +13,11 @@ const {
   buildMechanicDiagnosisEmailHtml,
 } = require("../services/mechanicDiagnosisPdf");
 const { sendBrevoEmail } = require("../services/brevoEmailService");
+const {
+  ITEM_INDEX,
+  statusMeta,
+  PAINT_DEFECT,
+} = require("../../public/mechanic-inspection-catalog.js");
 
 const NEXT_SERVICE_OFFSETS = {
   "5000": 5000,
@@ -181,7 +186,119 @@ function parseDiagnosisPayload(body = {}) {
     complementaryServices: complementary.map((item) => String(item || "").trim()).filter(Boolean),
     bodyDamage: String(body.bodyDamage || "").trim(),
     questionNotes: parseQuestionNotes(body),
+    inspectionItems: parseInspectionItems(body),
+    measurements: parseMeasurements(body),
+    inspectionFindings: String(body.inspectionFindings || "").trim().slice(0, 4000),
     observations: String(body.observations || "").trim(),
+  };
+}
+
+function parseInspectionItems(body = {}) {
+  let raw = body.inspectionItems;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch (_error) {
+      raw = {};
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    raw = {};
+  }
+
+  const items = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    const meta = ITEM_INDEX[key];
+    const status = String(value || "").trim();
+    if (!meta || !status) return;
+    if (!statusMeta(meta.kind, status)) return;
+    items[key] = status;
+  });
+  return items;
+}
+
+function parseOptionalPercent(value) {
+  if (value === "" || value == null) return null;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 100) return null;
+  return Math.round(number * 10) / 10;
+}
+
+function parseMeasurements(body = {}) {
+  let raw = body.measurements;
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch (_error) {
+      raw = {};
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    raw = body;
+  }
+
+  const paintValues = new Set(PAINT_DEFECT.map((item) => item.value));
+  const paint = (value) => {
+    const next = String(value || "").trim();
+    return paintValues.has(next) ? next : "";
+  };
+
+  return {
+    tireFl: parseOptionalPercent(raw.tireFl),
+    tireFr: parseOptionalPercent(raw.tireFr),
+    tireRl: parseOptionalPercent(raw.tireRl),
+    tireRr: parseOptionalPercent(raw.tireRr),
+    brakeFront: parseOptionalPercent(raw.brakeFront),
+    brakeRear: parseOptionalPercent(raw.brakeRear),
+    suspensionLeft: parseOptionalPercent(raw.suspensionLeft),
+    suspensionRight: parseOptionalPercent(raw.suspensionRight),
+    paintImpurities: paint(raw.paintImpurities),
+    paintSanding: paint(raw.paintSanding),
+    paintOrangePeel: paint(raw.paintOrangePeel),
+  };
+}
+
+function parseVehicleExtras(body = {}) {
+  const extras = {};
+  const assign = (key, { max = 80, upper = false } = {}) => {
+    if (body[key] == null) return;
+    const value = String(body[key] || "").trim().slice(0, max);
+    extras[key] = upper ? value.toUpperCase() : value;
+  };
+  assign("color");
+  assign("vehicleClass");
+  assign("bodyType");
+  assign("fuel");
+  assign("paintType");
+  assign("serviceType");
+  assign("engineNumber", { max: 40, upper: true });
+  assign("chassisNumber", { max: 40, upper: true });
+  assign("serialNumber", { max: 40, upper: true });
+  assign("cylinderCapacity", { max: 20 });
+  assign("transmissionType");
+  assign("nationality");
+  return extras;
+}
+
+function mergeVehicleFields(current = {}, next = {}) {
+  return {
+    brand: next.brand ?? current.brand ?? "",
+    model: next.model ?? current.model ?? "",
+    version: next.version ?? current.version ?? "",
+    year: next.year ?? current.year ?? "",
+    plate: next.plate ?? current.plate ?? "",
+    color: next.color ?? current.color ?? "",
+    vehicleClass: next.vehicleClass ?? current.vehicleClass ?? "",
+    bodyType: next.bodyType ?? current.bodyType ?? "",
+    fuel: next.fuel ?? current.fuel ?? "",
+    paintType: next.paintType ?? current.paintType ?? "",
+    serviceType: next.serviceType ?? current.serviceType ?? "",
+    engineNumber: next.engineNumber ?? current.engineNumber ?? "",
+    chassisNumber: next.chassisNumber ?? current.chassisNumber ?? "",
+    serialNumber: next.serialNumber ?? current.serialNumber ?? "",
+    cylinderCapacity: next.cylinderCapacity ?? current.cylinderCapacity ?? "",
+    transmissionType: next.transmissionType ?? current.transmissionType ?? "",
+    nationality: next.nationality ?? current.nationality ?? "",
   };
 }
 
@@ -304,6 +421,7 @@ function serializeOrder(order, { includeClient = true } = {}) {
     diagnosis: {
       ...diagnosis,
       questionNotes: normalizeQuestionNotes(diagnosis.questionNotes),
+      inspectionItems: normalizeQuestionNotes(diagnosis.inspectionItems),
     },
     photos: plain.photos || [],
     technicianName: plain.technicianName || "",
@@ -571,7 +689,14 @@ async function updateServiceOrder(req, res) {
       return res.status(400).json({ message: "Completa cliente, marca, modelo y placa" });
     }
 
-    order.vehicle = { brand, model, version, year, plate };
+    order.vehicle = mergeVehicleFields(order.vehicle, {
+      brand,
+      model,
+      version,
+      year,
+      plate,
+      ...parseVehicleExtras(req.body),
+    });
     order.client = { name: clientName, phone: clientPhone, email: clientEmail };
     await order.save();
 
@@ -662,6 +787,7 @@ async function saveDiagnosis(req, res) {
     }
 
     order.diagnosis = diagnosis;
+    order.vehicle = mergeVehicleFields(order.vehicle, parseVehicleExtras(req.body));
     order.currentKm = currentKm;
     order.nextServiceKm = computeNextServiceKm(currentKm, diagnosis.nextService);
     order.photos = mergedPhotos;

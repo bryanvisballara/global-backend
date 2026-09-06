@@ -2,6 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer-core");
 const { resolveChromeLaunchOptions } = require("./chromeExecutable");
+const {
+  INSPECTION_GROUPS,
+  ITEM_INDEX,
+  PAINT_DEFECT,
+  statusMeta,
+} = require("../../public/mechanic-inspection-catalog.js");
 
 const GOLD = "#c4a35a";
 const INK = "#111111";
@@ -102,7 +108,7 @@ function answerTone(key, value) {
   return ANSWER_TONES[key]?.[value] || "ok";
 }
 
-function computeScore(diagnosis = {}) {
+function computeQuestionScore(diagnosis = {}) {
   let total = 0;
   let count = 0;
   QUESTION_META.forEach((item) => {
@@ -113,6 +119,30 @@ function computeScore(diagnosis = {}) {
   });
   if (!count) return 0;
   return Math.round(total / count);
+}
+
+function computeInspectionScore(diagnosis = {}) {
+  const items = diagnosis.inspectionItems instanceof Map
+    ? Object.fromEntries(diagnosis.inspectionItems.entries())
+    : (diagnosis.inspectionItems && typeof diagnosis.inspectionItems === "object" ? diagnosis.inspectionItems : {});
+  let total = 0;
+  let count = 0;
+  Object.entries(items).forEach(([key, value]) => {
+    const meta = ITEM_INDEX[key];
+    const status = statusMeta(meta?.kind, value);
+    if (!status || status.score == null) return;
+    total += status.score;
+    count += 1;
+  });
+  if (!count) return null;
+  return Math.round(total / count);
+}
+
+function computeScore(diagnosis = {}) {
+  const questionScore = computeQuestionScore(diagnosis);
+  const inspectionScore = computeInspectionScore(diagnosis);
+  if (inspectionScore == null) return questionScore;
+  return Math.round((questionScore * 0.6) + (inspectionScore * 0.4));
 }
 
 function scoreBand(score) {
@@ -230,6 +260,135 @@ function toneBadge(tone, label) {
   `;
 }
 
+function formatPercent(value) {
+  if (value == null || value === "") return "—";
+  return `${Number(value).toLocaleString("es-CO")}%`;
+}
+
+function paintDefectLabel(value) {
+  return PAINT_DEFECT.find((item) => item.value === value)?.label || (value ? String(value) : "—");
+}
+
+function inspectionStatusLabel(kind, value) {
+  if (!value) return "Sin revisar";
+  return statusMeta(kind, value)?.label || String(value);
+}
+
+function inspectionStatusTone(kind, value) {
+  if (!value) return "warn";
+  return statusMeta(kind, value)?.tone || "ok";
+}
+
+function buildInspectionGroupHtml(group, inspectionItems) {
+  const cells = group.items.map(([id, label]) => {
+    const value = inspectionItems[id] || "";
+    const tone = inspectionStatusTone(group.kind, value);
+    const colors = {
+      ok: "#157a40",
+      warn: "#8a6f35",
+      bad: "#b42318",
+    };
+    return `
+      <tr>
+        <td class="label">${escapeHtml(label)}</td>
+        <td class="status" style="color:${colors[tone] || "#111"};">${escapeHtml(inspectionStatusLabel(group.kind, value))}</td>
+      </tr>
+    `;
+  });
+  const mid = Math.ceil(cells.length / 2);
+  const left = cells.slice(0, mid).join("");
+  const right = cells.slice(mid).join("");
+  return `
+    <section class="insp-block">
+      <h3>${escapeHtml(group.title)}</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <table class="insp-table"><tbody>${left}</tbody></table>
+        <table class="insp-table"><tbody>${right}</tbody></table>
+      </div>
+    </section>
+  `;
+}
+
+function buildVehicleIdHtml(vehicle = {}, order = {}) {
+  const rows = [
+    ["Marca", vehicle.brand],
+    ["Línea / modelo", vehicle.model],
+    ["Versión", vehicle.version],
+    ["Año", vehicle.year],
+    ["Placa", vehicle.plate],
+    ["Color", vehicle.color],
+    ["Clase", vehicle.vehicleClass],
+    ["Carrocería", vehicle.bodyType],
+    ["Combustible", vehicle.fuel],
+    ["Tipo de pintura", vehicle.paintType],
+    ["Servicio", vehicle.serviceType],
+    ["N° motor", vehicle.engineNumber],
+    ["N° chasis", vehicle.chassisNumber],
+    ["N° serial", vehicle.serialNumber],
+    ["Cilindraje", vehicle.cylinderCapacity],
+    ["Tipo de caja", vehicle.transmissionType],
+    ["Nacionalidad", vehicle.nationality],
+    ["Kilometraje", formatKm(order.currentKm)],
+  ];
+  return `
+    <div class="id-grid">
+      ${rows.map(([label, value]) => `
+        <div class="id-cell">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value || "—")}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function buildMeasurementsHtml(measurements = {}) {
+  const tiles = [
+    ["Llanta del. izq.", formatPercent(measurements.tireFl)],
+    ["Llanta del. der.", formatPercent(measurements.tireFr)],
+    ["Llanta tra. izq.", formatPercent(measurements.tireRl)],
+    ["Llanta tra. der.", formatPercent(measurements.tireRr)],
+    ["Frenos eje delantero", formatPercent(measurements.brakeFront)],
+    ["Frenos eje trasero", formatPercent(measurements.brakeRear)],
+    ["Suspensión izq.", formatPercent(measurements.suspensionLeft)],
+    ["Suspensión der.", formatPercent(measurements.suspensionRight)],
+    ["Impurezas pintura", paintDefectLabel(measurements.paintImpurities)],
+    ["Marcas de lijado", paintDefectLabel(measurements.paintSanding)],
+    ["Piel de naranja", paintDefectLabel(measurements.paintOrangePeel)],
+  ];
+  return `
+    <section class="insp-block">
+      <h3>Mediciones y pintura</h3>
+      <div class="measure-grid">
+        ${tiles.map(([label, value]) => `
+          <div class="id-cell">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function buildInspectionAnnexHtml({ vehicle, order, diagnosis, inspectionItems, measurements }) {
+  const groups = INSPECTION_GROUPS.map((group) => buildInspectionGroupHtml(group, inspectionItems)).join("");
+  const findings = String(diagnosis.inspectionFindings || "").trim();
+  return `
+    <section class="annex">
+      <h2>REVISIÓN PUNTO A PUNTO</h2>
+      <div class="subtitle">Identificación, sistemas, carrocería y mediciones</div>
+      ${buildVehicleIdHtml(vehicle, order)}
+      ${groups}
+      ${buildMeasurementsHtml(measurements)}
+      <section class="insp-block">
+        <h3>Novedades de inspección</h3>
+        <div class="findings">${escapeHtml(findings || "Sin novedades adicionales registradas.")}</div>
+      </section>
+    </section>
+  `;
+}
+
 function buildGaugeHtml(score, band) {
   const clamped = Math.max(0, Math.min(100, Number(score) || 0));
   const angle = Math.round((clamped / 100) * 360);
@@ -255,6 +414,12 @@ function buildDiagnosisHtml(order) {
     ? diagnosis.complementaryServices.filter(Boolean)
     : [];
   const photos = dedupePhotos(Array.isArray(order.photos) ? order.photos : []).slice(0, 5);
+  const inspectionItems = diagnosis.inspectionItems instanceof Map
+    ? Object.fromEntries(diagnosis.inspectionItems.entries())
+    : (diagnosis.inspectionItems && typeof diagnosis.inspectionItems === "object" ? diagnosis.inspectionItems : {});
+  const measurements = diagnosis.measurements && typeof diagnosis.measurements === "object"
+    ? diagnosis.measurements
+    : {};
   const vehicleTitle = [vehicle.brand, vehicle.model, vehicle.year].filter(Boolean).join(" ") || "Vehículo";
   const logoSrc = loadBrandLogoDataUri();
   const signatureSrc = resolveMediaSrc(order.technicianSignatureUrl);
@@ -714,6 +879,78 @@ function buildDiagnosisHtml(order) {
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+    .annex { page-break-before: always; padding-top: 2mm; }
+    .annex h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0.06em;
+    }
+    .annex .subtitle {
+      margin: -4px 0 10px;
+      color: ${GOLD};
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .id-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .id-cell {
+      border: 1px solid #ececec;
+      border-radius: 8px;
+      padding: 5px 7px;
+    }
+    .id-cell span {
+      display: block;
+      font-size: 6.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: ${MUTED};
+      font-weight: 700;
+    }
+    .id-cell strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 8.5px;
+    }
+    .insp-block { margin-bottom: 8px; }
+    .insp-block h3 {
+      margin: 0 0 4px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: ${GOLD};
+    }
+    .insp-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .insp-table td {
+      border: 1px solid #ececec;
+      padding: 3px 5px;
+      font-size: 7.5px;
+      vertical-align: middle;
+    }
+    .insp-table td.label { width: 38%; font-weight: 700; color: #222; }
+    .insp-table td.status { width: 12%; text-align: center; font-weight: 800; }
+    .measure-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .findings {
+      border: 1px solid #ececec;
+      border-radius: 8px;
+      padding: 7px 8px;
+      font-size: 8.5px;
+      line-height: 1.4;
+      color: #333;
+    }
   </style>
 </head>
 <body>
@@ -800,6 +1037,8 @@ function buildDiagnosisHtml(order) {
         <div class="photo-grid">${photoCells}</div>
       </section>
     ` : ""}
+
+    ${buildInspectionAnnexHtml({ vehicle, order, diagnosis, inspectionItems, measurements })}
     </div>
 
     <div class="closing">
@@ -914,7 +1153,7 @@ function buildMechanicDiagnosisEmailHtml(order) {
             </tr>
             <tr>
               <td style="padding:8px 32px 6px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.75;color:#d7d0c5;">
-                El PDF adjunto incluye el resultado del diagnóstico, observaciones, servicios complementarios${order.technicianName ? ` y la firma de ${escapeHtml(order.technicianName)}` : ""}.
+                El PDF adjunto incluye el resultado del diagnóstico, la revisión punto a punto, observaciones, servicios complementarios${order.technicianName ? ` y la firma de ${escapeHtml(order.technicianName)}` : ""}.
               </td>
             </tr>
             <tr>
