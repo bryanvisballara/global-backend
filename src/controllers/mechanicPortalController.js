@@ -829,26 +829,18 @@ async function saveDiagnosis(req, res) {
       .join(" ")
       .trim();
 
+    let emailQueued = false;
     if (sendEmailRequested) {
       if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
         emailError = "El cliente no tiene un correo válido para enviar el diagnóstico";
       } else {
-        try {
-          const pdfBuffer = await buildMechanicDiagnosisPdfBuffer(order.toObject ? order.toObject() : order);
-          const pdfFileName = buildMechanicDiagnosisFileName(order);
-          await sendBrevoEmail({
-            toEmail: clientEmail,
-            toName: clientName || "Cliente",
-            subject: `Diagnóstico de servicio · ${vehicleTitle || "Global Imports"} | Global Imports`,
-            htmlContent: buildMechanicDiagnosisEmailHtml(order),
-            senderName: "Global Imports",
-            senderEmail: "info@globalimportsus.com",
-            attachments: [{ name: pdfFileName, content: pdfBuffer }],
+        emailQueued = true;
+        const emailOrder = order.toObject ? order.toObject() : order;
+        setImmediate(() => {
+          sendDiagnosisEmail(emailOrder).catch((error) => {
+            console.error("Error sending mechanic diagnosis email:", error.message || error);
           });
-          emailSent = true;
-        } catch (error) {
-          emailError = error.message || "No se pudo enviar el correo";
-        }
+        });
       }
     }
 
@@ -895,11 +887,12 @@ async function saveDiagnosis(req, res) {
     }
 
     return res.status(200).json({
-      message: emailSent
-        ? `Diagnóstico guardado y enviado a ${clientEmail}`
+      message: emailQueued
+        ? `Diagnóstico guardado. El correo se está enviando a ${clientEmail}`
         : "Diagnóstico guardado",
       order: serializeOrder(order),
       emailSent,
+      emailQueued,
       emailError,
       clientEmail: clientEmail || "",
       marketingSaved,
@@ -908,6 +901,26 @@ async function saveDiagnosis(req, res) {
   } catch (error) {
     return res.status(error.status || 500).json({ message: error.message || "Error saving diagnosis" });
   }
+}
+
+async function sendDiagnosisEmail(order) {
+  const clientEmail = String(order?.client?.email || "").trim().toLowerCase();
+  const clientName = String(order?.client?.name || "").trim();
+  const vehicleTitle = [order?.vehicle?.brand, order?.vehicle?.model, order?.vehicle?.year]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const pdfBuffer = await buildMechanicDiagnosisPdfBuffer(order);
+  const pdfFileName = buildMechanicDiagnosisFileName(order);
+  await sendBrevoEmail({
+    toEmail: clientEmail,
+    toName: clientName || "Cliente",
+    subject: `Diagnóstico de servicio · ${vehicleTitle || "Global Imports"} | Global Imports`,
+    htmlContent: buildMechanicDiagnosisEmailHtml(order),
+    senderName: "Global Imports",
+    senderEmail: "info@globalimportsus.com",
+    attachments: [{ name: pdfFileName, content: pdfBuffer }],
+  });
 }
 
 async function downloadDiagnosisPdf(req, res) {

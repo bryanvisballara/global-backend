@@ -645,6 +645,43 @@
     return `${String(file?.name || "").trim().toLowerCase()}|${Number(file?.size || 0)}`;
   }
 
+  function compressImageFile(file, maxSize = 1600, quality = 0.72) {
+    if (!(file instanceof File) || !String(file.type || "").startsWith("image/")) {
+      return Promise.resolve(file);
+    }
+
+    return new Promise((resolve) => {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const scale = Math.min(1, maxSize / Math.max(image.width || 1, image.height || 1));
+        const width = Math.max(1, Math.round((image.width || 1) * scale));
+        const height = Math.max(1, Math.round((image.height || 1) * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(image, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const nextName = String(file.name || "foto.jpg").replace(/\.[^.]+$/, ".jpg");
+          resolve(new File([blob], nextName, { type: "image/jpeg" }));
+        }, "image/jpeg", quality);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      image.src = objectUrl;
+    });
+  }
+
   function revokePhotoPreviewUrls() {
     document.querySelectorAll("#mech-photo-previews img[data-object-url]").forEach((img) => {
       const url = img.getAttribute("data-object-url");
@@ -1284,7 +1321,9 @@
       "keepPhotoUrls",
       JSON.stringify(keptExistingPhotos.map((photo) => photo.url).filter(Boolean))
     );
-    selectedPhotoFiles.slice(0, Math.max(0, 10 - keptExistingPhotos.length)).forEach((file) => {
+    const photosToUpload = selectedPhotoFiles.slice(0, Math.max(0, 10 - keptExistingPhotos.length));
+    const compressedPhotos = await Promise.all(photosToUpload.map((file) => compressImageFile(file)));
+    compressedPhotos.forEach((file) => {
       formData.append("photos", file);
     });
 
@@ -1308,6 +1347,8 @@
     let message = "Diagnóstico guardado. El PDF está listo para imprimir.";
     if (result.emailSent) {
       message = `Diagnóstico guardado y enviado a ${result.clientEmail || clientEmail}.`;
+    } else if (result.emailQueued) {
+      message = `Diagnóstico guardado. El correo se está enviando a ${result.clientEmail || clientEmail}.`;
     } else if (sendEmail && result.emailError) {
       message = `Diagnóstico guardado, pero el correo no se envió: ${result.emailError}`;
     } else if (!sendEmail) {

@@ -183,8 +183,15 @@ function fileToDataUri(absolutePath) {
   return `data:${mime};base64,${fs.readFileSync(absolutePath).toString("base64")}`;
 }
 
-function resolveMediaSrc(urlValue) {
+function withCloudinaryAutoOrient(urlValue) {
   const url = String(urlValue || "").trim();
+  if (!/res\.cloudinary\.com\/.+\/image\/upload\//.test(url)) return url;
+  if (/\/image\/upload\/[^/]*a_(auto|exif)/.test(url)) return url;
+  return url.replace("/image/upload/", "/image/upload/a_auto,c_limit,w_1600/");
+}
+
+function resolveMediaSrc(urlValue) {
+  const url = withCloudinaryAutoOrient(String(urlValue || "").trim());
   if (!url) return "";
   if (url.startsWith("data:") || /^https?:\/\//i.test(url)) return url;
 
@@ -413,7 +420,7 @@ function buildDiagnosisHtml(order) {
   const complementary = Array.isArray(diagnosis.complementaryServices)
     ? diagnosis.complementaryServices.filter(Boolean)
     : [];
-  const photos = dedupePhotos(Array.isArray(order.photos) ? order.photos : []).slice(0, 5);
+  const photos = dedupePhotos(Array.isArray(order.photos) ? order.photos : []).slice(0, 10);
   const inspectionItems = diagnosis.inspectionItems instanceof Map
     ? Object.fromEntries(diagnosis.inspectionItems.entries())
     : (diagnosis.inspectionItems && typeof diagnosis.inspectionItems === "object" ? diagnosis.inspectionItems : {});
@@ -458,9 +465,9 @@ function buildDiagnosisHtml(order) {
   }).join("");
 
   const photoCells = photos.map((photo) => `
-    <div class="photo-cell">
+    <figure class="photo-frame">
       <img src="${escapeHtml(resolveMediaSrc(photo.url))}" alt="${escapeHtml(photo.name || "Foto")}" />
-    </div>
+    </figure>
   `).join("");
 
   return `<!DOCTYPE html>
@@ -775,34 +782,43 @@ function buildDiagnosisHtml(order) {
     }
     .photos { margin-top: 6px; }
     .photos h2 {
-      margin: 0 0 4px;
-      font-size: 8.5px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0.06em;
+    }
+    .photos .subtitle {
+      margin: -4px 0 10px;
       color: ${GOLD};
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
     }
     .photo-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 4px;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
-    .photo-cell {
+    .photo-grid.photo-grid-single {
+      grid-template-columns: 1fr;
+    }
+    .photo-frame {
+      margin: 0;
       border: 1px solid #ececec;
-      border-radius: 6px;
-      overflow: hidden;
-      height: 56px;
+      border-radius: 8px;
       background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 3px;
+      padding: 6px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
-    .photo-cell img {
+    .photo-frame img {
+      display: block;
       width: 100%;
-      height: 100%;
+      height: auto;
+      max-height: 340px;
       object-fit: contain;
       object-position: center;
-      display: block;
+      image-orientation: from-image;
     }
     .closing {
       margin-top: 6px;
@@ -1031,14 +1047,15 @@ function buildDiagnosisHtml(order) {
       </aside>
     </div>
 
+    ${buildInspectionAnnexHtml({ vehicle, order, diagnosis, inspectionItems, measurements })}
+
     ${photos.length ? `
-      <section class="photos">
-        <h2>Anexo fotográfico</h2>
-        <div class="photo-grid">${photoCells}</div>
+      <section class="photos annex">
+        <h2>ANEXO FOTOGRÁFICO</h2>
+        <div class="subtitle">Fotos originales del servicio</div>
+        <div class="photo-grid${photos.length === 1 ? " photo-grid-single" : ""}">${photoCells}</div>
       </section>
     ` : ""}
-
-    ${buildInspectionAnnexHtml({ vehicle, order, diagnosis, inspectionItems, measurements })}
     </div>
 
     <div class="closing">

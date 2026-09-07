@@ -317,6 +317,10 @@ async function fetchJson(path, options = {}) {
       throw new Error("La solicitud tardó demasiado. Intenta nuevamente.");
     }
 
+    if (error?.name === "TypeError" || /failed to fetch/i.test(String(error?.message || ""))) {
+      throw new Error("No se pudo conectar con el servidor. Revisa la orden; el diagnóstico puede haberse guardado. Intenta de nuevo.");
+    }
+
     throw error;
   } finally {
     window.clearTimeout(timeoutHandle);
