@@ -936,9 +936,13 @@
     const canvas = getSignatureCanvas();
     if (!canvas) return "";
     try {
-      return canvas.toDataURL("image/png");
+      return canvas.toDataURL("image/jpeg", 0.72);
     } catch (_error) {
-      return "";
+      try {
+        return canvas.toDataURL("image/png");
+      } catch (_fallbackError) {
+        return "";
+      }
     }
   }
 
@@ -1256,13 +1260,12 @@
       }).catch(() => {});
     }
 
-    const formData = new FormData();
     const notesPayload = {};
+    const questionAnswers = {};
     QUESTIONS.forEach((question) => {
       const value = diagnosisForm.querySelector(`input[name="${question.key}"]:checked`)?.value || "";
-      formData.append(question.key, value);
+      questionAnswers[question.key] = value;
       const note = diagnosisForm.querySelector(`[name="note_${question.key}"]`)?.value?.trim() || "";
-      formData.append(`note_${question.key}`, note);
       if (note) notesPayload[question.key] = note;
     });
     const complementary = Array.from(diagnosisForm.querySelectorAll('input[name="complementaryServices"]:checked'))
@@ -1289,51 +1292,70 @@
       "engineNumber", "chassisNumber", "serialNumber", "cylinderCapacity",
       "transmissionType", "nationality",
     ];
+    const extraPayload = {};
     extraNames.forEach((name) => {
-      formData.append(name, diagnosisForm.elements[name]?.value || "");
+      extraPayload[name] = diagnosisForm.elements[name]?.value || "";
     });
-    formData.append("complementaryServices", JSON.stringify(complementary));
-    formData.append("questionNotes", JSON.stringify(notesPayload));
-    formData.append("inspectionItems", JSON.stringify(inspectionPayload));
-    formData.append("measurements", JSON.stringify(measurementsPayload));
-    formData.append("inspectionFindings", diagnosisForm.elements.inspectionFindings?.value || "");
-    formData.append("observations", diagnosisForm.elements.observations?.value || "");
-    formData.append("currentKm", diagnosisForm.elements.currentKm?.value || "");
-    formData.append("sendEmail", sendEmail ? "true" : "false");
-    formData.append("addToMarketing", addToMarketing ? "true" : "false");
-    formData.append("technicianName", technicianName);
-    formData.append(
-      "saveTechnicianDefault",
-      document.getElementById("mech-save-tech-default")?.checked ? "true" : "false"
-    );
+
+    const payload = {
+      ...questionAnswers,
+      ...extraPayload,
+      complementaryServices: complementary,
+      questionNotes: notesPayload,
+      inspectionItems: inspectionPayload,
+      measurements: measurementsPayload,
+      inspectionFindings: diagnosisForm.elements.inspectionFindings?.value || "",
+      observations: diagnosisForm.elements.observations?.value || "",
+      currentKm: diagnosisForm.elements.currentKm?.value || "",
+      sendEmail: sendEmail ? "true" : "false",
+      addToMarketing: addToMarketing ? "true" : "false",
+      technicianName,
+      saveTechnicianDefault: document.getElementById("mech-save-tech-default")?.checked ? "true" : "false",
+      keepPhotoUrls: keptExistingPhotos.map((photo) => photo.url).filter(Boolean),
+    };
     if (signatureState.dirty || (hasDrawnSignature && !signatureState.usingSavedUrl)) {
       const signatureDataUrl = readSignatureDataUrl();
       if (signatureDataUrl) {
-        formData.append("technicianSignatureDataUrl", signatureDataUrl);
+        payload.technicianSignatureDataUrl = signatureDataUrl;
       } else if (savedSignatureUrl) {
-        formData.append("technicianSignatureUrl", savedSignatureUrl);
+        payload.technicianSignatureUrl = savedSignatureUrl;
       }
     } else if (savedSignatureUrl) {
-      formData.append("technicianSignatureUrl", savedSignatureUrl);
+      payload.technicianSignatureUrl = savedSignatureUrl;
     }
-
-    formData.append(
-      "keepPhotoUrls",
-      JSON.stringify(keptExistingPhotos.map((photo) => photo.url).filter(Boolean))
-    );
-    const photosToUpload = selectedPhotoFiles.slice(0, Math.max(0, 10 - keptExistingPhotos.length));
-    const compressedPhotos = await Promise.all(photosToUpload.map((file) => compressImageFile(file)));
-    compressedPhotos.forEach((file) => {
-      formData.append("photos", file);
-    });
 
     const result = await fetchJson(`/api/mechanic/orders/${encodeURIComponent(currentOrder.id)}/diagnosis`, {
       method: "POST",
-      body: formData,
-      loadingMessage: sendEmail ? "Guardando y enviando diagnóstico..." : "Guardando diagnóstico...",
-      requestTimeoutMs: 120000,
+      body: JSON.stringify(payload),
+      loadingMessage: "Guardando diagnóstico...",
+      requestTimeoutMs: 45000,
     });
     currentOrder = result.order;
+
+    const photosToUpload = selectedPhotoFiles.slice(0, Math.max(0, 10 - keptExistingPhotos.length));
+    if (photosToUpload.length) {
+      try {
+        const compressedPhotos = await Promise.all(photosToUpload.map((file) => compressImageFile(file)));
+        const photoData = new FormData();
+        compressedPhotos.forEach((file) => photoData.append("photos", file));
+        photoData.append(
+          "keepPhotoUrls",
+          JSON.stringify((currentOrder.photos || []).map((photo) => photo.url).filter(Boolean))
+        );
+        const photoResult = await fetchJson(
+          `/api/mechanic/orders/${encodeURIComponent(currentOrder.id)}/diagnosis-photos`,
+          {
+            method: "POST",
+            body: photoData,
+            loadingMessage: "Subiendo fotos...",
+            requestTimeoutMs: 90000,
+          }
+        );
+        currentOrder = photoResult.order;
+      } catch (photoError) {
+        result.photoError = photoError.message || "No se pudieron subir las fotos";
+      }
+    }
     upsertOpenOrder(currentOrder);
     if (document.getElementById("mech-save-tech-default")?.checked) {
       mechanicDefaults = {
@@ -1358,6 +1380,9 @@
       message = `${message} Cliente agendado para marketing a 6 meses.`;
     } else if (addToMarketing && result.marketingError) {
       message = `${message} Marketing: ${result.marketingError}`;
+    }
+    if (result.photoError) {
+      message = `${message} Fotos: ${result.photoError}`;
     }
 
     try {

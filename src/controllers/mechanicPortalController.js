@@ -739,31 +739,7 @@ async function saveDiagnosis(req, res) {
     }
 
     const photos = await saveUploadedPhotos(req.files);
-    let keepPhotoUrls = req.body.keepPhotoUrls;
-    if (typeof keepPhotoUrls === "string") {
-      try {
-        keepPhotoUrls = JSON.parse(keepPhotoUrls);
-      } catch (_error) {
-        keepPhotoUrls = null;
-      }
-    }
-    const existingPhotos = Array.isArray(order.photos) ? order.photos : [];
-    const keepSet = Array.isArray(keepPhotoUrls)
-      ? new Set(keepPhotoUrls.map((item) => String(item || "").trim()).filter(Boolean))
-      : null;
-    const retainedPhotos = keepSet
-      ? existingPhotos.filter((item) => keepSet.has(String(item.url || "").trim()))
-      : (photos.length ? [] : existingPhotos);
-    const retainedNames = new Set(
-      retainedPhotos.map((item) => String(item.name || "").trim().toLowerCase()).filter(Boolean)
-    );
-    const uniqueNewPhotos = photos.filter((item) => {
-      const name = String(item.name || "").trim().toLowerCase();
-      if (name && retainedNames.has(name)) return false;
-      if (name) retainedNames.add(name);
-      return true;
-    });
-    const mergedPhotos = [...retainedPhotos, ...uniqueNewPhotos].slice(0, 10);
+    const mergedPhotos = mergeOrderPhotos(order.photos, photos, req.body.keepPhotoUrls);
 
     const technicianName = String(req.body.technicianName || "").trim().slice(0, 120);
     if (!technicianName) {
@@ -903,6 +879,64 @@ async function saveDiagnosis(req, res) {
   }
 }
 
+function parseKeepPhotoUrls(value) {
+  let keepPhotoUrls = value;
+  if (typeof keepPhotoUrls === "string") {
+    try {
+      keepPhotoUrls = JSON.parse(keepPhotoUrls);
+    } catch (_error) {
+      keepPhotoUrls = null;
+    }
+  }
+  return Array.isArray(keepPhotoUrls) ? keepPhotoUrls : null;
+}
+
+function mergeOrderPhotos(existingPhotos = [], incomingPhotos = [], keepPhotoUrls) {
+  const current = Array.isArray(existingPhotos) ? existingPhotos : [];
+  const incoming = Array.isArray(incomingPhotos) ? incomingPhotos : [];
+  const keepList = parseKeepPhotoUrls(keepPhotoUrls);
+  const keepSet = keepList
+    ? new Set(keepList.map((item) => String(item || "").trim()).filter(Boolean))
+    : null;
+  const retainedPhotos = keepSet
+    ? current.filter((item) => keepSet.has(String(item.url || "").trim()))
+    : (incoming.length ? [] : current);
+  const retainedNames = new Set(
+    retainedPhotos.map((item) => String(item.name || "").trim().toLowerCase()).filter(Boolean)
+  );
+  const uniqueNewPhotos = incoming.filter((item) => {
+    const name = String(item.name || "").trim().toLowerCase();
+    if (name && retainedNames.has(name)) return false;
+    if (name) retainedNames.add(name);
+    return true;
+  });
+  return [...retainedPhotos, ...uniqueNewPhotos].slice(0, 10);
+}
+
+async function saveDiagnosisPhotos(req, res) {
+  try {
+    if (!canAccessMechanicPortal(req.user)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const order = await MechanicServiceOrder.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Orden no encontrada" });
+    }
+
+    const photos = await saveUploadedPhotos(req.files);
+    order.photos = mergeOrderPhotos(order.photos, photos, req.body.keepPhotoUrls);
+    await order.save();
+
+    return res.status(200).json({
+      message: "Fotos actualizadas",
+      order: serializeOrder(order),
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message || "Error saving photos" });
+  }
+}
+
 async function sendDiagnosisEmail(order) {
   const clientEmail = String(order?.client?.email || "").trim().toLowerCase();
   const clientName = String(order?.client?.name || "").trim();
@@ -974,6 +1008,7 @@ module.exports = {
   getServiceOrder,
   updateServiceOrder,
   saveDiagnosis,
+  saveDiagnosisPhotos,
   downloadDiagnosisPdf,
   listDiagnosesForAdmin,
 };

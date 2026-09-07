@@ -8,6 +8,7 @@ const {
   getServiceOrder,
   updateServiceOrder,
   saveDiagnosis,
+  saveDiagnosisPhotos,
   downloadDiagnosisPdf,
 } = require("../controllers/mechanicPortalController");
 
@@ -21,6 +22,7 @@ router.post("/orders", createServiceOrder);
 router.get("/orders/:orderId", getServiceOrder);
 router.patch("/orders/:orderId", updateServiceOrder);
 router.post("/orders/:orderId/diagnosis", upload.array("photos", 10), saveDiagnosis);
+router.post("/orders/:orderId/diagnosis-photos", upload.array("photos", 10), saveDiagnosisPhotos);
 router.get("/orders/:orderId/pdf", downloadDiagnosisPdf);
 
 module.exports = router;

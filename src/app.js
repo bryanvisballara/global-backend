@@ -440,7 +440,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.use((req, res, next) => {
   if (!adminPagePattern.test(req.path)) {
@@ -653,13 +653,30 @@ app.use("/api/vigilance", (req, res, next) => {
 });
 app.use("/api/vigilance", vigilanceRoutes);
 
+function applyCorsHeaders(req, res) {
+  const origin = String(req.headers.origin || "").trim();
+  if (!origin || !isAllowedCorsOrigin(origin)) {
+    return;
+  }
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Vary", "Origin");
+}
+
 app.use((req, res) => {
+  applyCorsHeaders(req, res);
   res.status(404).json({ message: "Route not found" });
 });
 
 app.use((error, req, res, next) => {
+  applyCorsHeaders(req, res);
+
   if (error.message === "Not allowed by CORS") {
     return res.status(403).json({ message: error.message });
+  }
+
+  if (error.type === "entity.too.large" || error.status === 413 || error.statusCode === 413) {
+    return res.status(413).json({ message: "El diagnóstico es demasiado grande. Quita fotos e intenta de nuevo." });
   }
 
   if (error.name === "MulterError") {
@@ -670,7 +687,7 @@ app.use((error, req, res, next) => {
     return res.status(400).json({ message: error.message });
   }
 
-  return res.status(500).json({ message: "Internal server error" });
+  return res.status(500).json({ message: error.message || "Internal server error" });
 });
 
 module.exports = app;
