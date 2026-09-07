@@ -976,7 +976,10 @@ async function downloadDiagnosisPdf(req, res) {
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     return res.status(200).send(pdfBuffer);
   } catch (error) {
-    return res.status(error.status || 500).json({ message: error.message || "Error generating PDF" });
+    console.error("Error generating mechanic diagnosis PDF:", error);
+    return res.status(error.status || 500).json({
+      message: error.message || "No se pudo generar el PDF. Intenta de nuevo en unos segundos.",
+    });
   }
 }
 

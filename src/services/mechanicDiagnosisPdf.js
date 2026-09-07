@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer-core");
+const sharp = require("sharp");
 const { resolveChromeLaunchOptions } = require("./chromeExecutable");
 const {
   INSPECTION_GROUPS,
@@ -183,15 +184,20 @@ function fileToDataUri(absolutePath) {
   return `data:${mime};base64,${fs.readFileSync(absolutePath).toString("base64")}`;
 }
 
-function withCloudinaryAutoOrient(urlValue) {
+function withCloudinaryPdfTransform(urlValue, width = 800) {
   const url = String(urlValue || "").trim();
-  if (!/res\.cloudinary\.com\/.+\/image\/upload\//.test(url)) return url;
-  if (/\/image\/upload\/[^/]*a_(auto|exif)/.test(url)) return url;
-  return url.replace("/image/upload/", "/image/upload/a_auto,c_limit,w_1600/");
+  const match = url.match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:[^/]+\/)?(v\d+\/.+)$/i);
+  if (match) {
+    return `${match[1]}c_limit,w_${width},q_auto:eco,f_jpg/${match[2]}`;
+  }
+  if (/res\.cloudinary\.com\/.+\/image\/upload\//.test(url) && !/\/image\/upload\/[^/]*c_limit/.test(url)) {
+    return url.replace("/image/upload/", `/image/upload/c_limit,w_${width},q_auto:eco,f_jpg/`);
+  }
+  return url;
 }
 
 function resolveMediaSrc(urlValue) {
-  const url = withCloudinaryAutoOrient(String(urlValue || "").trim());
+  const url = withCloudinaryPdfTransform(String(urlValue || "").trim());
   if (!url) return "";
   if (url.startsWith("data:") || /^https?:\/\//i.test(url)) return url;
 
@@ -1084,17 +1090,82 @@ function buildDiagnosisHtml(order) {
 </html>`;
 }
 
-async function buildMechanicDiagnosisPdfBuffer(order) {
+async function fetchAsJpegDataUri(urlValue, maxWidth = 800) {
+  const raw = String(urlValue || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("data:image/")) return raw;
+
+  const url = /^https?:\/\//i.test(raw) ? withCloudinaryPdfTransform(raw, maxWidth) : resolveMediaSrc(raw);
+  if (!url) return "";
+  if (url.startsWith("data:image/")) return url;
+  if (!/^https?:\/\//i.test(url)) return "";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { Accept: "image/*" },
+    });
+    if (!response.ok) return "";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > 8_000_000) return "";
+    const jpeg = await sharp(buffer, { failOn: "none" })
+      .rotate()
+      .resize({
+        width: maxWidth,
+        height: maxWidth,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 68, mozjpeg: true })
+      .toBuffer();
+    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  } catch (error) {
+    console.error("Mechanic PDF media embed failed:", error.message || error);
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function prepareOrderForPdf(order = {}) {
+  const photos = dedupePhotos(Array.isArray(order.photos) ? order.photos : []).slice(0, 10);
+  const [signature, ...embeddedPhotos] = await Promise.all([
+    order.technicianSignatureUrl
+      ? fetchAsJpegDataUri(order.technicianSignatureUrl, 480)
+      : Promise.resolve(""),
+    ...photos.map((photo) => fetchAsJpegDataUri(photo.url, 800)),
+  ]);
+
+  return {
+    ...order,
+    technicianSignatureUrl: signature || "",
+    photos: photos
+      .map((photo, index) => ({
+        ...photo,
+        url: embeddedPhotos[index] || "",
+      }))
+      .filter((photo) => photo.url),
+  };
+}
+
+async function renderDiagnosisPdf(order) {
   const launchOptions = await resolveChromeLaunchOptions();
-  const browser = await puppeteer.launch(launchOptions);
+  const browser = await puppeteer.launch({
+    ...launchOptions,
+    protocolTimeout: 90_000,
+  });
 
   try {
     const page = await browser.newPage();
+    page.setDefaultTimeout(45_000);
     await page.setContent(buildDiagnosisHtml(order), {
       waitUntil: "domcontentloaded",
-      timeout: 60_000,
+      timeout: 45_000,
     });
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const pdf = await page.pdf({
       format: "Letter",
       printBackground: true,
@@ -1103,7 +1174,17 @@ async function buildMechanicDiagnosisPdfBuffer(order) {
     });
     return Buffer.from(pdf);
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
+  }
+}
+
+async function buildMechanicDiagnosisPdfBuffer(order) {
+  const prepared = await prepareOrderForPdf(order);
+  try {
+    return await renderDiagnosisPdf(prepared);
+  } catch (error) {
+    console.error("Mechanic diagnosis PDF failed, retrying without photos:", error.message || error);
+    return await renderDiagnosisPdf({ ...prepared, photos: [] });
   }
 }
 
