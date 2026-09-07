@@ -409,6 +409,153 @@
         font-size: 0.95rem;
       }
 
+      .vig-history-toolbar {
+        display: grid;
+        gap: 0.75rem;
+        margin-bottom: 0.9rem;
+      }
+
+      .vig-history-search {
+        min-height: 54px;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 16px;
+        padding: 0.8rem 0.95rem;
+        font: inherit;
+        font-weight: 600;
+        background: #fff;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .vig-history-filters {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.55rem;
+      }
+
+      .vig-history-filters button {
+        min-height: 46px;
+        border: 1.5px solid var(--vig-line);
+        border-radius: 14px;
+        background: #fff;
+        font: inherit;
+        font-weight: 800;
+        color: var(--vig-ink);
+        cursor: pointer;
+      }
+
+      .vig-history-filters button.is-active {
+        background: var(--vig-ink);
+        color: #fff;
+        border-color: var(--vig-ink);
+      }
+
+      .vig-history-item {
+        border: 1px solid var(--vig-line);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        background: #fff;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .vig-history-item.is-open {
+        border-color: rgba(196, 163, 90, 0.55);
+        background: #fffdf7;
+      }
+
+      .vig-history-item:active { background: var(--vig-gold-soft); }
+
+      .vig-history-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.7rem;
+      }
+
+      .vig-history-item strong {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 800;
+      }
+
+      .vig-history-item span {
+        display: block;
+        margin-top: 0.28rem;
+        color: var(--vig-muted);
+        font-size: 0.92rem;
+      }
+
+      .vig-status-pill {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 0.65rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .vig-status-open {
+        background: var(--vig-gold-soft);
+        color: var(--vig-ink);
+      }
+
+      .vig-status-closed {
+        background: #e8f7ee;
+        color: #157a40;
+      }
+
+      .vig-history-detail {
+        margin-top: 0.9rem;
+        border: 1px solid var(--vig-line);
+        border-radius: 18px;
+        padding: 1rem 1.05rem;
+        background: #faf9f7;
+      }
+
+      .vig-history-detail[hidden] { display: none !important; }
+
+      .vig-history-detail h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.05rem;
+      }
+
+      .vig-history-detail p {
+        margin: 0 0 0.45rem;
+        color: var(--vig-muted);
+        font-size: 0.95rem;
+      }
+
+      .vig-history-detail p strong {
+        display: block;
+        color: var(--vig-ink);
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .vig-photo-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 0.55rem;
+        margin: 0.45rem 0 0.85rem;
+      }
+
+      .vig-photo-row img {
+        width: 100%;
+        height: 88px;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #fff;
+      }
+
       .vig-form-card {
         margin-top: 0.25rem;
         padding-bottom: calc(88px + var(--vig-safe-bottom));
@@ -706,6 +853,7 @@
 
         <div class="vig-cta-row">
           <button id="vig-scroll-agenda" class="vig-btn vig-btn-ghost" type="button">Ver agenda</button>
+          <button id="vig-scroll-history" class="vig-btn vig-btn-ghost" type="button">Ver registros</button>
           <button id="vig-new-entry" class="vig-btn vig-btn-primary" type="button">Registrar ingreso</button>
           <button id="vig-new-exit" class="vig-btn vig-btn-exit" type="button">Registrar salida</button>
         </div>
@@ -749,6 +897,35 @@
             </div>
           </header>
           <div class="vig-open-list" id="vig-open-reports"></div>
+        </article>
+
+        <article class="vig-card" id="vig-history-section">
+          <header class="vig-card-header">
+            <div>
+              <h2>Ingresos y salidas registrados</h2>
+              <p>Historial de actas del predio · toca un abierto para registrar salida</p>
+            </div>
+            <strong class="vig-count-pill" id="vig-history-count">0</strong>
+          </header>
+          <div class="vig-history-toolbar">
+            <input id="vig-history-search" class="vig-history-search" type="search" placeholder="Buscar placa, vehículo o número de acta" />
+            <div class="vig-history-filters" role="group" aria-label="Filtrar registros">
+              <button type="button" data-history-filter="all" class="is-active">Todos</button>
+              <button type="button" data-history-filter="open">En predio</button>
+              <button type="button" data-history-filter="closed">Cerrados</button>
+            </div>
+          </div>
+          <div class="vig-open-list" id="vig-history-list"></div>
+          <div class="vig-history-detail" id="vig-history-detail" hidden>
+            <header class="vig-card-header">
+              <div>
+                <h3 id="vig-history-detail-title">Detalle del registro</h3>
+              </div>
+              <button id="vig-history-detail-close" class="vig-btn vig-btn-ghost" type="button">Cerrar</button>
+            </header>
+            <div id="vig-history-detail-body"></div>
+            <div id="vig-history-detail-photos"></div>
+          </div>
         </article>
 
         <article class="vig-card vig-form-card" id="vig-entry-card" hidden>
@@ -971,6 +1148,6 @@
     </main>
 
     <script src="/admin-common.js?v=20260802-header-logout01"></script>
-    <script src="/vigilance.js?v=20260906-apppath01"></script>
+    <script src="/vigilance.js?v=20260907-history01"></script>
   </body>
 </html>

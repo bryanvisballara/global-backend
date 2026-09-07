@@ -37,6 +37,13 @@
   const dayCount = document.getElementById("vig-day-count");
   const dayList = document.getElementById("vig-day-list");
   const openReportsEl = document.getElementById("vig-open-reports");
+  const historyListEl = document.getElementById("vig-history-list");
+  const historyCountEl = document.getElementById("vig-history-count");
+  const historySearchEl = document.getElementById("vig-history-search");
+  const historyDetailEl = document.getElementById("vig-history-detail");
+  const historyDetailTitle = document.getElementById("vig-history-detail-title");
+  const historyDetailBody = document.getElementById("vig-history-detail-body");
+  const historyDetailPhotos = document.getElementById("vig-history-detail-photos");
   const entryCard = document.getElementById("vig-entry-card");
   const entryForm = document.getElementById("vig-entry-form");
   const exitCard = document.getElementById("vig-exit-card");
@@ -50,6 +57,8 @@
   let todayKey = "";
   let selectedDayKey = "";
   let openReports = [];
+  let recentReports = [];
+  let historyFilter = "all";
   let accessoryCatalog = [];
   let currentExitReport = null;
   let isDirectExit = false;
@@ -326,6 +335,135 @@
     });
   }
 
+  function directionLabel(value) {
+    if (value === "exit") return "Salida";
+    if (value === "both") return "Ingreso + salida";
+    return "Ingreso";
+  }
+
+  function dateTimeLabel(dateValue, timeValue) {
+    if (!dateValue && !timeValue) return "—";
+    const datePart = dateValue ? (formatDate?.(dateValue) || "—") : "—";
+    const timePart = timeValue ? String(timeValue) : "";
+    return timePart ? `${datePart} · ${timePart}` : datePart;
+  }
+
+  function filteredHistoryReports() {
+    const query = String(historySearchEl?.value || "").trim().toLowerCase();
+    return recentReports.filter((report) => {
+      if (historyFilter === "open" && report.status !== "open") return false;
+      if (historyFilter === "closed" && report.status !== "closed") return false;
+      if (!query) return true;
+      const v = report.vehicle || {};
+      const haystack = [
+        report.entryNumber,
+        v.plate,
+        v.vin,
+        v.brand,
+        v.model,
+        v.year,
+        v.color,
+        report.deliverer?.fullName,
+        report.exitDeliverer?.fullName,
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  function hideHistoryDetail() {
+    if (historyDetailEl) historyDetailEl.hidden = true;
+    if (historyDetailBody) historyDetailBody.innerHTML = "";
+    if (historyDetailPhotos) historyDetailPhotos.innerHTML = "";
+  }
+
+  function renderPhotoRow(title, photos = []) {
+    const links = (photos || []).map((photo) => {
+      const url = escapeHtml(photo.url || "");
+      if (!url) return "";
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${escapeHtml(photo.name || title)}" /></a>`;
+    }).join("");
+    if (!links) return "";
+    return `
+      <p><strong>${escapeHtml(title)}</strong></p>
+      <div class="vig-photo-row">${links}</div>
+    `;
+  }
+
+  function showHistoryDetail(reportId) {
+    const report = recentReports.find((item) => item.id === reportId);
+    if (!report || !historyDetailEl) return;
+    const v = report.vehicle || {};
+    const title = [v.brand, v.model, v.year].filter(Boolean).join(" ") || "Vehículo";
+    if (historyDetailTitle) {
+      historyDetailTitle.textContent = `${report.entryNumber || "Acta"} · ${title} · ${v.plate || "—"}`;
+    }
+    const accessories = (report.accessories || [])
+      .filter((item) => item.present)
+      .map((item) => item.label + (item.note ? ` (${item.note})` : ""))
+      .join(", ") || "—";
+    historyDetailBody.innerHTML = `
+      <p><strong>Estado</strong>${escapeHtml(report.status === "open" ? "En predio" : "Cerrado")}</p>
+      <p><strong>Tipo</strong>${escapeHtml(directionLabel(report.direction))}</p>
+      <p><strong>Ingreso</strong>${escapeHtml(dateTimeLabel(report.entryDate, report.entryTime))}</p>
+      <p><strong>Salida</strong>${escapeHtml(dateTimeLabel(report.exitDate, report.exitTime))}</p>
+      <p><strong>Vehículo</strong>${escapeHtml(title)} · ${escapeHtml(v.color || "—")}</p>
+      <p><strong>Placa / VIN</strong>${escapeHtml(v.plate || "—")} · ${escapeHtml(v.vin || "—")}</p>
+      <p><strong>Documentos</strong>${escapeHtml((report.documentsReceived || []).join(", ") || "—")}</p>
+      <p><strong>Accesorios</strong>${escapeHtml(accessories)}</p>
+      <p><strong>Obs. ingreso</strong>${escapeHtml(report.entryObservations || "—")}</p>
+      <p><strong>Obs. salida</strong>${escapeHtml(report.exitObservations || "—")}</p>
+      <p><strong>Quien entrega</strong>${escapeHtml(report.deliverer?.fullName || "—")}</p>
+      <p><strong>Seguridad ingreso</strong>${escapeHtml(report.securityReceiver?.fullName || "—")}</p>
+      <p><strong>Quien recibe</strong>${escapeHtml(report.exitDeliverer?.fullName || "—")}</p>
+      <p><strong>Seguridad salida</strong>${escapeHtml(report.exitReceiver?.fullName || "—")}</p>
+    `;
+    historyDetailPhotos.innerHTML = [
+      renderPhotoRow("Fotos de ingreso", report.entryPhotos),
+      renderPhotoRow("Fotos de salida", report.exitPhotos),
+    ].join("");
+    historyDetailEl.hidden = false;
+    historyDetailEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function renderHistoryReports() {
+    if (!historyListEl) return;
+    const list = filteredHistoryReports();
+    if (historyCountEl) historyCountEl.textContent = String(list.length);
+    if (!list.length) {
+      historyListEl.innerHTML = `<div class="vig-empty">No hay ingresos ni salidas registrados con estos filtros.</div>`;
+      return;
+    }
+
+    historyListEl.innerHTML = list.map((report) => {
+      const v = report.vehicle || {};
+      const title = [v.brand, v.model, v.year].filter(Boolean).join(" ") || "Vehículo";
+      const isOpen = report.status === "open";
+      const statusLabel = isOpen ? "En predio" : "Cerrado";
+      return `
+        <button class="vig-history-item${isOpen ? " is-open" : ""}" type="button" data-history-id="${escapeHtml(report.id)}">
+          <div class="vig-history-top">
+            <strong>${escapeHtml(title)} · ${escapeHtml(v.plate || "—")}</strong>
+            <span class="vig-status-pill ${isOpen ? "vig-status-open" : "vig-status-closed"}">${escapeHtml(statusLabel)}</span>
+          </div>
+          <span>${escapeHtml(report.entryNumber || "")} · ${escapeHtml(directionLabel(report.direction))}</span>
+          <span>Ingreso ${escapeHtml(dateTimeLabel(report.entryDate, report.entryTime))}</span>
+          <span>Salida ${escapeHtml(dateTimeLabel(report.exitDate, report.exitTime))}</span>
+        </button>
+      `;
+    }).join("");
+
+    historyListEl.querySelectorAll("button[data-history-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const report = recentReports.find((item) => item.id === button.dataset.historyId);
+        if (report?.status === "open") {
+          openExitForm(report.id);
+          return;
+        }
+        showHistoryDetail(button.dataset.historyId);
+      });
+    });
+  }
+
   function shiftLabel(value) {
     if (value === "morning") return "Mañana";
     if (value === "afternoon") return "Tarde";
@@ -586,6 +724,7 @@
     todayKey = data.todayKey || todayDateInputValue();
     agenda = Array.isArray(data.agenda) ? data.agenda : [];
     openReports = Array.isArray(data.openReports) ? data.openReports : [];
+    recentReports = Array.isArray(data.recentReports) ? data.recentReports : [];
     accessoryCatalog = Array.isArray(data.accessoryCatalog) ? data.accessoryCatalog : [];
     selectedDayKey = selectedDayKey || todayKey;
 
@@ -598,6 +737,7 @@
     renderCalendar();
     renderDayList(selectedDayKey);
     renderOpenReports();
+    renderHistoryReports();
   }
 
   function createPhotoPicker({ inputId, previewsId, maxPhotos, onLimit }) {
@@ -787,6 +927,24 @@
   document.getElementById("vig-scroll-agenda")?.addEventListener("click", () => {
     document.getElementById("vig-agenda-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
+  document.getElementById("vig-scroll-history")?.addEventListener("click", () => {
+    document.getElementById("vig-history-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  historySearchEl?.addEventListener("input", () => {
+    hideHistoryDetail();
+    renderHistoryReports();
+  });
+  document.querySelectorAll("[data-history-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      historyFilter = button.dataset.historyFilter || "all";
+      document.querySelectorAll("[data-history-filter]").forEach((item) => {
+        item.classList.toggle("is-active", item === button);
+      });
+      hideHistoryDetail();
+      renderHistoryReports();
+    });
+  });
+  document.getElementById("vig-history-detail-close")?.addEventListener("click", hideHistoryDetail);
   document.getElementById("vig-new-entry")?.addEventListener("click", openEntryForm);
   document.getElementById("vig-new-exit")?.addEventListener("click", openDirectExitForm);
   document.getElementById("vig-close-entry")?.addEventListener("click", hideForms);

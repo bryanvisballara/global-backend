@@ -236,10 +236,11 @@ async function getPortalOverview(req, res) {
     }
 
     const todayKey = toBusinessDayKey(new Date());
-    const [maintenanceAppointments, visits, openReports] = await Promise.all([
+    const [maintenanceAppointments, visits, openReports, recentReports] = await Promise.all([
       listMaintenanceAppointments(),
       ShowroomVisit.find({ status: "scheduled" }).sort({ visitDate: 1, visitTime: 1 }).limit(200).lean(),
-      VehicleGateReport.find({ status: "open" }).sort({ createdAt: -1 }).limit(40).lean(),
+      VehicleGateReport.find({ status: "open" }).sort({ createdAt: -1 }).limit(80).lean(),
+      VehicleGateReport.find({}).sort({ createdAt: -1 }).limit(150).lean(),
     ]);
 
     const visitorAppointments = visits.map((item) => ({
@@ -261,6 +262,7 @@ async function getPortalOverview(req, res) {
       agenda,
       todayAgenda: agenda.filter((item) => (item.agendaDayKey || "") === todayKey),
       openReports: openReports.map(serializeGateReport),
+      recentReports: recentReports.map(serializeGateReport),
       accessoryCatalog: ACCESSORY_CATALOG.map(([key, label]) => ({ key, label })),
     });
   } catch (error) {
@@ -275,7 +277,7 @@ async function listGateReports(req, res) {
     }
     const reports = await VehicleGateReport.find({})
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(200)
       .lean();
     return res.status(200).json({ reports: reports.map(serializeGateReport) });
   } catch (error) {
