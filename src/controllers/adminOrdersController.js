@@ -96,23 +96,18 @@ function parseEmailAllowlist(value) {
 function resolveAdminTrackingEmailsForRegion(orderRegion = "latam") {
   const region = String(orderRegion || "latam").trim().toLowerCase();
 
+  // USA staff emails stay off unless explicitly configured.
   if (region === "usa") {
-    const fromEnv = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST_USA);
-    return fromEnv.length ? fromEnv : DEFAULT_USA_ADMIN_TRACKING_EMAILS;
+    return parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST_USA);
+  }
+
+  // Global Latam: only dircomercialglatam (or explicit LATAM allowlist). Never USA / Colombia commercial.
+  if (region !== "latam") {
+    return [];
   }
 
   const fromEnv = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST_LATAM);
-  if (fromEnv.length) {
-    return fromEnv;
-  }
-
-  // Legacy shared allowlist (never includes blocked Colombia commercial inbox).
-  const legacy = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST);
-  if (legacy.length) {
-    return legacy;
-  }
-
-  return DEFAULT_LATAM_ADMIN_TRACKING_EMAILS;
+  return fromEnv.length ? fromEnv : DEFAULT_LATAM_ADMIN_TRACKING_EMAILS;
 }
 
 function normalizeFileNameForStorage(value) {
@@ -990,7 +985,18 @@ function getLatestConfirmedVisibleStep(steps = [], excludedStepKey = "") {
 }
 
 async function notifyPublishedTrackingStep(order, previousStep, publishedStep, orderRegion = "latam") {
-  if (!publishedStep?.clientVisible) {
+  if (!publishedStep) {
+    return {
+      clientPushSent: 0,
+      clientPushSkipped: 0,
+    };
+  }
+
+  // Staff emails/pushes go out for every Latam/USA update, even if not client-visible.
+  await sendTrackingUpdateAdminNotifications(order, publishedStep, orderRegion).catch(() => null);
+  await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep, orderRegion).catch(() => null);
+
+  if (!publishedStep.clientVisible) {
     return {
       clientPushSent: 0,
       clientPushSkipped: 0,
@@ -998,10 +1004,7 @@ async function notifyPublishedTrackingStep(order, previousStep, publishedStep, o
   }
 
   const clientPushResult = await sendTrackingUpdateNotifications(order, publishedStep, previousStep).catch(() => ({ sent: 0, skipped: 0 }));
-
   await sendTrackingUpdateEmails(order, previousStep, publishedStep).catch(() => null);
-  await sendTrackingUpdateAdminNotifications(order, publishedStep, orderRegion).catch(() => null);
-  await sendTrackingUpdateAdminEmails(order, previousStep, publishedStep, orderRegion).catch(() => null);
 
   return {
     clientPushSent: Number(clientPushResult?.sent || 0),
@@ -3189,9 +3192,8 @@ async function updateTrackingState(req, res) {
     } else if (visibilityPublicationEvent && requestedClientVisible && !visibilityPreviouslyVisible && updatedStep) {
       const publishedStep = buildTrackingStepSnapshot(updatedStep, mapTrackingEventToUpdate(visibilityPublicationEvent));
       notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, publishedStep, orderResult.region);
-    } else if (!(operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly)) {
-      await sendTrackingUpdateAdminNotifications(updatedOrder, updatedStep, orderResult.region).catch(() => null);
-      await sendTrackingUpdateAdminEmails(updatedOrder, previousConfirmedStep, updatedStep, orderResult.region).catch(() => null);
+    } else if (!(operation === "toggle-update-visibility" || requestedVisibilityOnly || requestedMediaVisibilityOnly) && updatedStep) {
+      notificationSummary = await notifyPublishedTrackingStep(updatedOrder, previousConfirmedStep, updatedStep, orderResult.region);
     }
 
     return res.status(200).json({
