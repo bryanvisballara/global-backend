@@ -76,12 +76,9 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "vehicle-payment",
   "other",
 ]);
-const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
-const DEFAULT_ADMIN_TRACKING_EMAILS = [
-  "sintegrationllc@gmail.com",
-  "herman@globalus.com",
-  "ltorres@globalusa.com",
-];
+const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "false").trim().toLowerCase() === "true";
+const DEFAULT_ADMIN_TRACKING_EMAILS = [];
+
 const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
 
 function resolveAdminTrackingEmailAllowlistEmails() {
