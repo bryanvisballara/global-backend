@@ -219,6 +219,151 @@ function buildTrackingUpdateEmailHtml({
   `);
 }
 
+function buildAdminTrackingUpdateEmailHtml({
+  recipientName,
+  trackingNumber,
+  vehicleLabel,
+  vin,
+  previousStateLabel,
+  nextStateLabel,
+  stepNotes,
+  currentStepNumber,
+  totalSteps,
+  trackingUrl,
+} = {}) {
+  const safeRecipientName = escapeHtml(String(recipientName || "Equipo").trim() || "Equipo");
+  const safeTrackingNumber = escapeHtml(String(trackingNumber || "").trim() || "-");
+  const safeVehicleLabel = escapeHtml(String(vehicleLabel || "Vehículo").trim() || "Vehículo");
+  const safeVin = escapeHtml(String(vin || "Sin VIN").trim() || "Sin VIN");
+  const safePreviousState = escapeHtml(String(previousStateLabel || "Inicio del proceso").trim() || "Inicio del proceso");
+  const safeNextState = escapeHtml(String(nextStateLabel || "Nuevo estado").trim() || "Nuevo estado");
+  const resolvedTotalSteps = Math.max(1, Number(totalSteps) || 10);
+  const resolvedCurrentStep = Math.min(
+    resolvedTotalSteps,
+    Math.max(1, Number(currentStepNumber) || 1)
+  );
+  const safeProgress = escapeHtml(`${resolvedCurrentStep}/${resolvedTotalSteps}`);
+  const safeNotes = formatEmailParagraphs(
+    String(stepNotes || "Sin anotaciones registradas en esta actualización.").trim()
+  );
+  const safeTrackingUrl = String(trackingUrl || "").trim();
+  const hasTrackingUrl = Boolean(safeTrackingUrl);
+
+  return wrapDarkEmailDocument(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#050505" style="margin:0;padding:0;background:#050505;width:100%;">
+      <tr>
+        <td align="center" style="padding:28px 12px;background:#050505;">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;color:#f6f4ef;">
+            <tr>
+              <td style="padding:0 0 22px;">
+                <img src="${escapeHtml(DEFAULT_EMAIL_HEADER_URL)}" alt="Global Imports Tracking" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;" />
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:8px 8px 6px;">
+                <div class="em-gold" style="margin:0 0 10px;display:inline-block;padding:7px 12px;border:1px solid ${GOLD_SOFT};border-radius:999px;color:${GOLD};font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;">
+                  Alerta interna Latam
+                </div>
+                <div class="em-heading" style="margin:0;font-size:30px;line-height:1.1;letter-spacing:-0.03em;text-transform:uppercase;color:#ffffff;font-weight:800;">
+                  Actualización de pedido
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="em-secondary" style="padding:14px 8px 20px;color:#e8e0d4;font-size:15px;line-height:1.7;">
+                Hola ${safeRecipientName}, un pedido de Global Latam cambió de etapa. Resumen operativo:
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 8px 14px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#141210;border:1px solid ${GOLD_SOFT};border-radius:22px;">
+                  <tr>
+                    <td style="padding:22px;">
+                      <div class="em-gold" style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:${GOLD};margin-bottom:8px;">
+                        Tracking ${safeTrackingNumber}
+                      </div>
+                      <div class="em-heading" style="font-size:24px;line-height:1.2;color:#ffffff;font-weight:800;text-transform:uppercase;margin-bottom:14px;">
+                        ${safeVehicleLabel}
+                      </div>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="padding:8px 0;border-top:1px solid ${GOLD_SOFT};color:${GOLD};font-size:12px;letter-spacing:.12em;text-transform:uppercase;width:28%;">VIN</td>
+                          <td style="padding:8px 0;border-top:1px solid ${GOLD_SOFT};color:#ffffff;font-size:16px;font-weight:700;">${safeVin}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:8px 0;border-top:1px solid ${GOLD_SOFT};color:${GOLD};font-size:12px;letter-spacing:.12em;text-transform:uppercase;">Progreso</td>
+                          <td style="padding:8px 0;border-top:1px solid ${GOLD_SOFT};color:#ffffff;font-size:16px;font-weight:700;">Paso ${safeProgress}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 8px 14px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#141210;border:1px solid ${GOLD_SOFT};border-radius:22px;">
+                  <tr>
+                    <td style="padding:22px;">
+                      <div class="em-gold" style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:${GOLD};margin-bottom:12px;">
+                        Actualización de etapa
+                      </div>
+                      <div class="em-heading" style="font-size:22px;line-height:1.35;color:#ffffff;font-weight:800;">
+                        ${safePreviousState}
+                        <span style="color:${GOLD};padding:0 10px;">→</span>
+                        ${safeNextState}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 8px 18px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#141210;border:1px solid ${GOLD_SOFT};border-radius:22px;">
+                  <tr>
+                    <td style="padding:22px;">
+                      <div class="em-gold" style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:${GOLD};margin-bottom:12px;">
+                        Anotaciones
+                      </div>
+                      <div class="em-secondary" style="color:#f2eee5;font-size:15px;line-height:1.8;">
+                        ${safeNotes}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            ${
+              hasTrackingUrl
+                ? `<tr>
+              <td align="center" style="padding:6px 8px 10px;">
+                <a class="em-btn" href="${escapeHtml(safeTrackingUrl)}" style="display:inline-block;padding:16px 36px;border-radius:999px;background:${GOLD};color:#15110a;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;">
+                  Ver seguimiento
+                </a>
+              </td>
+            </tr>`
+                : ""
+            }
+
+            <tr>
+              <td style="padding:8px 0 0;">
+                <img src="${escapeHtml(DEFAULT_EMAIL_FOOTER_URL)}" alt="Global Imports. Notificación interna de tracking Latam." width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;" />
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `);
+}
+
 async function sendOrderTrackingUpdateEmail({
   toEmail,
   toName,
@@ -255,8 +400,48 @@ async function sendOrderTrackingUpdateEmail({
   });
 }
 
+async function sendOrderTrackingAdminEmail({
+  toEmail,
+  toName,
+  trackingNumber,
+  vehicleLabel,
+  vin,
+  previousStateLabel,
+  nextStateLabel,
+  stepNotes,
+  currentStepNumber,
+  totalSteps,
+}) {
+  const safeTrackingNumber = String(trackingNumber || "").trim();
+  const safeNextStateLabel = String(nextStateLabel || "Actualización").trim();
+  const safePreviousStateLabel = String(previousStateLabel || "Inicio del proceso").trim();
+  const safeVin = String(vin || "Sin VIN").trim();
+
+  return sendBrevoEmail({
+    toEmail,
+    toName: toName || toEmail,
+    senderName: "Global Imports Orders",
+    senderEmail: "orders@globalimportsus.com",
+    subject: `Latam | ${safeTrackingNumber} | ${safePreviousStateLabel} → ${safeNextStateLabel} | VIN ${safeVin}`,
+    htmlContent: buildAdminTrackingUpdateEmailHtml({
+      recipientName: toName,
+      trackingNumber: safeTrackingNumber,
+      vehicleLabel,
+      vin: safeVin,
+      previousStateLabel: safePreviousStateLabel,
+      nextStateLabel: safeNextStateLabel,
+      stepNotes,
+      currentStepNumber,
+      totalSteps,
+      trackingUrl: resolveTrackingUrl(safeTrackingNumber),
+    }),
+  });
+}
+
 module.exports = {
   sendOrderTrackingUpdateEmail,
+  sendOrderTrackingAdminEmail,
   buildTrackingUpdateEmailHtml,
+  buildAdminTrackingUpdateEmailHtml,
   resolveTrackingUrl,
 };

@@ -16,7 +16,10 @@ const {
   sendTrackingUpdateAdminNotifications,
   sendTrackingUpdateNotifications,
 } = require("../services/pushNotificationService");
-const { sendOrderTrackingUpdateEmail } = require("../services/orderTrackingEmailService");
+const {
+  sendOrderTrackingUpdateEmail,
+  sendOrderTrackingAdminEmail,
+} = require("../services/orderTrackingEmailService");
 const { syncMaintenanceSchedule } = require("../services/maintenanceScheduleService");
 const {
   createAdminNotification,
@@ -1201,11 +1204,12 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
   const trackingProgress = resolveTrackingEmailProgress(order, updatedStep);
   const results = await Promise.allSettled(
     recipients.map((recipient) =>
-      sendOrderTrackingUpdateEmail({
+      sendOrderTrackingAdminEmail({
         toEmail: recipient.email,
         toName: recipient.name || recipient.email,
         trackingNumber: order?.trackingNumber,
-        vehicleLabel: `${vehicleLabel} · INT ${internalIdentifier} · VIN ${vin}`,
+        vehicleLabel: `${vehicleLabel} · INT ${internalIdentifier}`,
+        vin,
         previousStateLabel: previousStep?.label || "Inicio del proceso",
         nextStateLabel: updatedStep?.label || "Nuevo estado",
         stepNotes: updatedStep?.notes || "El pedido recibió una nueva actualización de tracking.",
