@@ -81,14 +81,16 @@ Variables necesarias para correos transaccionales con Brevo:
 
 - `BREVO_API_KEY`
 - `PUBLIC_APP_URL` para construir enlaces del portal en correos de tracking y recuperación
-- `ADMIN_TRACKING_EMAILS_ENABLED` opcional, por defecto `false`; poner `true` solo si quieres reactivar correos de tracking a administradores
-- `ADMIN_TRACKING_EMAIL_ALLOWLIST` opcional; si se define y los emails están activos, solo esos correos reciben alertas de tracking admin. Por defecto la lista está vacía
+- `ADMIN_TRACKING_EMAILS_ENABLED` opcional, por defecto `true`; usar `false` para pausar correos de tracking a staff
+- `ADMIN_TRACKING_EMAIL_ALLOWLIST_LATAM` opcional; por defecto `dircomercialglatam@gmail.com` (solo pedidos Global Latam)
+- `ADMIN_TRACKING_EMAIL_ALLOWLIST_USA` opcional; por defecto vacío (sin correos staff USA)
+- `ADMIN_TRACKING_EMAIL_ALLOWLIST` legacy; evitar. `dircomercialgicolombia@gmail.com` queda bloqueado siempre
 
 ## Tracking: push + correo
 
 - Cuando un cliente autenticado consulta un tracking, su usuario queda asociado como suscriptor del pedido.
 - Cada actualización de un estado de tracking envía push notification y correo al email registrado del cliente/suscriptor.
-- Los correos de tracking a staff/admin están desactivados por defecto (no consumen créditos Brevo). Para reactivarlos: `ADMIN_TRACKING_EMAILS_ENABLED=true` + `ADMIN_TRACKING_EMAIL_ALLOWLIST`.
+- Actualizaciones de pedidos **Latam** también envían correo a `dircomercialglatam@gmail.com`. Pedidos USA no envían correo a staff por defecto.
 - El correo de tracking se envía vía Brevo con remitente `orders@globalimportsus.com`.
 
 ## Publicaciones admin -> feed cliente

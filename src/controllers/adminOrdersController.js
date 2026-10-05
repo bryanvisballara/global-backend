@@ -76,25 +76,40 @@ const ORDER_EXPENSE_CONCEPTS = new Set([
   "vehicle-payment",
   "other",
 ]);
-const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "false").trim().toLowerCase() === "true";
-const DEFAULT_ADMIN_TRACKING_EMAILS = [];
+const ADMIN_TRACKING_EMAILS_ENABLED = String(process.env.ADMIN_TRACKING_EMAILS_ENABLED || "true").trim().toLowerCase() !== "false";
+const BLOCKED_ADMIN_TRACKING_EMAILS = new Set(["dircomercialgicolombia@gmail.com"]);
+const DEFAULT_LATAM_ADMIN_TRACKING_EMAILS = ["dircomercialglatam@gmail.com"];
+const DEFAULT_USA_ADMIN_TRACKING_EMAILS = [];
 
 const PDF_UPLOAD_DIRECTORY = path.join(__dirname, "..", "..", "uploads", "order-documents");
 
-function resolveAdminTrackingEmailAllowlistEmails() {
-  const fromEnv = String(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST || "")
+function parseEmailAllowlist(value) {
+  return String(value || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-
-  return fromEnv.length ? fromEnv : DEFAULT_ADMIN_TRACKING_EMAILS;
+    .filter((email) => email && !BLOCKED_ADMIN_TRACKING_EMAILS.has(email));
 }
 
-function resolveAdminTrackingEmailRecipientQuery() {
-  return {
-    isActive: true,
-    email: { $in: resolveAdminTrackingEmailAllowlistEmails() },
-  };
+function resolveAdminTrackingEmailsForRegion(orderRegion = "latam") {
+  const region = String(orderRegion || "latam").trim().toLowerCase();
+
+  if (region === "usa") {
+    const fromEnv = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST_USA);
+    return fromEnv.length ? fromEnv : DEFAULT_USA_ADMIN_TRACKING_EMAILS;
+  }
+
+  const fromEnv = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST_LATAM);
+  if (fromEnv.length) {
+    return fromEnv;
+  }
+
+  // Legacy shared allowlist (never includes blocked Colombia commercial inbox).
+  const legacy = parseEmailAllowlist(process.env.ADMIN_TRACKING_EMAIL_ALLOWLIST);
+  if (legacy.length) {
+    return legacy;
+  }
+
+  return DEFAULT_LATAM_ADMIN_TRACKING_EMAILS;
 }
 
 function normalizeFileNameForStorage(value) {
@@ -1161,11 +1176,20 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
     return { sent: 0, failed: 0 };
   }
 
-  const admins = await User.find(resolveAdminTrackingEmailRecipientQuery()).select("name email");
+  const recipientEmails = resolveAdminTrackingEmailsForRegion(orderRegion);
 
-  if (!admins.length) {
+  if (!recipientEmails.length) {
     return { sent: 0, failed: 0 };
   }
+
+  const linkedUsers = await User.find({ email: { $in: recipientEmails } }).select("name email");
+  const nameByEmail = new Map(
+    linkedUsers.map((user) => [String(user.email || "").toLowerCase().trim(), String(user.name || "").trim()])
+  );
+  const recipients = recipientEmails.map((email) => ({
+    email,
+    name: nameByEmail.get(email) || email,
+  }));
 
   const vehicleLabel = [order?.vehicle?.brand, order?.vehicle?.model, order?.vehicle?.version]
     .filter(Boolean)
@@ -1176,10 +1200,10 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
   const vin = String(order?.vehicle?.vin || "Sin VIN").trim();
   const trackingProgress = resolveTrackingEmailProgress(order, updatedStep);
   const results = await Promise.allSettled(
-    admins.map((admin) =>
+    recipients.map((recipient) =>
       sendOrderTrackingUpdateEmail({
-        toEmail: admin.email,
-        toName: admin.name || admin.email,
+        toEmail: recipient.email,
+        toName: recipient.name || recipient.email,
         trackingNumber: order?.trackingNumber,
         vehicleLabel: `${vehicleLabel} · INT ${internalIdentifier} · VIN ${vin}`,
         previousStateLabel: previousStep?.label || "Inicio del proceso",
@@ -1202,7 +1226,7 @@ async function sendTrackingUpdateAdminEmails(order, previousStep, updatedStep, o
 
     failed += 1;
     console.error(
-      `[tracking-email-admin] Failed sending order tracking email to ${admins[index]?.email || "unknown"} for ${
+      `[tracking-email-admin] Failed sending order tracking email to ${recipients[index]?.email || "unknown"} for ${
         order?.trackingNumber || "unknown-tracking"
       }`,
       result.reason
