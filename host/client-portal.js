@@ -537,6 +537,56 @@ function shouldProxySequoiaAssetThroughHost(normalizedPath = "") {
   return /^\/(sr5|1794|limited|platinum|capstone|trd)/i.test(String(normalizedPath || "").trim());
 }
 
+function shouldProxyUploadAssetThroughHost(normalizedPath = "") {
+  return /^\/uploads\//i.test(String(normalizedPath || "").trim());
+}
+
+function isKioskLikeClient() {
+  if (new URLSearchParams(window.location.search).get("kiosk") === "1") {
+    return true;
+  }
+
+  const userAgent = String(navigator.userAgent || "");
+  return /Android\s10/i.test(userAgent) || /\bwv\b/i.test(userAgent) || /Version\/4\.0 Chrome\/7/i.test(userAgent);
+}
+
+function resolveFeedMediaUrl(rawUrl = "") {
+  const value = String(rawUrl || "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+
+      if (parsed.hostname.includes("global-backend-bdbx.onrender.com")) {
+        return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${parsed.pathname}${parsed.search}`;
+      }
+
+      return value;
+    } catch {
+      return value;
+    }
+  }
+
+  if (isProductionClientSite() && shouldProxyUploadAssetThroughHost(value)) {
+    return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${normalizeClientAssetPath(value)}`;
+  }
+
+  return value;
+}
+
+function isDirectPlayableVideoUrl(rawUrl = "") {
+  const value = String(rawUrl || "").trim().toLowerCase();
+
+  return (
+    /\.(mp4|webm|mov)(\?|#|$)/i.test(value) ||
+    value.includes("res.cloudinary.com/") && value.includes("/video/upload/")
+  );
+}
+
 function resolveClientAssetUrl(assetPath = "") {
   const normalizedPath = normalizeClientAssetPath(assetPath);
 
@@ -548,7 +598,10 @@ function resolveClientAssetUrl(assetPath = "") {
     return normalizedPath;
   }
 
-  if (isProductionClientSite() && shouldProxySequoiaAssetThroughHost(normalizedPath)) {
+  if (
+    isProductionClientSite() &&
+    (shouldProxySequoiaAssetThroughHost(normalizedPath) || shouldProxyUploadAssetThroughHost(normalizedPath))
+  ) {
     return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${normalizedPath}`;
   }
 
@@ -571,6 +624,62 @@ function mapSequoiaImageCollection(colors = []) {
     ...color,
     images: Array.isArray(color?.images) ? color.images.map((imagePath) => resolveClientAssetUrl(imagePath)) : [],
   }));
+}
+
+function reResolveSequoiaCatalogAssets(catalog = {}) {
+  const remapColorImages = (colors = []) =>
+    (Array.isArray(colors) ? colors : []).map((color) => ({
+      ...color,
+      images: (Array.isArray(color?.images) ? color.images : []).map((imagePath) => {
+        const rawPath = String(imagePath || "").trim();
+
+        if (!rawPath) {
+          return "";
+        }
+
+        try {
+          const parsed = new URL(rawPath, window.location.origin);
+
+          if (parsed.pathname.startsWith("/cdn-proxy/")) {
+            return resolveClientAssetUrl(parsed.pathname.replace(/^\/cdn-proxy/, ""));
+          }
+        } catch {
+          // Ignore malformed URLs and fall back to raw path resolution.
+        }
+
+        if (/^https?:\/\//i.test(rawPath)) {
+          return rawPath;
+        }
+
+        return resolveClientAssetUrl(rawPath);
+      }),
+    }));
+
+  const versionConfig = Object.fromEntries(
+    Object.entries(catalog?.versionConfig || {}).map(([versionKey, versionValue]) => [
+      versionKey,
+      {
+        ...versionValue,
+        colors: remapColorImages(versionValue?.colors || []),
+      },
+    ])
+  );
+
+  const interiorConfig = Object.fromEntries(
+    Object.entries(catalog?.interiorConfig || {}).map(([versionKey, versionValue]) => [
+      versionKey,
+      {
+        ...versionValue,
+        colors: remapColorImages(versionValue?.colors || []),
+      },
+    ])
+  );
+
+  return {
+    ...catalog,
+    versionConfig,
+    interiorConfig,
+  };
 }
 
 function normalizeSequoiaCatalog(rawCatalog = {}) {
@@ -672,7 +781,10 @@ async function loadSequoiaCatalog() {
   sequoiaCatalogPromise = (async () => {
     await loadClientImageDeliveryConfig();
 
-    const response = await fetch(SEQUOIA_CATALOG_URL, { cache: "no-cache" });
+    const response = await fetch(SEQUOIA_CATALOG_URL, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!response.ok) {
       throw new Error("No se pudo cargar el catalogo Sequoia.");
@@ -1342,6 +1454,10 @@ function preloadFeedEmbeddedVideo(card) {
     return;
   }
 
+  if (isKioskLikeClient()) {
+    return;
+  }
+
   loadFeedEmbeddedVideoFrame(card);
 }
 
@@ -1413,6 +1529,10 @@ function pickDominantFeedVideoCard() {
 }
 
 function syncFeedVideoScrollAutoplay() {
+  if (isKioskLikeClient()) {
+    return;
+  }
+
   if (state.activeView !== "home") {
     if (activeFeedVideoCard) {
       pauseFeedVideoCardForScroll(activeFeedVideoCard);
@@ -1531,6 +1651,12 @@ async function prepareFeedEmbeddedVideoCard(card) {
   }
 
   card.dataset.embedPrepared = "true";
+
+  if (isKioskLikeClient()) {
+    card.classList.add("is-kiosk-video");
+    applyEmbeddedVideoAspectRatio(card, { width: 16, height: 9, isPortrait: isVerticalVideoSource(sourceUrl) });
+    return;
+  }
 
   const meta = await fetchEmbedAspectRatio(sourceUrl);
 
@@ -1730,13 +1856,15 @@ function bindFeedEmbeddedVideoLoadWatcher(card, iframe) {
     window.setTimeout(registerPlayerEvents, 600);
   }, { once: true });
 
+  const loadingTimeoutMs = isKioskLikeClient() ? 20000 : 7000;
+
   timeoutTimer = window.setTimeout(() => {
     const loading = card.querySelector(".feed-video-loading");
 
     if (loading) {
-      loading.querySelector("[data-feed-video-loading-text]").textContent = "El video está tardando";
+      loading.querySelector("[data-feed-video-loading-text]").textContent = "Toca play para intentar de nuevo";
     }
-  }, 7000);
+  }, loadingTimeoutMs);
 }
 
 function loadFeedEmbeddedVideoFrame(card) {
@@ -1896,8 +2024,20 @@ function bindFeedVideoOrientation(root = document) {
 }
 
 function renderFeedVideoMedia(url) {
-  const embeddedUrl = buildEmbeddedVideoUrl(url);
-  const portraitClass = isVerticalVideoSource(url) ? " is-portrait" : "";
+  const sourceUrl = String(url || "").trim();
+  const playableUrl = resolveFeedMediaUrl(sourceUrl);
+  const portraitClass = isVerticalVideoSource(sourceUrl) ? " is-portrait" : "";
+
+  if (isDirectPlayableVideoUrl(sourceUrl)) {
+    return `
+      <div class="feed-media-card video is-muted${portraitClass}" data-feed-video-muted="true" data-feed-native-video="true">
+        <video controls playsinline webkit-playsinline preload="metadata" muted controlsList="nodownload noplaybackrate" src="${escapeHtml(playableUrl || sourceUrl)}"></video>
+        ${renderFeedVideoSoundButton()}
+      </div>
+    `;
+  }
+
+  const embeddedUrl = buildEmbeddedVideoUrl(sourceUrl);
 
   if (embeddedUrl) {
     const autoplayUrl = appendEmbedAutoplayParam(embeddedUrl);
@@ -1905,9 +2045,10 @@ function renderFeedVideoMedia(url) {
     return `
       <div
         class="feed-media-card video is-muted is-loading${portraitClass}"
-        data-feed-embed-source="${escapeHtml(url)}"
+        data-feed-embed-source="${escapeHtml(sourceUrl)}"
         data-feed-embed-src="${escapeHtml(embeddedUrl)}"
         data-feed-embed-autoplay-src="${escapeHtml(autoplayUrl)}"
+        ${isKioskLikeClient() ? 'data-feed-kiosk="true"' : ""}
         data-feed-video-muted="true"
         data-feed-video-loading="true"
       >
@@ -2374,10 +2515,11 @@ function renderFeed() {
           }
 
           const imageLoadingMode = index < 3 ? "eager" : "lazy";
+          const imageUrl = resolveFeedMediaUrl(item.url || "");
 
           return `
             <div class="feed-media-card">
-              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || post.title)}" loading="${imageLoadingMode}" decoding="async" />
+              <img src="${escapeHtml(imageUrl || item.url)}" alt="${escapeHtml(item.caption || post.title)}" loading="${imageLoadingMode}" decoding="async" />
             </div>
           `;
         })
@@ -4172,6 +4314,29 @@ function renderSequoiaCarouselDots(images) {
     .join("");
 }
 
+function warmSequoia360Images(images = [], startIndex = 0) {
+  const list = Array.isArray(images) ? images : [];
+
+  if (!list.length) {
+    return;
+  }
+
+  const neighbors = [0, 1, -1, 2, -2, 3].map((offset) => {
+    const index = (startIndex + offset + list.length) % list.length;
+    return list[index];
+  });
+
+  neighbors.forEach((src) => {
+    if (!src) {
+      return;
+    }
+
+    const image = new Image();
+    image.decoding = "async";
+    image.src = src;
+  });
+}
+
 function updateSequoiaMainImage() {
   const activeColor = getActiveSequoiaColor();
 
@@ -4181,7 +4346,14 @@ function updateSequoiaMainImage() {
 
   const safeIndex = ((selectedSequoiaImageIndex % activeColor.images.length) + activeColor.images.length) % activeColor.images.length;
   selectedSequoiaImageIndex = safeIndex;
-  sequoiaConfigMainImage.src = activeColor.images[safeIndex];
+  const nextSrc = activeColor.images[safeIndex];
+  sequoiaConfigMainImage.onload = () => warmSequoia360Images(activeColor.images, safeIndex);
+  sequoiaConfigMainImage.onerror = () => {
+    if (!String(sequoiaConfigMainImage.src || "").includes("retry=1")) {
+      sequoiaConfigMainImage.src = `${nextSrc}${nextSrc.includes("?") ? "&" : "?"}retry=1`;
+    }
+  };
+  sequoiaConfigMainImage.src = nextSrc;
   sequoiaConfigMainImage.alt = `Toyota Sequoia ${activeColor.name}`;
   sequoiaConfigImageFrame?.style.setProperty("--sequoia-color-tint", activeColor.tint || "rgba(0, 0, 0, 0)");
   renderSequoiaCarouselDots(activeColor.images);
@@ -4277,6 +4449,7 @@ function showSequoiaVisionHint() {
 }
 
 function renderSequoiaConfigurator() {
+  sequoiaCatalog = reResolveSequoiaCatalogAssets(getSequoiaCatalog());
   const catalog = getSequoiaCatalog();
   const versionConfig = getActiveSequoiaConfig();
   const activeColor = getActiveSequoiaColor();

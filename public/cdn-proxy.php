@@ -7,9 +7,15 @@ function isAllowedAssetPath(string $path): bool
 {
     $normalizedPath = '/' . ltrim($path, '/');
 
+    $decodedPath = rawurldecode($normalizedPath);
+
+    if (preg_match('#^/uploads/.+\.(png|jpe?g|webp|gif|mp4|webm|mov)$#i', $decodedPath)) {
+        return true;
+    }
+
     return (bool) preg_match(
-        '#^/(sr5|1794|limited|platinum|capstone|trd)[^/]+/.+\.(png|jpe?g|webp|gif)$#i',
-        rawurldecode($normalizedPath)
+        '#^/(sr5|1794|limited|platinum|capstone|trd)[^/]+/.+\.(png|jpe?g|webp|gif|mp4|webm|mov)$#i',
+        $decodedPath
     );
 }
 
@@ -49,11 +55,11 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HEADER => true,
     CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_TIMEOUT => 120,
-    CURLOPT_CONNECTTIMEOUT => 30,
+    CURLOPT_TIMEOUT => 180,
+    CURLOPT_CONNECTTIMEOUT => 45,
     CURLOPT_HTTPHEADER => [
         'Host: global-backend-bdbx.onrender.com',
-        'Accept: image/*,*/*;q=0.8',
+        'Accept: image/*,video/*,*/*;q=0.8',
     ],
 ]);
 
