@@ -8,11 +8,25 @@ declare(strict_types=1);
 
 const BACKEND_ORIGIN = 'https://global-backend-bdbx.onrender.com';
 
-$requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
-$path = '';
+$queryParams = [];
+$queryString = (string) ($_SERVER['QUERY_STRING'] ?? '');
+if ($queryString !== '') {
+    parse_str($queryString, $queryParams);
+}
 
-if (preg_match('#^/api/?(.*)$#', $requestUri, $matches)) {
-    $path = (string) ($matches[1] ?? '');
+$path = isset($queryParams['__path']) ? (string) $queryParams['__path'] : '';
+unset($queryParams['__path']);
+
+if ($path === '') {
+    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    $redirectUri = (string) ($_SERVER['REDIRECT_URL'] ?? '');
+
+    foreach ([$requestUri, $redirectUri] as $uriCandidate) {
+        if ($uriCandidate !== '' && preg_match('#^/api/?(.*)$#', $uriCandidate, $matches)) {
+            $path = (string) ($matches[1] ?? '');
+            break;
+        }
+    }
 }
 
 $path = ltrim($path, '/');
@@ -20,12 +34,7 @@ if ($path === 'index.php') {
     $path = '';
 }
 
-$queryString = (string) ($_SERVER['QUERY_STRING'] ?? '');
-if ($queryString !== '') {
-    parse_str($queryString, $queryParams);
-    unset($queryParams['__path']);
-    $queryString = http_build_query($queryParams);
-}
+$queryString = http_build_query($queryParams);
 
 $targetUrl = BACKEND_ORIGIN . '/api/' . $path;
 if ($queryString !== '') {

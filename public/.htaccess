@@ -10,7 +10,9 @@ RewriteRule ^(.*)$ https://globalimports.co/$1 [R=301,L]
 RewriteRule ^app/(.*)$ /$1 [R=302,L]
 
 # Same-origin API (Hostinger → Render). Needed when the device cannot reach onrender.com directly.
-RewriteRule ^api/?(.*)$ api/index.php [L,QSA]
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/api/index\.php [NC]
+RewriteRule ^api/?(.*)$ /api/index.php?__path=$1 [L,QSA,NC]
 
 <IfModule mod_headers.c>
   <FilesMatch "\.(html)$">

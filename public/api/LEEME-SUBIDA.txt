@@ -1,0 +1,8 @@
+Sube estos archivos a public_html/api/ en Hostinger:
+
+- index.php
+- .htaccess  (archivo OCULTO: en el administrador activa "Mostrar archivos ocultos")
+
+También reemplaza public_html/.htaccess con el del zip raíz.
+
+Prueba: POST https://globalimports.app/api/auth/login debe responder JSON (401), no página HTML 404.
