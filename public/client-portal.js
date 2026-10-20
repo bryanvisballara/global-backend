@@ -994,12 +994,24 @@ function syncNativeAppBadge(count) {
   }
 }
 
+function formatAmountWithCurrency(value, locale, currency) {
+  const amount = Number(value || 0);
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch (error) {
+    const rounded = Math.round(amount).toLocaleString(locale);
+    return `$ ${rounded}`;
+  }
+}
+
 function formatCurrency(amount, currency = "USD") {
-  return new Intl.NumberFormat("es-VE", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number(amount || 0));
+  return formatAmountWithCurrency(amount, "es-VE", currency);
 }
 
 function escapeHtml(value) {
@@ -1944,11 +1956,33 @@ function prependLocalFeedVideoPreview() {
   feedContainer.insertAdjacentHTML("afterbegin", previewMarkup);
 }
 
+function ensureVisibleFeedImagesLoad() {
+  if (!feedContainer) {
+    return;
+  }
+
+  feedContainer.querySelectorAll(".feed-card").forEach((card, cardIndex) => {
+    if (cardIndex > 4) {
+      return;
+    }
+
+    card.querySelectorAll("img").forEach((imageElement) => {
+      imageElement.loading = "eager";
+
+      if (!imageElement.complete && imageElement.src) {
+        const currentSrc = imageElement.src;
+        imageElement.src = currentSrc;
+      }
+    });
+  });
+}
+
 async function applyFeedMediaLayout() {
   if (!feedContainer) {
     return;
   }
 
+  ensureVisibleFeedImagesLoad();
   bindFeedCarousels();
   bindFeedVideoOrientation(feedContainer);
   prependLocalFeedVideoPreview();
@@ -2313,9 +2347,11 @@ function renderFeed() {
             return renderFeedVideoMedia(item.url);
           }
 
+          const imageLoadingMode = index < 3 ? "eager" : "lazy";
+
           return `
             <div class="feed-media-card">
-              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || post.title)}" loading="lazy" />
+              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.caption || post.title)}" loading="${imageLoadingMode}" decoding="async" />
             </div>
           `;
         })
@@ -2365,7 +2401,7 @@ function renderFeed() {
           <div class="feed-author-row">
             <div class="feed-author-meta">
               <div class="feed-author-avatar">
-                <img src="/logoblancoleon.png" alt="Logo Global Imports" loading="lazy" />
+                <img src="/logoblancoleon.png" alt="Logo Global Imports" loading="${index < 3 ? "eager" : "lazy"}" decoding="async" />
               </div>
               <div>
                 <strong>${authorName}</strong>
@@ -3058,11 +3094,7 @@ function renderTrackingOptions() {
 }
 
 function formatCopCurrency(amount) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(Number(amount || 0));
+  return formatAmountWithCurrency(amount, "es-CO", "COP");
 }
 
 function addDays(date, days) {
@@ -4816,17 +4848,17 @@ function renderVirtualDealership() {
                 <div class="virtual-dealership-carousel-track">
                   ${vehicleImages
                     .map(
-                      (image, index) => `
+                      (image, imageIndex) => `
                         <button
                           type="button"
                           class="virtual-dealership-image-button virtual-dealership-carousel-slide"
                           data-virtual-image-url="${encodeURIComponent(image.url)}"
-                          data-virtual-image-alt="${escapeHtml(image.caption || `${vehicleTitle} foto ${index + 1}`)}"
+                          data-virtual-image-alt="${escapeHtml(image.caption || `${vehicleTitle} foto ${imageIndex + 1}`)}"
                           data-virtual-vehicle-key="${escapeHtml(vehicleKey)}"
-                          data-virtual-image-index="${index}"
-                          aria-label="Ver imagen ${index + 1} de ${vehicleImages.length}"
+                          data-virtual-image-index="${imageIndex}"
+                          aria-label="Ver imagen ${imageIndex + 1} de ${vehicleImages.length}"
                         >
-                          <img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.caption || vehicleTitle)}" loading="lazy" />
+                          <img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.caption || vehicleTitle)}" loading="${index < 2 ? "eager" : "lazy"}" decoding="async" />
                         </button>
                       `
                     )
