@@ -115,7 +115,6 @@ function resolveApiBaseUrlCandidates() {
 
   if (isGlobalImportsProductionSite(hostname)) {
     pushCandidate(origin.replace(/\/$/, ""));
-    pushCandidate("https://global-backend-bdbx.onrender.com");
     return candidates;
   }
 

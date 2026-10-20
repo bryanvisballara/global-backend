@@ -107,11 +107,12 @@ function resolveAllowedOrigins() {
 }
 
 function isAllowedCorsOrigin(originValue) {
-  if (!originValue) {
+  const trimmedOrigin = String(originValue || "").trim();
+  if (!trimmedOrigin || trimmedOrigin.toLowerCase() === "null") {
     return true;
   }
 
-  const normalizedRequestOrigin = normalizeOrigin(originValue);
+  const normalizedRequestOrigin = normalizeOrigin(trimmedOrigin);
   const allowedOrigins = resolveAllowedOrigins();
 
   if (allowedOrigins.includes(normalizedRequestOrigin)) {

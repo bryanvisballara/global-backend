@@ -45,12 +45,23 @@ $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $rawBody = file_get_contents('php://input');
 
 $forwardHeaders = [];
+$publicOrigin = 'https://' . preg_replace('/[^a-z0-9.-]/i', '', (string) ($_SERVER['HTTP_HOST'] ?? 'globalimports.app'));
+
 if (function_exists('getallheaders')) {
     foreach (getallheaders() as $name => $value) {
         $lower = strtolower((string) $name);
         if (in_array($lower, ['host', 'connection', 'content-length', 'accept-encoding'], true)) {
             continue;
         }
+
+        if ($lower === 'origin') {
+            $originValue = trim((string) $value);
+            if ($originValue === '' || strtolower($originValue) === 'null' || strpos(strtolower($originValue), 'http://') === 0) {
+                $forwardHeaders[] = 'Origin: ' . $publicOrigin;
+                continue;
+            }
+        }
+
         $forwardHeaders[] = $name . ': ' . $value;
     }
 }
