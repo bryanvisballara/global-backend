@@ -15,8 +15,21 @@ const authContent = {
   },
 };
 
+function normalizeSiteHostname(hostname = "") {
+  return String(hostname || "").trim().toLowerCase().replace(/^www\./, "");
+}
+
+function isGlobalImportsProductionSite(hostname = "") {
+  const normalized = normalizeSiteHostname(hostname);
+  return normalized === "globalimports.app" || normalized === "globalimports.co";
+}
+
 function resolveApiBaseUrl() {
   const { origin, hostname } = window.location;
+
+  if (isGlobalImportsProductionSite(hostname)) {
+    return origin.replace(/\/$/, "");
+  }
 
   const isPrivateIpv4Address = /^(10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(
     hostname
@@ -98,6 +111,12 @@ function resolveApiBaseUrlCandidates() {
     }
 
     candidates.push(value);
+  }
+
+  if (isGlobalImportsProductionSite(hostname)) {
+    pushCandidate(origin.replace(/\/$/, ""));
+    pushCandidate("https://global-backend-bdbx.onrender.com");
+    return candidates;
   }
 
   if ((protocol === "http:" || protocol === "https:") && isDirectHost) {
@@ -812,7 +831,7 @@ loginForm.addEventListener("submit", async (event) => {
   } catch (error) {
     const errorMessage = error?.message === "Failed to fetch"
       ? isProductionApiRequest()
-        ? "No pudimos conectar con el servidor. Entra en https://globalimports.app (sin www) o prueba de nuevo en unos segundos."
+        ? "No pudimos conectar con el servidor. Usa https://globalimports.app (sin www), revisa la red del tótem y prueba de nuevo en unos segundos."
         : "No pudimos conectar con la API local. Verifica que el servidor siga corriendo en el puerto 10000."
       : error.message;
     setFeedback(errorMessage, "error");

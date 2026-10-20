@@ -9,6 +9,9 @@ RewriteRule ^(.*)$ https://globalimports.co/$1 [R=301,L]
 
 RewriteRule ^app/(.*)$ /$1 [R=302,L]
 
+# Same-origin API (Hostinger → Render). Needed when the device cannot reach onrender.com directly.
+RewriteRule ^api/?(.*)$ api/index.php [L,QSA]
+
 <IfModule mod_headers.c>
   <FilesMatch "\.(html)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
