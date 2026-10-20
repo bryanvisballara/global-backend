@@ -541,6 +541,20 @@ function shouldProxyUploadAssetThroughHost(normalizedPath = "") {
   return /^\/uploads\//i.test(String(normalizedPath || "").trim());
 }
 
+function buildHostingerCdnProxyUrl(assetPath = "") {
+  const relativePath = String(assetPath || "")
+    .trim()
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .replace(/^\/cdn-proxy\//i, "")
+    .replace(/^\/+/, "");
+
+  if (!relativePath) {
+    return "";
+  }
+
+  return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy.php?__path=${encodeURIComponent(relativePath)}`;
+}
+
 function isKioskLikeClient() {
   if (new URLSearchParams(window.location.search).get("kiosk") === "1") {
     return true;
@@ -562,7 +576,7 @@ function resolveFeedMediaUrl(rawUrl = "") {
       const parsed = new URL(value);
 
       if (parsed.hostname.includes("global-backend-bdbx.onrender.com")) {
-        return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${parsed.pathname}${parsed.search}`;
+        return buildHostingerCdnProxyUrl(parsed.pathname);
       }
 
       return value;
@@ -572,7 +586,7 @@ function resolveFeedMediaUrl(rawUrl = "") {
   }
 
   if (isProductionClientSite() && shouldProxyUploadAssetThroughHost(value)) {
-    return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${normalizeClientAssetPath(value)}`;
+    return buildHostingerCdnProxyUrl(value);
   }
 
   return value;
@@ -602,7 +616,7 @@ function resolveClientAssetUrl(assetPath = "") {
     isProductionClientSite() &&
     (shouldProxySequoiaAssetThroughHost(normalizedPath) || shouldProxyUploadAssetThroughHost(normalizedPath))
   ) {
-    return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${normalizedPath}`;
+    return buildHostingerCdnProxyUrl(normalizedPath);
   }
 
   switch (String(clientImageDeliveryConfig.strategy || "origin").trim().toLowerCase()) {
@@ -640,8 +654,13 @@ function reResolveSequoiaCatalogAssets(catalog = {}) {
         try {
           const parsed = new URL(rawPath, window.location.origin);
 
+          if (parsed.pathname.endsWith("/cdn-proxy.php")) {
+            const proxiedPath = parsed.searchParams.get("__path") || "";
+            return proxiedPath ? buildHostingerCdnProxyUrl(proxiedPath) : rawPath;
+          }
+
           if (parsed.pathname.startsWith("/cdn-proxy/")) {
-            return resolveClientAssetUrl(parsed.pathname.replace(/^\/cdn-proxy/, ""));
+            return buildHostingerCdnProxyUrl(parsed.pathname.replace(/^\/cdn-proxy\//, ""));
           }
         } catch {
           // Ignore malformed URLs and fall back to raw path resolution.
