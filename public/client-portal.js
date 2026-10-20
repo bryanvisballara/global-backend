@@ -1,23 +1,11 @@
 const GLOBAL_HERO_GAME_ENABLED = true;
 
 function resolveApiBaseUrl() {
-  const { origin, hostname } = window.location;
-
-  const isPrivateIpv4Address = /^(10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/.test(
-    hostname
-  );
-
-  if (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    isPrivateIpv4Address ||
-    hostname === "global-backend-bdbx.onrender.com"
-  ) {
-    return origin;
+  if (typeof window.GlobalImportsResolveApiBaseUrl === "function") {
+    return window.GlobalImportsResolveApiBaseUrl();
   }
 
-  return "https://global-backend-bdbx.onrender.com";
+  return window.location.origin.replace(/\/$/, "");
 }
 
 const apiBaseUrl = resolveApiBaseUrl();
