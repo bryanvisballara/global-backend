@@ -520,6 +520,23 @@ function resolveCloudinaryFetchUrl(assetPath = "") {
   return "https://res.cloudinary.com/" + cloudName + "/image/fetch/f_auto,q_auto,dpr_auto/" + encodeURIComponent(originAssetUrl);
 }
 
+function isProductionClientSite() {
+  if (typeof window.GlobalImportsIsProductionSite === "function") {
+    return window.GlobalImportsIsProductionSite(window.location.hostname);
+  }
+
+  const hostname = String(window.location.hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, "");
+
+  return hostname === "globalimports.app" || hostname === "globalimports.co";
+}
+
+function shouldProxySequoiaAssetThroughHost(normalizedPath = "") {
+  return /^\/(sr5|1794|limited|platinum|capstone|trd)/i.test(String(normalizedPath || "").trim());
+}
+
 function resolveClientAssetUrl(assetPath = "") {
   const normalizedPath = normalizeClientAssetPath(assetPath);
 
@@ -529,6 +546,10 @@ function resolveClientAssetUrl(assetPath = "") {
 
   if (/^(?:https?:)?\/\//i.test(normalizedPath)) {
     return normalizedPath;
+  }
+
+  if (isProductionClientSite() && shouldProxySequoiaAssetThroughHost(normalizedPath)) {
+    return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy${normalizedPath}`;
   }
 
   switch (String(clientImageDeliveryConfig.strategy || "origin").trim().toLowerCase()) {
@@ -692,19 +713,24 @@ async function ensureSequoiaConfiguratorReady() {
 
   setSequoiaConfiguratorLoadingState("Cargando configurador...");
 
-  const catalog = await loadSequoiaCatalog();
-  const resolvedVersionConfig = catalog.versionConfig || {};
-  const fallbackVersionKey = catalog.versionOrder?.[0] || DEFAULT_SEQUOIA_VERSION_ORDER[0];
+  try {
+    const catalog = await loadSequoiaCatalog();
+    const resolvedVersionConfig = catalog.versionConfig || {};
+    const fallbackVersionKey = catalog.versionOrder?.[0] || DEFAULT_SEQUOIA_VERSION_ORDER[0];
 
-  if (!resolvedVersionConfig[selectedSequoiaVersion]) {
-    selectedSequoiaVersion = fallbackVersionKey;
+    if (!resolvedVersionConfig[selectedSequoiaVersion]) {
+      selectedSequoiaVersion = fallbackVersionKey;
+    }
+
+    const activeVersionConfig = resolvedVersionConfig[selectedSequoiaVersion] || resolvedVersionConfig[fallbackVersionKey] || { colors: [] };
+    selectedSequoiaColor = activeVersionConfig.colors?.[0]?.key || selectedSequoiaColor;
+    selectedSequoiaInteriorColor = (catalog.interiorConfig?.[selectedSequoiaVersion]?.colors || [])[0]?.key || selectedSequoiaInteriorColor;
+    renderSequoiaConfigurator();
+    return catalog;
+  } catch (error) {
+    sequoiaCatalogPromise = null;
+    throw error;
   }
-
-  const activeVersionConfig = resolvedVersionConfig[selectedSequoiaVersion] || resolvedVersionConfig[fallbackVersionKey] || { colors: [] };
-  selectedSequoiaColor = activeVersionConfig.colors?.[0]?.key || selectedSequoiaColor;
-  selectedSequoiaInteriorColor = (catalog.interiorConfig?.[selectedSequoiaVersion]?.colors || [])[0]?.key || selectedSequoiaInteriorColor;
-  renderSequoiaConfigurator();
-  return catalog;
 }
 
 function fetchJson(path, options = {}) {
