@@ -25,7 +25,16 @@ function buildBackendAssetUrl(string $relativePath): string
         return $segment !== '' && $segment !== '.' && $segment !== '..';
     }));
 
-    return BACKEND_ORIGIN . '/' . implode('/', array_map('rawurlencode', $segments));
+    $segments = array_map(static function ($segment) {
+        $decoded = rawurldecode($segment);
+        if (strpos($decoded, '%') !== false) {
+            $decoded = rawurldecode($decoded);
+        }
+
+        return rawurlencode($decoded);
+    }, $segments);
+
+    return BACKEND_ORIGIN . '/' . implode('/', $segments);
 }
 
 $relativePath = '';

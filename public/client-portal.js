@@ -542,7 +542,7 @@ function shouldProxyUploadAssetThroughHost(normalizedPath = "") {
 }
 
 function buildHostingerCdnProxyUrl(assetPath = "") {
-  const relativePath = String(assetPath || "")
+  let relativePath = String(assetPath || "")
     .trim()
     .replace(/^https?:\/\/[^/]+/i, "")
     .replace(/^\/cdn-proxy\//i, "")
@@ -550,6 +550,12 @@ function buildHostingerCdnProxyUrl(assetPath = "") {
 
   if (!relativePath) {
     return "";
+  }
+
+  try {
+    relativePath = decodeURIComponent(relativePath);
+  } catch {
+    // Keep the original path when it is not percent-encoded.
   }
 
   return `${window.location.origin.replace(/\/$/, "")}/cdn-proxy.php?__path=${encodeURIComponent(relativePath)}`;
@@ -4366,6 +4372,8 @@ function updateSequoiaMainImage() {
   const safeIndex = ((selectedSequoiaImageIndex % activeColor.images.length) + activeColor.images.length) % activeColor.images.length;
   selectedSequoiaImageIndex = safeIndex;
   const nextSrc = activeColor.images[safeIndex];
+  sequoiaConfigMainImage.loading = "eager";
+  sequoiaConfigMainImage.decoding = "sync";
   sequoiaConfigMainImage.onload = () => warmSequoia360Images(activeColor.images, safeIndex);
   sequoiaConfigMainImage.onerror = () => {
     if (!String(sequoiaConfigMainImage.src || "").includes("retry=1")) {
@@ -4398,6 +4406,7 @@ function updateSequoiaInteriorImage() {
 
   const safeIndex = ((selectedSequoiaInteriorImageIndex % activeInteriorColor.images.length) + activeInteriorColor.images.length) % activeInteriorColor.images.length;
   selectedSequoiaInteriorImageIndex = safeIndex;
+  sequoiaInteriorMainImage.loading = "eager";
   sequoiaInteriorMainImage.src = activeInteriorColor.images[safeIndex];
   sequoiaInteriorMainImage.alt = `Interior Toyota Sequoia ${activeInteriorColor.name}`;
 }
